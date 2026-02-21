@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using dotenv.net;
+using Microsoft.EntityFrameworkCore;
 using PPshu.Application;
 using PPshu.Domain;
 using PPshu.Infrastructure;
@@ -11,6 +12,8 @@ public static class Program
 {
     public static async Task Main(string[] args)
     {
+        DotEnv.Load(new DotEnvOptions(probeForEnv: true, probeLevelsToSearch: 5));
+        
         var builder = WebApplication.CreateBuilder(args);
         builder.Services.ConfigureServices(builder.Configuration);
         
