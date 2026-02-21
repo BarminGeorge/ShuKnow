@@ -33,12 +33,6 @@ public static class Program
     
     private static void ConfigureApp(this WebApplication app)
     {
-        using (var scope = app.Services.CreateScope())
-        {
-            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            context.Database.Migrate();
-        }
-        
         app.UseHttpsRedirection();
         app.MapControllers();
         app.MapHealthChecks("/api/health");
@@ -49,6 +43,12 @@ public static class Program
 
     private static void ConfigureAppDevelopment(this WebApplication app)
     {
+        using (var scope = app.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            context.Database.Migrate();
+        }
+        
         app.UseSwagger();
         app.UseSwaggerUI();
     }
