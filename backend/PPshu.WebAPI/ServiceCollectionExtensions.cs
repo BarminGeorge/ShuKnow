@@ -8,6 +8,8 @@ public static class ServiceCollectionExtensions
     {
         services.AddControllers().AddApplicationPart(typeof(ServiceCollectionExtensions).Assembly);
         services.AddEndpointsApiExplorer();
+
+        services.AddHealthChecks();
         
         services.AddSwaggerGen();
     }

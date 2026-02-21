@@ -38,6 +38,7 @@ public static class Program
         
         app.UseHttpsRedirection();
         app.MapControllers();
+        app.MapHealthChecks("/api/health");
         
         if (app.Environment.IsDevelopment()) 
             app.ConfigureAppDevelopment();
