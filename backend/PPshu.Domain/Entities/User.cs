@@ -2,7 +2,16 @@
 
 namespace PPshu.Domain.Entities;
 
-public class User(Guid id) : IEntity<Guid>
+public class User : IEntity<Guid>
 {
-    public Guid Id { get; private set; } = id;
+    public Guid Id { get; private set; }
+
+    protected User()
+    {
+    }
+
+    public User(Guid id)
+    {
+        Id = id;
+    }
 }

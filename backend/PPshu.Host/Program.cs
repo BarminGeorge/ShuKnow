@@ -39,10 +39,13 @@ public static class Program
         app.UseHttpsRedirection();
         app.MapControllers();
         
-        if (app.Environment.IsDevelopment())
-        {
-            app.UseSwagger();
-            app.UseSwaggerUI();
-        }
+        if (app.Environment.IsDevelopment()) 
+            app.ConfigureAppDevelopment();
+    }
+
+    private static void ConfigureAppDevelopment(this WebApplication app)
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI();
     }
 }

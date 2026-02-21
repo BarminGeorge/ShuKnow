@@ -1,6 +1,6 @@
 ﻿namespace PPshu.Domain.Interfaces;
 
-internal interface IEntity<out TId>
+public interface IEntity<out TId>
 {
     TId Id { get; }
 }
