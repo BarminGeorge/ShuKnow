@@ -1,6 +1,8 @@
-﻿using PPshu.Application;
+﻿using Microsoft.EntityFrameworkCore;
+using PPshu.Application;
 using PPshu.Domain;
 using PPshu.Infrastructure;
+using PPshu.Infrastructure.PostgreSQL;
 using PPshu.WebAPI;
 
 namespace PPshu.Host;
@@ -21,13 +23,19 @@ public static class Program
     private static void ConfigureServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddDomain();
-        services.AddInfrastructure();
+        services.AddInfrastructure(configuration);
         services.AddApplication();
         services.AddWeb();
     }
     
     private static void ConfigureApp(this WebApplication app)
     {
+        using (var scope = app.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            context.Database.Migrate();
+        }
+        
         app.UseHttpsRedirection();
         app.MapControllers();
         

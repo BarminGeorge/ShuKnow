@@ -13,5 +13,12 @@
       <ProjectReference Include="..\PPshu.Infrastructure\PPshu.Infrastructure.csproj" />
       <ProjectReference Include="..\PPshu.WebAPI\PPshu.WebAPI.csproj" />
     </ItemGroup>
+    
+    <ItemGroup>
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.24">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
+    </ItemGroup>
 
 </Project>
