@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
@@ -6,5 +6,12 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
+    
+    <ItemGroup>
+      <ProjectReference Include="..\PPshu.Application\PPshu.Application.csproj" />
+      <ProjectReference Include="..\PPshu.Domain\PPshu.Domain.csproj" />
+      <ProjectReference Include="..\PPshu.Infrastructure\PPshu.Infrastructure.csproj" />
+      <ProjectReference Include="..\PPshu.WebAPI\PPshu.WebAPI.csproj" />
+    </ItemGroup>
 
 </Project>
