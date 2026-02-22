@@ -3,7 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PPshu.Infrastructure.PostgreSQL;
 
-namespace PPshu.Infrastructure;
+namespace PPshu.Infrastructure.Configuration;
 
 public static class ServiceCollectionExtensions
 {

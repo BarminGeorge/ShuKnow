@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 
-namespace PPshu.WebAPI;
+namespace PPshu.WebAPI.Configuration;
 
 public static class ServiceCollectionExtensions
 {

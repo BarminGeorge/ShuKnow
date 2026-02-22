@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 
-namespace PPshu.Application;
+namespace PPshu.Domain.Configuration;
 
 public static class ServiceCollectionExtensions
 {
-    public static void AddApplication(this IServiceCollection services)
+    public static void AddDomain(this IServiceCollection services)
     {
         
     }
