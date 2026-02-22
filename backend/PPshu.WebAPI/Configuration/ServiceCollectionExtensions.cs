@@ -1,16 +1,98 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+using PPshu.Application.Common;
+using PPshu.Application.Interfaces;
+using PPshu.WebAPI.Services;
 
 namespace PPshu.WebAPI.Configuration;
 
 public static class ServiceCollectionExtensions
 {
-    public static void AddWeb(this IServiceCollection services)
+    public static void AddWeb(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddControllers().AddApplicationPart(typeof(ServiceCollectionExtensions).Assembly);
-        services.AddEndpointsApiExplorer();
-
         services.AddHealthChecks();
+
+        services.AddHttpContextAccessor();
+        services.AddEndpointsApiExplorer();
+        services.AddSwagger();
+
+        services.AddAuth(configuration);
         
-        services.AddSwaggerGen();
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
+    }
+
+    private static void AddAuth(this IServiceCollection services, IConfiguration configuration)
+    {
+        var jwtOptions = configuration.GetJwtOptions();
+
+        services.Configure<JwtOptions>(options =>
+        {
+            options.Key = jwtOptions.Key;
+            options.ExpiresInMinutes = jwtOptions.ExpiresInMinutes;
+        });
+
+        services
+            .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key)),
+                    ClockSkew = TimeSpan.Zero
+                };
+                
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        context.Token = context.Request.Cookies["token"];
+                        return Task.CompletedTask;
+                    }
+                };
+            });
+        
+        services.AddAuthorization();
+
+        services.AddScoped<IJwtService, JwtService>();
+    }
+
+    private static void AddSwagger(this IServiceCollection services)
+    {
+        services.AddSwaggerGen(options =>
+        {
+            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            {
+                Name = "Authorization",
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer",
+                BearerFormat = "JWT",
+                In = ParameterLocation.Header,
+                Description = "Enter JWT Token like: Bearer {your token}"
+            });
+
+            options.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference("Bearer")] = []
+            });
+        });
+    }
+
+    private static JwtOptions GetJwtOptions(this IConfiguration configuration)
+    {
+        var jwtSection = configuration.GetSection("Jwt");
+        var jwtOptions = jwtSection.Get<JwtOptions>() ?? new JwtOptions();
+        
+        return string.IsNullOrEmpty(jwtOptions.Key)
+            ? throw new InvalidOperationException("JWT__KEY is not configured")
+            : jwtOptions;
     }
 }
