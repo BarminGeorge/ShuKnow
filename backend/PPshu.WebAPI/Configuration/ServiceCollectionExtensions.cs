@@ -77,12 +77,12 @@ public static class ServiceCollectionExtensions
                 Scheme = "bearer",
                 BearerFormat = "JWT",
                 In = ParameterLocation.Header,
-                Description = "Enter JWT Token like: Bearer {your token}"
+                Description = "Enter JWT Token"
             });
 
-            options.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
+            options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
             {
-                [new OpenApiSecuritySchemeReference("Bearer")] = []
+                [new OpenApiSecuritySchemeReference("Bearer", document)] = []
             });
         });
     }
