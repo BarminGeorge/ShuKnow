@@ -32,6 +32,6 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<UserDto>> Me([FromServices] ICurrentUserService currentUser, [FromServices] IUserRepository users)
     {
         var user = await users.GetByIdAsync(currentUser.UserId);
-        return user!.ToDto();
+        return user is null ? NotFound() : user.ToDto();
     }
 }
