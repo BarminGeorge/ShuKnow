@@ -54,7 +54,10 @@ public static class ServiceCollectionExtensions
                 {
                     OnMessageReceived = context =>
                     {
-                        context.Token = context.Request.Cookies["token"];
+                        if (!string.IsNullOrEmpty(context.Token))
+                            return Task.CompletedTask;
+                        if (context.Request.Cookies.TryGetValue("token", out var token))
+                            context.Token = token;
                         return Task.CompletedTask;
                     }
                 };

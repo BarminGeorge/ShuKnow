@@ -9,6 +9,9 @@ public static class WebApplicationExtensions
         app.UseHttpsRedirection();
         app.MapControllers();
         app.MapHealthChecks("/api/health");
+
+        app.UseAuthentication();
+        app.UseAuthorization();
     }
     
     public static void UseWebDevelopment(this WebApplication app)
