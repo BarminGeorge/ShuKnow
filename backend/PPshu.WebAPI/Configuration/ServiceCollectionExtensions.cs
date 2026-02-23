@@ -64,8 +64,6 @@ public static class ServiceCollectionExtensions
             });
         
         services.AddAuthorization();
-
-        services.AddScoped<IJwtService, JwtService>();
     }
 
     private static void AddSwagger(this IServiceCollection services)

@@ -6,7 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using PPshu.Application.Common;
 using PPshu.Application.Interfaces;
 
-namespace PPshu.WebAPI.Services;
+namespace PPshu.Infrastructure.Services;
 
 public class JwtService(IOptions<JwtOptions> options) : IJwtService
 {
