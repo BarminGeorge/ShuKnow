@@ -1,4 +1,4 @@
-﻿using FluentResults;
+﻿using Ardalis.Result;
 
 namespace PPshu.Application.Interfaces;
 

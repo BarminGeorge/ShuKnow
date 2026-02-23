@@ -1,4 +1,5 @@
-﻿using PPshu.Domain.Entities;
+﻿using Microsoft.EntityFrameworkCore;
+using PPshu.Domain.Entities;
 using PPshu.Domain.Repositories;
 
 namespace PPshu.Infrastructure.Persistent.Repositories;
@@ -7,11 +8,13 @@ public class UserRepository(AppDbContext context) : IUserRepository
 {
     public async Task<User?> GetByIdAsync(Guid id)
     {
-        return await context.Users.FindAsync(id);
+        return await context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == id);
     }
 
-    public async Task AddAsync(User user)
+    public void Add(User user)
     {
-        await context.Users.AddAsync(user);
+        context.Users.Add(user);
     }
 }

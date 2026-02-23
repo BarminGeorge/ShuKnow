@@ -1,4 +1,4 @@
-﻿using FluentResults;
+﻿using Ardalis.Result;
 using Microsoft.EntityFrameworkCore;
 using PPshu.Application.Interfaces;
 using PPshu.Domain.Repositories;
@@ -17,30 +17,40 @@ internal class IdentityService(
 {
     public async Task<Result> RegisterAsync(string login, string password)
     {
-        if (context.IdentityUsers.Any(u => u.Login == login))
-            return Result.Fail("User with this login already exists.");
-
+        if (await context.IdentityUsers.AnyAsync(u => u.Login == login))
+            return Result.Conflict("User with this login already exists.");
+        
         var passwordHash = passwordHasher.HashPassword(password);
         var identityUser = new IdentityUser(login, passwordHash);
         var user = identityUser.ToUser();
         
-        await userRepository.AddAsync(user);
-        await context.IdentityUsers.AddAsync(identityUser);
-        await context.SaveChangesAsync();
+        userRepository.Add(user);
+        context.IdentityUsers.Add(identityUser);
 
-        return Result.Ok();
+        try
+        {
+            await context.SaveChangesAsync();
+            return Result.Success();
+        }
+        catch (DbUpdateException)
+        {
+            if (await context.IdentityUsers.AnyAsync(u => u.Login == login))
+                return Result.Conflict("User with this login already exists.");
+            
+            throw;
+        }
     }
 
     public async Task<Result<string>> LoginAsync(string login, string password)
     {
-        var identityUser = await context.IdentityUsers.FirstOrDefaultAsync(u => u.Login == login);
-        if (identityUser is null)
-            return Result.Fail<string>("Invalid login or password.");
+        var identityUser = await context.IdentityUsers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Login == login);
 
-        if (!passwordHasher.VerifyPassword(password, identityUser.PasswordHash))
-            return Result.Fail<string>("Invalid login or password.");
+        if (identityUser is null || !passwordHasher.VerifyPassword(password, identityUser.PasswordHash))
+            return Result.Unauthorized("Invalid login or password.");
         
         var token = jwtService.GenerateToken(identityUser.Id);
-        return Result.Ok(token);
+        return Result.Success(token);
     }
 }

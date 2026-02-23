@@ -21,6 +21,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.ToTable("identity_users");
             entity.HasKey(u => u.Id);
+            entity.HasIndex(u => u.Login)
+                .IsUnique();
 
             entity.HasOne<User>()
                 .WithOne()

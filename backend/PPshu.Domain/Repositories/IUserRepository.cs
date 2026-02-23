@@ -5,5 +5,5 @@ namespace PPshu.Domain.Repositories;
 public interface IUserRepository
 {
     Task<User?> GetByIdAsync(Guid id);
-    Task AddAsync(User user);
+    void Add(User user);
 }

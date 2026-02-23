@@ -1,4 +1,4 @@
-﻿using FluentResults.Extensions.AspNetCore;
+﻿using Ardalis.Result.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PPshu.Application.Interfaces;
@@ -17,14 +17,14 @@ public class AuthController : ControllerBase
     public async Task<ActionResult> Register([FromBody] RegisterRequest request, [FromServices] IIdentityService identityService)
     {
         var result = await identityService.RegisterAsync(request.Login, request.Password);
-        return result.ToActionResult();
+        return result.ToActionResult(this);
     }
 
     [HttpPost("login")]
     public async Task<ActionResult<string>> Login([FromBody] LoginRequest request, [FromServices] IIdentityService identityService)
     {
         var result = await identityService.LoginAsync(request.Login, request.Password);
-        return result.ToActionResult();
+        return result.ToActionResult(this);
     }
     
     [Authorize]
