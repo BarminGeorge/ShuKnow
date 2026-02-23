@@ -34,18 +34,23 @@ public static class ServiceCollectionExtensions
         {
             options.Key = jwtOptions.Key;
             options.ExpiresInMinutes = jwtOptions.ExpiresInMinutes;
+            options.Issuer = jwtOptions.Issuer;
+            options.Audience = jwtOptions.Audience;
         });
 
         services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
+                options.MapInboundClaims = false;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    ValidateIssuer = false,
-                    ValidateAudience = false,
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
+                    ValidIssuer = jwtOptions.Issuer,
+                    ValidAudience = jwtOptions.Audience,
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key)),
                     ClockSkew = TimeSpan.Zero
                 };
@@ -91,9 +96,6 @@ public static class ServiceCollectionExtensions
     {
         var jwtSection = configuration.GetSection("Jwt");
         var jwtOptions = jwtSection.Get<JwtOptions>() ?? new JwtOptions();
-        
-        return string.IsNullOrEmpty(jwtOptions.Key)
-            ? throw new InvalidOperationException("JWT__KEY is not configured")
-            : jwtOptions;
+        return jwtOptions.Validate();
     }
 }

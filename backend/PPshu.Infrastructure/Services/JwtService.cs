@@ -10,20 +10,25 @@ namespace PPshu.Infrastructure.Services;
 
 public class JwtService(IOptions<JwtOptions> options) : IJwtService
 {
+    private static readonly JwtSecurityTokenHandler Handler = new();
+
+    private readonly JwtOptions options = options.Value; 
+    private readonly SigningCredentials credentials = new(
+        new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.Value.Key)),
+        SecurityAlgorithms.HmacSha256);
+    
     public string GenerateToken(Guid userId)
     {
-        var credentials = new SigningCredentials(
-            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.Value.Key)),
-            SecurityAlgorithms.HmacSha256);
-        
-        var claims = new Claim[] { new(ClaimTypes.NameIdentifier, userId.ToString()) };
+        var claims = new Claim[] { new(JwtRegisteredClaimNames.Sub, userId.ToString()) };
 
         var token = new JwtSecurityToken(
             claims: claims,
             signingCredentials: credentials,
-            expires: DateTime.UtcNow.AddMinutes(options.Value.ExpiresInMinutes)
+            issuer: options.Issuer,
+            audience: options.Audience,
+            expires: DateTime.UtcNow.AddMinutes(options.ExpiresInMinutes)
         );
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        return Handler.WriteToken(token);
     }
 }
