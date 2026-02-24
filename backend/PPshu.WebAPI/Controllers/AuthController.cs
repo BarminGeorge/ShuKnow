@@ -12,25 +12,26 @@ namespace PPshu.WebAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController : ControllerBase
+public class AuthController(IIdentityService identityService, IUserRepository users, ICurrentUserService currentUser)
+    : ControllerBase
 {
     [HttpPost("register")]
-    public async Task<ActionResult> Register([FromBody] RegisterRequest request, [FromServices] IIdentityService identityService)
+    public async Task<ActionResult> Register([FromBody] RegisterRequest request)
     {
         var result = await identityService.RegisterAsync(request.Login, request.Password);
         return result.ToActionResult(this);
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult<string>> Login([FromBody] LoginRequest request, [FromServices] IIdentityService identityService)
+    public async Task<ActionResult<string>> Login([FromBody] LoginRequest request)
     {
         var result = await identityService.LoginAsync(request.Login, request.Password);
         return result.ToActionResult(this);
     }
-    
+
     [Authorize]
     [HttpGet("me")]
-    public async Task<ActionResult<UserDto>> Me([FromServices] ICurrentUserService currentUser, [FromServices] IUserRepository users)
+    public async Task<ActionResult<UserDto>> Me()
     {
         var userResult = await users.GetByIdAsync(currentUser.UserId);
         return userResult
