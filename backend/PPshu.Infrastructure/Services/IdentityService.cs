@@ -14,7 +14,7 @@ internal class IdentityService(
     IPasswordHasher passwordHasher)
     : IIdentityService
 {
-    public async Task<Result> RegisterAsync(string login, string password)
+    public async Task<Result<string>> RegisterAsync(string login, string password)
     {
         if (await identityUsers.ContainsLoginAsync(login))
             return Result.Conflict("User with this login already exists.");
@@ -25,7 +25,9 @@ internal class IdentityService(
 
         users.Add(user);
         identityUsers.Add(identityUser);
-        return await unitOfWork.SaveChangesAsync();
+
+        return await unitOfWork.SaveChangesAsync()
+            .MapAsync(() => jwtService.GenerateToken(user.Id));
     }
 
     public async Task<Result<string>> LoginAsync(string login, string password)

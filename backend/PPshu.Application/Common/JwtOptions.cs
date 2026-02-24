@@ -2,6 +2,8 @@
 
 public class JwtOptions
 {
+    public const string SectionName = "Jwt";
+    
     public string Key { get; set; } = "";
     public int ExpiresInMinutes { get; set; } = 60;
     public string Issuer { get; set; } = "";
@@ -10,13 +12,13 @@ public class JwtOptions
     public JwtOptions Validate()
     {
         if (string.IsNullOrEmpty(Key))
-            throw new InvalidOperationException("JWT__KEY is not configured");
+            throw new InvalidOperationException($"{SectionName}:Key is not configured");
         
         if (string.IsNullOrEmpty(Issuer))
-            throw new InvalidOperationException("JWT__ISSUER is not configured");
+            throw new InvalidOperationException($"{SectionName}:Issuer is not configured");
         
         if (string.IsNullOrEmpty(Audience))
-            throw new InvalidOperationException("JWT__AUDIENCE is not configured");
+            throw new InvalidOperationException($"{SectionName}:Audience is not configured");
 
         return this;
     }
