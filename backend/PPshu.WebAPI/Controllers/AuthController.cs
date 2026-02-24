@@ -1,4 +1,5 @@
-﻿using Ardalis.Result.AspNetCore;
+﻿using Ardalis.Result;
+using Ardalis.Result.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PPshu.Application.Interfaces;
@@ -31,7 +32,9 @@ public class AuthController : ControllerBase
     [HttpGet("me")]
     public async Task<ActionResult<UserDto>> Me([FromServices] ICurrentUserService currentUser, [FromServices] IUserRepository users)
     {
-        var user = await users.GetByIdAsync(currentUser.UserId);
-        return user is null ? NotFound() : user.ToDto();
+        var userResult = await users.GetByIdAsync(currentUser.UserId);
+        return userResult
+            .Map(user => user.ToDto())
+            .ToActionResult(this);
     }
 }
