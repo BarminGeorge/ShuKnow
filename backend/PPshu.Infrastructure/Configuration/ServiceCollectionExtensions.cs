@@ -1,7 +1,12 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using PPshu.Infrastructure.PostgreSQL;
+using PPshu.Application.Interfaces;
+using PPshu.Domain.Repositories;
+using PPshu.Infrastructure.Interfaces;
+using PPshu.Infrastructure.Persistent;
+using PPshu.Infrastructure.Persistent.Repositories;
+using PPshu.Infrastructure.Services;
 
 namespace PPshu.Infrastructure.Configuration;
 
@@ -16,5 +21,13 @@ public static class ServiceCollectionExtensions
                 .UseNpgsql(connectionString)
                 .UseSnakeCaseNamingConvention();
         });
+        
+        services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<IIdentityService, IdentityService>();
+        services.AddScoped<IJwtService, JwtService>();
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IIdentityUserRepository, IdentityUserRepository>();
     }
 }

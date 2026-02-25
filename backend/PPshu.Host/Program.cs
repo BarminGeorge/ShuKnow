@@ -26,7 +26,7 @@ public static class Program
         services.AddDomain();
         services.AddInfrastructure(configuration);
         services.AddApplication();
-        services.AddWeb();
+        services.AddWeb(configuration);
     }
 
     private static void ConfigureApp(this WebApplication app)

@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using PPshu.Infrastructure.PostgreSQL;
+using PPshu.Infrastructure.Persistent;
 
 namespace PPshu.Infrastructure.Configuration;
 

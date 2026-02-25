@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PPshu.Infrastructure.Persistent;
@@ -11,9 +12,11 @@ using PPshu.Infrastructure.Persistent;
 namespace PPshu.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260222155341_AddAuth")]
+    partial class AddAuth
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -53,10 +56,6 @@ namespace PPshu.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_identity_users");
-
-                    b.HasIndex("Login")
-                        .IsUnique()
-                        .HasDatabaseName("ix_identity_users_login");
 
                     b.ToTable("identity_users", (string)null);
                 });
