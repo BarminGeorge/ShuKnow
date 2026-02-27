@@ -1,8 +1,6 @@
 using ShuKnow.Domain.Interfaces;
 
 namespace ShuKnow.Domain.Entities;
-
-    
 public class Folder : IEntity<Guid>
 {
     public Guid FolderId { get; private set; }
@@ -19,6 +17,9 @@ public class Folder : IEntity<Guid>
 
     public Folder(Guid folderId, Guid userId, string name, string description, Guid? parentFolderId = null)
     {
+        ValidateFolderId(folderId);
+        ValidateUserId(userId);
+        ValidateParentFolderId(folderId, parentFolderId);
         ValidateName(name);
         ValidateDescription(description);
 
@@ -43,6 +44,8 @@ public class Folder : IEntity<Guid>
 
     public void MoveTo(Guid? newParentFolderId, Func<Guid, Guid?> parentFolderResolver)
     {
+        ValidateParentFolderId(FolderId, newParentFolderId);
+
         if (newParentFolderId is null)
         {
             ParentFolderId = null;
@@ -50,11 +53,6 @@ public class Folder : IEntity<Guid>
         }
 
         ArgumentNullException.ThrowIfNull(parentFolderResolver);
-
-        if (newParentFolderId == FolderId)
-        {
-            throw new InvalidOperationException("A folder cannot be moved into itself.");
-        }
 
         var visitedFolderIds = new HashSet<Guid> { FolderId };
         var currentParentId = newParentFolderId;
@@ -81,13 +79,40 @@ public class Folder : IEntity<Guid>
             throw new ArgumentException("Folder name cannot be empty.", nameof(name));
         }
     }
-    
-    //Нужна ли проверка описания ? 
     private static void ValidateDescription(string description)
     {
-        if (description is null)
+        if (string.IsNullOrWhiteSpace(description))
         {
-            throw new ArgumentNullException(nameof(description));
+            throw new ArgumentException("Folder description cannot be empty.", nameof(description));
+        }
+    }
+
+    private static void ValidateFolderId(Guid folderId)
+    {
+        if (folderId == Guid.Empty)
+        {
+            throw new ArgumentException("Folder id cannot be empty.", nameof(folderId));
+        }
+    }
+
+    private static void ValidateUserId(Guid userId)
+    {
+        if (userId == Guid.Empty)
+        {
+            throw new ArgumentException("User id cannot be empty.", nameof(userId));
+        }
+    }
+
+    private static void ValidateParentFolderId(Guid folderId, Guid? parentFolderId)
+    {
+        if (parentFolderId == Guid.Empty)
+        {
+            throw new ArgumentException("Parent folder id cannot be empty.", nameof(parentFolderId));
+        }
+
+        if (parentFolderId == folderId)
+        {
+            throw new InvalidOperationException("A folder cannot be moved into itself.");
         }
     }
 }

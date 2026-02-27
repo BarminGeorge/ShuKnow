@@ -27,14 +27,16 @@ public class File : IEntity<Guid>
         FileContent content,
         DateTimeOffset? createdAt = null)
     {
+        ValidateFileId(fileId);
+        ValidateFolderId(folderId);
         ArgumentNullException.ThrowIfNull(content);
         ValidateName(name);
         ValidateDescription(description);
 
         FileId = fileId;
         FolderId = folderId;
-        Name = name;
-        Description = description;
+        Name = name.Trim();
+        Description = description.Trim();
         Content = content;
 
         CreatedAt = createdAt ?? DateTimeOffset.UtcNow;
@@ -44,7 +46,7 @@ public class File : IEntity<Guid>
     public void Rename(string name)
     {
         ValidateName(name);
-        Name = name;
+        Name = name.Trim();
         Touch();
     }
 
@@ -58,7 +60,7 @@ public class File : IEntity<Guid>
     public void ChangeDescription(string description)
     {
         ValidateDescription(description);
-        Description = description;
+        Description = description.Trim();
         Touch();
     }
 
@@ -68,12 +70,18 @@ public class File : IEntity<Guid>
         ValidateDescription(description);
 
         Content = content;
-        Description = description;
+        Description = description.Trim();
         Touch();
     }
 
     public void MoveToFolder(Guid folderId)
     {
+        ValidateFolderId(folderId);
+        if (FolderId == folderId)
+        {
+            return;
+        }
+
         FolderId = folderId;
         Touch();
     }
@@ -93,9 +101,25 @@ public class File : IEntity<Guid>
 
     private static void ValidateDescription(string description)
     {
-        if (description is null)
+        if (string.IsNullOrWhiteSpace(description))
         {
-            throw new ArgumentNullException(nameof(description));
+            throw new ArgumentException("File description cannot be empty.", nameof(description));
+        }
+    }
+
+    private static void ValidateFileId(Guid fileId)
+    {
+        if (fileId == Guid.Empty)
+        {
+            throw new ArgumentException("File id cannot be empty.", nameof(fileId));
+        }
+    }
+
+    private static void ValidateFolderId(Guid folderId)
+    {
+        if (folderId == Guid.Empty)
+        {
+            throw new ArgumentException("Folder id cannot be empty.", nameof(folderId));
         }
     }
 }

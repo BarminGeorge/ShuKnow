@@ -19,6 +19,9 @@ public class ChatSession : IEntity<Guid>
 
     public ChatSession(Guid chatSessionId, Guid userId, DateTimeOffset? createdAt = null)
     {
+        ValidateChatSessionId(chatSessionId);
+        ValidateUserId(userId);
+
         ChatSessionId = chatSessionId;
         UserId = userId;
         CreatedAt = createdAt ?? DateTimeOffset.UtcNow;
@@ -42,5 +45,21 @@ public class ChatSession : IEntity<Guid>
     {
         ArgumentNullException.ThrowIfNull(message);
         _messages.Add(message);
+    }
+
+    private static void ValidateChatSessionId(Guid chatSessionId)
+    {
+        if (chatSessionId == Guid.Empty)
+        {
+            throw new ArgumentException("Chat session id cannot be empty.", nameof(chatSessionId));
+        }
+    }
+
+    private static void ValidateUserId(Guid userId)
+    {
+        if (userId == Guid.Empty)
+        {
+            throw new ArgumentException("User id cannot be empty.", nameof(userId));
+        }
     }
 }

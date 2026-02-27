@@ -18,7 +18,10 @@ public class ChatMessage : IEntity<Guid>
 
     private ChatMessage(Guid chatMessageId, ChatMessageRole role, string content, DateTimeOffset createdAt)
     {
+        ValidateId(chatMessageId);
+        ValidateRole(role);
         ValidateContent(content);
+
         ChatMessageId = chatMessageId;
         Role = role;
         Content = content.Trim();
@@ -48,6 +51,22 @@ public class ChatMessage : IEntity<Guid>
         if (string.IsNullOrWhiteSpace(content))
         {
             throw new ArgumentException("Message content cannot be empty.", nameof(content));
+        }
+    }
+
+    private static void ValidateId(Guid id)
+    {
+        if (id == Guid.Empty)
+        {
+            throw new ArgumentException("Message id cannot be empty.", nameof(id));
+        }
+    }
+
+    private static void ValidateRole(ChatMessageRole role)
+    {
+        if (!Enum.IsDefined(role))
+        {
+            throw new ArgumentException("Invalid message role.", nameof(role));
         }
     }
 }

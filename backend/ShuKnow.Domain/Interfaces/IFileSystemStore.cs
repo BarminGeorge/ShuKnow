@@ -30,11 +30,11 @@ public interface IFileSystemStore
     Task<Result<IReadOnlyCollection<FileEntity>>> GetFilesByFolderAsync(
         Guid folderId,
         CancellationToken cancellationToken = default);
-
+    
     Task<Result> SaveFolderAsync(
         Folder folder,
         CancellationToken cancellationToken = default);
-
+    
     Task<Result> SaveFileAsync(
         FileEntity file,
         CancellationToken cancellationToken = default);
@@ -46,20 +46,20 @@ public interface IFileSystemStore
     Task<Result> DeleteFileAsync(
         Guid fileId,
         CancellationToken cancellationToken = default);
-
+    
     Task<Result> EnsureFolderPlacementValidAsync(
         Guid userId,
         Guid folderId,
         Guid? parentFolderId,
         CancellationToken cancellationToken = default);
-
+    
     Task<Result> EnsureFolderNameUniqueAsync(
         Guid userId,
         Guid? parentFolderId,
         string folderName,
         Guid? excludingFolderId = null,
         CancellationToken cancellationToken = default);
-
+    
     Task<Result> EnsureFileNameUniqueAsync(
         Guid folderId,
         string fileName,

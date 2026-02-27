@@ -12,6 +12,11 @@ public class User : IEntity<Guid>
 
     public User(Guid id)
     {
+        if (id == Guid.Empty)
+        {
+            throw new ArgumentException("User id cannot be empty.", nameof(id));
+        }
+
         Id = id;
     }
 }
