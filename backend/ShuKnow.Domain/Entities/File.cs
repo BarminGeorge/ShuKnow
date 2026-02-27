@@ -1,4 +1,5 @@
 using ShuKnow.Domain.Interfaces;
+using ShuKnow.Domain.VO;
 
 namespace ShuKnow.Domain.Entities;
 
