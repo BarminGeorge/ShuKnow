@@ -1,17 +1,24 @@
-﻿using ShuKnow.Domain.Interfaces;
+using Ardalis.Result;
+using ShuKnow.Domain.Abstractions;
+using ShuKnow.Domain.Common;
 
 namespace ShuKnow.Domain.Entities;
 
-public class User : IEntity<Guid>
+public class User : Entity<Guid>, IAggregateRoot
 {
-    public Guid Id { get; private set; }
-
     protected User()
     {
     }
 
-    public User(Guid id)
+    public User(Guid id) : base(id)
     {
-        Id = id;
+    }
+
+    public static Result<User> Create(Guid id)
+    {
+        if (id == Guid.Empty)
+            return DomainResult.Invalid<User>(nameof(id), "User id cannot be empty.");
+
+        return Result.Success(new User(id));
     }
 }
