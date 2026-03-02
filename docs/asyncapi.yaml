@@ -24,15 +24,6 @@ channels:
   sendMessage:
     description: |
       Invoked by the client to submit user content for AI classification.
-
-      **Server-side processing pipeline:**
-      1. Persists the user message in the active chat session.
-      2. Builds the LLM prompt from folder descriptions and user content.
-      3. Calls the LLM and streams token chunks back to the client.
-      4. Parses classification decisions from the completed LLM response.
-      5. Executes file/folder mutations (create files, create folders, move files).
-      6. Records an `Action` for rollback support.
-      7. Emits progress events at each stage.
     publish:
       operationId: sendMessage
       summary: Send a user message for AI processing

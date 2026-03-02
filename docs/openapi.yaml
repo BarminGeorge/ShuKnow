@@ -1518,7 +1518,7 @@ components:
           example: 404
         detail:
           type: string
-          example: Folder with ID '...' was not found.
+          example: Object with ID '...' was not found.
         instance:
           type: string
 
