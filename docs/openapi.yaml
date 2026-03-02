@@ -57,7 +57,7 @@ paths:
               description: HTTP-only JWT cookie
               schema:
                 type: string
-                example: access_token=eyJ...; HttpOnly; Secure; SameSite=None; Path=/
+                example: token=eyJ...; HttpOnly; Secure; SameSite=None; Path=/
           content:
             application/json:
               schema:
@@ -67,7 +67,7 @@ paths:
         '400':
           $ref: '#/components/responses/ValidationError'
         '409':
-          description: A user with this email already exists.
+          description: A user with this login already exists.
           content:
             application/json:
               schema:
@@ -102,7 +102,7 @@ paths:
                 type: string
                 description: JWT access token
         '401':
-          description: Invalid email or password.
+          description: Invalid login or password.
           content:
             application/json:
               schema:
@@ -971,7 +971,7 @@ components:
     CookieAuth:
       type: apiKey
       in: cookie
-      name: access_token
+      name: token
       description: JWT token in an HTTP-only cookie (`SameSite=None; Secure`).
 
   # ──────────────────────────────────────────────
@@ -1063,26 +1063,25 @@ components:
 
     RegisterRequest:
       type: object
-      required: [email, password]
+      required: [login, password]
       properties:
-        email:
+        login:
           type: string
-          format: email
-          example: user@example.com
+          description: User login identifier.
+          example: my_username
         password:
           type: string
           format: password
-          minLength: 8
           example: S3cureP@ss!
 
     LoginRequest:
       type: object
-      required: [email, password]
+      required: [login, password]
       properties:
-        email:
+        login:
           type: string
-          format: email
-          example: user@example.com
+          description: User login identifier.
+          example: my_username
         password:
           type: string
           format: password
@@ -1094,12 +1093,6 @@ components:
         id:
           type: string
           format: uuid
-        email:
-          type: string
-          format: email
-        createdAt:
-          type: string
-          format: date-time
 
     # ── Folders ───────────────────────────────
 
