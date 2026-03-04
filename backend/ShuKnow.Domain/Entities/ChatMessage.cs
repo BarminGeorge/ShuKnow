@@ -17,7 +17,7 @@ public class ChatMessage : IEntity<Guid>
     {
         Id = chatMessageId;
         Role = role;
-        Content = content.Trim();
+        Content = content;
     }
 
     public static ChatMessage CreateUserMessage(string content, DateTimeOffset? createdAt = null)

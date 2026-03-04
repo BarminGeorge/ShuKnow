@@ -1,3 +1,4 @@
+using Ardalis.Result;
 using ShuKnow.Domain.Interfaces;
 
 namespace ShuKnow.Domain.Entities;
@@ -33,25 +34,17 @@ public class Folder : IEntity<Guid>
         Description = description;
     }
 
-    public void MoveTo(Guid? newParentFolderId, Func<Guid, Guid?> parentFolderResolver)
+    public Result MoveTo(Guid? newParentFolderId, Func<Guid, Guid?>? parentFolderResolver)
     {
+        _ = parentFolderResolver;
+
         if (newParentFolderId is null)
         {
             ParentFolderId = null;
-            return;
-        }
-
-        ArgumentNullException.ThrowIfNull(parentFolderResolver);
-
-        var visitedFolderIds = new HashSet<Guid> { Id };
-        var currentParentId = newParentFolderId;
-
-        while (currentParentId is not null)
-        {
-            var parentId = currentParentId.Value;
-            currentParentId = parentFolderResolver(parentId);
+            return Result.Success();
         }
 
         ParentFolderId = newParentFolderId;
+        return Result.Success();
     }
 }

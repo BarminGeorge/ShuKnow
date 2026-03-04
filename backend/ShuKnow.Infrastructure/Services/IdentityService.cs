@@ -1,4 +1,4 @@
-﻿using Ardalis.Result;
+using Ardalis.Result;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Domain.Repositories;
 using ShuKnow.Infrastructure.Interfaces;
@@ -21,7 +21,14 @@ internal class IdentityService(
 
         var passwordHash = passwordHasher.HashPassword(password);
         var identityUser = new IdentityUser(login, passwordHash);
-        var user = identityUser.ToUser();
+        var userResult = identityUser.ToUser();
+
+        if (!userResult.IsSuccess)
+        {
+            return Result.Error("Failed to create domain user.");
+        }
+
+        var user = userResult.Value;
 
         users.Add(user);
         identityUsers.Add(identityUser);

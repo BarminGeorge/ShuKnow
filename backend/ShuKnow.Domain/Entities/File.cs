@@ -28,34 +28,37 @@ public class File : IEntity<Guid>
     {
         Id = fileId;
         FolderId = folderId;
-        Name = name.Trim();
-        Description = description.Trim();
+        Name = name;
+        Description = description;
         Content = content;
     }
 
-    public void Rename(string name)
+    public Result Rename(string name)
     {
-        
+        Name = name;
+        Touch();
+        return Result.Success();
     }
 
-    public void UpdateContent(FileContent content)
+    public Result UpdateContent(FileContent content)
     {
-        ArgumentNullException.ThrowIfNull(content);
         Content = content;
         Touch();
+        return Result.Success();
     }
 
     public void ChangeDescription(string description)
     {
-        Description = description.Trim();
+        Description = description;
         Touch();
     }
 
-    public void UpdateContentAndDescription(FileContent content, string description)
-    {
+    public Result UpdateContentAndDescription(FileContent content, string description)
+    {   
         Content = content;
-        Description = description.Trim();
+        Description = description;
         Touch();
+        return Result.Success();
     }
 
     public void MoveToFolder(Guid folderId)

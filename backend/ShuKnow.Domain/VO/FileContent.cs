@@ -1,36 +1,36 @@
+using System.Security.Cryptography;
+using Ardalis.Result;
+using ShuKnow.Domain.Enums;
+
 namespace ShuKnow.Domain.VO;
 
 public sealed class FileContent : IEquatable<FileContent>
 {
-    private readonly byte[]? _data;
+    private readonly byte[]? date;
+    private readonly byte[]? dataHash;
 
-    public string ContentType { get; }
-    public byte[]? Data => _data is null ? null : (byte[])_data.Clone();
+    public FileContentType ContentType { get; }
+    public byte[]? Data => date is null ? null : (byte[])date.Clone();
     public string? StorageReference { get; }
 
     public bool IsStoredExternally => StorageReference is not null;
 
-    private FileContent(string contentType, byte[]? data, string? storageReference)
+    private FileContent(FileContentType contentType, byte[]? data, string? storageReference)
     {
-        ValidateContentType(contentType);
-        var normalizedStorageReference = NormalizeStorageReference(storageReference);
-        ValidatePayload(data, normalizedStorageReference);
-
-        ContentType = contentType.Trim();
-        _data = data is null ? null : (byte[])data.Clone();
-        StorageReference = normalizedStorageReference;
+        ContentType = contentType;
+        date = data is null ? null : (byte[])data.Clone();
+        dataHash = date is null ? null : SHA256.HashData(date);
+        StorageReference = storageReference;
     }
 
-    public static FileContent FromBytes(string contentType, byte[] data)
+    public static Result<FileContent> FromBytes(FileContentType contentType, byte[] data)
     {
-        ArgumentNullException.ThrowIfNull(data);
-        return new FileContent(contentType, data, null);
+        return Result.Success(new FileContent(contentType, data, null));
     }
 
-    public static FileContent FromStorageReference(string contentType, string storageReference)
+    public static Result<FileContent> FromStorageReference(FileContentType contentType, string storageReference)
     {
-        ArgumentNullException.ThrowIfNull(storageReference);
-        return new FileContent(contentType, null, storageReference);
+        return Result.Success(new FileContent(contentType, null, storageReference));
     }
 
     public bool Equals(FileContent? other)
@@ -45,7 +45,7 @@ public sealed class FileContent : IEquatable<FileContent>
             return false;
         }
 
-        if (!string.Equals(ContentType, other.ContentType, StringComparison.Ordinal))
+        if (ContentType != other.ContentType)
         {
             return false;
         }
@@ -55,17 +55,17 @@ public sealed class FileContent : IEquatable<FileContent>
             return false;
         }
 
-        if (_data is null && other._data is null)
+        if (dataHash is null && other.dataHash is null)
         {
             return true;
         }
 
-        if (_data is null || other._data is null)
+        if (dataHash is null || other.dataHash is null)
         {
             return false;
         }
 
-        return _data.AsSpan().SequenceEqual(other._data);
+        return dataHash.AsSpan().SequenceEqual(other.dataHash);
     }
 
     public override bool Equals(object? obj)
@@ -76,12 +76,12 @@ public sealed class FileContent : IEquatable<FileContent>
     public override int GetHashCode()
     {
         var hash = new HashCode();
-        hash.Add(ContentType, StringComparer.Ordinal);
+        hash.Add(ContentType);
         hash.Add(StorageReference, StringComparer.Ordinal);
 
-        if (_data is not null)
+        if (dataHash is not null)
         {
-            foreach (var value in _data)
+            foreach (var value in dataHash)
             {
                 hash.Add(value);
             }
@@ -90,43 +90,4 @@ public sealed class FileContent : IEquatable<FileContent>
         return hash.ToHashCode();
     }
 
-    private static void ValidateContentType(string contentType)
-    {
-        if (string.IsNullOrWhiteSpace(contentType))
-        {
-            throw new ArgumentException("Content type cannot be empty.", nameof(contentType));
-        }
-    }
-
-    private static string? NormalizeStorageReference(string? storageReference)
-    {
-        if (storageReference is null)
-        {
-            return null;
-        }
-
-        var normalized = storageReference.Trim();
-        if (normalized.Length == 0)
-        {
-            throw new ArgumentException("Storage reference cannot be empty.", nameof(storageReference));
-        }
-
-        return normalized;
-    }
-
-    private static void ValidatePayload(byte[]? data, string? storageReference)
-    {
-        if (data is not null && data.Length == 0)
-        {
-            throw new ArgumentException("Data cannot be empty.", nameof(data));
-        }
-
-        var hasData = data is not null;
-        var hasStorageReference = storageReference is not null;
-
-        if (hasData == hasStorageReference)
-        {
-            throw new ArgumentException("File content must contain either data or storage reference.");
-        }
-    }
 }

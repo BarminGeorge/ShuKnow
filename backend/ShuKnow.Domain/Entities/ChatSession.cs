@@ -1,3 +1,4 @@
+using Ardalis.Result;
 using ShuKnow.Domain.Interfaces;
 
 namespace ShuKnow.Domain.Entities;
@@ -34,9 +35,9 @@ public class ChatSession : IEntity<Guid>
         return message;
     }
 
-    public void AddMessage(ChatMessage message)
+    public Result AddMessage(ChatMessage message)
     {
-        ArgumentNullException.ThrowIfNull(message);
         messages.Add(message);
+        return Result.Success();
     }
 }
