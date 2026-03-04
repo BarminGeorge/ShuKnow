@@ -4,14 +4,11 @@ namespace ShuKnow.Domain.Entities;
 
 public class ChatSession : IEntity<Guid>
 {
-    private readonly List<ChatMessage> _messages = [];
-
-    public Guid ChatSessionId { get; private set; }
-    public Guid Id => ChatSessionId;
+    private readonly List<ChatMessage> messages = [];
+    public Guid Id { get; }
 
     public Guid UserId { get; private set; }
-    public DateTimeOffset CreatedAt { get; private set; }
-    public IReadOnlyCollection<ChatMessage> Messages => _messages.AsReadOnly();
+    public IReadOnlyCollection<ChatMessage> Messages => messages.AsReadOnly();
 
     protected ChatSession()
     {
@@ -19,47 +16,27 @@ public class ChatSession : IEntity<Guid>
 
     public ChatSession(Guid chatSessionId, Guid userId, DateTimeOffset? createdAt = null)
     {
-        ValidateChatSessionId(chatSessionId);
-        ValidateUserId(userId);
-
-        ChatSessionId = chatSessionId;
+        Id = chatSessionId;
         UserId = userId;
-        CreatedAt = createdAt ?? DateTimeOffset.UtcNow;
     }
 
     public ChatMessage AddUserMessage(string content, DateTimeOffset? createdAt = null)
     {
         var message = ChatMessage.CreateUserMessage(content, createdAt);
-        _messages.Add(message);
+        messages.Add(message);
         return message;
     }
 
     public ChatMessage AddAiMessage(string content, DateTimeOffset? createdAt = null)
     {
         var message = ChatMessage.CreateAiMessage(content, createdAt);
-        _messages.Add(message);
+        messages.Add(message);
         return message;
     }
 
     public void AddMessage(ChatMessage message)
     {
         ArgumentNullException.ThrowIfNull(message);
-        _messages.Add(message);
-    }
-
-    private static void ValidateChatSessionId(Guid chatSessionId)
-    {
-        if (chatSessionId == Guid.Empty)
-        {
-            throw new ArgumentException("Chat session id cannot be empty.", nameof(chatSessionId));
-        }
-    }
-
-    private static void ValidateUserId(Guid userId)
-    {
-        if (userId == Guid.Empty)
-        {
-            throw new ArgumentException("User id cannot be empty.", nameof(userId));
-        }
+        messages.Add(message);
     }
 }
