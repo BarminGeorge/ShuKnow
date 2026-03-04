@@ -21,14 +21,7 @@ internal class IdentityService(
 
         var passwordHash = passwordHasher.HashPassword(password);
         var identityUser = new IdentityUser(login, passwordHash);
-        var userResult = identityUser.ToUser();
-
-        if (!userResult.IsSuccess)
-        {
-            return Result.Error("Failed to create domain user.");
-        }
-
-        var user = userResult.Value;
+        var user = identityUser.ToUser();
 
         users.Add(user);
         identityUsers.Add(identityUser);

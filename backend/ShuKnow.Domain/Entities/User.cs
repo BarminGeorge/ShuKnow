@@ -11,13 +11,8 @@ public class User : IEntity<Guid>
     {
     }
 
-    private User(Guid id)
+    public User(Guid id)
     {
         Id = id;
-    }
-
-    public static Result<User> Create(Guid id)
-    {
-        return Result.Success(new User(id));
     }
 }

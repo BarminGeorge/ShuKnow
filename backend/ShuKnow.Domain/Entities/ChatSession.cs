@@ -20,21 +20,7 @@ public class ChatSession : IEntity<Guid>
         Id = chatSessionId;
         UserId = userId;
     }
-
-    public ChatMessage AddUserMessage(string content, DateTimeOffset? createdAt = null)
-    {
-        var message = ChatMessage.CreateUserMessage(content, createdAt);
-        messages.Add(message);
-        return message;
-    }
-
-    public ChatMessage AddAiMessage(string content, DateTimeOffset? createdAt = null)
-    {
-        var message = ChatMessage.CreateAiMessage(content, createdAt);
-        messages.Add(message);
-        return message;
-    }
-
+    
     public Result AddMessage(ChatMessage message)
     {
         messages.Add(message);

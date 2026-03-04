@@ -23,28 +23,4 @@ public class Folder : IEntity<Guid>
         Description = description;
         ParentFolderId = parentFolderId;
     }
-
-    public void Rename(string name)
-    {
-        Name = name;
-    }
-
-    public void ChangeDescription(string description)
-    {
-        Description = description;
-    }
-
-    public Result MoveTo(Guid? newParentFolderId, Func<Guid, Guid?>? parentFolderResolver)
-    {
-        _ = parentFolderResolver;
-
-        if (newParentFolderId is null)
-        {
-            ParentFolderId = null;
-            return Result.Success();
-        }
-
-        ParentFolderId = newParentFolderId;
-        return Result.Success();
-    }
 }
