@@ -36,28 +36,24 @@ public class File : IEntity<Guid>
     public Result Rename(string name)
     {
         Name = name;
-        Touch();
         return Result.Success();
     }
 
     public Result UpdateContent(FileContent content)
     {
         Content = content;
-        Touch();
         return Result.Success();
     }
 
     public void ChangeDescription(string description)
     {
         Description = description;
-        Touch();
     }
 
     public Result UpdateContentAndDescription(FileContent content, string description)
     {   
         Content = content;
         Description = description;
-        Touch();
         return Result.Success();
     }
 
@@ -69,12 +65,5 @@ public class File : IEntity<Guid>
         }
 
         FolderId = folderId;
-        Touch();
     }
-
-    private void Touch()
-    {
-        UpdatedAt = DateTimeOffset.UtcNow;
-    }
-
 }
