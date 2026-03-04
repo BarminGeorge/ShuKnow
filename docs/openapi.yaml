@@ -1,0 +1,1538 @@
+﻿openapi: 3.0.3
+
+info:
+  title: ShuKnow API
+  description: REST API for the ShuKnow AI-powered file organization platform.
+  version: 1.0.0
+  contact:
+    name: ShuKnow Team
+
+servers:
+  - url: https://localhost:5432
+    description: Local development
+
+tags:
+  - name: Auth
+    description: User registration, login, and identity
+  - name: Folders
+    description: Virtual file-system folder hierarchy management
+  - name: Files
+    description: File upload, download, metadata, and movement
+  - name: Chat
+    description: Chat session management and attachment staging
+  - name: Settings
+    description: User AI/LLM provider configuration
+  - name: Actions
+    description: AI action history and rollback
+
+security:
+  - BearerAuth: []
+  - CookieAuth: []
+
+paths:
+  # ──────────────────────────────────────────────
+  # Auth
+  # ──────────────────────────────────────────────
+
+  /api/auth/register:
+    post:
+      operationId: register
+      tags: [Auth]
+      summary: Register a new user
+      description: |
+        Creates a new user account. On success the JWT is returned in the response
+        body **and** set as an HTTP-only cookie.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: Registration successful. JWT returned.
+          headers:
+            Set-Cookie:
+              description: HTTP-only JWT cookie
+              schema:
+                type: string
+                example: token=eyJ...; HttpOnly; Secure; SameSite=None; Path=/
+          content:
+            application/json:
+              schema:
+                type: string
+                description: JWT access token
+                example: eyJhbGciOiJIUzI1NiIs...
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: A user with this login already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/auth/login:
+    post:
+      operationId: login
+      tags: [Auth]
+      summary: Authenticate an existing user
+      description: |
+        Validates credentials and returns a JWT. The token is also set as an
+        HTTP-only cookie.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful. JWT returned.
+          headers:
+            Set-Cookie:
+              description: HTTP-only JWT cookie
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: string
+                description: JWT access token
+        '401':
+          description: Invalid login or password.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [Auth]
+      summary: Get current authenticated user
+      responses:
+        '200':
+          description: Current user profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ──────────────────────────────────────────────
+  # Folders
+  # ──────────────────────────────────────────────
+
+  /api/folders/tree:
+    get:
+      operationId: getFolderTree
+      tags: [Folders]
+      summary: Get the full folder tree
+      description: |
+        Returns the complete hierarchical folder tree for the authenticated user.
+        Each node contains children recursively and a file count. Designed for
+        rendering the sidebar. Not paginated — unlikely to exceed a few hundred
+        nodes per user.
+      responses:
+        '200':
+          description: Full folder tree.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FolderTreeNodeDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/folders:
+    get:
+      operationId: listFolders
+      tags: [Folders]
+      summary: List folders at a given level
+      description: |
+        Returns a flat list of folders at a specific hierarchy level.
+        When `parentId` is omitted or null, returns root-level folders.
+        Lightweight alternative to the full tree endpoint.
+      parameters:
+        - name: parentId
+          in: query
+          required: false
+          description: Parent folder ID. Omit or set to null for root folders.
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+      responses:
+        '200':
+          description: List of folders at the specified level.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FolderDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      operationId: createFolder
+      tags: [Folders]
+      summary: Create a new folder
+      description: |
+        Creates a folder in the hierarchy. Validates name uniqueness within the
+        parent scope. If no folders exist yet for the user, an `Inbox` folder is
+        auto-created first.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFolderRequest'
+      responses:
+        '201':
+          description: Folder created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FolderDto'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: A folder with this name already exists in the target scope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/folders/{folderId}:
+    parameters:
+      - $ref: '#/components/parameters/FolderId'
+
+    get:
+      operationId: getFolder
+      tags: [Folders]
+      summary: Get a single folder
+      description: |
+        Returns folder metadata including a `path` breadcrumb array showing
+        the full hierarchy from root to this folder.
+      responses:
+        '200':
+          description: Folder details with breadcrumb path.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FolderDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      operationId: updateFolder
+      tags: [Folders]
+      summary: Update folder name and/or description
+      description: Validates name uniqueness within the parent scope.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFolderRequest'
+      responses:
+        '200':
+          description: Folder updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FolderDto'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: A sibling folder with this name already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    delete:
+      operationId: deleteFolder
+      tags: [Folders]
+      summary: Delete a folder
+      description: |
+        Deletes a folder. If `recursive=true`, all children folders and files
+        are deleted. If `recursive=false` (default) and the folder is non-empty,
+        returns 409 Conflict. The system `Inbox` folder cannot be deleted.
+      parameters:
+        - name: recursive
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: If true, delete all nested folders and files.
+      responses:
+        '204':
+          description: Folder deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Folder is non-empty and `recursive` is false, or folder is the Inbox.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/folders/{folderId}/move:
+    parameters:
+      - $ref: '#/components/parameters/FolderId'
+
+    patch:
+      operationId: moveFolder
+      tags: [Folders]
+      summary: Move a folder to a new parent
+      description: |
+        Moves a folder to a different parent (or to root if `newParentFolderId`
+        is null). Validates that the move does not create a cycle and that the
+        folder name is unique in the target scope.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveFolderRequest'
+      responses:
+        '200':
+          description: Folder moved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FolderDto'
+        '400':
+          description: Move would create a cycle or other validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Name conflict in target parent scope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/folders/{folderId}/reorder:
+    parameters:
+      - $ref: '#/components/parameters/FolderId'
+
+    patch:
+      operationId: reorderFolder
+      tags: [Folders]
+      summary: Change folder sort position among siblings
+      description: |
+        Sets the target 0-based position for this folder among its siblings.
+        The server re-indexes all sibling sort orders accordingly.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderFolderRequest'
+      responses:
+        '204':
+          description: Sort order updated.
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/folders/{folderId}/children:
+    parameters:
+      - $ref: '#/components/parameters/FolderId'
+
+    get:
+      operationId: getFolderChildren
+      tags: [Folders]
+      summary: List direct child folders
+      description: |
+        Returns the immediate child folders of the specified folder.
+        Useful for lazy-loading expanded tree nodes.
+      responses:
+        '200':
+          description: Direct child folders.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FolderDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/folders/{folderId}/files:
+    parameters:
+      - $ref: '#/components/parameters/FolderId'
+
+    get:
+      operationId: listFolderFiles
+      tags: [Folders]
+      summary: List files in a folder (paginated)
+      description: Offset-based pagination. Default page size is 50.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Paginated list of files.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedFileResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      operationId: uploadFile
+      tags: [Files]
+      summary: Upload a file into a folder
+      description: |
+        Uploads a file via `multipart/form-data`. If `name` is omitted the
+        original filename is used. Validates name uniqueness within the folder.
+        File size limit is configurable (e.g. 10 MB for MVP).
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The file to upload.
+                name:
+                  type: string
+                  description: Override display name. Defaults to original filename.
+                description:
+                  type: string
+                  description: Optional description for the file.
+            encoding:
+              file:
+                contentType: application/octet-stream
+      responses:
+        '201':
+          description: File uploaded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileDto'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Folder not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: A file with this name already exists in the folder.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: File exceeds the maximum allowed size.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  # ──────────────────────────────────────────────
+  # Files
+  # ──────────────────────────────────────────────
+
+  /api/files/{fileId}:
+    parameters:
+      - $ref: '#/components/parameters/FileId'
+
+    get:
+      operationId: getFile
+      tags: [Files]
+      summary: Get file metadata
+      description: Returns file metadata including name, description, content type, size, and timestamps.
+      responses:
+        '200':
+          description: File metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      operationId: updateFile
+      tags: [Files]
+      summary: Update file name and/or description
+      description: Validates name uniqueness within the file's current folder.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFileRequest'
+      responses:
+        '200':
+          description: File metadata updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileDto'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: A file with this name already exists in the folder.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    delete:
+      operationId: deleteFile
+      tags: [Files]
+      summary: Permanently delete a file
+      responses:
+        '204':
+          description: File deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/files/{fileId}/content:
+    parameters:
+      - $ref: '#/components/parameters/FileId'
+
+    get:
+      operationId: downloadFileContent
+      tags: [Files]
+      summary: Download file content
+      description: |
+        Streams the actual file content. Returns the stored MIME type or
+        `application/octet-stream` as fallback. Supports the `Range` header
+        for partial content / large file downloads.
+      parameters:
+        - name: Range
+          in: header
+          required: false
+          schema:
+            type: string
+          description: 'HTTP Range header for partial downloads (e.g. `bytes=0-1023`).'
+      responses:
+        '200':
+          description: Full file content.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '206':
+          description: Partial content (range request satisfied).
+          headers:
+            Content-Range:
+              schema:
+                type: string
+                example: bytes 0-1023/4096
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '416':
+          description: Range not satisfiable.
+
+    put:
+      operationId: replaceFileContent
+      tags: [Files]
+      summary: Replace file content
+      description: |
+        Uploads new content to replace the existing file. Updates the
+        `updatedAt` timestamp. The file's metadata (name, description) is
+        unchanged.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Content replaced. Returns updated file metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          description: File exceeds the maximum allowed size.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/files/{fileId}/move:
+    parameters:
+      - $ref: '#/components/parameters/FileId'
+
+    patch:
+      operationId: moveFile
+      tags: [Files]
+      summary: Move a file to a different folder
+      description: Validates name uniqueness in the target folder.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveFileRequest'
+      responses:
+        '200':
+          description: File moved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileDto'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: A file with this name already exists in the target folder.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  # ──────────────────────────────────────────────
+  # Chat
+  # ──────────────────────────────────────────────
+
+  /api/chat/session:
+    get:
+      operationId: getChatSession
+      tags: [Chat]
+      summary: Get or create the active chat session
+      description: |
+        Returns the current active chat session. If none exists, a new session
+        is created transparently (idempotent). There is always at most one
+        active session per user.
+      responses:
+        '200':
+          description: Active chat session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatSessionDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    delete:
+      operationId: deleteChatSession
+      tags: [Chat]
+      summary: Close and discard the current session
+      description: |
+        Closes the current session. The next `GET /api/chat/session` will
+        create a fresh one.
+      responses:
+        '204':
+          description: Session closed.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/chat/session/messages:
+    get:
+      operationId: getChatMessages
+      tags: [Chat]
+      summary: List messages in the current session (cursor-paginated)
+      description: |
+        Returns messages in the current chat session using cursor-based pagination
+        (keyset on `CreatedAt` descending with `Id` tiebreaking). This avoids
+        page drift when new messages are appended during browsing.
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          description: |
+            Opaque cursor from the previous response's `nextCursor`. Omit for
+            the first page (most recent messages).
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Number of messages to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Paginated messages.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorPagedChatMessageResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/chat/attachments:
+    post:
+      operationId: uploadChatAttachments
+      tags: [Chat]
+      summary: Upload attachments for a chat message
+      description: |
+        Uploads one or more files that will be referenced in a subsequent
+        `SendMessage` hub invocation. Returns temporary attachment IDs.
+
+        Attachments are uploaded via REST because SignalR has a default message
+        size limit of 32 KB, making it unsuitable for binary payloads.
+
+        Unreferenced attachments are automatically purged after 1 hour.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: One or more files to attach.
+      responses:
+        '200':
+          description: Attachments staged.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttachmentDto'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: One or more files exceed the maximum allowed size.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  # ──────────────────────────────────────────────
+  # AI Settings
+  # ──────────────────────────────────────────────
+
+  /api/settings/ai:
+    get:
+      operationId: getAiSettings
+      tags: [Settings]
+      summary: Get current AI provider configuration
+      description: |
+        Returns the user's current LLM provider configuration. The API key is
+        returned masked (e.g. `sk-****abcd`) for security.
+      responses:
+        '200':
+          description: AI settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiSettingsDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      operationId: updateAiSettings
+      tags: [Settings]
+      summary: Set or update LLM provider configuration
+      description: |
+        Configures the base URL and API key for the LLM provider. The API key
+        is stored encrypted at rest.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAiSettingsRequest'
+      responses:
+        '200':
+          description: Settings updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiSettingsDto'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/settings/ai/test:
+    post:
+      operationId: testAiConnection
+      tags: [Settings]
+      summary: Test LLM provider connectivity
+      description: |
+        Sends a minimal probe request to the configured LLM provider using the
+        stored credentials. Returns latency and success status. Allows users to
+        validate configuration before sending their first message.
+      responses:
+        '200':
+          description: Test result (may indicate failure in the payload).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiConnectionTestDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: AI settings are not configured yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  # ──────────────────────────────────────────────
+  # Actions & Rollback
+  # ──────────────────────────────────────────────
+
+  /api/actions:
+    get:
+      operationId: listActions
+      tags: [Actions]
+      summary: List AI-generated actions (paginated)
+      description: |
+        Returns recent AI-generated actions, newest first. Each action
+        represents a complete AI processing run and includes a summary and
+        rollback eligibility status.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Paginated list of actions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedActionResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/actions/{actionId}:
+    parameters:
+      - $ref: '#/components/parameters/ActionId'
+
+    get:
+      operationId: getAction
+      tags: [Actions]
+      summary: Get detailed view of an action
+      description: |
+        Returns every mutation performed by a single AI processing run:
+        files created, files moved, folders created, content classified.
+      responses:
+        '200':
+          description: Action details with all items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionDetailDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/actions/{actionId}/rollback:
+    parameters:
+      - $ref: '#/components/parameters/ActionId'
+
+    post:
+      operationId: rollbackAction
+      tags: [Actions]
+      summary: Rollback a specific action
+      description: |
+        Reverses a specific AI action by iterating its items in reverse order:
+        - Files that were created are deleted.
+        - Files that were moved are returned to their original folders.
+        - Folders that were created are removed (if empty).
+
+        Non-reversible if files have been manually modified since the action.
+      responses:
+        '200':
+          description: Rollback result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RollbackResultDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Action cannot be rolled back (already rolled back or files modified).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/actions/rollback-last:
+    post:
+      operationId: rollbackLastAction
+      tags: [Actions]
+      summary: Rollback the most recent eligible action
+      description: |
+        Convenience endpoint that finds the most recent action that is eligible
+        for rollback and reverses it.
+      responses:
+        '200':
+          description: Rollback result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RollbackResultDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No eligible action found to rollback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+components:
+  # ──────────────────────────────────────────────
+  # Security Schemes
+  # ──────────────────────────────────────────────
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token in the `Authorization` header.
+
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: token
+      description: JWT token in an HTTP-only cookie (`SameSite=None; Secure`).
+
+  # ──────────────────────────────────────────────
+  # Reusable Parameters
+  # ──────────────────────────────────────────────
+
+  parameters:
+    FolderId:
+      name: folderId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Unique identifier of the folder.
+
+    FileId:
+      name: fileId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Unique identifier of the file.
+
+    ActionId:
+      name: actionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Unique identifier of the action.
+
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: 1-based page number.
+
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+      description: Number of items per page.
+
+  # ──────────────────────────────────────────────
+  # Reusable Responses
+  # ──────────────────────────────────────────────
+
+  responses:
+    Unauthorized:
+      description: Authentication required. JWT is missing, invalid, or expired.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+    ValidationError:
+      description: One or more validation errors occurred.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationProblemDetails'
+
+  # ──────────────────────────────────────────────
+  # Schemas
+  # ──────────────────────────────────────────────
+
+  schemas:
+
+    # ── Auth ──────────────────────────────────
+
+    RegisterRequest:
+      type: object
+      required: [login, password]
+      properties:
+        login:
+          type: string
+          description: User login identifier.
+          example: my_username
+        password:
+          type: string
+          format: password
+          example: S3cureP@ss!
+
+    LoginRequest:
+      type: object
+      required: [login, password]
+      properties:
+        login:
+          type: string
+          description: User login identifier.
+          example: my_username
+        password:
+          type: string
+          format: password
+          example: S3cureP@ss!
+
+    UserDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+
+    # ── Folders ───────────────────────────────
+
+    CreateFolderRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: Invoices
+        description:
+          type: string
+          nullable: true
+          maxLength: 1000
+          example: Monthly invoices and receipts
+        parentFolderId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Parent folder ID. Null or omitted for root-level.
+
+    UpdateFolderRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+          maxLength: 1000
+
+    MoveFolderRequest:
+      type: object
+      properties:
+        newParentFolderId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Target parent folder ID. Null to move to root.
+
+    ReorderFolderRequest:
+      type: object
+      required: [position]
+      properties:
+        position:
+          type: integer
+          minimum: 0
+          description: 0-based target index among siblings.
+          example: 2
+
+    FolderDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Invoices
+        description:
+          type: string
+          example: Monthly invoices and receipts
+        parentFolderId:
+          type: string
+          format: uuid
+          nullable: true
+        sortOrder:
+          type: integer
+          example: 0
+        fileCount:
+          type: integer
+          example: 12
+        hasChildren:
+          type: boolean
+          example: true
+        path:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: |
+            Breadcrumb path from root to this folder. Populated on
+            `GET /api/folders/{folderId}`.
+          example: ["Documents", "Finance", "Invoices"]
+        createdAt:
+          type: string
+          format: date-time
+
+    FolderTreeNodeDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Documents
+        description:
+          type: string
+        sortOrder:
+          type: integer
+        fileCount:
+          type: integer
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/FolderTreeNodeDto'
+
+    # ── Files ─────────────────────────────────
+
+    UpdateFileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+          maxLength: 1000
+
+    MoveFileRequest:
+      type: object
+      required: [targetFolderId]
+      properties:
+        targetFolderId:
+          type: string
+          format: uuid
+          description: Destination folder ID.
+
+    FileDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        folderId:
+          type: string
+          format: uuid
+        folderName:
+          type: string
+          example: Invoices
+        name:
+          type: string
+          example: invoice-2024-01.pdf
+        description:
+          type: string
+          example: January 2024 electricity bill
+        contentType:
+          type: string
+          example: application/pdf
+        sizeBytes:
+          type: integer
+          format: int64
+          example: 204800
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ── Chat ──────────────────────────────────
+
+    ChatSessionDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        messageCount:
+          type: integer
+          example: 14
+        canRollback:
+          type: boolean
+
+    ChatMessageDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [User, Ai]
+          description: Message author role.
+        content:
+          type: string
+          example: Please file these documents into the appropriate folders.
+        attachments:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AttachmentDto'
+        createdAt:
+          type: string
+          format: date-time
+
+    AttachmentDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fileName:
+          type: string
+          example: report.pdf
+        contentType:
+          type: string
+          example: application/pdf
+        sizeBytes:
+          type: integer
+          format: int64
+          example: 102400
+
+    # ── Settings ──────────────────────────────
+
+    UpdateAiSettingsRequest:
+      type: object
+      required: [baseUrl, apiKey]
+      properties:
+        baseUrl:
+          type: string
+          format: uri
+          example: https://api.openai.com/v1
+        apiKey:
+          type: string
+          description: LLM provider API key. Stored encrypted at rest.
+          example: sk-proj-abc123...
+
+    AiSettingsDto:
+      type: object
+      properties:
+        baseUrl:
+          type: string
+          format: uri
+          example: https://api.openai.com/v1
+        apiKeyMasked:
+          type: string
+          description: Masked API key for display.
+          example: sk-****abc1
+        isConfigured:
+          type: boolean
+          example: true
+        lastTestedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    AiConnectionTestDto:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        latencyMs:
+          type: integer
+          nullable: true
+          example: 342
+        errorMessage:
+          type: string
+          nullable: true
+
+    # ── Actions ───────────────────────────────
+
+    ActionDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        summary:
+          type: string
+          example: Filed 3 documents into Invoices and created Receipts folder.
+        itemCount:
+          type: integer
+          example: 4
+        createdAt:
+          type: string
+          format: date-time
+        canRollback:
+          type: boolean
+
+    ActionDetailDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        summary:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionItemDto'
+
+    ActionItemDto:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [FileCreated, FileMoved, FolderCreated]
+        fileId:
+          type: string
+          format: uuid
+          nullable: true
+        folderId:
+          type: string
+          format: uuid
+          nullable: true
+        fileName:
+          type: string
+          nullable: true
+        folderName:
+          type: string
+          nullable: true
+        targetFolderName:
+          type: string
+          nullable: true
+
+    RollbackResultDto:
+      type: object
+      properties:
+        actionId:
+          type: string
+          format: uuid
+        restoredItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/RollbackItemDto'
+        fullyReverted:
+          type: boolean
+          description: True if every item in the action was successfully reversed.
+
+    RollbackItemDto:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [FileDeleted, FileMovedBack, FolderDeleted]
+        description:
+          type: string
+          example: Deleted file 'invoice-2024-01.pdf' from Invoices
+
+    # ── Pagination ────────────────────────────
+
+    PagedFileResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileDto'
+        totalCount:
+          type: integer
+          example: 128
+        page:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 50
+        hasNextPage:
+          type: boolean
+
+    PagedActionResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionDto'
+        totalCount:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        hasNextPage:
+          type: boolean
+
+    CursorPagedChatMessageResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessageDto'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Opaque cursor for the next page. Null if no more pages.
+        hasMore:
+          type: boolean
+
+    # ── Error Models ──────────────────────────
+
+    ProblemDetails:
+      type: object
+      description: RFC 7807 Problem Details.
+      properties:
+        type:
+          type: string
+          example: https://tools.ietf.org/html/rfc7807
+        title:
+          type: string
+          example: Not Found
+        status:
+          type: integer
+          example: 404
+        detail:
+          type: string
+          example: Object with ID '...' was not found.
+        instance:
+          type: string
+
+    ValidationProblemDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+          properties:
+            errors:
+              type: object
+              additionalProperties:
+                type: array
+                items:
+                  type: string
+              example:
+                name: ["The Name field is required."]
+                description: ["Description must not exceed 1000 characters."]
