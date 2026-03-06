@@ -484,7 +484,7 @@ paths:
       operationId: getFile
       tags: [Files]
       summary: Get file metadata
-      description: Returns file metadata including name, description, content type, size, and timestamps.
+      description: Returns file metadata including name, description, content type, and size.
       responses:
         '200':
           description: File metadata.
@@ -591,9 +591,8 @@ paths:
       tags: [Files]
       summary: Replace file content
       description: |
-        Uploads new content to replace the existing file. Updates the
-        `updatedAt` timestamp. The file's metadata (name, description) is
-        unchanged.
+        Uploads new content to replace the existing file. The file's metadata
+        (name, description) is unchanged.
       requestBody:
         required: true
         content:
@@ -1182,9 +1181,6 @@ components:
             Breadcrumb path from root to this folder. Populated on
             `GET /api/folders/{folderId}`.
           example: ["Documents", "Finance", "Invoices"]
-        createdAt:
-          type: string
-          format: date-time
 
     FolderTreeNodeDto:
       type: object
@@ -1255,12 +1251,6 @@ components:
           type: integer
           format: int64
           example: 204800
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
 
     # ── Chat ──────────────────────────────────
 
@@ -1270,9 +1260,6 @@ components:
         id:
           type: string
           format: uuid
-        createdAt:
-          type: string
-          format: date-time
         messageCount:
           type: integer
           example: 14
@@ -1297,9 +1284,6 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/AttachmentDto'
-        createdAt:
-          type: string
-          format: date-time
 
     AttachmentDto:
       type: object
@@ -1347,10 +1331,6 @@ components:
         isConfigured:
           type: boolean
           example: true
-        lastTestedAt:
-          type: string
-          format: date-time
-          nullable: true
 
     AiConnectionTestDto:
       type: object
@@ -1380,9 +1360,6 @@ components:
         itemCount:
           type: integer
           example: 4
-        createdAt:
-          type: string
-          format: date-time
         canRollback:
           type: boolean
 
@@ -1394,9 +1371,6 @@ components:
           format: uuid
         summary:
           type: string
-        createdAt:
-          type: string
-          format: date-time
         items:
           type: array
           items:

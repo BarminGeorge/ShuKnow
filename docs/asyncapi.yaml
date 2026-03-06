@@ -455,9 +455,6 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/AttachmentDto'
-        createdAt:
-          type: string
-          format: date-time
 
     AttachmentDto:
       type: object
@@ -493,12 +490,6 @@ components:
         sizeBytes:
           type: integer
           format: int64
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
 
     FolderDto:
       type: object
@@ -525,6 +516,3 @@ components:
           nullable: true
           items:
             type: string
-        createdAt:
-          type: string
-          format: date-time
