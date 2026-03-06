@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Builder;
-
+using Saunter;
 namespace ShuKnow.WebAPI.Configuration;
 
 public static class WebApplicationExtensions
@@ -18,5 +18,7 @@ public static class WebApplicationExtensions
     {
         app.UseSwagger();
         app.UseSwaggerUI();
+        app.MapAsyncApiDocuments();
+        app.MapAsyncApiUi();
     }
 }

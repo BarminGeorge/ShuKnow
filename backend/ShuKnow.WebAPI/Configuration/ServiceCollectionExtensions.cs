@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Saunter;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +22,14 @@ public static class ServiceCollectionExtensions
         services.AddHttpContextAccessor();
         services.AddEndpointsApiExplorer();
         services.AddSwagger();
+        services.AddAsyncApiSchemaGeneration(options =>
+        {
+            options.AssemblyMarkerTypes = new[] { typeof(ServiceCollectionExtensions) };
+            options.AsyncApi = new Saunter.AsyncApiSchema.v2.AsyncApiDocument
+            {
+                Info = new Saunter.AsyncApiSchema.v2.Info("ShuKnow AsyncAPI", "1.0.0")
+            };
+        });
 
         services.AddAuth(configuration);
 
