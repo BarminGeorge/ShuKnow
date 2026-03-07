@@ -1,5 +1,5 @@
 ﻿using ShuKnow.Domain.Entities;
-using ShuKnow.WebAPI.Dto;
+using ShuKnow.WebAPI.Dto.Auth;
 
 namespace ShuKnow.WebAPI.Mappers;
 

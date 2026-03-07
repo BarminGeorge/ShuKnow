@@ -252,7 +252,7 @@ The current contract implies several domain and persistence capabilities that mu
 | Area | Required addition | Why it exists |
 |---|---|---|
 | Folder ordering | `Folder.SortOrder` | Required for sibling reorder operations. |
-| User AI config | `UserSettings` with encrypted API key and `LastTestedAt` | Required for per-user LLM configuration. |
+| User AI config | `UserSettings` with encrypted API key | Required for per-user LLM configuration. |
 | Rollback log | `Action` aggregate with `ActionItem` children | Required for deterministic rollback. |
 | Temporary attachments | `Attachment` staging entity | Required because attachments are uploaded before `SendMessage`. |
 | File move history | Original location tracking inside action items | Required so rollback can restore moved files. |

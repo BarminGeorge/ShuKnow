@@ -4,10 +4,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Domain.Repositories;
-using ShuKnow.WebAPI.Dto;
+using ShuKnow.WebAPI.Dto.Auth;
 using ShuKnow.WebAPI.Interfaces;
 using ShuKnow.WebAPI.Mappers;
-using ShuKnow.WebAPI.Requests;
+using ShuKnow.WebAPI.Requests.Auth;
 
 namespace ShuKnow.WebAPI.Controllers;
 
