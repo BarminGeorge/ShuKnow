@@ -1,4 +1,3 @@
-using Ardalis.Result;
 using ShuKnow.Domain.Interfaces;
 
 namespace ShuKnow.Domain.Entities;
