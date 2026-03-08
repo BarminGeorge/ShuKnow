@@ -1,5 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace ShuKnow.WebAPI.Dto.Actions;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum RollbackItemType
 {
     FileDeleted,
