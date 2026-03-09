@@ -16,11 +16,11 @@ public class FoldersController : ControllerBase
     private static readonly Guid MockPhotosId = Guid.Parse("9605cb52-a7a0-4f7f-b5cb-be54f6e716f7");
 
     [HttpGet("tree")]
-    public async Task<ActionResult<FolderTreeNodeDto>> GetFolderTree()
+    public async Task<ActionResult<IReadOnlyList<FolderTreeNodeDto>>> GetFolderTree()
     {
         // TODO: implement
         var photosFolder = new FolderTreeNodeDto(MockPhotosId, "Photos", null, 0, 0, []);
-        return new FolderTreeNodeDto(MockDocumentsId, "Documents", "Documents folder", 0, 1, [photosFolder]);
+        return new[] { new FolderTreeNodeDto(MockDocumentsId, "Documents", "Documents folder", 0, 1, [photosFolder]) };
     }
 
     [HttpGet]
