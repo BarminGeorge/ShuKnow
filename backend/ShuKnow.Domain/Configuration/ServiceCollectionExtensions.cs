@@ -6,6 +6,6 @@ public static class ServiceCollectionExtensions
 {
     public static void AddDomain(this IServiceCollection services)
     {
-        
+        _ = services;
     }
 }

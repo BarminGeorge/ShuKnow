@@ -1,4 +1,4 @@
-﻿using ShuKnow.Domain.Entities;
+using ShuKnow.Domain.Entities;
 
 namespace ShuKnow.Infrastructure.Misc;
 

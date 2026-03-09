@@ -1,4 +1,4 @@
-﻿namespace ShuKnow.Domain.Interfaces;
+namespace ShuKnow.Domain.Interfaces;
 
 public interface IEntity<out TId>
 {
