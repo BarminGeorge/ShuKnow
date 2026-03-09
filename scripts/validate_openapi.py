@@ -82,7 +82,7 @@ def main() -> int:
 
     print("Starting backend to generate OpenAPI...")
     process = subprocess.Popen(
-        ["dotnet", "run", "--launch-profile", "http", "--no-build"],
+        ["dotnet", "run", "--launch-profile", "http"],
         cwd=host_dir,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
