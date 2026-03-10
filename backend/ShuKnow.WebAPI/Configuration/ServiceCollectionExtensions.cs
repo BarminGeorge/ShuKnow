@@ -48,6 +48,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddValidatorsFromAssembly(typeof(ServiceCollectionExtensions).Assembly);
         services.AddFluentValidationAutoValidation();
+        services.AddSingleton<IHubFilter, ValidationHubFilter>();
     }
 
     private static void AddAuth(this IServiceCollection services, IConfiguration configuration)

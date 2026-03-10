@@ -1,4 +1,3 @@
-using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Saunter.Attributes;
@@ -11,7 +10,7 @@ namespace ShuKnow.WebAPI.Hubs;
 
 [AsyncApi]
 [Authorize]
-public class ChatHub(IValidator<SendMessageCommand> validator) : Hub
+public class ChatHub : Hub
 {
     #region Client -> Server Operations
 
@@ -19,27 +18,9 @@ public class ChatHub(IValidator<SendMessageCommand> validator) : Hub
     [PublishOperation(typeof(SendMessageCommand), Summary = "Submit user content for AI classification")]
     public async Task SendMessage(SendMessageCommand command)
     {
-        if (!await Validate(command))
-            return;
-
         // TODO: implement
         var operationId = Guid.NewGuid();
         await Clients.Caller.SendAsync(nameof(OnProcessingStarted), new ProcessingStartedEvent(operationId));
-    }
-
-    private async Task<bool> Validate(SendMessageCommand command)
-    {
-        var validationResult = await validator.ValidateAsync(command);
-        if (validationResult.IsValid)
-            return true;
-
-        var errors = validationResult.Errors
-            .Select(e => new ValidationError(e.PropertyName, e.ErrorMessage))
-            .ToList();
-
-        await Clients.Caller.SendAsync(nameof(OnValidationFailed), 
-            new ValidationFailedEvent(nameof(SendMessage), errors));
-        return false;
     }
 
     [Channel(nameof(CancelProcessing))]
