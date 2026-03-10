@@ -23,7 +23,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ### 1.2 IFolderService
 
-**Purpose.** Manages the complete lifecycle of the virtual folder hierarchy: creation, reads (flat list, single folder with breadcrumb, full tree, children), update, deletion, move, and reorder. Enforces all folder-level invariants: name uniqueness within a parent scope, cycle prevention on move, protection of the system `Inbox` folder, and auto-creation of `Inbox` on first use.
+**Purpose.** Manages the complete lifecycle of the virtual folder hierarchy. Enforces all folder-level invariants: name uniqueness within a parent scope, cycle prevention on move, protection of the system `Inbox` folder, and auto-creation of `Inbox` on first use.
 
 **Methods**
 
@@ -81,7 +81,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ### 1.4 IChatService
 
-**Purpose.** Manages the single-active-session model, persists messages (user, AI, and cancellation), and serves message history with cursor pagination. This service owns session lifecycle but does **not** own AI processing—that responsibility belongs to `IAIOrchestrationService`.
+**Purpose.** Manages the single-active-session model, persists messages (user, AI, and cancellation), and serves message history with cursor pagination.
 
 **Methods**
 
@@ -135,7 +135,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Method | Description |
 |---|---|
-| `GetAsync()` → `AiSettings` | Returns current config with `isConfigured` flag. |
+| `GetAsync()` → `AiSettings?` | Returns current config. |
 | `UpdateAsync(request)` → `AiSettings` | Saves/overwrites base URL and API key. Encrypts the API key before persistence. |
 | `TestConnectionAsync()` → `AiConnectionTest` | Decrypts the stored API key, sends a minimal probe request to the configured LLM endpoint, and returns `success`, `latencyMs`, and `errorMessage`. Returns 422 if settings are not yet configured. |
 
@@ -152,7 +152,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ### 1.7 IAIOrchestrationService
 
-**Purpose.** This is the central coordinator for the AI classification workflow — the most complex service in the system. It receives a user's message and attachments, builds the LLM prompt, streams the response, parses classification decisions, executes file/folder mutations, records every mutation as an action for rollback, and emits real-time events at each stage. It is invoked exclusively from `ChatHub`.
+**Purpose.** This is the central orchestrator for the AI classification pipeline — the most complex service in the system. It is invoked exclusively from `ChatHub`.
 
 **Methods**
 
