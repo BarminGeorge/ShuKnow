@@ -3,12 +3,14 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Saunter;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using ShuKnow.Application.Common;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.WebAPI.Hubs;
 using ShuKnow.WebAPI.Interfaces;
 using ShuKnow.WebAPI.Services;
 
@@ -19,6 +21,7 @@ public static class ServiceCollectionExtensions
     public static void AddWeb(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddControllers().AddApplicationPart(typeof(ServiceCollectionExtensions).Assembly);
+        services.AddSignalR();
         
         services.AddValidation();
         services.AddHealthChecks();
