@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using FluentValidation;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Saunter.Attributes;
 using ShuKnow.WebAPI.Dto.Chat;
@@ -10,7 +11,7 @@ namespace ShuKnow.WebAPI.Hubs;
 
 [AsyncApi]
 [Authorize]
-public class ChatHub : Hub
+public class ChatHub(IValidator<SendMessageCommand> validator) : Hub
 {
     #region Client -> Server Operations
 
@@ -18,9 +19,27 @@ public class ChatHub : Hub
     [PublishOperation(typeof(SendMessageCommand), Summary = "Submit user content for AI classification")]
     public async Task SendMessage(SendMessageCommand command)
     {
+        if (!await Validate(command))
+            return;
+
         // TODO: implement
         var operationId = Guid.NewGuid();
         await Clients.Caller.SendAsync(nameof(OnProcessingStarted), new ProcessingStartedEvent(operationId));
+    }
+
+    private async Task<bool> Validate(SendMessageCommand command)
+    {
+        var validationResult = await validator.ValidateAsync(command);
+        if (validationResult.IsValid)
+            return true;
+
+        var errors = validationResult.Errors
+            .Select(e => new ValidationError(e.PropertyName, e.ErrorMessage))
+            .ToList();
+
+        await Clients.Caller.SendAsync(nameof(OnValidationFailed), 
+            new ValidationFailedEvent(nameof(SendMessage), errors));
+        return false;
     }
 
     [Channel(nameof(CancelProcessing))]
@@ -34,7 +53,13 @@ public class ChatHub : Hub
 
     #endregion
 
-    #region Server -> Client Event
+    #region Server -> Client Events
+
+    [Channel(nameof(OnValidationFailed))]
+    [SubscribeOperation(typeof(ValidationFailedEvent), Summary = "Validation failed for a client request")]
+    public void OnValidationFailed(ValidationFailedEvent @event)
+    {
+    }
 
     [Channel(nameof(OnProcessingStarted))]
     [SubscribeOperation(typeof(ProcessingStartedEvent), Summary = "AI processing has started")]

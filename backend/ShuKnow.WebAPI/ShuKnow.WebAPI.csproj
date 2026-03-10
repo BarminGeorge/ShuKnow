@@ -12,6 +12,8 @@
 
     <ItemGroup>
         <PackageReference Include="Ardalis.Result.AspNetCore" Version="10.1.0" />
+        <PackageReference Include="FluentValidation" Version="11.11.0" />
+        <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.24" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.23" />
@@ -21,6 +23,10 @@
 
     <ItemGroup>
       <ProjectReference Include="..\ShuKnow.Application\ShuKnow.Application.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Requests\Validators\" />
     </ItemGroup>
 
 </Project>

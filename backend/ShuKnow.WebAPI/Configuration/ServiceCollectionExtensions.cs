@@ -1,4 +1,6 @@
 ﻿using System.Text;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Saunter;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
@@ -17,6 +19,8 @@ public static class ServiceCollectionExtensions
     public static void AddWeb(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddControllers().AddApplicationPart(typeof(ServiceCollectionExtensions).Assembly);
+        
+        services.AddValidation();
         services.AddHealthChecks();
 
         services.AddHttpContextAccessor();
@@ -35,6 +39,12 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IAuthCookieService, AuthCookieService>();
+    }
+    
+    private static void AddValidation(this IServiceCollection services)
+    {
+        services.AddValidatorsFromAssembly(typeof(ServiceCollectionExtensions).Assembly);
+        services.AddFluentValidationAutoValidation();
     }
 
     private static void AddAuth(this IServiceCollection services, IConfiguration configuration)
