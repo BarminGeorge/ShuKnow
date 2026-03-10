@@ -450,116 +450,131 @@ These interfaces are defined in `ShuKnow.Application` and implemented in `ShuKno
 
 ## 3. Dependency Flow
 
+The architecture is easier to understand as two complementary views: how application services coordinate at runtime, and where the infrastructure ports terminate.
+
+### 3.1 Runtime service interaction
+
 ```mermaid
-flowchart TD
-    subgraph Application["Application Layer"]
-        IdentityService["IIdentityService"]
-        FolderService["IFolderService"]
-        FileService["IFileService"]
-        ChatService["IChatService"]
-        AttachmentService["IAttachmentService"]
-        SettingsService["ISettingsService"]
-        AIOrchestration["IAIOrchestrationService"]
-        ActionQueryService["IActionQueryService"]
-        RollbackService["IRollbackService"]
-        PromptBuilder["IPromptBuilder"]
-        ClassificationParser["IClassificationParser"]
-        CurrentUser["ICurrentUserService"]
-        ChatNotification["IChatNotificationService"]
+flowchart LR
+    classDef entry fill:#F4F1DE,stroke:#6B705C,color:#1F2937,stroke-width:1.5px;
+    classDef core fill:#E0F2FE,stroke:#1D4ED8,color:#1F2937,stroke-width:1.5px;
+    classDef support fill:#FEF3C7,stroke:#B45309,color:#1F2937,stroke-width:1.2px;
+    classDef recovery fill:#ECFCCB,stroke:#4D7C0F,color:#1F2937,stroke-width:1.2px;
+    classDef transport fill:#FEE2E2,stroke:#B91C1C,color:#1F2937,stroke-width:1.2px;
+
+    Client["Controllers / ChatHub"]:::entry
+
+    subgraph App["Application Layer"]
+        direction TB
+
+        subgraph Workflow["AI classification workflow"]
+            direction LR
+            ChatService["IChatService"]:::core
+            AttachmentService["IAttachmentService"]:::core
+            SettingsService["ISettingsService"]:::core
+            AIOrchestration["IAIOrchestrationService"]:::core
+            PromptBuilder["IPromptBuilder"]:::support
+            ClassificationParser["IClassificationParser"]:::support
+            ChatNotification["IChatNotificationService"]:::transport
+        end
+
+        subgraph Content["Content organization and recovery"]
+            direction LR
+            FolderService["IFolderService"]:::core
+            FileService["IFileService"]:::core
+            ActionQueryService["IActionQueryService"]:::recovery
+            RollbackService["IRollbackService"]:::recovery
+        end
+
+        subgraph Identity["Identity and request context"]
+            direction LR
+            IdentityService["IIdentityService"]:::support
+            CurrentUser["ICurrentUserService"]:::support
+        end
     end
 
-    subgraph Ports["Infrastructure Ports (defined in Application)"]
-        UserRepo["IUserRepository"]
-        FolderRepo["IFolderRepository"]
-        FileRepo["IFileRepository"]
-        ChatSessionRepo["IChatSessionRepository"]
-        ChatMessageRepo["IChatMessageRepository"]
-        ActionRepo["IActionRepository"]
-        SettingsRepo["ISettingsRepository"]
-        AttachmentRepo["IAttachmentRepository"]
-        AIService["IAIService"]
-        BlobStorage["IBlobStorageService"]
-        JwtGenerator["IJwtService"]
-        PasswordHasher["IPasswordHasher"]
-        Encryption["IEncryptionService"]
+    Client -->|auth| IdentityService
+    Client -->|folder CRUD| FolderService
+    Client -->|file CRUD| FileService
+    Client -->|chat history| ChatService
+    Client -->|AI request| AIOrchestration
+    Client -->|action history| ActionQueryService
+    Client -->|rollback| RollbackService
+
+    AIOrchestration -->|session and message lifecycle| ChatService
+    AIOrchestration -->|load staged files| AttachmentService
+    AIOrchestration -->|resolve LLM settings| SettingsService
+    AIOrchestration -->|build prompt| PromptBuilder
+    AIOrchestration -->|parse model output| ClassificationParser
+    AIOrchestration -->|create folders| FolderService
+    AIOrchestration -->|create or move files| FileService
+    AIOrchestration -->|stream progress and results| ChatNotification
+
+    RollbackService -->|undo file mutations| FileService
+    RollbackService -->|undo folder mutations| FolderService
+
+    CurrentUser -. caller identity and ownership scope .-> AIOrchestration
+    CurrentUser -. caller identity and ownership scope .-> FolderService
+    CurrentUser -. caller identity and ownership scope .-> FileService
+    CurrentUser -. caller identity and ownership scope .-> ChatService
+
+    ChatNotification -->|targeted SignalR events| Client
+```
+
+### 3.2 Port and infrastructure mapping
+
+```mermaid
+flowchart LR
+    classDef repo fill:#E0F2FE,stroke:#1D4ED8,color:#1F2937,stroke-width:1.3px;
+    classDef port fill:#DBEAFE,stroke:#2563EB,color:#1F2937,stroke-width:1.3px;
+    classDef helper fill:#FEF3C7,stroke:#B45309,color:#1F2937,stroke-width:1.2px;
+    classDef transport fill:#FEE2E2,stroke:#B91C1C,color:#1F2937,stroke-width:1.2px;
+    classDef external fill:#F3F4F6,stroke:#6B7280,color:#111827,stroke-width:1.2px,stroke-dasharray: 5 3;
+
+    subgraph Persistence["Persistence ports"]
+        direction TB
+        UserRepo["IUserRepository"]:::repo
+        FolderRepo["IFolderRepository"]:::repo
+        FileRepo["IFileRepository"]:::repo
+        ChatSessionRepo["IChatSessionRepository"]:::repo
+        ChatMessageRepo["IChatMessageRepository"]:::repo
+        AttachmentRepo["IAttachmentRepository"]:::repo
+        SettingsRepo["ISettingsRepository"]:::repo
+        ActionRepo["IActionRepository"]:::repo
     end
 
-    subgraph Infrastructure["Infrastructure Layer (implementations)"]
-        DB[(PostgreSQL)]
-        LLM[LLM Provider]
-        BlobStore[File System / Cloud]
-        KeyConfig[Keys & Config]
+    subgraph Integrations["Integration ports and helpers"]
+        direction TB
+        AIService["IAIService"]:::port
+        BlobStorage["IBlobStorageService"]:::port
+        Encryption["IEncryptionService"]:::port
+        JwtService["IJwtService"]:::port
+        PasswordHasher["IPasswordHasher"]:::helper
+        ChatNotificationPort["IChatNotificationService"]:::transport
     end
 
-    %% ── Identity ──
-    IdentityService --> UserRepo
-    IdentityService --> PasswordHasher
-    IdentityService --> JwtGenerator
-    IdentityService --> CurrentUser
+    subgraph Systems["Infrastructure implementations / systems"]
+        direction TB
+        DB[(PostgreSQL)]:::external
+        LLM["LLM provider"]:::external
+        BlobStore["File system or cloud blob store"]:::external
+        KeyConfig["Keys, secrets, configuration"]:::external
+        SignalR["SignalR hub context"]:::external
+    end
 
-    %% ── Folders ──
-    FolderService --> FolderRepo
-    FolderService --> FileRepo
-    FolderService --> CurrentUser
-
-    %% ── Files ──
-    FileService --> FileRepo
-    FileService --> FolderRepo
-    FileService --> BlobStorage
-    FileService --> CurrentUser
-
-    %% ── Chat ──
-    ChatService --> ChatSessionRepo
-    ChatService --> ChatMessageRepo
-    ChatService --> CurrentUser
-
-    %% ── Attachments ──
-    AttachmentService --> AttachmentRepo
-    AttachmentService --> BlobStorage
-    AttachmentService --> CurrentUser
-
-    %% ── Settings ──
-    SettingsService --> SettingsRepo
-    SettingsService --> Encryption
-    SettingsService --> AIService
-    SettingsService --> CurrentUser
-
-    %% ── AI Orchestration ──
-    AIOrchestration --> ChatService
-    AIOrchestration --> AttachmentService
-    AIOrchestration --> SettingsService
-    AIOrchestration --> FolderService
-    AIOrchestration --> FileService
-    AIOrchestration --> FolderRepo
-    AIOrchestration --> AIService
-    AIOrchestration --> ActionRepo
-    AIOrchestration --> PromptBuilder
-    AIOrchestration --> ClassificationParser
-    AIOrchestration --> ChatNotification
-    AIOrchestration --> CurrentUser
-
-    %% ── Action Query ──
-    ActionQueryService --> ActionRepo
-    ActionQueryService --> CurrentUser
-
-    %% ── Rollback ──
-    RollbackService --> ActionRepo
-    RollbackService --> FileService
-    RollbackService --> FolderService
-    RollbackService --> CurrentUser
-
-    %% ── Infrastructure implementations ──
     UserRepo --> DB
     FolderRepo --> DB
     FileRepo --> DB
     ChatSessionRepo --> DB
     ChatMessageRepo --> DB
-    ActionRepo --> DB
-    SettingsRepo --> DB
     AttachmentRepo --> DB
+    SettingsRepo --> DB
+    ActionRepo --> DB
+
     AIService --> LLM
     BlobStorage --> BlobStore
-    JwtGenerator --> KeyConfig
-    PasswordHasher --> KeyConfig
     Encryption --> KeyConfig
+    JwtService --> KeyConfig
+    PasswordHasher --> KeyConfig
+    ChatNotificationPort --> SignalR
 ```
