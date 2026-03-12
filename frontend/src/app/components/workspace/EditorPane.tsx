@@ -72,15 +72,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     // Immediate save on focus loss
     if (debounceRef.current) clearTimeout(debounceRef.current);
     onUpdateContent(file.id, localContent);
-    // Switch back to preview for markdown files
-    if (isMarkdownFile && localContent.trim()) {
-      setIsEditing(false);
-    }
-  }, [file.id, isMarkdownFile, localContent, onUpdateContent]);
-
-  const handlePreviewClick = () => {
-    setIsEditing(true);
-  };
+  }, [file.id, localContent, onUpdateContent]);
 
   const toggleMode = () => {
     if (isEditing) {
@@ -146,8 +138,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
         {isMarkdownFile && !isEditing ? (
           /* ── Markdown Preview ────────────────────────────────────── */
           <div
-            onClick={handlePreviewClick}
-            className="prose prose-invert max-w-none cursor-text
+            className="prose prose-invert max-w-none
                        prose-headings:font-semibold prose-headings:tracking-tight
                        prose-h1:text-3xl prose-h1:mb-6 prose-h1:mt-0
                        prose-h2:text-xl prose-h2:mb-4 prose-h2:mt-8
