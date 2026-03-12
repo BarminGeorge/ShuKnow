@@ -6,6 +6,7 @@ import { FolderContextMenu } from "./FolderContextMenu";
 import { EditFileModal } from "./EditFileModal";
 import { EditFolderModal } from "./EditFolderModal";
 import { CreateFileModal } from "./CreateFileModal";
+import { CreateFolderModal } from "./CreateFolderModal";
 import { EmojiPicker } from "./EmojiPicker";
 import type { Folder, FileItem } from "../App";
 
@@ -420,6 +421,7 @@ export function FolderContentView({
   };
 
   const [isCreateFileModalOpen, setIsCreateFileModalOpen] = useState(false);
+  const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
 
   const handleCreateFile = () => {
     setIsCreateFileModalOpen(true);
@@ -436,6 +438,18 @@ export function FolderContentView({
       createdAt: new Date().toISOString(),
     };
     onCreateFile(newFile);
+  };
+
+  const handleCreateFolderFromModal = (name: string, emoji: string, prompt: string) => {
+    const newFolder: Folder = {
+      id: Date.now().toString(),
+      name,
+      emoji,
+      prompt,
+    };
+    onUpdateFolder({
+      subfolders: [...(folder.subfolders || []), newFolder]
+    });
   };
 
   const handleFileNameChange = (fileId: string, newName: string) => {
@@ -550,14 +564,24 @@ export function FolderContentView({
             </div>
           )}
 
-          <button
-            onClick={handleCreateFile}
-            className="ml-auto flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
-            title="Создать файл"
-          >
-            <Plus size={16} />
-            Создать файл
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={() => setIsCreateFolderModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
+              title="Создать папку"
+            >
+              <FolderIcon size={16} />
+              Создать папку
+            </button>
+            <button
+              onClick={handleCreateFile}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
+              title="Создать файл"
+            >
+              <Plus size={16} />
+              Создать файл
+            </button>
+          </div>
         </div>
 
         {/* AI Prompt Field */}
@@ -620,13 +644,22 @@ export function FolderContentView({
             </div>
             <p className="text-gray-400 text-lg mb-2">Папка пуста</p>
             <p className="text-gray-500 text-sm mb-4">Файлы появятся здесь автоматически после сортировки</p>
-            <button
-              onClick={handleCreateFile}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
-            >
-              <Plus size={16} />
-              Создать первый файл
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsCreateFolderModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
+              >
+                <FolderIcon size={16} />
+                Создать папку
+              </button>
+              <button
+                onClick={handleCreateFile}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
+              >
+                <Plus size={16} />
+                Создать первый файл
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -664,6 +697,11 @@ export function FolderContentView({
         isOpen={isCreateFileModalOpen}
         onClose={() => setIsCreateFileModalOpen(false)}
         onCreate={handleCreateFileFromModal}
+      />
+      <CreateFolderModal
+        isOpen={isCreateFolderModalOpen}
+        onClose={() => setIsCreateFolderModalOpen(false)}
+        onCreateFolder={handleCreateFolderFromModal}
       />
       <EmojiPicker
         isOpen={isEmojiPickerOpen}
