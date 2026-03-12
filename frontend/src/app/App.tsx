@@ -309,6 +309,7 @@ export default function App() {
               <TabBar
                 tabs={openTabs}
                 activeTabId={activeTabId}
+                viewMode={viewMode}
                 onSwitchTab={handleSwitchTab}
                 onCloseTab={handleCloseTab}
                 onBack={handleBackToChat}

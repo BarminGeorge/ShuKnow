@@ -447,14 +447,6 @@ export function FolderContentView({
     <div className="h-full flex flex-col bg-[#121212]">
       {/* Header Section */}
       <div className="border-b border-white/10 px-8 py-6">
-        {/* Back Button */}
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-200 transition-colors mb-4 -ml-1 px-2 py-1 rounded-lg hover:bg-white/5"
-        >
-          <ArrowLeft size={16} />
-          <span>Назад к чату</span>
-        </button>
 
         {/* Breadcrumbs */}
         <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
