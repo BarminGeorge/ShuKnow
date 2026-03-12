@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Sidebar } from "./components/Sidebar";
 import { ChatMessages } from "./components/ChatMessages";
 import { InputConsole } from "./components/InputConsole";
 import { FolderContentView } from "./components/FolderContentView";
 import { TabsWorkspace } from "./components/workspace/TabsWorkspace";
+import { TabBar } from "./components/workspace/TabBar";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { Toaster } from "sonner";
@@ -147,6 +148,7 @@ export default function App() {
 
   const handleSwitchTab = (fileId: string) => {
     setActiveTabId(fileId);
+    setViewMode("editor");
   };
 
   // ── File management ─────────────────────────────────────────────────────────
@@ -246,6 +248,42 @@ export default function App() {
   const selectedFolder      = selectedFolderPath ? getFolderByPath(selectedFolderPath) : null;
   const selectedBreadcrumbs = selectedFolderPath ? buildBreadcrumbs(selectedFolderPath) : [];
 
+  // ── Navigate to folder by file's folderId ──────────────────────────────────
+
+  const findFolderPathById = useCallback((folderId: string): string[] | null => {
+    const search = (list: Folder[], path: string[]): string[] | null => {
+      for (let i = 0; i < list.length; i++) {
+        const f = list[i];
+        const currentPath = [...path, i.toString()];
+        if (f.id === folderId) return currentPath;
+        if (f.subfolders) {
+          const found = search(f.subfolders, currentPath);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    return search(folders, []);
+  }, [folders]);
+
+  const handleNavigateToFolder = useCallback((folderId: string) => {
+    const path = findFolderPathById(folderId);
+    if (path) {
+      setSelectedFolderPath(path);
+      setViewMode("folder");
+    }
+  }, [findFolderPathById]);
+
+  // ── Computed tab data ──────────────────────────────────────────────────────
+
+  const openTabs = openTabIds
+    .map((id) => files.find((f) => f.id === id))
+    .filter(Boolean) as FileItem[];
+
+  const activeFile = activeTabId
+    ? files.find((f) => f.id === activeTabId) ?? null
+    : null;
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -266,42 +304,52 @@ export default function App() {
 
           {/* ── Main workspace ──────────────────────────────────────── */}
           <Panel defaultSize={75} minSize={50}>
-            {viewMode === "chat" ? (
-              <div className="h-full flex flex-col">
-                <ChatMessages />
-                <InputConsole />
-              </div>
-
-            ) : viewMode === "editor" ? (
-              <TabsWorkspace
-                openTabIds={openTabIds}
+            <div className="h-full flex flex-col">
+              {/* ── Global Tab Bar ────────────────────────────────────── */}
+              <TabBar
+                tabs={openTabs}
                 activeTabId={activeTabId}
-                files={files}
                 onSwitchTab={handleSwitchTab}
                 onCloseTab={handleCloseTab}
-                onBack={() => setViewMode("chat")}
-                onUpdateFileContent={handleUpdateFileContent}
+                onBack={handleBackToChat}
+                onNavigateToFolder={handleNavigateToFolder}
               />
 
-            ) : (
-              selectedFolder && selectedFolderPath && (
-                <FolderContentView
-                  folder={selectedFolder}
-                  breadcrumbs={selectedBreadcrumbs}
-                  onBack={handleBackToChat}
-                  onUpdateFolder={(updates) =>
-                    handleUpdateFolder(selectedFolderPath, updates)
-                  }
-                  onNavigateToSubfolder={handleNavigateToSubfolder}
-                  onBreadcrumbClick={handleBreadcrumbClick}
-                  files={files}
-                  onOpenFile={handleOpenTab}
-                  onCreateFile={handleCreateFile}
-                  onDeleteFile={handleDeleteFile}
-                  onUpdateFile={handleUpdateFile}
-                />
-              )
-            )}
+              {/* ── Content area ──────────────────────────────────────── */}
+              <div className="flex-1 overflow-hidden">
+                {viewMode === "editor" ? (
+                  <TabsWorkspace
+                    activeFile={activeFile}
+                    onUpdateFileContent={handleUpdateFileContent}
+                  />
+
+                ) : viewMode === "folder" ? (
+                  selectedFolder && selectedFolderPath ? (
+                    <FolderContentView
+                      folder={selectedFolder}
+                      breadcrumbs={selectedBreadcrumbs}
+                      onBack={handleBackToChat}
+                      onUpdateFolder={(updates) =>
+                        handleUpdateFolder(selectedFolderPath, updates)
+                      }
+                      onNavigateToSubfolder={handleNavigateToSubfolder}
+                      onBreadcrumbClick={handleBreadcrumbClick}
+                      files={files}
+                      onOpenFile={handleOpenTab}
+                      onCreateFile={handleCreateFile}
+                      onDeleteFile={handleDeleteFile}
+                      onUpdateFile={handleUpdateFile}
+                    />
+                  ) : null
+
+                ) : (
+                  <div className="h-full flex flex-col">
+                    <ChatMessages />
+                    <InputConsole />
+                  </div>
+                )}
+              </div>
+            </div>
           </Panel>
         </PanelGroup>
       </div>

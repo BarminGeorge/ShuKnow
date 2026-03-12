@@ -1,46 +1,18 @@
 import { FileText } from "lucide-react";
-import { TabBar } from "./TabBar";
 import { EditorPane } from "./EditorPane";
 import type { FileItem } from "../../App";
 
 interface TabsWorkspaceProps {
-  openTabIds: string[];
-  activeTabId: string | null;
-  files: FileItem[];
-  onSwitchTab: (fileId: string) => void;
-  onCloseTab: (fileId: string) => void;
-  onBack: () => void;
+  activeFile: FileItem | null;
   onUpdateFileContent: (fileId: string, content: string) => void;
 }
 
 export function TabsWorkspace({
-  openTabIds,
-  activeTabId,
-  files,
-  onSwitchTab,
-  onCloseTab,
-  onBack,
+  activeFile,
   onUpdateFileContent,
 }: TabsWorkspaceProps) {
-  const openTabs = openTabIds
-    .map((id) => files.find((f) => f.id === id))
-    .filter(Boolean) as FileItem[];
-
-  const activeFile = activeTabId
-    ? files.find((f) => f.id === activeTabId) ?? null
-    : null;
-
   return (
     <div className="h-full flex flex-col bg-[#111111]">
-      {/* Tab Bar */}
-      <TabBar
-        tabs={openTabs}
-        activeTabId={activeTabId}
-        onSwitchTab={onSwitchTab}
-        onCloseTab={onCloseTab}
-        onBack={onBack}
-      />
-
       {/* Editor Area */}
       <div className="flex-1 overflow-hidden">
         {activeFile ? (
