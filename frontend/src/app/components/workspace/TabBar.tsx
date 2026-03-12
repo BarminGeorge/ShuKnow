@@ -25,13 +25,13 @@ export function TabBar({
 
   return (
     <div className="flex items-center gap-2 h-11 bg-[#0e0e0e] border-b border-white/8 px-3 flex-shrink-0 select-none">
-      {/* Back to Chat button */}
+      {/* Back button */}
       <button
         onClick={onBack}
         className="flex items-center gap-1.5 px-2.5 py-1.5 text-gray-500 hover:text-gray-200 hover:bg-white/5 rounded-lg transition-colors flex-shrink-0"
       >
         <ArrowLeft size={13} />
-        <span className="text-xs">Чат</span>
+        <span className="text-xs">Назад</span>
       </button>
 
       {tabs.length > 0 && (

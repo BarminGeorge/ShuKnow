@@ -212,9 +212,26 @@ export default function App() {
     setViewMode("folder");
   };
 
-  const handleBackToChat = () => {
+  const handleGoToChat = () => {
     setViewMode("chat");
     setSelectedFolderPath(null);
+  };
+
+  const handleNavigateBack = () => {
+    if (viewMode === "editor") {
+      if (selectedFolderPath) {
+        setViewMode("folder");
+      } else {
+        setViewMode("chat");
+      }
+    } else if (viewMode === "folder") {
+      if (selectedFolderPath && selectedFolderPath.length > 1) {
+        setSelectedFolderPath((prev) => prev ? prev.slice(0, -1) : null);
+      } else {
+        setViewMode("chat");
+        setSelectedFolderPath(null);
+      }
+    }
   };
 
   const handleNavigateToSubfolder = (_subfolder: Folder, subfolderIndex: number) => {
@@ -321,7 +338,7 @@ export default function App() {
               setFolders={setFolders}
               onFolderClick={handleFolderClick}
               onUpdateFolder={handleUpdateFolder}
-              onLogoClick={handleBackToChat}
+              onLogoClick={handleGoToChat}
               onToggleSidebar={handleToggleSidebar}
               isCollapsed={isSidebarCollapsed}
             />
@@ -340,7 +357,7 @@ export default function App() {
                 viewMode={viewMode}
                 onSwitchTab={handleSwitchTab}
                 onCloseTab={handleCloseTab}
-                onBack={handleBackToChat}
+                onBack={handleNavigateBack}
                 onNavigateToFolder={handleNavigateToFolder}
               />
 
@@ -357,7 +374,7 @@ export default function App() {
                     <FolderContentView
                       folder={selectedFolder}
                       breadcrumbs={selectedBreadcrumbs}
-                      onBack={handleBackToChat}
+                      onBack={handleNavigateBack}
                       onUpdateFolder={(updates) =>
                         handleUpdateFolder(selectedFolderPath, updates)
                       }
