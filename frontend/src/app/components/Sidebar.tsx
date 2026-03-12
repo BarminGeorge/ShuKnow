@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings, Plus, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Settings, Plus, PanelLeftClose, PanelLeftOpen, MessageSquare } from "lucide-react";
 import { FolderItem } from "./FolderItem";
 import { SettingsModal } from "./SettingsModal";
 import { CreateFolderModal } from "./CreateFolderModal";
@@ -211,6 +211,14 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
         )}
 
         <button
+          onClick={onLogoClick}
+          className="w-10 h-10 mb-2 flex items-center justify-center rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors border border-blue-500/20 flex-shrink-0"
+          title="Чат"
+        >
+          <MessageSquare size={18} />
+        </button>
+
+        <button
           onClick={() => {
             setCreateFolderParentPath(null);
             setIsCreateFolderOpen(true);
@@ -276,7 +284,15 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
         )}
       </div>
 
-      <div className="px-4 mb-4">
+      <div className="px-4 mb-4 flex flex-col gap-2">
+        <button
+          onClick={onLogoClick}
+          className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors border border-blue-500/20"
+        >
+          <MessageSquare size={16} />
+          <span className="text-sm font-medium">Чат</span>
+        </button>
+
         <button
           onClick={() => {
             setCreateFolderParentPath(null);
