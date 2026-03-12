@@ -61,8 +61,7 @@ function DraggableGridItem({
   onEditingComplete,
 }: DraggableGridItemProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const clickCountRef = useRef(0);
+
 
   const [{ isDragging }, drag] = useDrag({
     type: GRID_ITEM_TYPE,
@@ -103,26 +102,11 @@ function DraggableGridItem({
 
   drag(drop(ref));
 
-  // Handle click/double-click for files
+  // Handle click to open file
   const handleFileClick = (fileId: string) => {
     // Ignore clicks if item was being dragged
     if (isDragging) return;
-
-    clickCountRef.current += 1;
-
-    if (clickCountRef.current === 1) {
-      clickTimerRef.current = setTimeout(() => {
-        clickCountRef.current = 0;
-        // Single click - do nothing (reserved for selection/drag)
-      }, 300);
-    } else if (clickCountRef.current === 2) {
-      if (clickTimerRef.current) {
-        clearTimeout(clickTimerRef.current);
-      }
-      clickCountRef.current = 0;
-      // Double click - open file
-      onFileDoubleClick(fileId);
-    }
+    onFileDoubleClick(fileId);
   };
 
   if (item.type === "folder") {
@@ -174,7 +158,7 @@ function DraggableGridItem({
           isDragging ? "opacity-50" : ""
         } ${isOver ? "border-blue-500" : ""}`}
         onClick={() => handleFileClick(file.id)}
-        title="Дважды кликните для открытия"
+        title="Нажмите для открытия"
       >
         {file.type === "photo" && file.imageUrl ? (
           <div className="relative aspect-[4/3] overflow-hidden">
