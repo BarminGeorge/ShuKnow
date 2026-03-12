@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Paperclip, Send } from "lucide-react";
+import { Paperclip, ArrowUp } from "lucide-react";
 
 export function InputConsole() {
   const [input, setInput] = useState("");
@@ -62,7 +62,7 @@ export function InputConsole() {
             className="flex-shrink-0 flex items-center justify-center w-9 h-9 mb-1.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all disabled:opacity-30 disabled:hover:bg-white/10 disabled:cursor-not-allowed"
             title="Отправить"
           >
-            <Send size={16} className="translate-x-[1px] translate-y-[-1px]" />
+            <ArrowUp size={18} />
           </button>
         </div>
 
