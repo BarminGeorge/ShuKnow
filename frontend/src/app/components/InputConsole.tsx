@@ -1,13 +1,18 @@
 import { useState, useRef, useEffect } from "react";
 import { Paperclip, ArrowUp } from "lucide-react";
 
-export function InputConsole() {
+interface InputConsoleProps {
+  onSend?: (text: string) => void;
+}
+
+export function InputConsole({ onSend }: InputConsoleProps) {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSend = () => {
     if (input.trim()) {
       console.log("Sending:", input);
+      onSend?.(input.trim());
       setInput("");
     }
   };

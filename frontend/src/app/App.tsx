@@ -1,10 +1,11 @@
 import { useState, useCallback } from "react";
 import { PanelLeftOpen } from "lucide-react";
 import { Panel, PanelGroup, PanelResizeHandle, ImperativePanelHandle } from "react-resizable-panels";
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
-import { ChatMessages } from "./components/ChatMessages";
+import { ChatMessages, type Message } from "./components/ChatMessages";
 import { InputConsole } from "./components/InputConsole";
+import { Sparkles } from "lucide-react";
 import { FolderContentView } from "./components/FolderContentView";
 import { TabsWorkspace } from "./components/workspace/TabsWorkspace";
 import { TabBar } from "./components/workspace/TabBar";
@@ -114,6 +115,18 @@ const initialFiles: FileItem[] = [
 
 type ViewMode = "chat" | "folder" | "editor";
 
+const CHAT_TITLES = [
+  "Сохраним что-нибудь?",
+  "ShuKnow?",
+  "Пoсохраняемся?",
+  "Что хотите сохранить сегодня?",
+  "Опять ты..",
+  "Снова что-то нашёл?",
+  "Есть что сохранить?",
+  "Готов сохранить что-нибудь?",
+  "42?"
+];
+
 export default function App() {
   const [viewMode, setViewMode]                   = useState<ViewMode>("chat");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -121,6 +134,37 @@ export default function App() {
   const [selectedFolderPath, setSelectedFolderPath] = useState<string[] | null>(null);
   const [folders, setFolders]                     = useState<Folder[]>(initialFolders);
   const [files, setFiles]                         = useState<FileItem[]>(initialFiles);
+  const [messages, setMessages]                   = useState<Message[]>([]);
+  const [currentTitle, setCurrentTitle]           = useState<string>(CHAT_TITLES[0]);
+
+  // Randomize title when entering chat view
+  useEffect(() => {
+    if (viewMode === "chat") {
+      const randomIndex = Math.floor(Math.random() * CHAT_TITLES.length);
+      setCurrentTitle(CHAT_TITLES[randomIndex]);
+    }
+  }, [viewMode]);
+
+  const handleSendMessage = (content: string) => {
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      type: "user",
+      content,
+    };
+    setMessages((prev) => [...prev, newMessage]);
+    
+    // Fake AI response
+    setTimeout(() => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          type: "system",
+          content: "✅ Ваш запрос обрабатывается...",
+        },
+      ]);
+    }, 1000);
+  };
 
   // Tab state (replaces floating windows)
   const [openTabIds, setOpenTabIds]   = useState<string[]>([]);
@@ -389,9 +433,25 @@ export default function App() {
                   ) : null
 
                 ) : (
-                  <div className="h-full flex flex-col">
-                    <ChatMessages />
-                    <InputConsole />
+                  <div className="h-full flex flex-col relative w-full">
+                    {messages.length === 0 ? (
+                      <div className="flex-1 flex flex-col items-center justify-center pb-20">
+                        <div className="flex items-center gap-3 mb-6">
+                          <div className="w-8 h-8 flex items-center justify-center text-blue-400">
+                            <Sparkles size={24} />
+                          </div>
+                          <h2 className="text-2xl font-semibold text-white text-center">{currentTitle}</h2>
+                        </div>
+                        <div className="w-full max-w-3xl">
+                          <InputConsole onSend={handleSendMessage} />
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <ChatMessages messages={messages} />
+                        <InputConsole onSend={handleSendMessage} />
+                      </>
+                    )}
                   </div>
                 )}
               </div>

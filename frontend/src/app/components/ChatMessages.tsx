@@ -1,45 +1,18 @@
 import { Undo2 } from "lucide-react";
 
-interface Message {
+export interface Message {
   id: string;
   type: "user" | "system";
   content: string;
 }
 
-const messages: Message[] = [
-  {
-    id: "1",
-    type: "user",
-    content: "Сохрани эти 3 картинки и текст",
-  },
-  {
-    id: "2",
-    type: "system",
-    content: "✅ 3 файла и текст успешно сохранены в 📂 Идеи",
-  },
-  {
-    id: "3",
-    type: "user",
-    content: "Перемести изображения в папку Дизайн",
-  },
-  {
-    id: "4",
-    type: "system",
-    content: "📁 2 изображения перемещены в 📂 Дизайн → UI-вдохновение",
-  },
-  {
-    id: "5",
-    type: "user",
-    content: "Создай новую заметку о встрече",
-  },
-  {
-    id: "6",
-    type: "system",
-    content: "✅ Заметка создана в 📂 Заметки встреч",
-  },
-];
+interface ChatMessagesProps {
+  messages: Message[];
+}
 
-export function ChatMessages() {
+export function ChatMessages({ messages }: ChatMessagesProps) {
+  if (messages.length === 0) return null;
+
   return (
     <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
       {messages.map((message) => (
