@@ -43,6 +43,7 @@ interface DraggableGridItemProps {
   onFolderContextMenu: (folderId: string, event: React.MouseEvent) => void;
   onFolderClick: (folder: Folder) => void;
   onFileDoubleClick: (fileId: string) => void;
+  onMoveItemToFolder: (itemId: string, destFolderId: string, itemType: GridItemType) => void;
   editingFileId: string | null;
   onFileNameChange: (fileId: string, newName: string) => void;
   onEditingComplete: () => void;
@@ -57,6 +58,7 @@ function DraggableGridItem({
   onFolderContextMenu,
   onFolderClick,
   onFileDoubleClick,
+  onMoveItemToFolder,
   editingFileId,
   onFileNameChange,
   onEditingComplete,
@@ -66,7 +68,7 @@ function DraggableGridItem({
 
   const [{ isDragging }, drag] = useDrag({
     type: GRID_ITEM_TYPE,
-    item: { index },
+    item: () => ({ index, id: item.id, origType: item.type }),
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
@@ -75,7 +77,7 @@ function DraggableGridItem({
 
   const [{ isOver }, drop] = useDrop({
     accept: GRID_ITEM_TYPE,
-    hover: (draggedItem: { index: number }, monitor) => {
+    hover: (draggedItem: { index: number; id: string; origType: GridItemType }, monitor) => {
       if (!ref.current) return;
       const dragIndex = draggedItem.index;
       const hoverIndex = index;
@@ -89,6 +91,21 @@ function DraggableGridItem({
       if (!clientOffset) return;
 
       const hoverClientX = clientOffset.x - hoverBoundingRect.left;
+      const hoverClientY = clientOffset.y - hoverBoundingRect.top;
+
+      if (item.type === "folder" && draggedItem.id !== item.id) {
+        const w = hoverBoundingRect.right - hoverBoundingRect.left;
+        const h = hoverBoundingRect.bottom - hoverBoundingRect.top;
+        // Increase drag interior region so it doesn't jiggle when trying to drop into folder
+        if (
+          hoverClientX > w * 0.2 &&
+          hoverClientX < w * 0.8 &&
+          hoverClientY > h * 0.2 &&
+          hoverClientY < h * 0.8
+        ) {
+          return; // inside deadzone, intended for drop INTO folder
+        }
+      }
 
       if (dragIndex < hoverIndex && hoverClientX < hoverMiddleX) return;
       if (dragIndex > hoverIndex && hoverClientX > hoverMiddleX) return;
@@ -98,6 +115,21 @@ function DraggableGridItem({
     },
     collect: (monitor) => ({
       isOver: monitor.isOver(),
+    }),
+  });
+
+  const [{ isItemOver }, folderDrop] = useDrop({
+    accept: GRID_ITEM_TYPE,
+    drop: (draggedItem: { index: number; id: string; origType: GridItemType }, monitor) => {
+      if (monitor.didDrop()) return;
+      if (item.type === "folder" && draggedItem.id !== item.id) {
+        onMoveItemToFolder(draggedItem.id, item.id, draggedItem.origType);
+        return { movedIntoFolder: true };
+      }
+    },
+    canDrop: (draggedItem) => item.type === "folder" && draggedItem.id !== item.id,
+    collect: (monitor) => ({
+      isItemOver: monitor.isOver({ shallow: true }) && monitor.canDrop(),
     }),
   });
 
@@ -115,12 +147,15 @@ function DraggableGridItem({
     return (
       <div
         ref={ref}
-        className={`group relative bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden hover:border-blue-400/50 transition-all cursor-pointer ${
-          isDragging ? "opacity-50" : ""
-        } ${isOver ? "border-blue-500" : ""}`}
+        className={`group relative bg-[#1a1a1a] border rounded-xl overflow-hidden hover:border-blue-400/50 transition-all cursor-pointer ${
+          isDragging ? "opacity-50 scale-95 z-50 pointer-events-none" : ""
+        } ${isOver && !isItemOver ? "border-blue-500" : "border-white/10"} ${
+          isItemOver ? "border-green-500 ring-2 ring-green-500/30 scale-[1.02]" : ""
+        }`}
         onClick={() => onFolderClick(folder)}
       >
-        <div className="aspect-[4/3] flex flex-col items-center justify-center p-4 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
+        <div ref={(node) => { folderDrop(node); }} className="absolute inset-[20%] z-10 rounded-xl" />
+        <div className="aspect-[4/3] flex flex-col items-center justify-center p-4 bg-gradient-to-br from-blue-500/10 to-purple-500/10 pointer-events-none">
           <div className="w-20 h-20 rounded-lg bg-blue-500/20 flex items-center justify-center mb-3">
             <FolderIcon size={40} className="text-blue-400" />
           </div>
@@ -156,7 +191,7 @@ function DraggableGridItem({
       <div
         ref={ref}
         className={`group relative bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden hover:border-white/30 transition-all cursor-pointer ${
-          isDragging ? "opacity-50" : ""
+          isDragging ? "opacity-50 scale-95 z-50 pointer-events-none" : ""
         } ${isOver ? "border-blue-500" : ""}`}
         onClick={() => handleFileClick(file.id)}
         title="Нажмите для открытия"
@@ -552,6 +587,24 @@ export function FolderContentView({
               onFolderContextMenu={handleFolderContextMenu}
               onFolderClick={handleFolderClick}
               onFileDoubleClick={onOpenFile}
+              onMoveItemToFolder={(itemId, destFolderId, itemType) => {
+                if (itemType === "file") {
+                  onUpdateFile(itemId, { folderId: destFolderId });
+                } else if (itemType === "folder") {
+                  const items = folder.subfolders || [];
+                  const draggedFolder = items.find(f => f.id === itemId);
+                  if (draggedFolder) {
+                    const newSubfolders = items.map(f => {
+                      if (f.id === destFolderId) {
+                        return { ...f, subfolders: [...(f.subfolders || []), draggedFolder] };
+                      }
+                      return f;
+                    }).filter(f => f.id !== itemId);
+                    onUpdateFolder({ subfolders: newSubfolders });
+                  }
+                }
+                setGridItems((prev) => prev.filter(i => i.id !== itemId));
+              }}
               editingFileId={editingFileId}
               onFileNameChange={handleFileNameChange}
               onEditingComplete={() => setEditingFileId(null)}
