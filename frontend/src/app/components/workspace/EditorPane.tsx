@@ -2,6 +2,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ImageIcon, Pencil, Eye } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import type { FileItem } from "../../App";
 
 interface EditorPaneProps {
@@ -155,7 +158,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
                        prose-hr:border-white/10
                        min-h-[calc(100vh-200px)]"
           >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
               {localContent}
             </ReactMarkdown>
           </div>
