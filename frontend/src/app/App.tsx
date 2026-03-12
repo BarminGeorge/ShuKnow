@@ -1,5 +1,7 @@
 import { useState, useCallback } from "react";
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { PanelLeftOpen } from "lucide-react";
+import { Panel, PanelGroup, PanelResizeHandle, ImperativePanelHandle } from "react-resizable-panels";
+import { useRef } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { ChatMessages } from "./components/ChatMessages";
 import { InputConsole } from "./components/InputConsole";
@@ -114,6 +116,8 @@ type ViewMode = "chat" | "folder" | "editor";
 
 export default function App() {
   const [viewMode, setViewMode]                   = useState<ViewMode>("chat");
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const sidebarRef = useRef<ImperativePanelHandle>(null);
   const [selectedFolderPath, setSelectedFolderPath] = useState<string[] | null>(null);
   const [folders, setFolders]                     = useState<Folder[]>(initialFolders);
   const [files, setFiles]                         = useState<FileItem[]>(initialFiles);
@@ -284,6 +288,17 @@ export default function App() {
     ? files.find((f) => f.id === activeTabId) ?? null
     : null;
 
+  const handleToggleSidebar = () => {
+    const panel = sidebarRef.current;
+    if (panel) {
+      if (panel.isCollapsed()) {
+        panel.expand();
+      } else {
+        panel.collapse();
+      }
+    }
+  };
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -291,21 +306,33 @@ export default function App() {
       <div className="h-screen w-screen bg-[#121212] text-white overflow-hidden">
         <PanelGroup direction="horizontal">
           {/* ── Sidebar ─────────────────────────────────────────────── */}
-          <Panel defaultSize={25} minSize={18} maxSize={45}>
+          <Panel 
+            ref={sidebarRef}
+            defaultSize={25} 
+            minSize={15} 
+            maxSize={45}
+            collapsible={true}
+            collapsedSize={4}
+            onCollapse={() => setIsSidebarCollapsed(true)}
+            onExpand={() => setIsSidebarCollapsed(false)}
+          >
             <Sidebar
               folders={folders}
               setFolders={setFolders}
               onFolderClick={handleFolderClick}
               onUpdateFolder={handleUpdateFolder}
               onLogoClick={handleBackToChat}
+              onToggleSidebar={handleToggleSidebar}
+              isCollapsed={isSidebarCollapsed}
             />
           </Panel>
 
           <PanelResizeHandle className="w-[1px] bg-white/10 hover:bg-blue-500/50 transition-colors cursor-col-resize" />
 
           {/* ── Main workspace ──────────────────────────────────────── */}
-          <Panel defaultSize={75} minSize={50}>
-            <div className="h-full flex flex-col">
+          <Panel minSize={50}>
+            <div className="h-full flex flex-col relative">
+
               {/* ── Global Tab Bar ────────────────────────────────────── */}
               <TabBar
                 tabs={openTabs}

@@ -14,61 +14,60 @@ export function InputConsole() {
 
   // Auto-resize textarea
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    const textarea = textareaRef.current;
+    if (textarea) {
+      if (input === "") {
+        textarea.style.height = ""; // Reset to default CSS layout
+      } else {
+        textarea.style.height = "auto";
+        textarea.style.height = `${textarea.scrollHeight}px`;
+      }
     }
   }, [input]);
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
   return (
-    <div className="border-t border-white/10 bg-[#0d0d0d] p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-[#1a1a1a] border border-white/20 rounded-xl overflow-hidden shadow-2xl">
-          {/* Input Area */}
-          <div className="flex items-end gap-3 p-4">
-            {/* Paperclip Icon - Bottom Left */}
-            <button
-              className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors flex-shrink-0"
-              title="Прикрепить файлы"
-            >
-              <Paperclip size={18} />
-            </button>
+    <div className="bg-[#121212] px-4 md:px-6 pb-6 pt-2">
+      <div className="max-w-3xl mx-auto">
+        <div className="flex items-end bg-[#2f2f2f] rounded-[24px] border border-white/5 focus-within:border-white/10 transition-colors shadow-lg pl-3 pr-2 py-2">
+          {/* Left Button - Attachment */}
+          <button
+            className="flex-shrink-0 flex items-center justify-center w-9 h-9 mb-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            title="Прикрепить файлы"
+          >
+            <Paperclip size={20} />
+          </button>
 
-            {/* Text Input - Single line that expands */}
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              placeholder="Введите текст, скиньте изображения или файлы... ИИ отсортирует всё сам"
-              className="flex-1 bg-transparent text-gray-200 placeholder:text-gray-500 resize-none outline-none text-sm overflow-y-auto"
-              style={{ 
-                minHeight: "32px",
-                maxHeight: "200px",
-                height: "32px"
-              }}
-              rows={1}
-            />
+          {/* Text Input */}
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Введите текст, скиньте изображения или файлы..."
+            className="flex-1 max-h-[200px] min-h-[44px] bg-transparent text-gray-200 placeholder:text-gray-400 resize-none outline-none px-3 py-2.5 text-[15px] leading-relaxed overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            rows={1}
+          />
 
-            {/* Send Button - Bottom Right */}
-            <button
-              onClick={handleSend}
-              disabled={!input.trim()}
-              className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 disabled:opacity-30 disabled:cursor-not-allowed text-gray-400 hover:text-gray-200 transition-all flex-shrink-0"
-              title="Отправить"
-            >
-              <Send size={16} />
-            </button>
-          </div>
+          {/* Right Button - Send */}
+          <button
+            onClick={handleSend}
+            disabled={!input.trim()}
+            className="flex-shrink-0 flex items-center justify-center w-9 h-9 mb-1.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all disabled:opacity-30 disabled:hover:bg-white/10 disabled:cursor-not-allowed"
+            title="Отправить"
+          >
+            <Send size={16} className="translate-x-[1px] translate-y-[-1px]" />
+          </button>
         </div>
 
-        <p className="text-xs text-gray-600 text-center mt-3">
-          Enter — отправить, Shift + Enter — новая строка
+        <p className="text-xs text-center mt-3 text-gray-500">
+          Enter — отправить, Shift + Enter — новая строка. ИИ отсортирует всё сам.
         </p>
       </div>
     </div>

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Settings, Plus } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Settings, Plus, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { FolderItem } from "./FolderItem";
 import { SettingsModal } from "./SettingsModal";
 import { CreateFolderModal } from "./CreateFolderModal";
@@ -12,9 +12,11 @@ interface SidebarProps {
   onFolderClick: (folder: Folder, path: string[]) => void;
   onUpdateFolder: (path: string[], updates: Partial<Folder>) => void;
   onLogoClick: () => void;
+  onToggleSidebar?: () => void;
+  isCollapsed?: boolean;
 }
 
-export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, onLogoClick }: SidebarProps) {
+export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, onLogoClick, onToggleSidebar, isCollapsed }: SidebarProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
   const [createFolderParentPath, setCreateFolderParentPath] = useState<string[] | null>(null);
@@ -195,34 +197,95 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
     });
   };
 
+  if (isCollapsed) {
+    return (
+      <div className="w-full h-full bg-[#0d0d0d] flex flex-col items-center py-4">
+        {onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className="w-10 h-10 mb-4 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
+            title="Показать панель"
+          >
+            <PanelLeftOpen size={18} />
+          </button>
+        )}
+
+        <button
+          onClick={() => {
+            setCreateFolderParentPath(null);
+            setIsCreateFolderOpen(true);
+          }}
+          className="w-10 h-10 mb-4 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-200 transition-colors border border-white/10 flex-shrink-0"
+          title="Новая папка"
+        >
+          <Plus size={18} />
+        </button>
+
+        <div className="flex-1 overflow-y-auto w-full flex flex-col gap-2 items-center" style={{ scrollbarWidth: "none" }}>
+          {folders.map((folder, index) => (
+            <div
+              key={folder.id}
+              className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/10 cursor-pointer transition-colors flex-shrink-0"
+              title={folder.name}
+              onClick={() => onFolderClick(folder, [index.toString()])}
+            >
+              <span className="text-xl select-none">{folder.emoji || "📁"}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-auto pt-4 flex-shrink-0">
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
+            title="Настройки"
+          >
+            <Settings size={18} />
+          </button>
+        </div>
+
+        {/* Modals */}
+        <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+        <CreateFolderModal
+          isOpen={isCreateFolderOpen}
+          onClose={handleCreateFolderClose}
+          onCreateFolder={handleCreateFolder}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-full bg-[#0d0d0d] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
-        <div className="flex items-center gap-2">
-          <h1 
-            className="text-xl font-semibold text-white select-none cursor-pointer hover:text-blue-400 transition-colors"
-            onClick={onLogoClick}
-          >
-            ShuKnow
-          </h1>
-          <button
-            onClick={() => {
-              setCreateFolderParentPath(null);
-              setIsCreateFolderOpen(true);
-            }}
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-blue-400 transition-colors"
-            title="Создать папку"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-        <button
-          onClick={() => setIsSettingsOpen(true)}
-          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
-          title="Настройки"
+      <div className="flex items-center justify-between px-4 py-4">
+        <h1 
+          className="text-xl font-semibold text-white select-none cursor-pointer hover:text-blue-400 transition-colors"
+          onClick={onLogoClick}
         >
-          <Settings size={18} />
+          ShuKnow
+        </h1>
+        {onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
+            title="Скрыть панель"
+          >
+            <PanelLeftClose size={18} />
+          </button>
+        )}
+      </div>
+
+      <div className="px-4 mb-4">
+        <button
+          onClick={() => {
+            setCreateFolderParentPath(null);
+            setIsCreateFolderOpen(true);
+          }}
+          className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-gray-200 transition-colors border border-white/10"
+        >
+          <Plus size={16} />
+          <span className="text-sm font-medium">Новая папка</span>
         </button>
       </div>
 
@@ -240,6 +303,18 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
             onDeleteFolder={handleDeleteFolder}
           />
         ))}
+      </div>
+
+      {/* Footer Settings */}
+      <div className="p-3 mt-auto">
+        <button
+          onClick={() => setIsSettingsOpen(true)}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
+          title="Настройки"
+        >
+          <Settings size={18} />
+          <span className="text-sm font-medium">Настройки</span>
+        </button>
       </div>
 
       {/* Modals */}
