@@ -5,6 +5,7 @@ import { FileContextMenu } from "./FileContextMenu";
 import { FolderContextMenu } from "./FolderContextMenu";
 import { EditFileModal } from "./EditFileModal";
 import { EditFolderModal } from "./EditFolderModal";
+import { CreateFileModal } from "./CreateFileModal";
 import { EmojiPicker } from "./EmojiPicker";
 import type { Folder, FileItem } from "../App";
 
@@ -383,17 +384,23 @@ export function FolderContentView({
     setFolderContextMenu({ ...folderContextMenu, isOpen: false });
   };
 
+  const [isCreateFileModalOpen, setIsCreateFileModalOpen] = useState(false);
+
   const handleCreateFile = () => {
+    setIsCreateFileModalOpen(true);
+  };
+
+  const handleCreateFileFromModal = (name: string, prompt: string) => {
     const newFile: FileItem = {
       id: Date.now().toString(),
-      name: "Новая заметка.txt",
+      name,
       type: "text",
       folderId: folder.id,
       content: "",
+      prompt: prompt || undefined,
       createdAt: new Date().toISOString(),
     };
     onCreateFile(newFile);
-    setEditingFileId(newFile.id);
   };
 
   const handleFileNameChange = (fileId: string, newName: string) => {
@@ -607,6 +614,11 @@ export function FolderContentView({
         folderEmoji={editFolderModal.folder?.emoji || ""}
         currentPrompt={editFolderModal.folder?.prompt || ""}
         onSave={handleSaveFolderEdit}
+      />
+      <CreateFileModal
+        isOpen={isCreateFileModalOpen}
+        onClose={() => setIsCreateFileModalOpen(false)}
+        onCreate={handleCreateFileFromModal}
       />
       <EmojiPicker
         isOpen={isEmojiPickerOpen}
