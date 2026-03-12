@@ -5,8 +5,9 @@ import { FileContextMenu } from "./FileContextMenu";
 import { FolderContextMenu } from "./FolderContextMenu";
 import { EditFileModal } from "./EditFileModal";
 import { EditFolderModal } from "./EditFolderModal";
+import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import { EmojiPicker } from "./EmojiPicker";
-import type { Folder, FileItem } from "../App";
+import type { Folder, FileItem } from "@/features/workspace/model/types";
 
 type GridItemType = "folder" | "file";
 
@@ -22,7 +23,7 @@ interface FolderContentViewProps {
   breadcrumbs: string[];
   onBack: () => void;
   onUpdateFolder: (updates: Partial<Folder>) => void;
-  onNavigateToSubfolder: (subfolder: Folder, subfolderIndex: number) => void;
+  onNavigateToSubfolder: (subfolder: Folder) => void;
   onBreadcrumbClick: (index: number) => void;
   files: FileItem[];
   onOpenFile: (fileId: string) => void;
@@ -262,18 +263,42 @@ export function FolderContentView({
   onUpdateFile,
 }: FolderContentViewProps) {
   const [title, setTitle] = useState(folder.name);
-  const [emoji, setEmoji] = useState(folder.emoji || "");
-  const [aiPrompt, setAiPrompt] = useState(folder.prompt || "");
+  const [emoji, setEmoji] = useState(folder.emoji ?? "");
+  const [aiPrompt, setAiPrompt] = useState(folder.prompt ?? "");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
   const [gridItems, setGridItems] = useState<GridItem[]>([]);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
-  
-  const [editFileModal, setEditFileModal] = useState<{ isOpen: boolean; file: FileItem | null; }>({ isOpen: false, file: null });
-  const [editFolderModal, setEditFolderModal] = useState<{ isOpen: boolean; folder: Folder | null; }>({ isOpen: false, folder: null });
-  const [fileContextMenu, setFileContextMenu] = useState<{ isOpen: boolean; fileId: string; position: { x: number; y: number }; }>({ isOpen: false, fileId: "", position: { x: 0, y: 0 } });
-  const [folderContextMenu, setFolderContextMenu] = useState<{ isOpen: boolean; folderId: string; position: { x: number; y: number }; }>({ isOpen: false, folderId: "", position: { x: 0, y: 0 } });
+
+  const [editFileModal, setEditFileModal] = useState<{
+    isOpen: boolean;
+    file: FileItem | null;
+  }>({ isOpen: false, file: null });
+  const [editFolderModal, setEditFolderModal] = useState<{
+    isOpen: boolean;
+    folder: Folder | null;
+  }>({ isOpen: false, folder: null });
+  const [fileContextMenu, setFileContextMenu] = useState<{
+    isOpen: boolean;
+    fileId: string;
+    position: { x: number; y: number };
+  }>({ isOpen: false, fileId: "", position: { x: 0, y: 0 } });
+  const [folderContextMenu, setFolderContextMenu] = useState<{
+    isOpen: boolean;
+    folderId: string;
+    position: { x: number; y: number };
+  }>({ isOpen: false, folderId: "", position: { x: 0, y: 0 } });
+
+  // Pending delete targets for accessible confirmation dialogs
+  const [deleteFileConfirm, setDeleteFileConfirm] = useState<{
+    isOpen: boolean;
+    fileId: string | null;
+  }>({ isOpen: false, fileId: null });
+  const [deleteFolderConfirm, setDeleteFolderConfirm] = useState<{
+    isOpen: boolean;
+    folderId: string | null;
+  }>({ isOpen: false, folderId: null });
 
   // Refs for state management without re-renders
   const orderRef = useRef<string[]>([]);
@@ -366,10 +391,13 @@ export function FolderContentView({
   };
 
   const handleDeleteFile = () => {
-    if (confirm("Вы уверены, что хотите удалить этот файл?")) {
-      onDeleteFile(fileContextMenu.fileId);
-    }
+    setDeleteFileConfirm({ isOpen: true, fileId: fileContextMenu.fileId });
     setFileContextMenu({ ...fileContextMenu, isOpen: false });
+  };
+
+  const handleConfirmDeleteFile = () => {
+    if (deleteFileConfirm.fileId) onDeleteFile(deleteFileConfirm.fileId);
+    setDeleteFileConfirm({ isOpen: false, fileId: null });
   };
 
   const handleEditFolder = () => {
@@ -388,15 +416,19 @@ export function FolderContentView({
   };
 
   const handleDeleteFolder = () => {
-    if (confirm("Вы уверены, что хотите удалить эту папку и все её содержимое?")) {
-      const updatedSubfolders = folder.subfolders?.filter((f) => f.id !== folderContextMenu.folderId);
-      onUpdateFolder({ subfolders: updatedSubfolders });
-      
-      // Also delete all files in this subfolder
-      const filesToDelete = files.filter((f) => f.folderId === folderContextMenu.folderId);
-      filesToDelete.forEach((file) => onDeleteFile(file.id));
-    }
+    setDeleteFolderConfirm({ isOpen: true, folderId: folderContextMenu.folderId });
     setFolderContextMenu({ ...folderContextMenu, isOpen: false });
+  };
+
+  const handleConfirmDeleteFolder = () => {
+    if (!deleteFolderConfirm.folderId) return;
+    const updatedSubfolders = folder.subfolders?.filter(
+      (f) => f.id !== deleteFolderConfirm.folderId
+    );
+    onUpdateFolder({ subfolders: updatedSubfolders });
+    const filesToDelete = files.filter((f) => f.folderId === deleteFolderConfirm.folderId);
+    filesToDelete.forEach((file) => onDeleteFile(file.id));
+    setDeleteFolderConfirm({ isOpen: false, folderId: null });
   };
 
   const handleCreateFile = () => {
@@ -433,10 +465,7 @@ export function FolderContentView({
   };
 
   const handleFolderClick = (subfolder: Folder) => {
-    const subfolderIndex = folder.subfolders?.findIndex((f) => f.id === subfolder.id) ?? -1;
-    if (subfolderIndex !== -1) {
-      onNavigateToSubfolder(subfolder, subfolderIndex);
-    }
+    onNavigateToSubfolder(subfolder);
   };
 
   const handleTitleBlur = () => {
@@ -466,23 +495,23 @@ export function FolderContentView({
         </button>
 
         {/* Breadcrumbs */}
-        <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
+        <nav aria-label="Навигация по папкам" className="flex items-center gap-2 text-sm text-gray-400 mb-4">
           {breadcrumbs.map((crumb, index) => (
             <div key={index} className="flex items-center gap-2">
-              <span
-                className={`transition-colors ${
-                  index < breadcrumbs.length - 1 ? "hover:text-gray-200 hover:underline cursor-pointer" : "text-gray-200"
-                }`}
-                onClick={() => {
-                  if (index < breadcrumbs.length - 1) onBreadcrumbClick(index);
-                }}
-              >
-                {crumb}
-              </span>
-              {index < breadcrumbs.length - 1 && <ChevronRight size={14} />}
+              {index < breadcrumbs.length - 1 ? (
+                <button
+                  className="transition-colors hover:text-gray-200 hover:underline"
+                  onClick={() => onBreadcrumbClick(index)}
+                >
+                  {crumb}
+                </button>
+              ) : (
+                <span className="text-gray-200" aria-current="page">{crumb}</span>
+              )}
+              {index < breadcrumbs.length - 1 && <ChevronRight size={14} aria-hidden />}
             </div>
           ))}
-        </div>
+        </nav>
 
         {/* Title & Emoji */}
         <div className="flex items-center gap-3 mb-4">
@@ -639,6 +668,20 @@ export function FolderContentView({
         }}
         hasEmoji={!!emoji}
         anchorEl={emojiTriggerRef.current}
+      />
+      <DeleteConfirmDialog
+        isOpen={deleteFileConfirm.isOpen}
+        title="Удалить файл?"
+        description="Это действие нельзя отменить. Файл будет удалён навсегда."
+        onConfirm={handleConfirmDeleteFile}
+        onCancel={() => setDeleteFileConfirm({ isOpen: false, fileId: null })}
+      />
+      <DeleteConfirmDialog
+        isOpen={deleteFolderConfirm.isOpen}
+        title="Удалить папку?"
+        description="Это действие нельзя отменить. Папка и всё её содержимое будут удалены навсегда."
+        onConfirm={handleConfirmDeleteFolder}
+        onCancel={() => setDeleteFolderConfirm({ isOpen: false, folderId: null })}
       />
     </div>
   );

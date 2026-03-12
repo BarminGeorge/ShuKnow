@@ -1,7 +1,7 @@
 import { FileText } from "lucide-react";
 import { TabBar } from "./TabBar";
 import { EditorPane } from "./EditorPane";
-import type { FileItem } from "../../App";
+import type { FileItem } from "@/features/workspace/model/types";
 
 interface TabsWorkspaceProps {
   openTabIds: string[];
@@ -24,7 +24,7 @@ export function TabsWorkspace({
 }: TabsWorkspaceProps) {
   const openTabs = openTabIds
     .map((id) => files.find((f) => f.id === id))
-    .filter(Boolean) as FileItem[];
+    .filter((f): f is FileItem => f !== undefined);
 
   const activeFile = activeTabId
     ? files.find((f) => f.id === activeTabId) ?? null

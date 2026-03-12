@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/app/components/ui/dialog";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -9,31 +15,33 @@ interface SettingsModalProps {
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [apiKey, setApiKey] = useState("");
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div className="bg-[#1a1a1a] border border-white/20 rounded-xl w-full max-w-lg mx-4 shadow-2xl">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="bg-[#1a1a1a] border border-white/20 rounded-xl w-full max-w-lg mx-4 shadow-2xl p-0 gap-0">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-          <h2 className="text-lg font-semibold text-white">Настройки</h2>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
-          >
-            <X size={18} />
-          </button>
-        </div>
+        <DialogHeader className="px-6 py-4 border-b border-white/10">
+          <DialogTitle className="text-lg font-semibold text-white">
+            Настройки
+          </DialogTitle>
+        </DialogHeader>
 
         {/* Content */}
         <div className="px-6 py-6 space-y-6 max-h-[70vh] overflow-y-auto">
-          {/* Account Section - Now First */}
+          {/* Account Section */}
           <div>
             <h3 className="text-sm font-medium text-gray-300 mb-3">Аккаунт</h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Текущий email</label>
-                <div className="w-full px-4 py-2 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-400">
+                <label
+                  htmlFor="settings-email"
+                  className="text-xs text-gray-400 block mb-1"
+                >
+                  Текущий email
+                </label>
+                <div
+                  id="settings-email"
+                  className="w-full px-4 py-2 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-400"
+                >
                   user@example.com
                 </div>
               </div>
@@ -43,10 +51,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
           </div>
 
-          {/* API Key Section - Now Second */}
+          {/* API Key Section */}
           <div>
             <h3 className="text-sm font-medium text-gray-300 mb-3">API Ключ</h3>
+            <label htmlFor="settings-api-key" className="sr-only">
+              API Ключ
+            </label>
             <input
+              id="settings-api-key"
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
@@ -57,7 +69,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-white/10 flex justify-end gap-3">
+        <DialogFooter className="px-6 py-4 border-t border-white/10 flex-row justify-end gap-3 sm:justify-end">
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors text-sm"
@@ -70,8 +82,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           >
             Сохранить
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

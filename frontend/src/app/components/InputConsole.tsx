@@ -7,7 +7,6 @@ export function InputConsole() {
 
   const handleSend = () => {
     if (input.trim()) {
-      console.log("Sending:", input);
       setInput("");
     }
   };
@@ -28,6 +27,7 @@ export function InputConsole() {
           <div className="flex items-end gap-3 p-4">
             {/* Paperclip Icon - Bottom Left */}
             <button
+              aria-label="Прикрепить файл"
               className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors flex-shrink-0"
               title="Прикрепить файлы"
             >
@@ -59,6 +59,7 @@ export function InputConsole() {
             <button
               onClick={handleSend}
               disabled={!input.trim()}
+              aria-label="Отправить сообщение"
               className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 disabled:opacity-30 disabled:cursor-not-allowed text-gray-400 hover:text-gray-200 transition-all flex-shrink-0"
               title="Отправить"
             >

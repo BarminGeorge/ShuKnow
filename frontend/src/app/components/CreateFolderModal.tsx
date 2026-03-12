@@ -1,6 +1,13 @@
 import { useState, useRef } from "react";
-import { X, Smile } from "lucide-react";
+import { Smile } from "lucide-react";
 import { EmojiPicker } from "./EmojiPicker";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/app/components/ui/dialog";
 
 interface CreateFolderModalProps {
   isOpen: boolean;
@@ -34,13 +41,16 @@ export function CreateFolderModal({ isOpen, onClose, onCreateFolder }: CreateFol
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div className="bg-[#161b22] border border-white/20 rounded-2xl w-full max-w-md mx-4 shadow-2xl">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent
+        className="bg-[#161b22] border border-white/20 rounded-2xl w-full max-w-md mx-4 shadow-2xl p-0 gap-0"
+        onFocusOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         {/* Header with Icon and Name */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10">
+        <DialogHeader className="flex-row items-center gap-3 px-6 py-4 border-b border-white/10 space-y-0">
+          <DialogTitle className="sr-only">Создать папку</DialogTitle>
           {/* Emoji Trigger Button */}
           <button
             ref={emojiTriggerRef}
@@ -58,7 +68,11 @@ export function CreateFolderModal({ isOpen, onClose, onCreateFolder }: CreateFol
             )}
           </button>
 
+          <label htmlFor="create-folder-name" className="sr-only">
+            Название папки
+          </label>
           <input
+            id="create-folder-name"
             type="text"
             value={folderName}
             onChange={(e) => setFolderName(e.target.value)}
@@ -67,22 +81,19 @@ export function CreateFolderModal({ isOpen, onClose, onCreateFolder }: CreateFol
             className="flex-1 text-lg font-semibold px-3 py-2 bg-transparent text-white placeholder:text-gray-500 outline-none border-b border-transparent focus:border-blue-500/50 transition-colors"
             autoFocus
           />
-          <button
-            onClick={handleClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors flex-shrink-0"
-          >
-            <X size={18} />
-          </button>
-        </div>
+        </DialogHeader>
 
         {/* Content */}
         <div className="px-6 py-5">
-          {/* AI Prompt */}
           <div>
-            <label className="text-sm font-medium text-gray-300 mb-2 block">
+            <label
+              htmlFor="create-folder-prompt"
+              className="text-sm font-medium text-gray-300 mb-2 block"
+            >
               Инструкция для ИИ
             </label>
             <textarea
+              id="create-folder-prompt"
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               placeholder="Опишите, какие файлы и заметки должны попадать в эту папку..."
@@ -93,7 +104,7 @@ export function CreateFolderModal({ isOpen, onClose, onCreateFolder }: CreateFol
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-white/10 flex justify-end gap-3">
+        <DialogFooter className="px-6 py-4 border-t border-white/10 flex-row justify-end gap-3 sm:justify-end">
           <button
             onClick={handleClose}
             className="px-4 py-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors text-sm"
@@ -107,24 +118,24 @@ export function CreateFolderModal({ isOpen, onClose, onCreateFolder }: CreateFol
           >
             Создать
           </button>
-        </div>
-      </div>
+        </DialogFooter>
 
-      {/* Emoji Picker */}
-      <EmojiPicker
-        isOpen={isEmojiPickerOpen}
-        onClose={() => setIsEmojiPickerOpen(false)}
-        onSelect={(e) => {
-          setFolderEmoji(e);
-          setIsEmojiPickerOpen(false);
-        }}
-        onRemove={() => {
-          setFolderEmoji("");
-          setIsEmojiPickerOpen(false);
-        }}
-        hasEmoji={!!folderEmoji}
-        anchorEl={emojiTriggerRef.current}
-      />
-    </div>
+        {/* Emoji Picker */}
+        <EmojiPicker
+          isOpen={isEmojiPickerOpen}
+          onClose={() => setIsEmojiPickerOpen(false)}
+          onSelect={(e) => {
+            setFolderEmoji(e);
+            setIsEmojiPickerOpen(false);
+          }}
+          onRemove={() => {
+            setFolderEmoji("");
+            setIsEmojiPickerOpen(false);
+          }}
+          hasEmoji={!!folderEmoji}
+          anchorEl={emojiTriggerRef.current}
+        />
+      </DialogContent>
+    </Dialog>
   );
 }

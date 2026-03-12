@@ -1,32 +1,32 @@
 import { useRef, useState } from "react";
 import { useDrag, useDrop } from "react-dnd";
 import { Edit3, Plus, ChevronRight, ChevronDown, Trash2 } from "lucide-react";
-import type { Folder } from "../App";
+
+import type { Folder, DropZone } from "@/features/workspace/model/types";
 
 interface FolderItemProps {
   folder: Folder;
-  path: string[];
-  moveFolder: (dragPath: string[], hoverPath: string[], dropZone: "before" | "after" | "inside") => void;
-  onFolderClick: (folder: Folder, path: string[]) => void;
-  onEditFolder: (folder: Folder, path: string[]) => void;
-  onAddSubfolder: (parentPath: string[]) => void;
-  onDeleteFolder: (path: string[]) => void;
+  /** Full ID path from the tree root to this folder (inclusive). */
+  idPath: string[];
+  onMoveFolder: (dragId: string, targetId: string, zone: DropZone) => void;
+  onFolderClick: (idPath: string[]) => void;
+  onEditFolder: (folder: Folder) => void;
+  onAddSubfolder: (parentId: string) => void;
+  onDeleteFolder: (folderId: string) => void;
   depth?: number;
 }
 
-const FOLDER_TYPE = "FOLDER";
-const HOVER_TO_NEST_DELAY = 600; // ms
+const FOLDER_DND_TYPE = "FOLDER";
+const HOVER_TO_NEST_DELAY_MS = 600;
 
 interface DragItem {
-  path: string[];
+  folderId: string;
 }
-
-type DropZone = "before" | "after" | "inside" | null;
 
 export function FolderItem({
   folder,
-  path,
-  moveFolder,
+  idPath,
+  onMoveFolder,
   onFolderClick,
   onEditFolder,
   onAddSubfolder,
@@ -35,118 +35,25 @@ export function FolderItem({
 }: FolderItemProps) {
   const [isExpanded, setIsExpanded] = useState(depth === 0);
   const [isHovered, setIsHovered] = useState(false);
-  const [dropZone, setDropZone] = useState<DropZone>(null);
+  const [dropZone, setDropZone] = useState<DropZone | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Track mouse movement to distinguish drag from click
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
-  const [isDraggingState, setIsDraggingState] = useState(false);
+  const [isDraggingLocally, setIsDraggingLocally] = useState(false);
 
-  const hasSubfolders = folder.subfolders && folder.subfolders.length > 0;
+  const hasSubfolders = (folder.subfolders?.length ?? 0) > 0;
 
   const [{ isDragging }, drag] = useDrag({
-    type: FOLDER_TYPE,
-    item: () => {
-      setIsDraggingState(true);
-      return { path };
+    type: FOLDER_DND_TYPE,
+    item: (): DragItem => {
+      setIsDraggingLocally(true);
+      return { folderId: folder.id };
     },
     end: () => {
-      setIsDraggingState(false);
+      setIsDraggingLocally(false);
       dragStartPosRef.current = null;
     },
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  });
-
-  const [{ isOver }, drop] = useDrop({
-    accept: FOLDER_TYPE,
-    hover: (item: DragItem, monitor) => {
-      if (!ref.current) return;
-
-      const dragPath = item.path;
-      const hoverPath = path;
-
-      // Don't replace items with themselves
-      if (JSON.stringify(dragPath) === JSON.stringify(hoverPath)) {
-        clearHoverTimeout();
-        setDropZone(null);
-        return;
-      }
-
-      // Can't drop a parent into its own child
-      if (hoverPath.join("/").startsWith(dragPath.join("/"))) {
-        clearHoverTimeout();
-        setDropZone(null);
-        return;
-      }
-
-      const hoverBoundingRect = ref.current.getBoundingClientRect();
-      const clientOffset = monitor.getClientOffset();
-
-      if (!clientOffset) {
-        clearHoverTimeout();
-        setDropZone(null);
-        return;
-      }
-
-      const hoverClientY = clientOffset.y - hoverBoundingRect.top;
-      const hoverHeight = hoverBoundingRect.bottom - hoverBoundingRect.top;
-
-      // Calculate drop zones: 25% top, 50% middle, 25% bottom
-      const topZoneEnd = hoverHeight * 0.25;
-      const bottomZoneStart = hoverHeight * 0.75;
-
-      let currentDropZone: DropZone = null;
-
-      if (hoverClientY < topZoneEnd) {
-        // Top 25% - insert before
-        currentDropZone = "before";
-        clearHoverTimeout();
-      } else if (hoverClientY > bottomZoneStart) {
-        // Bottom 25% - insert after
-        currentDropZone = "after";
-        clearHoverTimeout();
-      } else {
-        // Middle 50% - nest inside (with delay)
-        currentDropZone = "inside";
-        
-        if (!hoverTimeoutRef.current) {
-          // Start hover-to-nest timer
-          hoverTimeoutRef.current = setTimeout(() => {
-            // Auto-expand if has subfolders
-            if (hasSubfolders && !isExpanded) {
-              setIsExpanded(true);
-            }
-          }, HOVER_TO_NEST_DELAY);
-        }
-      }
-
-      setDropZone(currentDropZone);
-    },
-    drop: (item: DragItem, monitor) => {
-      if (!ref.current) return;
-
-      const dragPath = item.path;
-      const hoverPath = path;
-
-      // Clear hover state
-      clearHoverTimeout();
-      const finalDropZone = dropZone || "after";
-      setDropZone(null);
-
-      // Don't replace items with themselves
-      if (JSON.stringify(dragPath) === JSON.stringify(hoverPath)) return;
-
-      // Can't drop a parent into its own child
-      if (hoverPath.join("/").startsWith(dragPath.join("/"))) return;
-
-      moveFolder(dragPath, hoverPath, finalDropZone);
-    },
-    collect: (monitor) => ({
-      isOver: monitor.isOver({ shallow: true }),
-    }),
+    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
   });
 
   const clearHoverTimeout = () => {
@@ -156,50 +63,106 @@ export function FolderItem({
     }
   };
 
+  const [{ isOver }, drop] = useDrop({
+    accept: FOLDER_DND_TYPE,
+    hover: (item: DragItem, monitor) => {
+      if (!ref.current || item.folderId === folder.id) {
+        clearHoverTimeout();
+        setDropZone(null);
+        return;
+      }
+
+      const rect = ref.current.getBoundingClientRect();
+      const clientOffset = monitor.getClientOffset();
+      if (!clientOffset) {
+        clearHoverTimeout();
+        setDropZone(null);
+        return;
+      }
+
+      const relY = clientOffset.y - rect.top;
+      const height = rect.bottom - rect.top;
+      const topZoneEnd = height * 0.25;
+      const bottomZoneStart = height * 0.75;
+
+      let zone: DropZone;
+      if (relY < topZoneEnd) {
+        zone = "before";
+        clearHoverTimeout();
+      } else if (relY > bottomZoneStart) {
+        zone = "after";
+        clearHoverTimeout();
+      } else {
+        zone = "inside";
+        if (!hoverTimeoutRef.current) {
+          hoverTimeoutRef.current = setTimeout(() => {
+            if (hasSubfolders) setIsExpanded(true);
+          }, HOVER_TO_NEST_DELAY_MS);
+        }
+      }
+
+      setDropZone(zone);
+    },
+    drop: (item: DragItem) => {
+      clearHoverTimeout();
+      const zone = dropZone ?? "after";
+      setDropZone(null);
+      if (item.folderId !== folder.id) {
+        onMoveFolder(item.folderId, folder.id, zone);
+      }
+    },
+    collect: (monitor) => ({ isOver: monitor.isOver({ shallow: true }) }),
+  });
+
   drag(drop(ref));
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Track initial mouse position
     dragStartPosRef.current = { x: e.clientX, y: e.clientY };
   };
 
   const handleClick = (e: React.MouseEvent) => {
-    // Check if this was a drag or a click
     if (dragStartPosRef.current) {
-      const deltaX = Math.abs(e.clientX - dragStartPosRef.current.x);
-      const deltaY = Math.abs(e.clientY - dragStartPosRef.current.y);
-      const threshold = 5; // pixels
-
-      // If mouse moved more than threshold, it was a drag, not a click
-      if (deltaX > threshold || deltaY > threshold || isDraggingState) {
+      const dx = Math.abs(e.clientX - dragStartPosRef.current.x);
+      const dy = Math.abs(e.clientY - dragStartPosRef.current.y);
+      // Treat as drag if mouse moved more than 5px
+      if (dx > 5 || dy > 5 || isDraggingLocally) {
         dragStartPosRef.current = null;
         return;
       }
     }
-
-    // This was a genuine click - select folder (don't toggle expand/collapse)
-    onFolderClick(folder, path);
+    onFolderClick(idPath);
     dragStartPosRef.current = null;
   };
 
   const handleToggleExpand = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent click from bubbling to parent
-    setIsExpanded(!isExpanded);
+    e.stopPropagation();
+    setIsExpanded((prev) => !prev);
   };
 
   return (
     <div>
       <div className="relative">
-        {/* Drop indicator - Before */}
         {isOver && dropZone === "before" && (
-          <div className="absolute top-0 left-3 right-3 h-0.5 bg-blue-500 rounded-full z-10" />
+          <div
+            aria-hidden
+            className="absolute top-0 left-3 right-3 h-0.5 bg-blue-500 rounded-full z-10"
+          />
         )}
 
         <div
           ref={ref}
-          className={`group relative flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors select-none ${
-            isDragging ? "opacity-50" : ""
-          } ${dropZone === "inside" && isOver ? "bg-blue-500/20 border border-blue-500/50 rounded-lg" : ""}`}
+          role="treeitem"
+          aria-expanded={hasSubfolders ? isExpanded : undefined}
+          aria-selected={false}
+          className={[
+            "group relative flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors select-none",
+            isDragging ? "opacity-50" : "",
+            isOver && dropZone === "inside"
+              ? "bg-blue-500/20 border border-blue-500/50"
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
           style={{ paddingLeft: `${depth * 16 + 12}px` }}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => {
@@ -210,73 +173,85 @@ export function FolderItem({
           onMouseDown={handleMouseDown}
           onClick={handleClick}
         >
-          {hasSubfolders && (
+          {/* Expand / collapse toggle */}
+          {hasSubfolders ? (
             <button
+              aria-label={isExpanded ? "Свернуть" : "Развернуть"}
               className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-200"
               onClick={handleToggleExpand}
             >
-              {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              {isExpanded ? (
+                <ChevronDown size={16} aria-hidden />
+              ) : (
+                <ChevronRight size={16} aria-hidden />
+              )}
             </button>
+          ) : (
+            <div className="w-4" aria-hidden />
           )}
-          {!hasSubfolders && <div className="w-4" />}
 
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {folder.emoji && (
-              <span className="text-xl select-none">{folder.emoji}</span>
+              <span aria-hidden className="text-xl select-none">
+                {folder.emoji}
+              </span>
             )}
-            <span className="text-sm text-gray-200 truncate select-none">{folder.name}</span>
+            <span className="text-sm text-gray-200 truncate">{folder.name}</span>
           </div>
 
-          {isHovered && !isDraggingState && (
+          {/* Action buttons — visible on hover */}
+          {isHovered && !isDraggingLocally && (
             <div className="flex items-center gap-1 ml-auto">
               <button
+                aria-label={`Редактировать папку ${folder.name}`}
                 className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-blue-400 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onEditFolder(folder, path);
+                  onEditFolder(folder);
                 }}
-                title="Редактировать папку"
               >
-                <Edit3 size={14} />
+                <Edit3 size={14} aria-hidden />
               </button>
               <button
+                aria-label={`Добавить подпапку в ${folder.name}`}
                 className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-green-400 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onAddSubfolder(path);
+                  onAddSubfolder(folder.id);
                 }}
-                title="Добавить подпапку"
               >
-                <Plus size={14} />
+                <Plus size={14} aria-hidden />
               </button>
               <button
+                aria-label={`Удалить папку ${folder.name}`}
                 className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-red-500 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDeleteFolder(path);
+                  onDeleteFolder(folder.id);
                 }}
-                title="Удалить папку"
               >
-                <Trash2 size={14} />
+                <Trash2 size={14} aria-hidden />
               </button>
             </div>
           )}
         </div>
 
-        {/* Drop indicator - After */}
         {isOver && dropZone === "after" && (
-          <div className="absolute bottom-0 left-3 right-3 h-0.5 bg-blue-500 rounded-full z-10" />
+          <div
+            aria-hidden
+            className="absolute bottom-0 left-3 right-3 h-0.5 bg-blue-500 rounded-full z-10"
+          />
         )}
       </div>
 
       {isExpanded && hasSubfolders && (
-        <div>
-          {folder.subfolders!.map((subfolder, index) => (
+        <div role="group">
+          {folder.subfolders!.map((subfolder) => (
             <FolderItem
               key={subfolder.id}
               folder={subfolder}
-              path={[...path, index.toString()]}
-              moveFolder={moveFolder}
+              idPath={[...idPath, subfolder.id]}
+              onMoveFolder={onMoveFolder}
               onFolderClick={onFolderClick}
               onEditFolder={onEditFolder}
               onAddSubfolder={onAddSubfolder}

@@ -1,5 +1,5 @@
 import { X, FileText, ImageIcon, ArrowLeft } from "lucide-react";
-import type { FileItem } from "../../App";
+import type { FileItem } from "@/features/workspace/model/types";
 
 interface TabBarProps {
   tabs: FileItem[];
@@ -28,14 +28,15 @@ export function TabBar({
       </button>
 
       {/* Scrollable tab strip */}
-      <div className="flex-1 flex overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+      <div className="flex-1 flex overflow-x-auto scrollbar-none">
         {tabs.map((file) => {
           const isActive = file.id === activeTabId;
           return (
-            <div
+            <button
               key={file.id}
               onClick={() => onSwitchTab(file.id)}
-              className={`group relative flex items-center gap-1.5 px-3 h-full min-w-0 w-[160px] max-w-[200px] flex-shrink-0 cursor-pointer border-r border-white/5 transition-all ${
+              aria-selected={isActive}
+              className={`group relative flex items-center gap-1.5 px-3 h-full min-w-0 w-[160px] max-w-[200px] flex-shrink-0 border-r border-white/5 transition-all ${
                 isActive
                   ? "bg-[#161616] text-gray-100"
                   : "bg-transparent text-gray-500 hover:bg-white/[0.04] hover:text-gray-300"
@@ -62,6 +63,7 @@ export function TabBar({
                   e.stopPropagation();
                   onCloseTab(file.id);
                 }}
+                aria-label={`Закрыть вкладку ${file.name}`}
                 className={`flex-shrink-0 w-4 h-4 flex items-center justify-center rounded hover:bg-white/15 transition-all ${
                   isActive
                     ? "opacity-40 hover:opacity-100"
@@ -70,7 +72,7 @@ export function TabBar({
               >
                 <X size={10} />
               </button>
-            </div>
+            </button>
           );
         })}
       </div>

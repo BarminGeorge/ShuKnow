@@ -1,3 +1,5 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+/* Syntax highlighting for markdown preview code blocks */
+@import 'highlight.js/styles/github-dark.css';

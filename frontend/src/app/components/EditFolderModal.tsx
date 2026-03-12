@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Smile } from "lucide-react";
+import { Smile } from "lucide-react";
 import { EmojiPicker } from "./EmojiPicker";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/app/components/ui/dialog";
 
 interface EditFolderModalProps {
   isOpen: boolean;
@@ -39,13 +46,16 @@ export function EditFolderModal({
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div className="bg-[#161b22] border border-white/20 rounded-2xl w-full max-w-md mx-4 shadow-2xl">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className="bg-[#161b22] border border-white/20 rounded-2xl w-full max-w-md mx-4 shadow-2xl p-0 gap-0"
+        onFocusOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         {/* Header with Editable Icon and Name */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10">
+        <DialogHeader className="flex-row items-center gap-3 px-6 py-4 border-b border-white/10 space-y-0">
+          <DialogTitle className="sr-only">Редактировать папку</DialogTitle>
           {/* Emoji Trigger Button */}
           <button
             ref={emojiTriggerRef}
@@ -63,7 +73,11 @@ export function EditFolderModal({
             )}
           </button>
 
+          <label htmlFor="edit-folder-name" className="sr-only">
+            Название папки
+          </label>
           <input
+            id="edit-folder-name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -71,22 +85,19 @@ export function EditFolderModal({
             placeholder="Название папки"
             className="flex-1 text-lg font-semibold px-3 py-2 bg-transparent text-white placeholder:text-gray-500 outline-none border-b border-transparent focus:border-blue-500/50 transition-colors"
           />
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors flex-shrink-0"
-          >
-            <X size={18} />
-          </button>
-        </div>
+        </DialogHeader>
 
         {/* Content */}
         <div className="px-6 py-5">
-          {/* AI Prompt */}
           <div>
-            <label className="text-sm font-medium text-gray-300 mb-2 block">
+            <label
+              htmlFor="edit-folder-prompt"
+              className="text-sm font-medium text-gray-300 mb-2 block"
+            >
               Инструкция для ИИ
             </label>
             <textarea
+              id="edit-folder-prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Опишите, какие файлы и заметки должны попадать в эту папку..."
@@ -100,7 +111,7 @@ export function EditFolderModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-white/10 flex justify-end gap-3">
+        <DialogFooter className="px-6 py-4 border-t border-white/10 flex-row justify-end gap-3 sm:justify-end">
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors text-sm"
@@ -114,24 +125,24 @@ export function EditFolderModal({
           >
             Сохранить
           </button>
-        </div>
-      </div>
+        </DialogFooter>
 
-      {/* Emoji Picker */}
-      <EmojiPicker
-        isOpen={isEmojiPickerOpen}
-        onClose={() => setIsEmojiPickerOpen(false)}
-        onSelect={(e) => {
-          setEmoji(e);
-          setIsEmojiPickerOpen(false);
-        }}
-        onRemove={() => {
-          setEmoji("");
-          setIsEmojiPickerOpen(false);
-        }}
-        hasEmoji={!!emoji}
-        anchorEl={emojiTriggerRef.current}
-      />
-    </div>
+        {/* Emoji Picker */}
+        <EmojiPicker
+          isOpen={isEmojiPickerOpen}
+          onClose={() => setIsEmojiPickerOpen(false)}
+          onSelect={(e) => {
+            setEmoji(e);
+            setIsEmojiPickerOpen(false);
+          }}
+          onRemove={() => {
+            setEmoji("");
+            setIsEmojiPickerOpen(false);
+          }}
+          hasEmoji={!!emoji}
+          anchorEl={emojiTriggerRef.current}
+        />
+      </DialogContent>
+    </Dialog>
   );
 }

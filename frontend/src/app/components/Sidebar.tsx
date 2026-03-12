@@ -1,197 +1,108 @@
 import { useState } from "react";
 import { Settings, Plus } from "lucide-react";
+
 import { FolderItem } from "./FolderItem";
 import { SettingsModal } from "./SettingsModal";
 import { CreateFolderModal } from "./CreateFolderModal";
 import { EditFolderModal } from "./EditFolderModal";
-import type { Folder } from "../App";
+import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
+import type { Folder, DropZone } from "@/features/workspace/model/types";
 
 interface SidebarProps {
   folders: Folder[];
-  setFolders: React.Dispatch<React.SetStateAction<Folder[]>>;
-  onFolderClick: (folder: Folder, path: string[]) => void;
-  onUpdateFolder: (path: string[], updates: Partial<Folder>) => void;
+  onFolderClick: (idPath: string[]) => void;
+  onCreateFolder: (
+    parentId: string | null,
+    name: string,
+    emoji: string,
+    prompt: string,
+  ) => void;
+  onUpdateFolder: (folderId: string, updates: Partial<Folder>) => void;
+  onDeleteFolder: (folderId: string) => void;
+  onMoveFolder: (dragId: string, targetId: string, zone: DropZone) => void;
 }
 
-export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder }: SidebarProps) {
+interface EditFolderState {
+  isOpen: boolean;
+  folder: Folder | null;
+}
+
+interface DeleteFolderState {
+  isOpen: boolean;
+  folderId: string | null;
+}
+
+export function Sidebar({
+  folders,
+  onFolderClick,
+  onCreateFolder,
+  onUpdateFolder,
+  onDeleteFolder,
+  onMoveFolder,
+}: SidebarProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
-  const [createFolderParentPath, setCreateFolderParentPath] = useState<string[] | null>(null);
-  const [editFolderState, setEditFolderState] = useState<{
-    isOpen: boolean;
-    folder: Folder | null;
-    path: string[];
-  }>({ isOpen: false, folder: null, path: [] });
+  const [createFolderParentId, setCreateFolderParentId] = useState<
+    string | null
+  >(null);
+  const [editFolderState, setEditFolderState] = useState<EditFolderState>({
+    isOpen: false,
+    folder: null,
+  });
+  const [deleteState, setDeleteState] = useState<DeleteFolderState>({
+    isOpen: false,
+    folderId: null,
+  });
 
-  const moveFolder = (dragPath: string[], hoverPath: string[], dropZone: "before" | "after" | "inside") => {
-    setFolders((prevFolders) => {
-      const newFolders = JSON.parse(JSON.stringify(prevFolders)) as Folder[];
-
-      // Get the dragged folder
-      const getDraggedFolder = (path: string[]): Folder | null => {
-        if (path.length === 1) {
-          return newFolders[parseInt(path[0])];
-        }
-        let current: Folder[] = newFolders;
-        for (let i = 0; i < path.length - 1; i++) {
-          const idx = parseInt(path[i]);
-          if (!current[idx] || !current[idx].subfolders) return null;
-          current = current[idx].subfolders!;
-        }
-        return current[parseInt(path[path.length - 1])];
-      };
-
-      // Remove folder from old position
-      const removeFolderAtPath = (path: string[]) => {
-        if (path.length === 1) {
-          return newFolders.splice(parseInt(path[0]), 1)[0];
-        }
-        let current: Folder[] = newFolders;
-        for (let i = 0; i < path.length - 1; i++) {
-          const idx = parseInt(path[i]);
-          if (!current[idx].subfolders) return null;
-          current = current[idx].subfolders!;
-        }
-        return current.splice(parseInt(path[path.length - 1]), 1)[0];
-      };
-
-      // Insert folder based on drop zone
-      const insertFolderAtPath = (folder: Folder, targetPath: string[], zone: "before" | "after" | "inside") => {
-        if (zone === "inside") {
-          // Nest: add as first subfolder to target
-          if (targetPath.length === 1) {
-            const targetIdx = parseInt(targetPath[0]);
-            if (!newFolders[targetIdx].subfolders) {
-              newFolders[targetIdx].subfolders = [];
-            }
-            newFolders[targetIdx].subfolders!.unshift(folder);
-          } else {
-            let current: Folder[] = newFolders;
-            for (let i = 0; i < targetPath.length - 1; i++) {
-              const idx = parseInt(targetPath[i]);
-              if (!current[idx].subfolders) return;
-              current = current[idx].subfolders!;
-            }
-            const targetIdx = parseInt(targetPath[targetPath.length - 1]);
-            if (!current[targetIdx].subfolders) {
-              current[targetIdx].subfolders = [];
-            }
-            current[targetIdx].subfolders!.unshift(folder);
-          }
-        } else {
-          // Insert before or after
-          const insertIndex = parseInt(targetPath[targetPath.length - 1]) + (zone === "after" ? 1 : 0);
-          
-          if (targetPath.length === 1) {
-            newFolders.splice(insertIndex, 0, folder);
-          } else {
-            let current: Folder[] = newFolders;
-            for (let i = 0; i < targetPath.length - 1; i++) {
-              const idx = parseInt(targetPath[i]);
-              if (!current[idx].subfolders) {
-                current[idx].subfolders = [];
-              }
-              current = current[idx].subfolders!;
-            }
-            current.splice(insertIndex, 0, folder);
-          }
-        }
-      };
-
-      const draggedFolder = getDraggedFolder(dragPath);
-      if (!draggedFolder) return prevFolders;
-
-      const removed = removeFolderAtPath(dragPath);
-      if (!removed) return prevFolders;
-
-      insertFolderAtPath(removed, hoverPath, dropZone);
-
-      return newFolders;
-    });
+  const handleOpenCreateRoot = () => {
+    setCreateFolderParentId(null);
+    setIsCreateFolderOpen(true);
   };
 
-  const handleCreateFolder = (name: string, emoji: string, prompt: string) => {
-    const newFolder: Folder = {
-      id: Date.now().toString(),
-      name,
-      emoji,
-      prompt,
-    };
-
-    if (createFolderParentPath === null) {
-      // Root level folder
-      setFolders([...folders, newFolder]);
-    } else {
-      // Subfolder
-      setFolders((prevFolders) => {
-        const newFolders = JSON.parse(JSON.stringify(prevFolders)) as Folder[];
-        const path = createFolderParentPath;
-
-        let current: Folder[] = newFolders;
-        for (let i = 0; i < path.length; i++) {
-          const idx = parseInt(path[i]);
-          if (i === path.length - 1) {
-            // Last element - add subfolder here
-            if (!current[idx].subfolders) {
-              current[idx].subfolders = [];
-            }
-            current[idx].subfolders!.push(newFolder);
-          } else {
-            if (!current[idx].subfolders) return prevFolders;
-            current = current[idx].subfolders!;
-          }
-        }
-
-        return newFolders;
-      });
-    }
-
-    setCreateFolderParentPath(null);
-  };
-
-  const handleAddSubfolder = (parentPath: string[]) => {
-    setCreateFolderParentPath(parentPath);
+  const handleAddSubfolder = (parentId: string) => {
+    setCreateFolderParentId(parentId);
     setIsCreateFolderOpen(true);
   };
 
   const handleCreateFolderClose = () => {
     setIsCreateFolderOpen(false);
-    setCreateFolderParentPath(null);
+    setCreateFolderParentId(null);
   };
 
-  const handleEditFolder = (folder: Folder, path: string[]) => {
-    setEditFolderState({ isOpen: true, folder, path });
+  const handleCreateFolder = (
+    name: string,
+    emoji: string,
+    prompt: string,
+  ) => {
+    onCreateFolder(createFolderParentId, name, emoji, prompt);
+    handleCreateFolderClose();
   };
 
-  const handleSaveFolderEdit = (name: string, emoji: string, prompt: string) => {
-    if (!editFolderState.path.length) return;
-    
-    onUpdateFolder(editFolderState.path, { name, emoji, prompt });
-    setEditFolderState({ isOpen: false, folder: null, path: [] });
+  const handleEditFolder = (folder: Folder) => {
+    setEditFolderState({ isOpen: true, folder });
   };
 
-  const handleDeleteFolder = (path: string[]) => {
-    if (!confirm("Вы уверены, что хотите удалить эту папку и все её содержимое?")) return;
+  const handleSaveFolderEdit = (
+    name: string,
+    emoji: string,
+    prompt: string,
+  ) => {
+    if (!editFolderState.folder) return;
+    onUpdateFolder(editFolderState.folder.id, { name, emoji, prompt });
+    setEditFolderState({ isOpen: false, folder: null });
+  };
 
-    setFolders((prevFolders) => {
-      const newFolders = JSON.parse(JSON.stringify(prevFolders)) as Folder[];
+  const handleDeleteFolderRequest = (folderId: string) => {
+    setDeleteState({ isOpen: true, folderId });
+  };
 
-      if (path.length === 1) {
-        // Root level folder
-        newFolders.splice(parseInt(path[0]), 1);
-      } else {
-        // Subfolder
-        let current: Folder[] = newFolders;
-        for (let i = 0; i < path.length - 1; i++) {
-          const idx = parseInt(path[i]);
-          if (!current[idx].subfolders) return prevFolders;
-          current = current[idx].subfolders!;
-        }
-        current.splice(parseInt(path[path.length - 1]), 1);
-      }
+  const handleDeleteFolderConfirm = () => {
+    if (deleteState.folderId) onDeleteFolder(deleteState.folderId);
+    setDeleteState({ isOpen: false, folderId: null });
+  };
 
-      return newFolders;
-    });
+  const handleDeleteFolderCancel = () => {
+    setDeleteState({ isOpen: false, folderId: null });
   };
 
   return (
@@ -199,45 +110,47 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder }: 
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold text-white select-none">ShuKnow</h1>
+          <h1 className="text-xl font-semibold text-white select-none">
+            ShuKnow
+          </h1>
           <button
-            onClick={() => {
-              setCreateFolderParentPath(null);
-              setIsCreateFolderOpen(true);
-            }}
+            onClick={handleOpenCreateRoot}
+            aria-label="Создать папку"
             className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-blue-400 transition-colors"
-            title="Создать папку"
           >
-            <Plus size={16} />
+            <Plus size={16} aria-hidden />
           </button>
         </div>
         <button
           onClick={() => setIsSettingsOpen(true)}
+          aria-label="Настройки"
           className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
-          title="Настройки"
         >
-          <Settings size={18} />
+          <Settings size={18} aria-hidden />
         </button>
       </div>
 
       {/* File System */}
-      <div className="flex-1 overflow-y-auto py-4">
-        {folders.map((folder, index) => (
+      <nav aria-label="Папки" className="flex-1 overflow-y-auto py-4">
+        {folders.map((folder) => (
           <FolderItem
             key={folder.id}
             folder={folder}
-            path={[index.toString()]}
-            moveFolder={moveFolder}
+            idPath={[folder.id]}
+            onMoveFolder={onMoveFolder}
             onFolderClick={onFolderClick}
             onEditFolder={handleEditFolder}
             onAddSubfolder={handleAddSubfolder}
-            onDeleteFolder={handleDeleteFolder}
+            onDeleteFolder={handleDeleteFolderRequest}
           />
         ))}
-      </div>
+      </nav>
 
       {/* Modals */}
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
       <CreateFolderModal
         isOpen={isCreateFolderOpen}
         onClose={handleCreateFolderClose}
@@ -245,12 +158,20 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder }: 
       />
       <EditFolderModal
         isOpen={editFolderState.isOpen}
-        onClose={() => setEditFolderState({ isOpen: false, folder: null, path: [] })}
-        folderName={editFolderState.folder?.name || ""}
-        folderEmoji={editFolderState.folder?.emoji || ""}
-        currentPrompt={editFolderState.folder?.prompt || ""}
+        onClose={() => setEditFolderState({ isOpen: false, folder: null })}
+        folderName={editFolderState.folder?.name ?? ""}
+        folderEmoji={editFolderState.folder?.emoji ?? ""}
+        currentPrompt={editFolderState.folder?.prompt ?? ""}
         onSave={handleSaveFolderEdit}
+      />
+      <DeleteConfirmDialog
+        isOpen={deleteState.isOpen}
+        title="Удалить папку?"
+        description="Это действие нельзя отменить. Папка и всё её содержимое будут удалены."
+        onConfirm={handleDeleteFolderConfirm}
+        onCancel={handleDeleteFolderCancel}
       />
     </div>
   );
 }
+

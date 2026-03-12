@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { ImageIcon } from "lucide-react";
-import type { FileItem } from "../../App";
+import type { FileItem } from "@/features/workspace/model/types";
+
+const CONTENT_SAVE_DEBOUNCE_MS = 800;
 
 interface EditorPaneProps {
   file: FileItem;
@@ -51,7 +53,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       onUpdateContent(file.id, newValue);
-    }, 800);
+    }, CONTENT_SAVE_DEBOUNCE_MS);
   };
 
   const handleBlur = () => {
@@ -94,15 +96,8 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
           placeholder="Начните вводить текст…"
           autoFocus
           spellCheck={false}
-          className="w-full bg-transparent text-gray-200 resize-none outline-none placeholder:text-gray-700 caret-blue-400"
-          style={{
-            fontFamily:
-              "'ui-monospace','SFMono-Regular','Menlo','Monaco','Consolas',monospace",
-            fontSize: "15px",
-            lineHeight: "1.85",
-            letterSpacing: "0.01em",
-            minHeight: "calc(100vh - 160px)",
-          }}
+          className="w-full bg-transparent text-gray-200 resize-none outline-none placeholder:text-gray-700 caret-blue-400 font-mono text-[15px] leading-[1.85] tracking-[0.01em]"
+          style={{ minHeight: "calc(100vh - 160px)" }}
         />
       </div>
     </div>
