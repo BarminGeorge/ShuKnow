@@ -11,9 +11,10 @@ interface SidebarProps {
   setFolders: React.Dispatch<React.SetStateAction<Folder[]>>;
   onFolderClick: (folder: Folder, path: string[]) => void;
   onUpdateFolder: (path: string[], updates: Partial<Folder>) => void;
+  onLogoClick: () => void;
 }
 
-export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder }: SidebarProps) {
+export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, onLogoClick }: SidebarProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
   const [createFolderParentPath, setCreateFolderParentPath] = useState<string[] | null>(null);
@@ -199,7 +200,12 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder }: 
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold text-white select-none">ShuKnow</h1>
+          <h1 
+            className="text-xl font-semibold text-white select-none cursor-pointer hover:text-blue-400 transition-colors"
+            onClick={onLogoClick}
+          >
+            ShuKnow
+          </h1>
           <button
             onClick={() => {
               setCreateFolderParentPath(null);
