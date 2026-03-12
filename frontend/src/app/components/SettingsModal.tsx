@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { X, Eye, EyeOff, ArrowLeft, ChevronDown } from "lucide-react";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -73,17 +73,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <div className="flex flex-col gap-1.5">
                     <span className="text-sm font-medium text-gray-200">{provider} — {modelId}</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-400 font-mono tracking-wider">
-                        {showKey ? (apiKey || "Не задан") : maskKey(apiKey)}
-                      </span>
-                      {apiKey && (
-                        <button onClick={() => setShowKey(!showKey)} className="text-gray-500 hover:text-gray-300 transition-colors">
-                          {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
-                      )}
-                    </div>
+                    <span className="text-sm text-gray-400 font-mono tracking-wider">
+                      {maskKey(apiKey)}
+                    </span>
                   </div>
-                  <button
+                </div>
+                <button
                     onClick={() => setIsEditingKey(true)}
                     className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-gray-300 transition-colors whitespace-nowrap ml-4"
                   >
@@ -96,15 +91,20 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <div className="space-y-5">
               <div>
                 <label className="text-xs text-gray-400 block mb-1">Провайдер</label>
-                <select
-                  value={provider}
-                  onChange={(e) => setProvider(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-blue-500/50"
-                >
-                  <option value="OpenAI">OpenAI</option>
-                  <option value="OpenRouter">OpenRouter</option>
-                  <option value="Gemini">Gemini</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={provider}
+                    onChange={(e) => setProvider(e.target.value)}
+                    className="w-full pl-3 pr-10 py-2 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-blue-500/50 appearance-none"
+                  >
+                    <option value="OpenAI">OpenAI</option>
+                    <option value="OpenRouter">OpenRouter</option>
+                    <option value="Gemini">Gemini</option>
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                    <ChevronDown size={16} />
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="text-xs text-gray-400 block mb-1">ID Модели</label>
@@ -118,13 +118,23 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               </div>
               <div>
                 <label className="text-xs text-gray-400 block mb-1">API Ключ</label>
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Введите ваш API ключ"
-                  className="w-full px-3 py-2 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50"
-                />
+                <div className="relative">
+                  <input
+                    type={showKey ? "text" : "password"}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Введите ваш API ключ"
+                    className="w-full pl-3 pr-10 py-2 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50"
+                  />
+                  {apiKey && (
+                    <button 
+                      onClick={() => setShowKey(!showKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                    >
+                      {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="flex justify-end pt-4">
                 <button
