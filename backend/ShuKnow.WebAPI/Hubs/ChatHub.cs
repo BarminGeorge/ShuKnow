@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Saunter.Attributes;
 using ShuKnow.WebAPI.Dto.Chat;
@@ -34,7 +34,13 @@ public class ChatHub : Hub
 
     #endregion
 
-    #region Server -> Client Event
+    #region Server -> Client Events
+
+    [Channel(nameof(OnValidationFailed))]
+    [SubscribeOperation(typeof(ValidationFailedEvent), Summary = "Validation failed for a client request")]
+    public void OnValidationFailed(ValidationFailedEvent @event)
+    {
+    }
 
     [Channel(nameof(OnProcessingStarted))]
     [SubscribeOperation(typeof(ProcessingStartedEvent), Summary = "AI processing has started")]

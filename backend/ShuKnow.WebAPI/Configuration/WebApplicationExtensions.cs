@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Builder;
 using Saunter;
+using ShuKnow.WebAPI.Hubs;
 namespace ShuKnow.WebAPI.Configuration;
 
 public static class WebApplicationExtensions
@@ -12,6 +13,7 @@ public static class WebApplicationExtensions
         
         app.MapControllers();
         app.MapHealthChecks("/api/health");
+        app.MapHub<ChatHub>("/hubs/chat");
     }
     
     public static void UseWebDevelopment(this WebApplication app)
