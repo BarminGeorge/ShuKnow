@@ -5,31 +5,31 @@ namespace ShuKnow.Application.Interfaces;
 
 public interface IFolderService
 {
-    Task<Result<IReadOnlyList<Folder>>> GetTreeAsync(CancellationToken cancellationToken = default);
+    Task<Result<IReadOnlyList<Folder>>> GetTreeAsync(CancellationToken ct = default);
     
     Task<Result<IReadOnlyList<Folder>>> ListAsync(
         Folder? parentFolder = null, 
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
     
-    Task<Result<Folder>> GetByIdAsync(Guid folderId, CancellationToken cancellationToken = default);
+    Task<Result<Folder>> GetByIdAsync(Guid folderId, CancellationToken ct = default);
     
-    Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Folder folder, CancellationToken cancellationToken = default);
+    Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Folder folder, CancellationToken ct = default);
     
-    Task<Result<Folder>> CreateAsync(Folder folder, CancellationToken cancellationToken = default);
+    Task<Result<Folder>> CreateAsync(Folder folder, CancellationToken ct = default);
     
-    Task<Result<Folder>> UpdateAsync(Folder folder, CancellationToken cancellationToken = default);
+    Task<Result<Folder>> UpdateAsync(Folder folder, CancellationToken ct = default);
     
     Task<Result> DeleteAsync(
         Folder folder, 
         bool recursive, 
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
     
     Task<Result<Folder>> MoveAsync(
         Folder folder, 
         Folder? newParentFolder = null, 
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
     
-    Task<Result> ReorderAsync(IReadOnlyList<Folder> siblingsInOrder, CancellationToken cancellationToken = default);
+    Task<Result> ReorderAsync(IReadOnlyList<Folder> siblingsInOrder, CancellationToken ct = default);
     
-    Task<Result<Folder>> EnsureInboxExistsAsync(CancellationToken cancellationToken = default);
+    Task<Result<Folder>> EnsureInboxExistsAsync(CancellationToken ct = default);
 }

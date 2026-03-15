@@ -8,9 +8,9 @@ public interface IAiService
     IAsyncEnumerable<string> StreamCompletionAsync(
         string prompt,
         UserAiSettings settings,
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
     
     Task<Result<UserAiSettings>> TestConnectionAsync(
         UserAiSettings settings,
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
 }

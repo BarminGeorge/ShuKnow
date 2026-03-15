@@ -1,14 +1,16 @@
 ﻿using System.Text;
-using Saunter;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Saunter;
+using Saunter.AsyncApiSchema.v2;
 using ShuKnow.Application.Common;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.WebAPI.Interfaces;
 using ShuKnow.WebAPI.Services;
+using SecuritySchemeType = Microsoft.OpenApi.SecuritySchemeType;
 
 namespace ShuKnow.WebAPI.Configuration;
 
@@ -25,9 +27,9 @@ public static class ServiceCollectionExtensions
         services.AddAsyncApiSchemaGeneration(options =>
         {
             options.AssemblyMarkerTypes = new[] { typeof(ServiceCollectionExtensions) };
-            options.AsyncApi = new Saunter.AsyncApiSchema.v2.AsyncApiDocument
+            options.AsyncApi = new AsyncApiDocument
             {
-                Info = new Saunter.AsyncApiSchema.v2.Info("ShuKnow AsyncAPI", "1.0.0")
+                Info = new Info("ShuKnow AsyncAPI", "1.0.0")
             };
         });
 
@@ -35,6 +37,7 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IAuthCookieService, AuthCookieService>();
+        services.AddScoped<IChatNotificationService, ChatNotificationService>();
     }
 
     private static void AddAuth(this IServiceCollection services, IConfiguration configuration)

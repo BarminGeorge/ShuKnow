@@ -8,49 +8,49 @@ public interface IChatNotificationService
     Task SendProcessingStartedAsync(
         string connectionId,
         UserAction action,
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
     
     Task SendMessageChunkAsync(
         string connectionId,
         ChatMessage message,
         string chunk,
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
     
     Task SendMessageCompletedAsync(
         string connectionId,
         ChatMessage message,
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
     
     Task SendClassificationResultAsync(
         string connectionId,
         IReadOnlyCollection<ActionItem> decisions,
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
     
     Task SendFileCreatedAsync(
         string connectionId,
         File file,
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
     
     Task SendFileMovedAsync(
         string connectionId,
         ActionItemFileMoved movedFile,
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
     
-    Task SendFolderCreatedAsync(string connectionId, Folder folder, CancellationToken cancellationToken = default);
+    Task SendFolderCreatedAsync(string connectionId, Folder folder, CancellationToken ct = default);
     
     Task SendProcessingCompletedAsync(
         string connectionId,
         UserAction action,
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
     
     Task SendProcessingFailedAsync(
         string connectionId,
         UserAction action,
         string error,
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
     
     Task SendProcessingCancelledAsync(
         string connectionId,
         ChatMessage cancellationRecord,
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
 }

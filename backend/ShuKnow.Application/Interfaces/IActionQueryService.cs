@@ -8,9 +8,9 @@ public interface IActionQueryService
     Task<Result<(IReadOnlyList<UserAction> Actions, int TotalCount)>> ListAsync(
         int page,
         int pageSize,
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
     
     Task<Result<(UserAction Action, IReadOnlyList<ActionItem> Items)>> GetByIdAsync(
         Guid actionId,
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
 }

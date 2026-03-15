@@ -9,5 +9,5 @@ public interface IAiOrchestrationService
         ChatMessage userMessage,
         IReadOnlyCollection<ChatAttachment>? attachments,
         string callerConnectionId,
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
 }

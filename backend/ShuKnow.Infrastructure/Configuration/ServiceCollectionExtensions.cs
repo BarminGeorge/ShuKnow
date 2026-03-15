@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ShuKnow.Application.Interfaces;
@@ -21,13 +21,32 @@ public static class ServiceCollectionExtensions
                 .UseNpgsql(connectionString)
                 .UseSnakeCaseNamingConvention();
         });
-        
+
+        services.AddServices();
+        services.AddRepositories();
+    }
+
+    private static void AddServices(this IServiceCollection services)
+    {
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
-        
+        services.AddScoped<IAiService, AiService>();
+        services.AddScoped<IBlobStorageService, BlobStorageService>();
+        services.AddScoped<IEncryptionService, EncryptionService>();
+    }
+
+    private static void AddRepositories(this IServiceCollection services)
+    {
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IIdentityUserRepository, IdentityUserRepository>();
+        services.AddScoped<IFolderRepository, FolderRepository>();
+        services.AddScoped<IFileRepository, FileRepository>();
+        services.AddScoped<IChatSessionRepository, ChatSessionRepository>();
+        services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
+        services.AddScoped<IActionRepository, ActionRepository>();
+        services.AddScoped<IAttachmentRepository, AttachmentRepository>();
+        services.AddScoped<ISettingsRepository, SettingsRepository>();
     }
 }
