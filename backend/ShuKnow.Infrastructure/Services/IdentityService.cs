@@ -23,8 +23,8 @@ internal class IdentityService(
         var identityUser = new IdentityUser(login, passwordHash);
         var user = identityUser.ToUser();
 
-        users.Add(user);
-        identityUsers.Add(identityUser);
+        await users.AddAsync(user);
+        await identityUsers.AddAsync(identityUser);
 
         return await unitOfWork.SaveChangesAsync()
             .MapAsync(() => jwtService.GenerateToken(user.Id));

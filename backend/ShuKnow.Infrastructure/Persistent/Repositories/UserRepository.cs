@@ -7,17 +7,18 @@ namespace ShuKnow.Infrastructure.Persistent.Repositories;
 
 public class UserRepository(AppDbContext context) : IUserRepository
 {
-    public async Task<Result<User>> GetByIdAsync(Guid id)
+    public async Task<Result<User>> GetByIdAsync(Guid userId)
     {
         var user = await context.Users
             .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == id);
+            .FirstOrDefaultAsync(u => u.Id == userId);
 
         return user is null ? Result.NotFound() : Result.Success(user);
     }
 
-    public void Add(User user)
+    public Task AddAsync(User user)
     {
         context.Users.Add(user);
+        return Task.CompletedTask;
     }
 }
