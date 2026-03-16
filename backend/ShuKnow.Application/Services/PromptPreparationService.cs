@@ -8,12 +8,12 @@ namespace ShuKnow.Application.Services;
 internal class PromptPreparationService(
     IFolderService folderService,
     IAttachmentService attachmentService,
-    IPromptBuilder promptBuilder)
+    IPromptBuilder promptBuilder) 
     : IPromptPreparationService
 {
     public Task<Result<PreparedPrompt>> PrepareAsync(
         ChatMessage userMessage,
-        IReadOnlyCollection<ChatAttachment>? attachments,
+        IReadOnlyCollection<Guid>? attachmentIds,
         ChatSession? contextSession = null,
         CancellationToken ct = default)
     {

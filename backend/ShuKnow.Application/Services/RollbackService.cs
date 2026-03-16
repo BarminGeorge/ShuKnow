@@ -10,10 +10,10 @@ internal class RollbackService(
     IActionTrackingService actionTrackingService,
     IFileService fileService,
     IFolderService folderService,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService) 
     : IRollbackService
 {
-    public Task<Result<UserAction>> RollbackAsync(UserAction action, CancellationToken ct = default)
+    public Task<Result<UserAction>> RollbackAsync(Guid actionId, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }

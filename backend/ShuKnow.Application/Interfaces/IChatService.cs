@@ -7,27 +7,26 @@ public interface IChatService
 {
     Task<Result<ChatSession>> GetOrCreateActiveSessionAsync(CancellationToken ct = default);
     
-    Task<Result> DeleteSessionAsync(ChatSession session, CancellationToken ct = default);
+    Task<Result> DeleteSessionAsync(CancellationToken ct = default);
     
     Task<Result<(IReadOnlyList<ChatMessage> Messages, string? NextCursor)>> GetMessagesAsync(
-        ChatSession session,
         string? cursor,
         int limit,
         CancellationToken ct = default);
     
     Task<Result<ChatMessage>> PersistUserMessageAsync(
-        ChatSession session,
+        Guid sessionId,
         ChatMessage message,
-        IReadOnlyCollection<ChatAttachment>? attachments = null,
+        IReadOnlyCollection<Guid>? attachmentIds = null,
         CancellationToken ct = default);
     
     Task<Result<ChatMessage>> PersistAiMessageAsync(
-        ChatSession session,
+        Guid sessionId,
         ChatMessage message,
         CancellationToken ct = default);
     
     Task<Result<ChatMessage>> PersistCancellationRecordAsync(
-        ChatSession session,
+        Guid sessionId,
         ChatMessage message,
         CancellationToken ct = default);
 }

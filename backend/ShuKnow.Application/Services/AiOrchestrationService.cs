@@ -1,6 +1,5 @@
 using Ardalis.Result;
 using ShuKnow.Application.Interfaces;
-using ShuKnow.Domain.Entities;
 
 namespace ShuKnow.Application.Services;
 
@@ -14,12 +13,13 @@ internal class AiOrchestrationService(
     IActionTrackingService actionTrackingService,
     IClassificationParser classificationParser,
     IChatNotificationService chatNotificationService,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService) 
     : IAiOrchestrationService
 {
-    public Task<Result<UserAction>> ProcessMessageAsync(
-        ChatMessage userMessage, 
-        IReadOnlyCollection<ChatAttachment>? attachments, 
+    public Task<Result> ProcessMessageAsync(
+        string content,
+        string? context,
+        IReadOnlyCollection<Guid>? attachmentIds,
         string callerConnectionId,
         CancellationToken ct = default)
     {

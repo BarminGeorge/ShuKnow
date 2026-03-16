@@ -29,13 +29,13 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Method | Description |
 |---|---|
-| `GetTreeAsync()` → `List<FolderTreeNode>` | Returns the full recursive tree for the current user, including file counts per node. Used for sidebar rendering. |
+| `GetTreeAsync()` → `List<Folder>` | Returns the full folder hierarchy for the current user. Tree shaping for UI is done at the WebAPI mapping layer. |
 | `GetFolderTreeForPromptAsync()` → `List<FolderSummary>` | Returns lightweight projections (id, name, description, parent) suitable for AI prompt construction. Avoids loading full entities. Used by `IPromptPreparationService`. |
 | `ListAsync(parentId?)` → `List<Folder>` | Flat list of folders at a given level (root when `parentId` is null). Lightweight alternative to the full tree. |
 | `GetByIdAsync(folderId)` → `Folder` | Single folder with metadata and a `path` breadcrumb array from root to this node. |
 | `GetChildrenAsync(folderId)` → `List<Folder>` | Direct child folders. Supports lazy-loading of expanded tree nodes. |
-| `CreateAsync(request)` → `Folder` | Creates a folder. Validates name uniqueness among siblings. Triggers `EnsureInboxExistsAsync` if this is the user's first folder. |
-| `UpdateAsync(folderId, request)` → `Folder` | Renames and/or updates description. Validates name uniqueness among siblings. |
+| `CreateAsync(folder)` → `Folder` | Creates a folder entity. Validates name uniqueness among siblings. Triggers `EnsureInboxExistsAsync` if this is the user's first folder. |
+| `UpdateAsync(folderId, folder)` → `Folder` | Updates folder mutable metadata (name/description). Validates name uniqueness among siblings. |
 | `DeleteAsync(folderId, recursive)` | Deletes a folder. If `recursive=false` and the folder has children or files, rejects with 409. The Inbox folder is never deletable. |
 | `MoveAsync(folderId, newParentId?)` → `Folder` | Moves a folder to a new parent (or root). Validates no cycle is created (a folder cannot become its own descendant) and name uniqueness in the target scope. |
 | `ReorderAsync(folderId, position)` | Sets the `SortOrder` of the folder to the given 0-based position and re-indexes all siblings. |
@@ -61,8 +61,8 @@ These are the primary units of business logic. Each service is defined as an int
 |---|---|
 | `GetByIdAsync(fileId)` → `File` | File metadata including owning folder name. |
 | `ListByFolderAsync(folderId, page, pageSize)` → `(List<File> Files, int TotalCount)` | Offset-paginated file listing within a folder. |
-| `UploadAsync(folderId, stream, fileName, contentType, description?)` → `File` | Stores the binary via `IBlobStorageService`, creates a `FileEntity` record. Validates name uniqueness and size limit. |
-| `UpdateMetadataAsync(fileId, request)` → `File` | Updates name/description. Validates name uniqueness within the file's current folder. |
+| `UploadAsync(folderId, file, stream)` → `File` | Stores the binary via `IBlobStorageService`, then persists the provided file metadata entity. Validates name uniqueness and size limit. |
+| `UpdateMetadataAsync(fileId, file)` → `File` | Updates mutable file metadata (name/description). Validates name uniqueness within the file's current folder. |
 | `DeleteAsync(fileId)` | Deletes the metadata record and the binary blob. |
 | `GetContentAsync(fileId, rangeStart?, rangeEnd?)` → `(Stream Content, string ContentType, long SizeBytes)` | Streams the binary content. Returns content type and supports HTTP Range for partial downloads. |
 | `ReplaceContentAsync(fileId, stream, contentType)` → `File` | Replaces the binary blob in place. Metadata (name, description) unchanged; `sizeBytes` and `contentType` updated. |
@@ -91,9 +91,9 @@ These are the primary units of business logic. Each service is defined as an int
 | `GetOrCreateActiveSessionAsync()` → `ChatSession` | Returns the user's active session. Creates one if none exists. Idempotent. |
 | `DeleteSessionAsync()` | Closes/deletes the active session and its messages. The next `GetOrCreate` call starts fresh. |
 | `GetMessagesAsync(cursor?, limit)` → `(List<ChatMessage> Messages, string? NextCursor)` | Cursor-paginated message history, newest first. The cursor is opaque (encodes `CreatedAt` + `Id` for keyset pagination). |
-| `PersistUserMessageAsync(sessionId, content, attachments?)` → `ChatMessage` | Saves the user's message and links any staged attachments. Returns the persisted entity with a server-assigned ID and timestamp. |
-| `PersistAiMessageAsync(sessionId, content)` → `ChatMessage` | Saves the final AI response text. Called by the orchestration service after streaming completes. |
-| `PersistCancellationRecordAsync(sessionId)` → `ChatMessage` | Saves a system message indicating the AI response was cancelled. Preserves timeline integrity. |
+| `PersistUserMessageAsync(sessionId, message, attachmentIds?)` → `ChatMessage` | Saves the user's message entity and links any staged attachments by ID. Returns the persisted entity with a server-assigned ID and timestamp. |
+| `PersistAiMessageAsync(sessionId, message)` → `ChatMessage` | Saves the final AI response message. Called by the orchestration service after streaming completes. |
+| `PersistCancellationRecordAsync(sessionId, message)` → `ChatMessage` | Saves a system message indicating the AI response was cancelled. Preserves timeline integrity. |
 
 **Dependencies**
 
@@ -113,7 +113,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Method | Description |
 |---|---|
-| `UploadAsync(files)` → `List<ChatAttachment>` | Accepts one or more files, stores binaries via `IBlobStorageService`, creates `ChatAttachment` records with metadata. Returns IDs for later reference. |
+| `UploadAsync(attachments, contents)` → `List<ChatAttachment>` | Persists pre-built attachment metadata with matching content streams. WebAPI maps multipart uploads into this contract. Returns IDs for later reference. |
 | `GetByIdsAsync(attachmentIds)` → `List<ChatAttachment>` | Retrieves attachment entities with their storage keys. Used by the orchestration service to build the AI prompt. Validates all IDs belong to the current user and are not yet consumed. |
 | `MarkConsumedAsync(attachmentIds)` | Marks attachments as consumed so they are no longer eligible for reuse or purging. Called after successful association with a chat message. |
 | `PurgeExpiredAsync()` | Deletes attachments older than 1 hour that were never consumed. Intended to be called by a background job or hosted service. |
@@ -136,9 +136,9 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Method | Description |
 |---|---|
-| `GetAsync()` → `AiSettings?` | Returns current config. |
-| `UpdateAsync(request)` → `AiSettings` | Saves/overwrites base URL and API key. Encrypts the API key before persistence. |
-| `TestConnectionAsync()` → `AiConnectionTest` | Decrypts the stored API key, sends a minimal probe request to the configured LLM endpoint, and returns `success`, `latencyMs`, and `errorMessage`. Returns 422 if settings are not yet configured. |
+| `GetAsync()` → `UserAiSettings?` | Returns current config. |
+| `UpdateAsync(settings)` → `UserAiSettings` | Saves/overwrites base URL and API key. Encrypts the API key before persistence. |
+| `TestConnectionAsync()` → `(bool Success, int? LatencyMs, string? ErrorMessage)` | Decrypts the stored API key, sends a minimal probe request to the configured LLM endpoint, and returns test outcome fields. Returns validation failure if settings are not yet configured. |
 
 **Dependencies**
 
@@ -159,7 +159,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Method | Description |
 |---|---|
-| `ProcessMessageAsync(content, context?, attachmentIds?, callerConnectionId, cancellationToken)` | Executes the full classification pipeline (described below). Void return — all output is emitted as events through `IChatNotificationService`. The `CancellationToken` is monitored at every async boundary so that `CancelProcessing` can interrupt the flow cleanly. |
+| `ProcessMessageAsync(content, context?, attachmentIds?, callerConnectionId, cancellationToken)` | Executes the full classification pipeline (described below). Returns operation status (`Result`) while all user-facing output is emitted as events through `IChatNotificationService`. The `CancellationToken` is monitored at every async boundary so that `CancelProcessing` can interrupt the flow cleanly. |
 
 **Internal pipeline (single method, multiple stages):**
 
@@ -185,7 +185,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 **Cancellation handling:** When the token is cancelled, the service aborts the LLM HTTP request, discards any partial result state, persists a cancellation record in the chat session, and emits `OnProcessingCancelled`.
 
-**Dependencies (8 total)**
+**Dependencies (10 total)**
 
 | Dependency | Why |
 |---|---|
@@ -230,8 +230,8 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Method | Description |
 |---|---|
-| `RollbackAsync(actionId)` → `RollbackResult` | Loads the action, validates it is eligible for rollback (not already rolled back, files not modified since), reverses each item in reverse order, marks the action as rolled back, and returns results. |
-| `RollbackLastAsync()` → `RollbackResult` | Finds the most recent action that is eligible for rollback and delegates to `RollbackAsync`. Returns 404 if none found. |
+| `RollbackAsync(actionId)` → `UserAction` | Loads the action, validates it is eligible for rollback (not already rolled back, files not modified since), reverses each item in reverse order, marks the action as rolled back, and returns the updated action aggregate. |
+| `RollbackLastAsync()` → `UserAction` | Finds the most recent action that is eligible for rollback and delegates to `RollbackAsync`. Returns 404 if none found. |
 
 **Dependencies**
 
@@ -253,7 +253,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Method | Description |
 |---|---|
-| `PrepareAsync(userMessage, attachments?, contextSession?)` → `PreparedPrompt` | Loads the folder tree, resolves attachments, assembles the full LLM prompt, and returns a `PreparedPrompt` containing the prompt text and a list of consumed attachment IDs. |
+| `PrepareAsync(userMessage, attachmentIds?, contextSession?)` → `PreparedPrompt` | Loads the folder tree, resolves attachments by ID, assembles the full LLM prompt, and returns a `PreparedPrompt` containing the prompt text and a list of consumed attachment IDs. |
 
 **Dependencies**
 
@@ -308,7 +308,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Method | Description |
 |---|---|
-| `Parse(llmResponseText)` → `List<ClassificationDecision>` | Extracts classification decisions from the response |
+| `Parse(llmResponseText)` → `List<ActionItem>` | Extracts structured action items from the response text. |
 
 ---
 

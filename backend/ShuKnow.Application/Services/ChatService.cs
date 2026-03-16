@@ -16,34 +16,34 @@ internal class ChatService(
         throw new NotImplementedException();
     }
 
-    public Task<Result> DeleteSessionAsync(ChatSession session, CancellationToken ct = default)
+    public Task<Result> DeleteSessionAsync(CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
     public Task<Result<(IReadOnlyList<ChatMessage> Messages, string? NextCursor)>> GetMessagesAsync(
-        ChatSession session, string? cursor, int limit, CancellationToken ct = default)
+        string? cursor, int limit, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
     public Task<Result<ChatMessage>> PersistUserMessageAsync(
-        ChatSession session,
+        Guid sessionId,
         ChatMessage message,
-        IReadOnlyCollection<ChatAttachment>? attachments = null,
+        IReadOnlyCollection<Guid>? attachmentIds = null,
         CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
     public Task<Result<ChatMessage>> PersistAiMessageAsync(
-        ChatSession session, ChatMessage message, CancellationToken ct = default)
+        Guid sessionId, ChatMessage message, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
     public Task<Result<ChatMessage>> PersistCancellationRecordAsync(
-        ChatSession session, ChatMessage message, CancellationToken ct = default)
+        Guid sessionId, ChatMessage message, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }

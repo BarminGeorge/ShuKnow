@@ -5,5 +5,5 @@ namespace ShuKnow.Application.Interfaces;
 
 public interface IClassificationParser
 {
-    Result<IReadOnlyList<ActionItem>> Parse(ChatMessage aiResponseMessage);
+    Result<IReadOnlyList<ActionItem>> Parse(string llmResponseText);
 }

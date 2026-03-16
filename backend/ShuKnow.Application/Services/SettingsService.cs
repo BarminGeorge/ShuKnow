@@ -22,7 +22,8 @@ internal class SettingsService(
         throw new NotImplementedException();
     }
 
-    public Task<Result<UserAiSettings>> TestConnectionAsync(UserAiSettings settings, CancellationToken ct = default)
+    public Task<Result<(bool Success, int? LatencyMs, string? ErrorMessage)>> TestConnectionAsync(
+        CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }

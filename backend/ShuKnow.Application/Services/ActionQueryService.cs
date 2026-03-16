@@ -5,7 +5,9 @@ using ShuKnow.Domain.Repositories;
 
 namespace ShuKnow.Application.Services;
 
-internal class ActionQueryService(IActionRepository actionRepository, ICurrentUserService currentUser) 
+internal class ActionQueryService(
+    IActionRepository actionRepository,
+    ICurrentUserService currentUser) 
     : IActionQueryService
 {
     public Task<Result<(IReadOnlyList<UserAction> Actions, int TotalCount)>> ListAsync(

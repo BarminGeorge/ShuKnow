@@ -9,5 +9,6 @@ public interface ISettingsService
     
     Task<Result<UserAiSettings>> UpdateAsync(UserAiSettings settings, CancellationToken ct = default);
     
-    Task<Result<UserAiSettings>> TestConnectionAsync(UserAiSettings settings, CancellationToken ct = default);
+    Task<Result<(bool Success, int? LatencyMs, string? ErrorMessage)>> TestConnectionAsync(
+        CancellationToken ct = default);
 }

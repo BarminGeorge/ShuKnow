@@ -8,7 +8,7 @@ internal class PromptBuilder : IPromptBuilder
     public string BuildClassificationPrompt(
         IReadOnlyCollection<Folder> folderTree,
         ChatMessage userMessage,
-        IReadOnlyCollection<ChatAttachment> attachments,
+        IReadOnlyCollection<string> attachmentDescriptions,
         ChatSession? contextSession = null)
     {
         throw new NotImplementedException();

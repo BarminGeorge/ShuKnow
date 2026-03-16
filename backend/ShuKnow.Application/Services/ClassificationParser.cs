@@ -6,7 +6,7 @@ namespace ShuKnow.Application.Services;
 
 internal class ClassificationParser : IClassificationParser
 {
-    public Result<IReadOnlyList<ActionItem>> Parse(ChatMessage aiResponseMessage)
+    public Result<IReadOnlyList<ActionItem>> Parse(string llmResponseText)
     {
         throw new NotImplementedException();
     }

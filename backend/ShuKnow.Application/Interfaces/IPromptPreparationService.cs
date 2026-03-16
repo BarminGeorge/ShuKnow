@@ -8,7 +8,7 @@ public interface IPromptPreparationService
 {
     Task<Result<PreparedPrompt>> PrepareAsync(
         ChatMessage userMessage,
-        IReadOnlyCollection<ChatAttachment>? attachments,
+        IReadOnlyCollection<Guid>? attachmentIds,
         ChatSession? contextSession = null,
         CancellationToken ct = default);
 }

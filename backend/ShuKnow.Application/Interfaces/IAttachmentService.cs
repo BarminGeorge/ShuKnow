@@ -15,7 +15,7 @@ public interface IAttachmentService
         CancellationToken ct = default);
     
     Task<Result> MarkConsumedAsync(
-        IReadOnlyCollection<ChatAttachment> attachments,
+        IReadOnlyCollection<Guid> attachmentIds,
         CancellationToken ct = default);
     
     Task<Result<IReadOnlyList<ChatAttachment>>> PurgeExpiredAsync(CancellationToken ct = default);

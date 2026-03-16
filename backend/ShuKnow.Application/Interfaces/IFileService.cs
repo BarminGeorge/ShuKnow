@@ -1,5 +1,4 @@
 using Ardalis.Result;
-using ShuKnow.Domain.Entities;
 using File = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.Application.Interfaces;
@@ -9,36 +8,37 @@ public interface IFileService
     Task<Result<File>> GetByIdAsync(Guid fileId, CancellationToken ct = default);
 
     Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
-        Folder folder,
+        Guid folderId,
         int page,
         int pageSize,
         CancellationToken ct = default);
 
     Task<Result<File>> UploadAsync(
-        Folder folder,
+        Guid folderId,
         File file,
         Stream content,
         CancellationToken ct = default);
 
-    Task<Result<File>> UpdateMetadataAsync(File file, CancellationToken ct = default);
+    Task<Result<File>> UpdateMetadataAsync(Guid fileId, File file, CancellationToken ct = default);
 
-    Task<Result> DeleteAsync(File file, CancellationToken ct = default);
+    Task<Result> DeleteAsync(Guid fileId, CancellationToken ct = default);
 
     Task<Result<(Stream Content, string ContentType, long SizeBytes)>> GetContentAsync(
-        File file,
+        Guid fileId,
         long? rangeStart = null,
         long? rangeEnd = null,
         CancellationToken ct = default);
 
     Task<Result<File>> ReplaceContentAsync(
-        File file,
+        Guid fileId,
         Stream content,
+        string contentType,
         CancellationToken ct = default);
 
     Task<Result<File>> MoveAsync(
-        File file,
-        Folder targetFolder,
+        Guid fileId,
+        Guid targetFolderId,
         CancellationToken ct = default);
 
-    Task<Result> DeleteByFolderAsync(Folder folder, CancellationToken ct = default);
+    Task<Result> DeleteByFolderAsync(Guid folderId, CancellationToken ct = default);
 }

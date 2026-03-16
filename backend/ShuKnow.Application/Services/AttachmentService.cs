@@ -26,7 +26,7 @@ internal class AttachmentService(
     }
 
     public Task<Result> MarkConsumedAsync(
-        IReadOnlyCollection<ChatAttachment> attachments, CancellationToken ct = default)
+        IReadOnlyCollection<Guid> attachmentIds, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }

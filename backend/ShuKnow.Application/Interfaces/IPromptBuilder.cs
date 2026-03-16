@@ -7,6 +7,6 @@ public interface IPromptBuilder
     string BuildClassificationPrompt(
         IReadOnlyCollection<Folder> folderTree,
         ChatMessage userMessage,
-        IReadOnlyCollection<ChatAttachment> attachments,
+        IReadOnlyCollection<string> attachmentDescriptions,
         ChatSession? contextSession = null);
 }

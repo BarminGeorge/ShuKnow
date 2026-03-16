@@ -9,7 +9,7 @@ namespace ShuKnow.Application.Services;
 internal class FolderService(
     IFolderRepository folderRepository,
     IFileRepository fileRepository,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService) 
     : IFolderService
 {
     public Task<Result<IReadOnlyList<Folder>>> GetTreeAsync(CancellationToken ct = default)
@@ -22,7 +22,7 @@ internal class FolderService(
         throw new NotImplementedException();
     }
 
-    public Task<Result<IReadOnlyList<Folder>>> ListAsync(Folder? parentFolder = null, CancellationToken ct = default)
+    public Task<Result<IReadOnlyList<Folder>>> ListAsync(Guid? parentFolderId = null, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
@@ -32,7 +32,7 @@ internal class FolderService(
         throw new NotImplementedException();
     }
 
-    public Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Folder folder, CancellationToken ct = default)
+    public Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid folderId, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
@@ -42,22 +42,22 @@ internal class FolderService(
         throw new NotImplementedException();
     }
 
-    public Task<Result<Folder>> UpdateAsync(Folder folder, CancellationToken ct = default)
+    public Task<Result<Folder>> UpdateAsync(Guid folderId, Folder folder, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Result> DeleteAsync(Folder folder, bool recursive, CancellationToken ct = default)
+    public Task<Result> DeleteAsync(Guid folderId, bool recursive, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Result<Folder>> MoveAsync(Folder folder, Folder? newParentFolder = null, CancellationToken ct = default)
+    public Task<Result<Folder>> MoveAsync(Guid folderId, Guid? newParentFolderId = null, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Result> ReorderAsync(IReadOnlyList<Folder> siblingsInOrder, CancellationToken ct = default)
+    public Task<Result> ReorderAsync(Guid folderId, int position, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }

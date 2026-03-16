@@ -1,6 +1,5 @@
 using Ardalis.Result;
 using ShuKnow.Application.Interfaces;
-using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Repositories;
 using File = ShuKnow.Domain.Entities.File;
 
@@ -19,43 +18,44 @@ internal class FileService(
     }
 
     public Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
-        Folder folder, int page, int pageSize, CancellationToken ct = default)
+        Guid folderId, int page, int pageSize, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Result<File>> UploadAsync(Folder folder, File file, Stream content, CancellationToken ct = default)
+    public Task<Result<File>> UploadAsync(Guid folderId, File file, Stream content, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Result<File>> UpdateMetadataAsync(File file, CancellationToken ct = default)
+    public Task<Result<File>> UpdateMetadataAsync(Guid fileId, File file, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Result> DeleteAsync(File file, CancellationToken ct = default)
+    public Task<Result> DeleteAsync(Guid fileId, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
     public Task<Result<(Stream Content, string ContentType, long SizeBytes)>> GetContentAsync(
-        File file, long? rangeStart = null, long? rangeEnd = null, CancellationToken ct = default)
+        Guid fileId, long? rangeStart = null, long? rangeEnd = null, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Result<File>> ReplaceContentAsync(File file, Stream content, CancellationToken ct = default)
+    public Task<Result<File>> ReplaceContentAsync(
+        Guid fileId, Stream content, string contentType, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Result<File>> MoveAsync(File file, Folder targetFolder, CancellationToken ct = default)
+    public Task<Result<File>> MoveAsync(Guid fileId, Guid targetFolderId, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Result> DeleteByFolderAsync(Folder folder, CancellationToken ct = default)
+    public Task<Result> DeleteByFolderAsync(Guid folderId, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }

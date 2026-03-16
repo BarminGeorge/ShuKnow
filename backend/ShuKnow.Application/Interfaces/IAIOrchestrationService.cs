@@ -1,13 +1,13 @@
 using Ardalis.Result;
-using ShuKnow.Domain.Entities;
 
 namespace ShuKnow.Application.Interfaces;
 
 public interface IAiOrchestrationService
 {
-    Task<Result<UserAction>> ProcessMessageAsync(
-        ChatMessage userMessage,
-        IReadOnlyCollection<ChatAttachment>? attachments,
+    Task<Result> ProcessMessageAsync(
+        string content,
+        string? context,
+        IReadOnlyCollection<Guid>? attachmentIds,
         string callerConnectionId,
         CancellationToken ct = default);
 }

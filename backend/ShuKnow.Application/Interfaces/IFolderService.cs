@@ -11,28 +11,28 @@ public interface IFolderService
     Task<Result<IReadOnlyList<FolderSummary>>> GetFolderTreeForPromptAsync(CancellationToken ct = default);
     
     Task<Result<IReadOnlyList<Folder>>> ListAsync(
-        Folder? parentFolder = null, 
+        Guid? parentFolderId = null,
         CancellationToken ct = default);
     
     Task<Result<Folder>> GetByIdAsync(Guid folderId, CancellationToken ct = default);
     
-    Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Folder folder, CancellationToken ct = default);
+    Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid folderId, CancellationToken ct = default);
     
     Task<Result<Folder>> CreateAsync(Folder folder, CancellationToken ct = default);
     
-    Task<Result<Folder>> UpdateAsync(Folder folder, CancellationToken ct = default);
+    Task<Result<Folder>> UpdateAsync(Guid folderId, Folder folder, CancellationToken ct = default);
     
     Task<Result> DeleteAsync(
-        Folder folder, 
+        Guid folderId,
         bool recursive, 
         CancellationToken ct = default);
     
     Task<Result<Folder>> MoveAsync(
-        Folder folder, 
-        Folder? newParentFolder = null, 
+        Guid folderId,
+        Guid? newParentFolderId = null,
         CancellationToken ct = default);
     
-    Task<Result> ReorderAsync(IReadOnlyList<Folder> siblingsInOrder, CancellationToken ct = default);
+    Task<Result> ReorderAsync(Guid folderId, int position, CancellationToken ct = default);
     
     Task<Result<Folder>> EnsureInboxExistsAsync(CancellationToken ct = default);
 }
