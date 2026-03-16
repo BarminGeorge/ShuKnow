@@ -1,4 +1,5 @@
 using Ardalis.Result;
+using ShuKnow.Application.Models;
 using ShuKnow.Domain.Entities;
 
 namespace ShuKnow.Application.Interfaces;
@@ -6,6 +7,8 @@ namespace ShuKnow.Application.Interfaces;
 public interface IFolderService
 {
     Task<Result<IReadOnlyList<Folder>>> GetTreeAsync(CancellationToken ct = default);
+
+    Task<Result<IReadOnlyList<FolderSummary>>> GetFolderTreeForPromptAsync(CancellationToken ct = default);
     
     Task<Result<IReadOnlyList<Folder>>> ListAsync(
         Folder? parentFolder = null, 

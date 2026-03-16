@@ -30,6 +30,7 @@
 | Метод | Описание |
 |---|---|
 | `GetTreeAsync()` → `List<FolderTreeNode>` | Возвращает полное рекурсивное дерево текущего пользователя, включая количество файлов в каждом узле. Используется для рендера боковой панели. |
+| `GetFolderTreeForPromptAsync()` → `List<FolderSummary>` | Возвращает лёгкие проекции (id, name, description, parent), пригодные для построения AI-промпта. Не загружает полные сущности. Используется `IPromptPreparationService`. |
 | `ListAsync(parentId?)` → `List<Folder>` | Плоский список папок на указанном уровне (`root`, если `parentId` равен `null`). Облегчённая альтернатива полному дереву. |
 | `GetByIdAsync(folderId)` → `Folder` | Возвращает одну папку с метаданными и массивом `path` с breadcrumb от корня до текущего узла. |
 | `GetChildrenAsync(folderId)` → `List<Folder>` | Возвращает прямые дочерние папки. Поддерживает ленивую загрузку раскрытых узлов дерева. |
@@ -166,17 +167,17 @@
 2. **Сохранение пользовательского сообщения.** Сохраняет пользовательское сообщение и привязывает вложения через `IChatService`.
 3. **Отправка `OnProcessingStarted`.** Генерирует `operationId` (GUID), который связывает все последующие события этого запуска.
 4. **Получение настроек.** Загружает и расшифровывает AI-конфигурацию пользователя через `ISettingsService`. Если она не настроена, завершается ошибкой `LLM_CONNECTION_FAILED`.
-5. **Построение prompt.** Делегирует это в `IPromptBuilder`:
-   - Загружает дерево папок пользователя (через `IFolderRepository`), чтобы AI видел существующие категории.
-   - Загружает содержимое вложений (через `IAttachmentService`), чтобы предоставить материал для классификации.
-   - Объединяет всё это с текстом сообщения пользователя и необязательной подсказкой `context`.
+5. **Построение prompt.** Делегирует в `IPromptPreparationService.PrepareAsync()`, который внутри:
+   - Загружает дерево папок пользователя (через `IFolderService.GetFolderTreeForPromptAsync()`), чтобы AI видел существующие категории.
+   - Разрешает содержимое вложений (через `IAttachmentService`), чтобы предоставить материал для классификации.
+   - Собирает финальный текст промпта (через `IPromptBuilder`).
 6. **Потоковый вызов LLM.** Вызывает `IAIService.StreamCompletionAsync()` с prompt и расшифрованными пользовательскими учётными данными. Для каждого полученного token chunk отправляет `OnMessageChunk`. Полный текст ответа накапливается.
 7. **Парсинг классификации.** Передаёт полный ответ в `IClassificationParser`, чтобы извлечь структурированные решения (имя файла → целевая папка, флаг создания новой папки). Отправляет `OnClassificationResult`.
-8. **Создание записи действия.** Создаёт сущность `Action` через `IActionRepository`, чтобы начать записывать мутации.
+8. **Создание записи действия.** Создаёт запись действия через `IActionTrackingService.BeginActionAsync()`, чтобы начать записывать мутации.
 9. **Цикл исполнения решений.** Для каждого решения классификации:
-   - Если целевая папка не существует, создаёт её через `IFolderService`, отправляет `OnFolderCreated`, добавляет item действия `FolderCreated`.
-   - Создаёт файл в целевой папке (из содержимого вложения) через `IFileService`, отправляет `OnFileCreated`, добавляет item действия `FileCreated`.
-   - Или, если решение означает перенос существующего файла, перемещает его через `IFileService`, отправляет `OnFileMoved`, добавляет item действия `FileMoved` (с записью исходной папки для отката).
+   - Если целевая папка не существует, создаёт её через `IFolderService`, отправляет `OnFolderCreated`, записывает через `IActionTrackingService.RecordFolderCreatedAsync()`.
+   - Создаёт файл в целевой папке (из содержимого вложения) через `IFileService`, отправляет `OnFileCreated`, записывает через `IActionTrackingService.RecordFileCreatedAsync()`.
+   - Или, если решение означает перенос существующего файла, перемещает его через `IFileService`, отправляет `OnFileMoved`, записывает через `IActionTrackingService.RecordFileMovedAsync()` (с записью исходной папки для отката).
 10. **Сохранение AI-сообщения.** Сохраняет полный текст AI-ответа через `IChatService`. Отправляет `OnMessageCompleted`.
 11. **Финализация.** Отправляет `OnProcessingCompleted` с `actionId`, summary и количеством объектов.
 
@@ -184,19 +185,17 @@
 
 **Обработка отмены:** Когда токен отменяется, сервис прерывает LLM HTTP-запрос, отбрасывает частичное состояние результата, сохраняет запись об отмене в chat-сессии и отправляет `OnProcessingCancelled`.
 
-**Зависимости**
+**Зависимости (8 всего)**
 
 | Зависимость | Зачем нужна |
 |---|---|
 | `IChatService` | Разрешение сессии, сохранение сообщений. |
-| `IAttachmentService` | Получение подготовленных вложений для построения prompt. |
+| `IPromptPreparationService` | Консолидирует построение промпта: загрузку дерева папок, разрешение вложений и сборку промпта. |
 | `ISettingsService` | Загрузка расшифрованных LLM-учётных данных. |
-| `IFolderService` | Создание папок во время исполнения, загрузка дерева для контекста prompt. |
-| `IFileService` | Создание и перемещение файлов во время исполнения. |
-| `IFolderRepository` | Загрузка сырого дерева папок для построения prompt (в обход DTO-mapping). |
+| `IFolderService` | Создание папок во время исполнения решений. |
+| `IFileService` | Создание и перемещение файлов во время исполнения решений. |
 | `IAIService` | Потоковое получение ответа от LLM. |
-| `IActionRepository` | Создание и пополнение action items. |
-| `IPromptBuilder` | Построение prompt. |
+| `IActionTrackingService` | Создание действия, запись action items (создание папки, создание файла, перемещение файла). |
 | `IClassificationParser` | Преобразование текста LLM в структурированные решения. |
 | `IChatNotificationService` | Отправка всех real-time-событий вызывающему клиенту. |
 | `ICurrentUserService` | Контекст владельца. |
@@ -238,16 +237,37 @@
 
 | Зависимость | Зачем нужна |
 |---|---|
-| `IActionRepository` | Загрузка действия вместе с items, пометка как откатанного. |
+| `IActionRepository` | Загрузка действия вместе с items для выполнения отката. |
+| `IActionTrackingService` | Пометка действия как откатанного после успешного отката. |
 | `IFileService` | Удаление и перемещение файлов. |
 | `IFolderService` | Удаление папок. |
 | `ICurrentUserService` | Проверка владельца. |
 
 ---
 
-### 1.10 IPromptBuilder
+### 1.10 IPromptPreparationService
 
-**Назначение.** Строит LLM prompt из контекстных входных данных.
+**Назначение.** Консолидирует весь пайплайн подготовки промпта в один сервис. Внутри зависит от `IFolderService` (для дерева папок через `GetFolderTreeForPromptAsync`), `IAttachmentService` (для разрешения staged-файлов) и `IPromptBuilder` (для сборки текста). Это снижает количество зависимостей оркестратора на три.
+
+**Методы**
+
+| Метод | Описание |
+|---|---|
+| `PrepareAsync(userMessage, attachments?, contextSession?)` → `PreparedPrompt` | Загружает дерево папок, разрешает вложения, собирает полный LLM-промпт и возвращает `PreparedPrompt` с текстом промпта и списком использованных ID вложений. |
+
+**Зависимости**
+
+| Зависимость | Зачем нужна |
+|---|---|
+| `IFolderService` | Загрузка дерева папок для контекста промпта через `GetFolderTreeForPromptAsync()`. |
+| `IAttachmentService` | Разрешение staged-вложений и их содержимого. |
+| `IPromptBuilder` | Сборка финального текста промпта из компонентов. |
+
+---
+
+### 1.11 IPromptBuilder
+
+**Назначение.** Строит LLM prompt из контекстных входных данных. Используется внутри `IPromptPreparationService` — не вызывается оркестратором напрямую.
 
 **Методы**
 
@@ -257,7 +277,30 @@
 
 ---
 
-### 1.11 IClassificationParser
+### 1.12 IActionTrackingService
+
+**Назначение.** Управляет жизненным циклом отслеживания действий во время AI-оркестрации. Инкапсулирует write-операции `IActionRepository`, чтобы оркестратор и rollback-сервис не управляли переходами состояний сущностей напрямую.
+
+**Методы**
+
+| Метод | Описание |
+|---|---|
+| `BeginActionAsync(sessionId, summary)` → `Guid` | Создаёт новую запись действия для указанной chat-сессии. Возвращает ID действия. |
+| `RecordFolderCreatedAsync(actionId, folderId, folderName, parentFolderId?)` | Фиксирует, что папка была создана в рамках действия. |
+| `RecordFileCreatedAsync(actionId, fileId, folderId, fileName)` | Фиксирует, что файл был создан в рамках действия. |
+| `RecordFileMovedAsync(actionId, fileId, sourceFolderId, targetFolderId)` | Фиксирует, что файл был перемещён в рамках действия. |
+| `MarkRolledBackAsync(actionId)` | Помечает существующее действие как откатанное. Используется `IRollbackService` после успешного отката. |
+
+**Зависимости**
+
+| Зависимость | Зачем нужна |
+|---|---|
+| `IActionRepository` | Хранение сущностей action и action-item. |
+| `ICurrentUserService` | Контекст владельца при создании действия. |
+
+---
+
+### 1.13 IClassificationParser
 
 **Назначение.** Разбирает текстовый ответ LLM в структурированный список решений классификации. LLM инструктируется (через prompt) использовать определённые tools; этот сервис извлекает и валидирует вызовы этих tools.
 
@@ -269,7 +312,7 @@
 
 ---
 
-### 1.12 IChatNotificationService
+### 1.14 IChatNotificationService
 
 **Назначение.** Абстрагирует транспортный механизм отправки real-time-событий из слоя Application клиенту. Интерфейс определён в Application; реализация находится в WebAPI и использует `IHubContext<ChatHub>`. Эта граница не позволяет типам SignalR утекать в слой Application.
 
@@ -470,12 +513,18 @@ flowchart LR
         subgraph Workflow["AI-поток классификации"]
             direction LR
             ChatService["IChatService"]:::core
-            AttachmentService["IAttachmentService"]:::core
             SettingsService["ISettingsService"]:::core
             AIOrchestration["IAIOrchestrationService"]:::core
-            PromptBuilder["IPromptBuilder"]:::support
+            PromptPrep["IPromptPreparationService"]:::support
             ClassificationParser["IClassificationParser"]:::support
+            ActionTracking["IActionTrackingService"]:::support
             ChatNotification["IChatNotificationService"]:::transport
+        end
+
+        subgraph PromptInternals["Внутренности подготовки промпта"]
+            direction LR
+            AttachmentService["IAttachmentService"]:::core
+            PromptBuilder["IPromptBuilder"]:::support
         end
 
         subgraph Content["Организация контента и восстановление"]
@@ -502,16 +551,21 @@ flowchart LR
     Client -->|откат| RollbackService
 
     AIOrchestration -->|жизненный цикл сессии и сообщений| ChatService
-    AIOrchestration -->|загрузка staged-файлов| AttachmentService
+    AIOrchestration -->|подготовка промпта| PromptPrep
     AIOrchestration -->|получение LLM-настроек| SettingsService
-    AIOrchestration -->|построение prompt| PromptBuilder
     AIOrchestration -->|парсинг ответа модели| ClassificationParser
+    AIOrchestration -->|отслеживание action items| ActionTracking
     AIOrchestration -->|создание папок| FolderService
     AIOrchestration -->|создание или перенос файлов| FileService
     AIOrchestration -->|стриминг прогресса и результатов| ChatNotification
 
+    PromptPrep -->|загрузка дерева папок| FolderService
+    PromptPrep -->|разрешение вложений| AttachmentService
+    PromptPrep -->|сборка текста промпта| PromptBuilder
+
     RollbackService -->|откат файловых мутаций| FileService
     RollbackService -->|откат мутаций папок| FolderService
+    RollbackService -->|пометка откатанным| ActionTracking
 
     CurrentUser -. identity вызывающего и ownership scope .-> AIOrchestration
     CurrentUser -. identity вызывающего и ownership scope .-> FolderService

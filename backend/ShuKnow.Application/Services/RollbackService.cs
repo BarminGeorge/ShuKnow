@@ -7,6 +7,7 @@ namespace ShuKnow.Application.Services;
 
 internal class RollbackService(
     IActionRepository actionRepository,
+    IActionTrackingService actionTrackingService,
     IFileService fileService,
     IFolderService folderService,
     ICurrentUserService currentUserService)

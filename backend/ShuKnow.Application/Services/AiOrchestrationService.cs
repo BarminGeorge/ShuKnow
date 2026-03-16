@@ -1,20 +1,17 @@
 using Ardalis.Result;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Domain.Entities;
-using ShuKnow.Domain.Repositories;
 
 namespace ShuKnow.Application.Services;
 
 internal class AiOrchestrationService(
     IChatService chatService,
-    IAttachmentService attachmentService,
+    IPromptPreparationService promptPreparationService,
     ISettingsService settingsService,
     IFolderService folderService,
     IFileService fileService,
-    IFolderRepository folderRepository,
     IAiService aiService,
-    IActionRepository actionRepository,
-    IPromptBuilder promptBuilder,
+    IActionTrackingService actionTrackingService,
     IClassificationParser classificationParser,
     IChatNotificationService chatNotificationService,
     ICurrentUserService currentUserService)

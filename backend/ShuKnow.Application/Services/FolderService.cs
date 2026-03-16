@@ -1,5 +1,6 @@
 using Ardalis.Result;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.Application.Models;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Repositories;
 
@@ -12,6 +13,11 @@ internal class FolderService(
     : IFolderService
 {
     public Task<Result<IReadOnlyList<Folder>>> GetTreeAsync(CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<Result<IReadOnlyList<FolderSummary>>> GetFolderTreeForPromptAsync(CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }

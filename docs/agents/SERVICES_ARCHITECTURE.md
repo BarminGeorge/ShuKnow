@@ -30,6 +30,7 @@ These are the primary units of business logic. Each service is defined as an int
 | Method | Description |
 |---|---|
 | `GetTreeAsync()` → `List<FolderTreeNode>` | Returns the full recursive tree for the current user, including file counts per node. Used for sidebar rendering. |
+| `GetFolderTreeForPromptAsync()` → `List<FolderSummary>` | Returns lightweight projections (id, name, description, parent) suitable for AI prompt construction. Avoids loading full entities. Used by `IPromptPreparationService`. |
 | `ListAsync(parentId?)` → `List<Folder>` | Flat list of folders at a given level (root when `parentId` is null). Lightweight alternative to the full tree. |
 | `GetByIdAsync(folderId)` → `Folder` | Single folder with metadata and a `path` breadcrumb array from root to this node. |
 | `GetChildrenAsync(folderId)` → `List<Folder>` | Direct child folders. Supports lazy-loading of expanded tree nodes. |
@@ -166,17 +167,17 @@ These are the primary units of business logic. Each service is defined as an int
 2. **User message persistence.** Save the user's message and link attachments via `IChatService`.
 3. **Emit `OnProcessingStarted`.** Generate an `operationId` (GUID) that correlates all subsequent events in this run.
 4. **Settings retrieval.** Load and decrypt the user's AI config via `ISettingsService`. Fail with `LLM_CONNECTION_FAILED` if not configured.
-5. **Prompt construction.** Delegate to `IPromptBuilder`:
-   - Load the user's folder tree (via `IFolderRepository`) to give the AI awareness of existing categories.
-   - Load attachment content (via `IAttachmentService`) to provide the material being classified.
-   - Combine with the user's message text and optional context hint.
+5. **Prompt construction.** Delegate to `IPromptPreparationService.PrepareAsync()`, which internally:
+   - Loads the user's folder tree (via `IFolderService.GetFolderTreeForPromptAsync()`) to give the AI awareness of existing categories.
+   - Resolves attachment content (via `IAttachmentService`) to provide the material being classified.
+   - Assembles the final prompt text (via `IPromptBuilder`).
 6. **LLM streaming call.** Call `IAIService.StreamCompletionAsync()` with the prompt and the user's decrypted credentials. For each token chunk received, emit `OnMessageChunk`. Accumulate the full response text.
 7. **Classification parsing.** Pass the full response to `IClassificationParser` to extract structured decisions (file name → target folder, is-new-folder flag). Emit `OnClassificationResult`.
-8. **Action record creation.** Create an `Action` entity via `IActionRepository` to begin recording mutations.
+8. **Action record creation.** Create an action record via `IActionTrackingService.BeginActionAsync()` to begin recording mutations.
 9. **Decision execution loop.** For each classification decision:
-   - If the target folder doesn't exist, create it via `IFolderService`, emit `OnFolderCreated`, append a `FolderCreated` action item.
-   - Create the file in the target folder (from attachment content) via `IFileService`, emit `OnFileCreated`, append a `FileCreated` action item.
-   - Or if the decision is a move of an existing file, move it via `IFileService`, emit `OnFileMoved`, append a `FileMoved` action item (recording the source folder for rollback).
+   - If the target folder doesn't exist, create it via `IFolderService`, emit `OnFolderCreated`, record via `IActionTrackingService.RecordFolderCreatedAsync()`.
+   - Create the file in the target folder (from attachment content) via `IFileService`, emit `OnFileCreated`, record via `IActionTrackingService.RecordFileCreatedAsync()`.
+   - Or if the decision is a move of an existing file, move it via `IFileService`, emit `OnFileMoved`, record via `IActionTrackingService.RecordFileMovedAsync()` (recording the source folder for rollback).
 10. **AI message persistence.** Save the AI's full response text via `IChatService`. Emit `OnMessageCompleted`.
 11. **Finalize.** Emit `OnProcessingCompleted` with the `actionId`, summary, and counts.
 
@@ -184,19 +185,17 @@ These are the primary units of business logic. Each service is defined as an int
 
 **Cancellation handling:** When the token is cancelled, the service aborts the LLM HTTP request, discards any partial result state, persists a cancellation record in the chat session, and emits `OnProcessingCancelled`.
 
-**Dependencies**
+**Dependencies (8 total)**
 
 | Dependency | Why |
 |---|---|
 | `IChatService` | Session resolution, message persistence. |
-| `IAttachmentService` | Retrieve staged attachments for prompt building. |
+| `IPromptPreparationService` | Consolidates prompt construction: folder tree loading, attachment resolution, and prompt assembly. |
 | `ISettingsService` | Load decrypted LLM credentials. |
-| `IFolderService` | Create folders during execution, load tree for prompt context. |
-| `IFileService` | Create/move files during execution. |
-| `IFolderRepository` | Load raw folder tree for prompt building (bypasses DTO mapping). |
+| `IFolderService` | Create folders during decision execution. |
+| `IFileService` | Create/move files during decision execution. |
 | `IAIService` | Stream LLM completion. |
-| `IActionRepository` | Create and append action items. |
-| `IPromptBuilder` | Construct the classification prompt. |
+| `IActionTrackingService` | Begin action, record action items (folder created, file created, file moved). |
 | `IClassificationParser` | Parse LLM text into structured decisions. |
 | `IChatNotificationService` | Emit all real-time events to the caller. |
 | `ICurrentUserService` | Ownership context. |
@@ -238,16 +237,37 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Dependency | Why |
 |---|---|
-| `IActionRepository` | Load action with items, mark as rolled back. |
+| `IActionRepository` | Load action with items for reversal. |
+| `IActionTrackingService` | Mark the action as rolled back after successful reversal. |
 | `IFileService` | Delete and move files. |
 | `IFolderService` | Delete folders. |
 | `ICurrentUserService` | Ownership validation. |
 
 ---
 
-### 1.10 IPromptBuilder
+### 1.10 IPromptPreparationService
 
-**Purpose.** Constructs the LLM prompt from contextual inputs.
+**Purpose.** Consolidates the entire prompt preparation pipeline into a single service. Internally depends on `IFolderService` (for folder tree via `GetFolderTreeForPromptAsync`), `IAttachmentService` (for staged file resolution), and `IPromptBuilder` (for text assembly). This reduces three dependencies from the orchestrator to one.
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `PrepareAsync(userMessage, attachments?, contextSession?)` → `PreparedPrompt` | Loads the folder tree, resolves attachments, assembles the full LLM prompt, and returns a `PreparedPrompt` containing the prompt text and a list of consumed attachment IDs. |
+
+**Dependencies**
+
+| Dependency | Why |
+|---|---|
+| `IFolderService` | Load folder tree for prompt context via `GetFolderTreeForPromptAsync()`. |
+| `IAttachmentService` | Resolve staged attachments and their content. |
+| `IPromptBuilder` | Assemble the final prompt text from components. |
+
+---
+
+### 1.11 IPromptBuilder
+
+**Purpose.** Constructs the LLM prompt from contextual inputs. Used internally by `IPromptPreparationService` — not consumed directly by the orchestrator.
 
 **Methods**
 
@@ -257,7 +277,30 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.11 IClassificationParser
+### 1.12 IActionTrackingService
+
+**Purpose.** Manages the lifecycle of action tracking during AI orchestration. Encapsulates `IActionRepository` write operations so that the orchestrator and rollback service do not manage entity state transitions directly.
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `BeginActionAsync(sessionId, summary)` → `Guid` | Creates a new action record for the given chat session. Returns the action ID. |
+| `RecordFolderCreatedAsync(actionId, folderId, folderName, parentFolderId?)` | Records that a folder was created as part of the action. |
+| `RecordFileCreatedAsync(actionId, fileId, folderId, fileName)` | Records that a file was created as part of the action. |
+| `RecordFileMovedAsync(actionId, fileId, sourceFolderId, targetFolderId)` | Records that a file was moved as part of the action. |
+| `MarkRolledBackAsync(actionId)` | Marks an existing action as rolled back. Used by `IRollbackService` after successful reversal. |
+
+**Dependencies**
+
+| Dependency | Why |
+|---|---|
+| `IActionRepository` | Persistence of action and action-item entities. |
+| `ICurrentUserService` | Ownership context for action creation. |
+
+---
+
+### 1.13 IClassificationParser
 
 **Purpose.** Parses the LLM's textual response into a structured list of classification decisions. The LLM is instructed (via the prompt) to use specific tools; this service extracts and validates tool calls.
 
@@ -269,7 +312,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.12 IChatNotificationService
+### 1.14 IChatNotificationService
 
 **Purpose.** Abstracts the transport mechanism for sending real-time events from the Application layer to the client. The interface is defined in Application; the implementation lives in WebAPI and uses `IHubContext<ChatHub>`. This boundary prevents SignalR types from leaking into the Application layer.
 
@@ -470,12 +513,18 @@ flowchart LR
         subgraph Workflow["AI classification workflow"]
             direction LR
             ChatService["IChatService"]:::core
-            AttachmentService["IAttachmentService"]:::core
             SettingsService["ISettingsService"]:::core
             AIOrchestration["IAIOrchestrationService"]:::core
-            PromptBuilder["IPromptBuilder"]:::support
+            PromptPrep["IPromptPreparationService"]:::support
             ClassificationParser["IClassificationParser"]:::support
+            ActionTracking["IActionTrackingService"]:::support
             ChatNotification["IChatNotificationService"]:::transport
+        end
+
+        subgraph PromptInternals["Prompt preparation internals"]
+            direction LR
+            AttachmentService["IAttachmentService"]:::core
+            PromptBuilder["IPromptBuilder"]:::support
         end
 
         subgraph Content["Content organization and recovery"]
@@ -502,16 +551,21 @@ flowchart LR
     Client -->|rollback| RollbackService
 
     AIOrchestration -->|session and message lifecycle| ChatService
-    AIOrchestration -->|load staged files| AttachmentService
+    AIOrchestration -->|prepare prompt| PromptPrep
     AIOrchestration -->|resolve LLM settings| SettingsService
-    AIOrchestration -->|build prompt| PromptBuilder
     AIOrchestration -->|parse model output| ClassificationParser
+    AIOrchestration -->|track action items| ActionTracking
     AIOrchestration -->|create folders| FolderService
     AIOrchestration -->|create or move files| FileService
     AIOrchestration -->|stream progress and results| ChatNotification
 
+    PromptPrep -->|load folder tree| FolderService
+    PromptPrep -->|resolve attachments| AttachmentService
+    PromptPrep -->|assemble prompt text| PromptBuilder
+
     RollbackService -->|undo file mutations| FileService
     RollbackService -->|undo folder mutations| FolderService
+    RollbackService -->|mark rolled back| ActionTracking
 
     CurrentUser -. caller identity and ownership scope .-> AIOrchestration
     CurrentUser -. caller identity and ownership scope .-> FolderService
