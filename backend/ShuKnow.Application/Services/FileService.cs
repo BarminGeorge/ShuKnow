@@ -12,15 +12,17 @@ internal class FileService(
     ICurrentUserService currentUserService)
     : IFileService
 {
-    public Task<Result<File>> GetByIdAsync(Guid fileId, CancellationToken ct = default)
+    private Guid CurrentUserId => currentUserService.UserId;
+
+    public async Task<Result<File>> GetByIdAsync(Guid fileId, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await fileRepository.GetByIdAsync(fileId, CurrentUserId);
     }
 
-    public Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
+    public async Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
         Guid folderId, int page, int pageSize, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await fileRepository.ListByFolderAsync(folderId, CurrentUserId, page, pageSize);
     }
 
     public Task<Result<File>> UploadAsync(File file, Stream content, CancellationToken ct = default)
@@ -28,20 +30,25 @@ internal class FileService(
         throw new NotImplementedException();
     }
 
-    public Task<Result<File>> UpdateMetadataAsync(File file, CancellationToken ct = default)
+    public async Task<Result<File>> UpdateMetadataAsync(File file, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await fileRepository.UpdateAsync(file);
     }
 
-    public Task<Result> DeleteAsync(Guid fileId, CancellationToken ct = default)
+    public async Task<Result> DeleteAsync(Guid fileId, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await fileRepository.DeleteAsync(fileId);
     }
 
-    public Task<Result<(Stream Content, string ContentType, long SizeBytes)>> GetContentAsync(
+    public async Task<Result<(Stream Content, string ContentType, long SizeBytes)>> GetContentAsync(
         Guid fileId, long? rangeStart = null, long? rangeEnd = null, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await fileRepository.GetByIdAsync(fileId, CurrentUserId)
+            .BindAsync(async file =>
+            {
+                return await GetStreamAsync(file, rangeStart, rangeEnd, ct)
+                    .MapAsync(stream => (stream, file.ContentType, file.SizeBytes));
+            });
     }
 
     public Task<Result<File>> ReplaceContentAsync(
@@ -55,8 +62,20 @@ internal class FileService(
         throw new NotImplementedException();
     }
 
-    public Task<Result> DeleteByFolderAsync(Guid folderId, CancellationToken ct = default)
+    public async Task<Result> DeleteByFolderAsync(Guid folderId, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await fileRepository.DeleteByFolderAsync(folderId);
+    }
+
+    private async Task<Result<Stream>> GetStreamAsync(
+        File file, long? rangeStart = null, long? rangeEnd = null, CancellationToken ct = default)
+    {
+        if (rangeStart is null && rangeEnd is null)
+            return await blobStorageService.GetAsync(file.Id, ct);
+
+        var start = rangeStart ?? 0;
+        var end = rangeEnd ?? file.SizeBytes;
+
+        return await blobStorageService.GetRangeAsync(file.Id, start, end, ct);
     }
 }
