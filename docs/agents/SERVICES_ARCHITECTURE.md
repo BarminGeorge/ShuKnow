@@ -470,11 +470,11 @@ These interfaces are defined in `ShuKnow.Application` and implemented in `ShuKno
 
 | Method | Description |
 |---|---|
-| `SaveAsync(stream, contentType)` → `string storageKey` | Stores the binary and returns an opaque key. |
-| `GetAsync(storageKey)` → `Stream` | Retrieves the full binary content. |
-| `GetRangeAsync(storageKey, offset, length)` → `Stream` | Retrieves a byte range (for HTTP Range support). |
-| `DeleteAsync(storageKey)` | Removes the binary content. |
-| `GetSizeAsync(storageKey)` → `long` | Returns the stored content size (for Range/Content-Length). |
+| `SaveAsync(content, file)` | Stores the binary content using metadata from the `File` entity. |
+| `GetAsync(fileId)` → `Stream` | Retrieves the full binary content by file ID. |
+| `GetRangeAsync(fileId, rangeStart, rangeEnd)` → `Stream` | Retrieves a byte range (for HTTP Range support). |
+| `DeleteAsync(fileId)` | Removes the binary content by file ID. |
+| `GetSizeAsync(fileId)` → `long` | Returns the stored content size (for Range/Content-Length). |
 
 ---
 

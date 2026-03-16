@@ -470,11 +470,11 @@
 
 | Метод | Описание |
 |---|---|
-| `SaveAsync(stream, contentType)` → `string storageKey` | Сохраняет бинарное содержимое и возвращает непрозрачный ключ. |
-| `GetAsync(storageKey)` → `Stream` | Получает всё бинарное содержимое. |
-| `GetRangeAsync(storageKey, offset, length)` → `Stream` | Получает диапазон байтов (для поддержки HTTP Range). |
-| `DeleteAsync(storageKey)` | Удаляет бинарное содержимое. |
-| `GetSizeAsync(storageKey)` → `long` | Возвращает размер сохранённого содержимого (для Range/Content-Length). |
+| `SaveAsync(content, file)` | Сохраняет бинарное содержимое, используя метаданные из сущности `File`. |
+| `GetAsync(fileId)` → `Stream` | Получает всё бинарное содержимое по ID файла. |
+| `GetRangeAsync(fileId, rangeStart, rangeEnd)` → `Stream` | Получает диапазон байтов (для поддержки HTTP Range). |
+| `DeleteAsync(fileId)` | Удаляет бинарное содержимое по ID файла. |
+| `GetSizeAsync(fileId)` → `long` | Возвращает размер сохранённого содержимого (для Range/Content-Length). |
 
 ---
 

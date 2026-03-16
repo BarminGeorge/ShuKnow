@@ -6,27 +6,28 @@ namespace ShuKnow.Infrastructure.Services;
 
 internal class BlobStorageService : IBlobStorageService
 {
-    public Task<Result<string>> SaveAsync(Stream content, File file, CancellationToken ct = default)
+    public Task<Result> SaveAsync(Stream content, File file, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Result<Stream>> GetAsync(File file, CancellationToken ct = default)
+    public Task<Result<Stream>> GetAsync(Guid fileId, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Result<Stream>> GetRangeAsync(File file, long offset, long length, CancellationToken ct = default)
+    public Task<Result<Stream>> GetRangeAsync(
+        Guid fileId, long rangeStart, long rangeEnd, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Result> DeleteAsync(File file, CancellationToken ct = default)
+    public Task<Result> DeleteAsync(Guid fileId, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Result<long>> GetSizeAsync(File file, CancellationToken ct = default)
+    public Task<Result<long>> GetSizeAsync(Guid fileId, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
