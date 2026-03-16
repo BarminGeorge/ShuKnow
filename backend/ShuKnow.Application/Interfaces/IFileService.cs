@@ -19,7 +19,7 @@ public interface IFileService
         Stream content,
         CancellationToken ct = default);
 
-    Task<Result<File>> UpdateMetadataAsync(Guid fileId, File file, CancellationToken ct = default);
+    Task<Result<File>> UpdateMetadataAsync(File file, CancellationToken ct = default);
 
     Task<Result> DeleteAsync(Guid fileId, CancellationToken ct = default);
 

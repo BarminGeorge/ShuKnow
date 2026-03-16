@@ -20,7 +20,7 @@ public interface IFolderService
     
     Task<Result<Folder>> CreateAsync(Folder folder, CancellationToken ct = default);
     
-    Task<Result<Folder>> UpdateAsync(Guid folderId, Folder folder, CancellationToken ct = default);
+    Task<Result<Folder>> UpdateAsync(Folder folder, CancellationToken ct = default);
     
     Task<Result> DeleteAsync(
         Guid folderId,

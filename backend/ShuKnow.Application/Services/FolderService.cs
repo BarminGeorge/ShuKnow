@@ -42,7 +42,7 @@ internal class FolderService(
         throw new NotImplementedException();
     }
 
-    public Task<Result<Folder>> UpdateAsync(Guid folderId, Folder folder, CancellationToken ct = default)
+    public Task<Result<Folder>> UpdateAsync(Folder folder, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }

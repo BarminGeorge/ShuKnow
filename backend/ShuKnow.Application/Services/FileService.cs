@@ -28,7 +28,7 @@ internal class FileService(
         throw new NotImplementedException();
     }
 
-    public Task<Result<File>> UpdateMetadataAsync(Guid fileId, File file, CancellationToken ct = default)
+    public Task<Result<File>> UpdateMetadataAsync(File file, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
