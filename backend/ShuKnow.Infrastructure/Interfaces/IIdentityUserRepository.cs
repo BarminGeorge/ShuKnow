@@ -9,5 +9,5 @@ public interface IIdentityUserRepository
     
     Task<Result<bool>> ContainsLoginAsync(string login);
     
-    Task AddAsync(IdentityUser user);
+    Task<Result> AddAsync(IdentityUser user);
 }

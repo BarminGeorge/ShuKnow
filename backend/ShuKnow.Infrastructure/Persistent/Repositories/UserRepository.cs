@@ -16,9 +16,9 @@ public class UserRepository(AppDbContext context) : IUserRepository
         return user is null ? Result.NotFound() : Result.Success(user);
     }
 
-    public Task AddAsync(User user)
+    public Task<Result> AddAsync(User user)
     {
         context.Users.Add(user);
-        return Task.CompletedTask;
+        return Task.FromResult(Result.Success());
     }
 }

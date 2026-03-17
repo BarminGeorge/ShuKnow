@@ -7,5 +7,5 @@ public interface IUserRepository
 {
     Task<Result<User>> GetByIdAsync(Guid userId);
 
-    Task AddAsync(User user);
+    Task<Result> AddAsync(User user);
 }
