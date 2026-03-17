@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ShuKnow.WebAPI.Dto.Files;
@@ -19,7 +19,7 @@ public class FoldersController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<FolderTreeNodeDto>>> GetFolderTree()
     {
         // TODO: implement
-        var photosFolder = new FolderTreeNodeDto(MockPhotosId, "Photos", null, 0, 0, []);
+        var photosFolder = new FolderTreeNodeDto(MockPhotosId, "Photos", string.Empty, 0, 0, []);
         return new[] { new FolderTreeNodeDto(MockDocumentsId, "Documents", "Documents folder", 0, 1, [photosFolder]) };
     }
 
@@ -34,7 +34,7 @@ public class FoldersController : ControllerBase
     public async Task<ActionResult<FolderDto>> CreateFolder([FromBody] CreateFolderRequest request)
     {
         // TODO: implement
-        var folder = new FolderDto(Guid.NewGuid(), request.Name, request.Description, request.ParentFolderId,
+        var folder = new FolderDto(Guid.NewGuid(), request.Name, request.Description ?? string.Empty, request.ParentFolderId,
             0, 0, false, null);
         return CreatedAtAction(nameof(GetFolder), new { folderId = folder.Id }, folder);
     }
@@ -43,7 +43,7 @@ public class FoldersController : ControllerBase
     public async Task<ActionResult<FolderDto>> GetFolder(Guid folderId)
     {
         // TODO: implement
-        return new FolderDto(folderId, "Foobar", null, null, 0, 0, false, null);
+        return new FolderDto(folderId, "Foobar", string.Empty, null, 0, 0, false, null);
     }
 
     [HttpPut("{folderId}")]
@@ -65,7 +65,7 @@ public class FoldersController : ControllerBase
     public async Task<ActionResult<FolderDto>> MoveFolder(Guid folderId, [FromBody] MoveFolderRequest request)
     {
         // TODO: implement
-        return new FolderDto(folderId, "Foobar", null, request.NewParentFolderId, 0, 0, false, null);
+        return new FolderDto(folderId, "Foobar", string.Empty, request.NewParentFolderId, 0, 0, false, null);
     }
 
     [HttpPatch("{folderId}/reorder")]
@@ -79,7 +79,7 @@ public class FoldersController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<FolderDto>>> GetFolderChildren(Guid folderId)
     {
         // TODO: implement
-        return new[] { new FolderDto(MockDocumentsId, "Photos", null, null, 0, 1, true, null) };
+        return new[] { new FolderDto(MockDocumentsId, "Photos", string.Empty, null, 0, 1, true, null) };
     }
 
     [HttpGet("{folderId}/files")]
@@ -96,7 +96,7 @@ public class FoldersController : ControllerBase
     {
         // TODO: implement
         var fileDto = new FileDto(Guid.NewGuid(), folderId, "Folder",
-            name ?? file.FileName, description, file.ContentType, file.Length);
+            name ?? file.FileName, description ?? string.Empty, file.ContentType, file.Length, 1, null);
         return CreatedAtAction("GetFile", "Files", new { fileId = fileDto.Id }, fileDto);
     }
 }

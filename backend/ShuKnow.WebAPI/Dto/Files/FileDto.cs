@@ -5,6 +5,8 @@ public record FileDto(
     Guid FolderId,
     string FolderName,
     string Name,
-    string? Description,
+    string Description,
     string ContentType,
-    long SizeBytes);
+    long SizeBytes,
+    int Version,
+    string? ChecksumSha256);

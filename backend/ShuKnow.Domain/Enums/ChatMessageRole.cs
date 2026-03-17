@@ -1,5 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace ShuKnow.Domain.Enums;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ChatMessageRole
 {
     Unknown = 0,

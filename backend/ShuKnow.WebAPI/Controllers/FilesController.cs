@@ -18,7 +18,7 @@ public class FilesController : ControllerBase
     {
         // TODO: implement
         return new FileDto(fileId, MockFolderId, "Documents", "report.pdf",
-            "Annual report", "application/pdf", 204_800);
+            "Annual report", "application/pdf", 204_800, 1, null);
     }
 
     [HttpPut("{fileId}")]
@@ -27,7 +27,7 @@ public class FilesController : ControllerBase
         // TODO: implement
         return new FileDto(fileId, MockFolderId, "Documents",
             request.Name ?? "report.pdf", request.Description ?? "Annual report",
-            "application/pdf", 204_800);
+            "application/pdf", 204_800, 1, null);
     }
 
     [HttpDelete("{fileId}")]
@@ -50,7 +50,7 @@ public class FilesController : ControllerBase
     public async Task<ActionResult<FileDto>> ReplaceFileContent(Guid fileId, IFormFile file)
     {
         // TODO: implement
-        return new FileDto(fileId, MockFolderId, "Documents", file.FileName, null, file.ContentType, file.Length);
+        return new FileDto(fileId, MockFolderId, "Documents", file.FileName, string.Empty, file.ContentType, file.Length, 1, null);
     }
 
     [HttpPatch("{fileId}/move")]
@@ -58,6 +58,6 @@ public class FilesController : ControllerBase
     {
         // TODO: implement
         return new FileDto(fileId, request.TargetFolderId, "Target Folder",
-            "report.pdf", "Annual report", "application/pdf", 204_800);
+            "report.pdf", "Annual report", "application/pdf", 204_800, 1, null);
     }
 }
