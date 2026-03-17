@@ -23,7 +23,7 @@ internal class FileService(
         throw new NotImplementedException();
     }
 
-    public Task<Result<File>> UploadAsync(Guid folderId, File file, Stream content, CancellationToken ct = default)
+    public Task<Result<File>> UploadAsync(File file, Stream content, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }

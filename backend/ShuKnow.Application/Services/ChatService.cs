@@ -27,23 +27,19 @@ internal class ChatService(
         throw new NotImplementedException();
     }
 
-    public Task<Result<ChatMessage>> PersistUserMessageAsync(
-        Guid sessionId,
-        ChatMessage message,
+    public Task<Result<ChatMessage>> PersistUserMessageAsync(ChatMessage message,
         IReadOnlyCollection<Guid>? attachmentIds = null,
         CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Result<ChatMessage>> PersistAiMessageAsync(
-        Guid sessionId, ChatMessage message, CancellationToken ct = default)
+    public Task<Result<ChatMessage>> PersistAiMessageAsync(ChatMessage message, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Result<ChatMessage>> PersistCancellationRecordAsync(
-        Guid sessionId, ChatMessage message, CancellationToken ct = default)
+    public Task<Result<ChatMessage>> PersistCancellationRecordAsync(ChatMessage message, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }

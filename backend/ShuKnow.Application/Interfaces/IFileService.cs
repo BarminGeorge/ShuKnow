@@ -14,7 +14,6 @@ public interface IFileService
         CancellationToken ct = default);
 
     Task<Result<File>> UploadAsync(
-        Guid folderId,
         File file,
         Stream content,
         CancellationToken ct = default);

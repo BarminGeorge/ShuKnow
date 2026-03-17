@@ -15,18 +15,15 @@ public interface IChatService
         CancellationToken ct = default);
     
     Task<Result<ChatMessage>> PersistUserMessageAsync(
-        Guid sessionId,
         ChatMessage message,
         IReadOnlyCollection<Guid>? attachmentIds = null,
         CancellationToken ct = default);
     
     Task<Result<ChatMessage>> PersistAiMessageAsync(
-        Guid sessionId,
         ChatMessage message,
         CancellationToken ct = default);
     
     Task<Result<ChatMessage>> PersistCancellationRecordAsync(
-        Guid sessionId,
         ChatMessage message,
         CancellationToken ct = default);
 }
