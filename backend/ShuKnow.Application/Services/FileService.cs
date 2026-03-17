@@ -1,4 +1,5 @@
 using Ardalis.Result;
+using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Domain.Repositories;
 using File = ShuKnow.Domain.Entities.File;
@@ -9,7 +10,8 @@ internal class FileService(
     IFileRepository fileRepository,
     IFolderRepository folderRepository,
     IBlobStorageService blobStorageService,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    IUnitOfWork unitOfWork)
     : IFileService
 {
     private Guid CurrentUserId => currentUserService.UserId;
@@ -25,28 +27,37 @@ internal class FileService(
         return await fileRepository.ListByFolderAsync(folderId, CurrentUserId, page, pageSize);
     }
 
-    public Task<Result<File>> UploadAsync(File file, Stream content, CancellationToken ct = default)
+    public async Task<Result<File>> UploadAsync(
+        File file, Stream content, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await ValidateMetadata(file)
+            .BindAsync(_ => fileRepository.AddAsync(file))
+            .BindAsync(_ => blobStorageService.SaveAsync(content, file, ct))
+            .SaveChangesAsync(unitOfWork)
+            .MapAsync(() => file);
     }
 
     public async Task<Result<File>> UpdateMetadataAsync(File file, CancellationToken ct = default)
     {
-        return await fileRepository.UpdateAsync(file);
+        return await ValidateMetadata(file)
+            .BindAsync(_ => fileRepository.UpdateAsync(file))
+            .SaveChangesAsync(unitOfWork)
+            .MapAsync(() => file);
     }
 
     public async Task<Result> DeleteAsync(Guid fileId, CancellationToken ct = default)
     {
-        return await fileRepository.DeleteAsync(fileId);
+        return await fileRepository.DeleteAsync(fileId)
+            .SaveChangesAsync(unitOfWork);
     }
 
     public async Task<Result<(Stream Content, string ContentType, long SizeBytes)>> GetContentAsync(
         Guid fileId, long? rangeStart = null, long? rangeEnd = null, CancellationToken ct = default)
     {
         return await fileRepository.GetByIdAsync(fileId, CurrentUserId)
-            .BindAsync(async file =>
+            .BindAsync(file =>
             {
-                return await GetStreamAsync(file, rangeStart, rangeEnd, ct)
+                return GetStreamAsync(file, rangeStart, rangeEnd, ct)
                     .MapAsync(stream => (stream, file.ContentType, file.SizeBytes));
             });
     }
@@ -64,7 +75,14 @@ internal class FileService(
 
     public async Task<Result> DeleteByFolderAsync(Guid folderId, CancellationToken ct = default)
     {
-        return await fileRepository.DeleteByFolderAsync(folderId);
+        return await fileRepository.DeleteByFolderAsync(folderId)
+            .SaveChangesAsync(unitOfWork);
+    }
+
+    private async Task<Result> ValidateMetadata(File file)
+    {
+        return await fileRepository.ExistsByNameInFolderAsync(file.Name, file.FolderId, CurrentUserId, file.Id)
+            .BindAsync(exists => exists ? Result.Conflict() : Result.Success());
     }
 
     private async Task<Result<Stream>> GetStreamAsync(

@@ -1,7 +1,7 @@
 ﻿using Ardalis.Result;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
-using ShuKnow.Infrastructure.Interfaces;
+using ShuKnow.Application.Interfaces;
 using ShuKnow.Infrastructure.Persistent;
 
 namespace ShuKnow.Infrastructure.Services;
