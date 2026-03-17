@@ -65,7 +65,7 @@ function DraggableGridItem({
   onEditingComplete,
 }: DraggableGridItemProps) {
   const ref = useRef<HTMLDivElement>(null);
-
+  const [justDropped, setJustDropped] = useState(false);
 
   const [{ isDragging }, drag] = useDrag({
     type: GRID_ITEM_TYPE,
@@ -73,7 +73,11 @@ function DraggableGridItem({
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-    end: onDragEnd,
+    end: (item, monitor) => {
+      setJustDropped(true);
+      setTimeout(() => setJustDropped(false), 50);
+      onDragEnd();
+    },
   });
 
   const [{ isOver }, drop] = useDrop({
@@ -148,8 +152,8 @@ function DraggableGridItem({
     return (
       <div
         ref={ref}
-        className={`group relative bg-[#1a1a1a] border rounded-xl overflow-hidden hover:border-blue-400/50 transition-all cursor-pointer ${
-          isDragging ? "opacity-50 scale-95 z-50 pointer-events-none" : ""
+        className={`group relative bg-[#1a1a1a] border rounded-xl overflow-hidden hover:border-blue-400/50 cursor-pointer ${
+          isDragging ? "opacity-0 scale-95" : justDropped ? "opacity-100 scale-100" : "opacity-100 scale-100 transition-[opacity,transform] duration-200 ease-out"
         } ${isOver && !isItemOver ? "border-blue-500" : "border-white/10"} ${
           isItemOver ? "border-green-500 ring-2 ring-green-500/30 scale-[1.02]" : ""
         }`}
@@ -191,8 +195,8 @@ function DraggableGridItem({
     return (
       <div
         ref={ref}
-        className={`group relative bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden hover:border-white/30 transition-all cursor-pointer ${
-          isDragging ? "opacity-50 scale-95 z-50 pointer-events-none" : ""
+        className={`group relative bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden hover:border-white/30 cursor-pointer ${
+          isDragging ? "opacity-0 scale-95" : justDropped ? "opacity-100 scale-100" : "opacity-100 scale-100 transition-[opacity,transform] duration-200 ease-out"
         } ${isOver ? "border-blue-500" : ""}`}
         onClick={() => handleFileClick(file.id)}
         title="Нажмите для открытия"
