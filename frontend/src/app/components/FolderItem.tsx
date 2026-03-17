@@ -220,11 +220,11 @@ export function FolderItem({
           )}
           {!hasSubfolders && <div className="w-4" />}
 
-          <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-1">
             {folder.emoji && (
-              <span className="text-xl select-none">{folder.emoji}</span>
+              <span className="text-xl select-none flex-shrink-0">{folder.emoji}</span>
             )}
-            <span className="text-sm text-gray-200 truncate select-none">{folder.name}</span>
+            <span className="text-sm text-gray-200 select-none whitespace-nowrap">{folder.name}</span>
           </div>
 
           {isHovered && !isDraggingState && (

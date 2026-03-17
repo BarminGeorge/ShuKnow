@@ -306,7 +306,7 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
       </div>
 
       {/* File System */}
-      <div className="flex-1 overflow-y-auto py-4">
+      <div className="flex-1 overflow-y-auto overflow-x-auto py-4 scrollbar-hide-hover" style={{ scrollbarWidth: "thin" }}>
         {folders.map((folder, index) => (
           <FolderItem
             key={folder.id}
