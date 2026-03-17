@@ -23,7 +23,7 @@ public interface IFileRepository
 
     Task<Result> DeleteAsync(Guid fileId);
 
-    Task<Result> DeleteByFolderAsync(Guid folderId);
+    Task<Result<IReadOnlyList<File>>> DeleteByFolderAsync(Guid folderId);
 
     Task<Result<IReadOnlyList<File>>> GetByFolderAsync(Guid folderId);
 }

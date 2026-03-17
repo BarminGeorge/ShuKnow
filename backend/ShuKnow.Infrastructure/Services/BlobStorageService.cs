@@ -11,6 +11,11 @@ internal class BlobStorageService : IBlobStorageService
         throw new NotImplementedException();
     }
 
+    public Task<Result> ReplaceAsync(Stream content, File file, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
+
     public Task<Result<Stream>> GetAsync(Guid fileId, CancellationToken ct = default)
     {
         throw new NotImplementedException();

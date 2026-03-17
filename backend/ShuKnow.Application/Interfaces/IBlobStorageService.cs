@@ -8,6 +8,8 @@ public interface IBlobStorageService
 {
     Task<Result> SaveAsync(Stream content, File file, CancellationToken ct = default);
     
+    Task<Result> ReplaceAsync(Stream content, File file, CancellationToken ct = default);
+    
     Task<Result<Stream>> GetAsync(Guid fileId, CancellationToken ct = default);
     
     Task<Result<Stream>> GetRangeAsync(Guid fileId, long rangeStart, long rangeEnd, CancellationToken ct = default);

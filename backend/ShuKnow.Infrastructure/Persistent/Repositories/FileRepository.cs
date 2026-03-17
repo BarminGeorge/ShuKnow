@@ -42,7 +42,7 @@ public class FileRepository : IFileRepository
         throw new NotImplementedException();
     }
 
-    public Task<Result> DeleteByFolderAsync(Guid folderId)
+    public Task<Result<IReadOnlyList<File>>> DeleteByFolderAsync(Guid folderId)
     {
         throw new NotImplementedException();
     }
