@@ -4,58 +4,54 @@ using File = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.WebAPI.Services;
 
-public class ChatNotificationService : IChatNotificationService
+public class ChatNotificationService(ICurrentConnectionService currentConnection) : IChatNotificationService
 {
-    public Task SendProcessingStartedAsync(string connectionId, UserAction action, CancellationToken ct = default)
+    public Task SendProcessingStartedAsync(UserAction action, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task SendMessageChunkAsync(
-        string connectionId, ChatMessage message, string chunk, CancellationToken ct = default)
+    public Task SendMessageChunkAsync(ChatMessage message, string chunk, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task SendMessageCompletedAsync(string connectionId, ChatMessage message, CancellationToken ct = default)
+    public Task SendMessageCompletedAsync(ChatMessage message, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task SendClassificationResultAsync(
-        string connectionId, IReadOnlyCollection<ActionItem> decisions, CancellationToken ct = default)
+    public Task SendClassificationResultAsync(IReadOnlyCollection<ActionItem> decisions, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task SendFileCreatedAsync(string connectionId, File file, CancellationToken ct = default)
+    public Task SendFileCreatedAsync(File file, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task SendFileMovedAsync(string connectionId, ActionItemFileMoved movedFile, CancellationToken ct = default)
+    public Task SendFileMovedAsync(ActionItemFileMoved movedFile, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task SendFolderCreatedAsync(string connectionId, Folder folder, CancellationToken ct = default)
+    public Task SendFolderCreatedAsync(Folder folder, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task SendProcessingCompletedAsync(string connectionId, UserAction action, CancellationToken ct = default)
+    public Task SendProcessingCompletedAsync(UserAction action, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task SendProcessingFailedAsync(
-        string connectionId, UserAction action, string error, CancellationToken ct = default)
+    public Task SendProcessingFailedAsync(UserAction action, string error, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task SendProcessingCancelledAsync(
-        string connectionId, ChatMessage cancellationRecord, CancellationToken ct = default)
+    public Task SendProcessingCancelledAsync(ChatMessage cancellationRecord, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }

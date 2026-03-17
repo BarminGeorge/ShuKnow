@@ -36,6 +36,7 @@ public static class ServiceCollectionExtensions
         services.AddAuth(configuration);
 
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<ICurrentConnectionService, CurrentConnectionService>();
         services.AddScoped<IAuthCookieService, AuthCookieService>();
         services.AddScoped<IChatNotificationService, ChatNotificationService>();
     }
