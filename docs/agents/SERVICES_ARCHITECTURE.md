@@ -21,7 +21,42 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.2 IFolderService
+### 1.2 IIdentityService (Implemented)
+
+**Purpose.** Handles user authentication: registration of new users and login for existing users. Coordinates identity creation across both the domain `User` entity and the infrastructure `IdentityUser` record, returning JWT tokens on success.
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `RegisterAsync(login, password)` → `Result<string>` | Creates a new user account. Validates login uniqueness, hashes the password, creates both `IdentityUser` and `User` records, and returns a JWT token. Returns `Conflict` if login already exists. |
+| `LoginAsync(login, password)` → `Result<string>` | Authenticates an existing user. Validates credentials against stored hash and returns a JWT token on success. Returns `Unauthorized` for invalid credentials. |
+
+**Dependencies**
+
+| Dependency | Why |
+|---|---|
+| `IIdentityUserRepository` | Persist and query identity records (login/password hash). |
+| `IUserRepository` | Persist domain user entities. |
+| `IUnitOfWork` | Coordinate transactional save across both repositories. |
+| `IJwtService` | Generate JWT tokens on successful auth. |
+| `IPasswordHasher` | Hash passwords on registration and verify on login. |
+
+---
+
+### 1.3 ICurrentConnectionService
+
+**Purpose.** Provides the current SignalR connection ID to services that need to send targeted real-time events. Used by `IAIOrchestrationService` to send progress events to the correct client connection.
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `connectionId: string` | Returns the current SignalR connection ID from the hub context. |
+
+---
+
+### 1.4 IFolderService
 
 **Purpose.** Manages the complete lifecycle of the virtual folder hierarchy. Enforces all folder-level invariants: name uniqueness within a parent scope, cycle prevention on move, protection of the system `Inbox` folder, and auto-creation of `Inbox` on first use.
 
@@ -51,7 +86,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.3 IFileService
+### 1.5 IFileService
 
 **Purpose.** Manages file metadata CRUD, binary upload/download/replace, and file movement between folders. Validates name uniqueness within a folder, enforces size limits, and delegates binary storage to a blob abstraction.
 
@@ -80,7 +115,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.4 IChatService
+### 1.6 IChatService
 
 **Purpose.** Manages the single-active-session model, persists messages (user, AI, and cancellation), and serves message history with cursor pagination.
 
@@ -105,7 +140,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.5 IAttachmentService
+### 1.7 IAttachmentService
 
 **Purpose.** Stages file uploads that will be referenced in a future `SendMessage` hub invocation. Attachments are a temporary holding area — they exist because SignalR's default 32 KB message limit makes it unsuitable for binary payloads, so files must arrive via REST before the chat message references them by ID.
 
@@ -128,7 +163,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.6 ISettingsService
+### 1.8 ISettingsService
 
 **Purpose.** Manages per-user AI/LLM provider configuration (base URL and API key). Provides a connectivity test so users get fast feedback before their first real AI request.
 
@@ -151,7 +186,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.7 IAIOrchestrationService
+### 1.9 IAIOrchestrationService
 
 **Purpose.** This is the central orchestrator for the AI classification pipeline — the most complex service in the system. It is invoked exclusively from `ChatHub`.
 
@@ -202,7 +237,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.8 IActionQueryService
+### 1.10 IActionQueryService
 
 **Purpose.** Provides read-only access to AI action history. Separated from `IRollbackService` because reading action history is a query concern with its own pagination, while rollback is a command with complex side effects.
 
@@ -222,7 +257,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.9 IRollbackService
+### 1.11 IRollbackService
 
 **Purpose.** Reverses a recorded AI action by iterating its action items in reverse order and undoing each mutation.
 
@@ -245,7 +280,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.10 IPromptPreparationService
+### 1.12 IPromptPreparationService
 
 **Purpose.** Consolidates the entire prompt preparation pipeline into a single service. Internally depends on `IFolderService` (for folder tree via `GetFolderTreeForPromptAsync`), `IAttachmentService` (for staged file resolution), and `IPromptBuilder` (for text assembly). This reduces three dependencies from the orchestrator to one.
 
@@ -265,7 +300,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.11 IPromptBuilder
+### 1.13 IPromptBuilder
 
 **Purpose.** Constructs the LLM prompt from contextual inputs. Used internally by `IPromptPreparationService` — not consumed directly by the orchestrator.
 
@@ -277,7 +312,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.12 IActionTrackingService
+### 1.14 IActionTrackingService
 
 **Purpose.** Manages the lifecycle of action tracking during AI orchestration. Encapsulates `IActionRepository` write operations so that the orchestrator and rollback service do not manage entity state transitions directly.
 
@@ -300,7 +335,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.13 IClassificationParser
+### 1.15 IClassificationParser
 
 **Purpose.** Parses the LLM's textual response into a structured list of classification decisions. The LLM is instructed (via the prompt) to use specific tools; this service extracts and validates tool calls.
 
@@ -312,7 +347,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.14 IChatNotificationService
+### 1.16 IChatNotificationService
 
 **Purpose.** Abstracts the transport mechanism for sending real-time events from the Application layer to the client. The interface is defined in Application; the implementation lives in WebAPI and uses `IHubContext<ChatHub>`. This boundary prevents SignalR types from leaking into the Application layer.
 
@@ -539,6 +574,7 @@ flowchart LR
             direction LR
             IdentityService["IIdentityService"]:::support
             CurrentUser["ICurrentUserService"]:::support
+            CurrentConnection["ICurrentConnectionService"]:::support
         end
     end
 
@@ -588,6 +624,7 @@ flowchart LR
     subgraph Persistence["Persistence ports"]
         direction TB
         UserRepo["IUserRepository"]:::repo
+        IdentityUserRepo["IIdentityUserRepository"]:::repo
         FolderRepo["IFolderRepository"]:::repo
         FileRepo["IFileRepository"]:::repo
         ChatSessionRepo["IChatSessionRepository"]:::repo
@@ -595,6 +632,7 @@ flowchart LR
         AttachmentRepo["IAttachmentRepository"]:::repo
         SettingsRepo["ISettingsRepository"]:::repo
         ActionRepo["IActionRepository"]:::repo
+        UnitOfWork["IUnitOfWork"]:::repo
     end
 
     subgraph Integrations["Integration ports and helpers"]
@@ -617,6 +655,7 @@ flowchart LR
     end
 
     UserRepo --> DB
+    IdentityUserRepo --> DB
     FolderRepo --> DB
     FileRepo --> DB
     ChatSessionRepo --> DB
