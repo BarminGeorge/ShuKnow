@@ -7,6 +7,7 @@ public class File : IEntity<Guid>
     public Guid Id { get; private set; }
 
     public Guid FolderId { get; private set; }
+    public Folder Folder { get; private set; } = null!;
     public string Name { get; private set; } = string.Empty;
     public string Description { get; private set; } = string.Empty;
     public string ContentType { get; private set; } = string.Empty;

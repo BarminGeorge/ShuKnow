@@ -15,15 +15,15 @@ public interface IFileRepository
 
     Task<Result<bool>> ExistsByNameInFolderAsync(string name, Guid folderId, Guid userId, Guid? excludeId = null);
 
-    Task<Result<int>> CountByFolderAsync(Guid folderId);
+    Task<Result<int>> CountByFolderAsync(Guid folderId, Guid userId);
 
     Task<Result> AddAsync(File file);
 
     Task<Result> UpdateAsync(File file);
 
-    Task<Result> DeleteAsync(Guid fileId);
+    Task<Result> DeleteAsync(Guid fileId, Guid userId);
 
-    Task<Result<IReadOnlyList<File>>> DeleteByFolderAsync(Guid folderId);
+    Task<Result<IReadOnlyList<File>>> DeleteByFolderAsync(Guid folderId, Guid userId);
 
-    Task<Result<IReadOnlyList<File>>> GetByFolderAsync(Guid folderId);
+    Task<Result<IReadOnlyList<File>>> GetByFolderAsync(Guid folderId, Guid userId);
 }
