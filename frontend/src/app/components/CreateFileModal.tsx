@@ -60,15 +60,19 @@ export function CreateFileModal({
             <label className="text-sm font-medium text-gray-300 mb-2 block">
               Название файла
             </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Название файла"
-              className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 outline-none focus:border-blue-500/50 transition-colors"
-              autoFocus
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value.slice(0, 50))}
+                onKeyDown={handleKeyDown}
+                placeholder="Название файла"
+                maxLength={50}
+                className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 outline-none focus:border-blue-500/50 transition-colors pr-14"
+                autoFocus
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">{name.length}/50</span>
+            </div>
           </div>
 
           {/* AI Prompt */}

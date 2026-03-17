@@ -295,44 +295,6 @@ export function FolderContentView({
   const [editFolderModal, setEditFolderModal] = useState<{ isOpen: boolean; folder: Folder | null; }>({ isOpen: false, folder: null });
   const [fileContextMenu, setFileContextMenu] = useState<{ isOpen: boolean; fileId: string; position: { x: number; y: number }; }>({ isOpen: false, fileId: "", position: { x: 0, y: 0 } });
   const [folderContextMenu, setFolderContextMenu] = useState<{ isOpen: boolean; folderId: string; position: { x: number; y: number }; }>({ isOpen: false, folderId: "", position: { x: 0, y: 0 } });
-  
-  // Global breadcrumb tooltip state
-  const [breadcrumbTooltip, setBreadcrumbTooltip] = useState<{
-    visible: boolean;
-    content: string;
-    x: number;
-    y: number;
-    isHiding: boolean;
-  }>({ visible: false, content: "", x: 0, y: 0, isHiding: false });
-  
-  // Check if element text is truncated
-  const isElementTruncated = (el: HTMLElement | null): boolean => {
-    if (!el) return false;
-    return el.scrollWidth > el.clientWidth;
-  };
-  
-  const handleBreadcrumbMouseEnter = (e: React.MouseEvent<HTMLSpanElement>, crumb: string) => {
-    const el = e.currentTarget;
-    if (isElementTruncated(el)) {
-      const rect = el.getBoundingClientRect();
-      setBreadcrumbTooltip({
-        visible: true,
-        content: crumb,
-        x: rect.left + rect.width / 2,
-        y: rect.bottom + 8,
-        isHiding: false,
-      });
-    }
-  };
-  
-  const handleBreadcrumbMouseLeave = () => {
-    // Start fade-out animation
-    setBreadcrumbTooltip(prev => ({ ...prev, isHiding: true }));
-    // Remove tooltip after animation completes
-    setTimeout(() => {
-      setBreadcrumbTooltip(prev => ({ ...prev, visible: false, isHiding: false }));
-    }, 150);
-  };
 
   // Refs for state management without re-renders
   const orderRef = useRef<string[]>([]);
@@ -547,8 +509,6 @@ export function FolderContentView({
                   onClick={() => {
                     if (index < breadcrumbs.length - 1) onBreadcrumbClick(index);
                   }}
-                  onMouseEnter={(e) => handleBreadcrumbMouseEnter(e, crumb)}
-                  onMouseLeave={handleBreadcrumbMouseLeave}
                 >
                   {crumb}
                 </span>
@@ -557,22 +517,6 @@ export function FolderContentView({
             ))}
           </div>
         </div>
-        
-        {/* Global Breadcrumb Tooltip */}
-        {breadcrumbTooltip.visible && (
-          <div
-            className={`fixed z-50 px-3 py-1.5 text-xs text-white bg-gray-800 rounded-md shadow-lg pointer-events-none transition-all duration-150 ${
-              breadcrumbTooltip.isHiding ? "opacity-0 scale-95" : "opacity-100 scale-100"
-            }`}
-            style={{
-              left: breadcrumbTooltip.x,
-              top: breadcrumbTooltip.y,
-              transform: "translateX(-50%)",
-            }}
-          >
-            {breadcrumbTooltip.content}
-          </div>
-        )}
 
         {/* Title & Emoji */}
         <div className="flex items-center gap-3 mb-4">
@@ -599,9 +543,10 @@ export function FolderContentView({
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => setTitle(e.target.value.slice(0, 50))}
               onBlur={handleTitleBlur}
               onKeyDown={(e) => { if (e.key === "Enter") handleTitleBlur(); }}
+              maxLength={50}
               className="text-3xl font-semibold bg-transparent text-white border-b-2 border-blue-500 outline-none"
               autoFocus
             />
