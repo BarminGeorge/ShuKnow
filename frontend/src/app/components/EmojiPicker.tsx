@@ -270,7 +270,7 @@ export function EmojiPicker({
   return createPortal(
     <div
       ref={pickerRef}
-      className="fixed z-[9999] w-72 bg-[#1a1a2e] border border-white/15 rounded-xl shadow-2xl overflow-hidden"
+      className="fixed z-[9999] w-72 bg-[#161b22] border border-white/20 rounded-xl shadow-2xl overflow-hidden"
       style={{ top: position.top, left: position.left }}
     >
       {/* Top actions */}
