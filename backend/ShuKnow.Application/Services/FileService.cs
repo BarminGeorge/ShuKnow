@@ -31,7 +31,7 @@ public class FileService(
         File file, Stream content, CancellationToken ct = default)
     {
         return await EnsureFolderExistsAsync(file.FolderId)
-            .BindAsync(_ => ValidateMetadata(file.Name, file.FolderId, file.Id))
+            .BindAsync(_ => EnsureFileNameUnique(file.Name, file.FolderId, file.Id))
             .BindAsync(_ => fileRepository.AddAsync(file))
             .BindAsync(_ => blobStorageService.SaveAsync(content, file, ct))
             .SaveChangesAsync(unitOfWork)
@@ -41,7 +41,7 @@ public class FileService(
     public async Task<Result<File>> UpdateMetadataAsync(File file, CancellationToken ct = default)
     {
         return await fileRepository.GetByIdForUpdateAsync(file.Id, CurrentUserId)
-            .ActAsync(existingFile => ValidateMetadata(file.Name, existingFile.FolderId, existingFile.Id))
+            .ActAsync(existingFile => EnsureFileNameUnique(file.Name, existingFile.FolderId, existingFile.Id))
             .ActAsync(existingFile => existingFile.UpdateMetadata(file.Name, file.Description))
             .SaveChangesAsync(unitOfWork);
     }
@@ -87,7 +87,7 @@ public class FileService(
     {
         return await EnsureFolderExistsAsync(targetFolderId)
             .BindAsync(_ => fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId))
-            .ActAsync(existingFile => ValidateMetadata(existingFile.Name, targetFolderId, existingFile.Id))
+            .ActAsync(existingFile => EnsureFileNameUnique(existingFile.Name, targetFolderId, existingFile.Id))
             .ActAsync(existingFile => existingFile.MoveTo(targetFolderId))
             .SaveChangesAsync(unitOfWork);
     }
@@ -100,7 +100,7 @@ public class FileService(
             .SaveChangesAsync(unitOfWork);
     }
 
-    private async Task<Result> ValidateMetadata(string name, Guid folderId, Guid fileId)
+    private async Task<Result> EnsureFileNameUnique(string name, Guid folderId, Guid fileId)
     {
         var existsResult = await fileRepository.ExistsByNameInFolderAsync(name, folderId, CurrentUserId, fileId);
         if (!existsResult.IsSuccess)
