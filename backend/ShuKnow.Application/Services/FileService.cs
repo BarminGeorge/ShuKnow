@@ -40,20 +40,10 @@ internal class FileService(
 
     public async Task<Result<File>> UpdateMetadataAsync(File file, CancellationToken ct = default)
     {
-        var existingFileResult = await fileRepository.GetByIdForUpdateAsync(file.Id, CurrentUserId);
-        if (!existingFileResult.IsSuccess)
-            return Result<File>.NotFound();
-
-        var existingFile = existingFileResult.Value;
-
-        var validationResult = await ValidateMetadata(file.Name, existingFile.FolderId, existingFile.Id);
-        if (!validationResult.IsSuccess)
-            return Result<File>.Conflict();
-
-        existingFile.UpdateMetadata(file.Name, file.Description);
-
-        return await unitOfWork.SaveChangesAsync()
-            .MapAsync(() => existingFile);
+        return await fileRepository.GetByIdForUpdateAsync(file.Id, CurrentUserId)
+            .ActAsync(existingFile => ValidateMetadata(existingFile.Name, existingFile.FolderId, existingFile.Id))
+            .ActAsync(existingFile => existingFile.UpdateMetadata(file.Name, file.Description))
+            .SaveChangesAsync(unitOfWork);
     }
 
     public async Task<Result> DeleteAsync(Guid fileId, CancellationToken ct = default)
@@ -80,7 +70,7 @@ internal class FileService(
     {
         var existingFileResult = await fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId);
         if (!existingFileResult.IsSuccess)
-            return Result<File>.NotFound();
+            return existingFileResult;
 
         var existingFile = existingFileResult.Value;
 
@@ -95,25 +85,11 @@ internal class FileService(
 
     public async Task<Result<File>> MoveAsync(Guid fileId, Guid targetFolderId, CancellationToken ct = default)
     {
-        var folderResult = await EnsureFolderExistsAsync(targetFolderId);
-        if (!folderResult.IsSuccess)
-            // TODO: исправить эти моменты
-            return Result<File>.NotFound();
-
-        var existingFileResult = await fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId);
-        if (!existingFileResult.IsSuccess)
-            return Result<File>.NotFound();
-
-        var existingFile = existingFileResult.Value;
-
-        var validationResult = await ValidateMetadata(existingFile.Name, targetFolderId, existingFile.Id);
-        if (!validationResult.IsSuccess)
-            return Result<File>.Conflict();
-
-        existingFile.MoveTo(targetFolderId);
-
-        return await unitOfWork.SaveChangesAsync()
-            .MapAsync(() => existingFile);
+        return await EnsureFolderExistsAsync(targetFolderId)
+            .BindAsync(_ => fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId))
+            .ActAsync(existingFile => ValidateMetadata(existingFile.Name, targetFolderId, existingFile.Id))
+            .ActAsync(existingFile => existingFile.MoveTo(targetFolderId))
+            .SaveChangesAsync(unitOfWork);
     }
 
     public async Task<Result> DeleteByFolderAsync(Guid folderId, CancellationToken ct = default)
