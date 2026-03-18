@@ -7,6 +7,7 @@ import { FolderContextMenu } from "./FolderContextMenu";
 import { EditFileModal } from "./EditFileModal";
 import { EditFolderModal } from "./EditFolderModal";
 import { CreateFileModal } from "./CreateFileModal";
+import { CreatePhotoModal } from "./CreatePhotoModal";
 import { CreateFolderModal } from "./CreateFolderModal";
 import { EmojiPicker } from "./EmojiPicker";
 import type { Folder, FileItem } from "../App";
@@ -656,9 +657,14 @@ export function FolderContentView({
 
   const [isCreateFileModalOpen, setIsCreateFileModalOpen] = useState(false);
   const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
+  const [isCreatePhotoModalOpen, setIsCreatePhotoModalOpen] = useState(false);
 
   const handleCreateFile = () => {
     setIsCreateFileModalOpen(true);
+  };
+
+  const handleCreatePhoto = () => {
+    setIsCreatePhotoModalOpen(true);
   };
 
   const handleCreateFileFromModal = (name: string, prompt: string) => {
@@ -668,6 +674,19 @@ export function FolderContentView({
       type: "text",
       folderId: folder.id,
       content: "",
+      prompt: prompt || undefined,
+      createdAt: new Date().toISOString(),
+    };
+    onCreateFile(newFile);
+  };
+
+  const handleCreatePhotoFromModal = (name: string, imageUrl: string, prompt: string) => {
+    const newFile: FileItem = {
+      id: Date.now().toString(),
+      name,
+      type: "photo",
+      folderId: folder.id,
+      imageUrl,
       prompt: prompt || undefined,
       createdAt: new Date().toISOString(),
     };
@@ -878,6 +897,14 @@ export function FolderContentView({
               Создать папку
             </button>
             <button
+              onClick={handleCreatePhoto}
+              className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
+              title="Загрузить фото"
+            >
+              <ImageIcon size={16} />
+              Загрузить фото
+            </button>
+            <button
               onClick={handleCreateFile}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
               title="Создать файл"
@@ -959,6 +986,13 @@ export function FolderContentView({
                 Создать папку
               </button>
               <button
+                onClick={handleCreatePhoto}
+                className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
+              >
+                <ImageIcon size={16} />
+                Загрузить фото
+              </button>
+              <button
                 onClick={handleCreateFile}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
               >
@@ -1003,6 +1037,11 @@ export function FolderContentView({
         isOpen={isCreateFileModalOpen}
         onClose={() => setIsCreateFileModalOpen(false)}
         onCreate={handleCreateFileFromModal}
+      />
+      <CreatePhotoModal
+        isOpen={isCreatePhotoModalOpen}
+        onClose={() => setIsCreatePhotoModalOpen(false)}
+        onCreate={handleCreatePhotoFromModal}
       />
       <CreateFolderModal
         isOpen={isCreateFolderModalOpen}

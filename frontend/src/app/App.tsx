@@ -92,6 +92,22 @@ const initialFiles: FileItem[] = [
     createdAt: new Date("2026-03-01T10:00:00").toISOString(),
   },
   {
+    id: "file-photo-1",
+    name: "фото1.webp",
+    type: "photo",
+    folderId: "1",
+    imageUrl: "/mock_foto/фото1.webp",
+    createdAt: new Date("2026-03-02T10:00:00").toISOString(),
+  },
+  {
+    id: "file-photo-2",
+    name: "фото2.webp",
+    type: "photo",
+    folderId: "1-2",
+    imageUrl: "/mock_foto/фото2.webp",
+    createdAt: new Date("2026-03-02T11:00:00").toISOString(),
+  },
+  {
     id: "file-2",
     name: "Идеи для стартапа.md",
     type: "text",
