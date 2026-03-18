@@ -23,10 +23,9 @@ internal class IdentityService(
         var identityUser = new IdentityUser(login, passwordHash);
         var user = identityUser.ToUser();
 
-        users.Add(user);
-        identityUsers.Add(identityUser);
-
-        return await unitOfWork.SaveChangesAsync()
+        return await users.AddAsync(user)
+            .BindAsync(_ => identityUsers.AddAsync(identityUser))
+            .BindAsync(_ => unitOfWork.SaveChangesAsync())
             .MapAsync(() => jwtService.GenerateToken(user.Id));
     }
 

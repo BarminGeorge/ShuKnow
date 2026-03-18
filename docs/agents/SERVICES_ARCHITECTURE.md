@@ -21,7 +21,42 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.2 IFolderService
+### 1.2 IIdentityService (Implemented)
+
+**Purpose.** Handles user authentication: registration of new users and login for existing users. Coordinates identity creation across both the domain `User` entity and the infrastructure `IdentityUser` record, returning JWT tokens on success.
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `RegisterAsync(login, password)` → `Result<string>` | Creates a new user account. Validates login uniqueness, hashes the password, creates both `IdentityUser` and `User` records, and returns a JWT token. Returns `Conflict` if login already exists. |
+| `LoginAsync(login, password)` → `Result<string>` | Authenticates an existing user. Validates credentials against stored hash and returns a JWT token on success. Returns `Unauthorized` for invalid credentials. |
+
+**Dependencies**
+
+| Dependency | Why |
+|---|---|
+| `IIdentityUserRepository` | Persist and query identity records (login/password hash). |
+| `IUserRepository` | Persist domain user entities. |
+| `IUnitOfWork` | Coordinate transactional save across both repositories. |
+| `IJwtService` | Generate JWT tokens on successful auth. |
+| `IPasswordHasher` | Hash passwords on registration and verify on login. |
+
+---
+
+### 1.3 ICurrentConnectionService
+
+**Purpose.** Provides the current SignalR connection ID to services that need to send targeted real-time events. Used by `IAIOrchestrationService` to send progress events to the correct client connection.
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `connectionId: string` | Returns the current SignalR connection ID from the hub context. |
+
+---
+
+### 1.4 IFolderService
 
 **Purpose.** Manages the complete lifecycle of the virtual folder hierarchy. Enforces all folder-level invariants: name uniqueness within a parent scope, cycle prevention on move, protection of the system `Inbox` folder, and auto-creation of `Inbox` on first use.
 
@@ -29,12 +64,13 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Method | Description |
 |---|---|
-| `GetTreeAsync()` → `List<FolderTreeNode>` | Returns the full recursive tree for the current user, including file counts per node. Used for sidebar rendering. |
+| `GetTreeAsync()` → `List<Folder>` | Returns the full folder hierarchy for the current user. Tree shaping for UI is done at the WebAPI mapping layer. |
+| `GetFolderTreeForPromptAsync()` → `List<FolderSummary>` | Returns lightweight projections (id, name, description, parent) suitable for AI prompt construction. Avoids loading full entities. Used by `IPromptPreparationService`. |
 | `ListAsync(parentId?)` → `List<Folder>` | Flat list of folders at a given level (root when `parentId` is null). Lightweight alternative to the full tree. |
 | `GetByIdAsync(folderId)` → `Folder` | Single folder with metadata and a `path` breadcrumb array from root to this node. |
 | `GetChildrenAsync(folderId)` → `List<Folder>` | Direct child folders. Supports lazy-loading of expanded tree nodes. |
-| `CreateAsync(request)` → `Folder` | Creates a folder. Validates name uniqueness among siblings. Triggers `EnsureInboxExistsAsync` if this is the user's first folder. |
-| `UpdateAsync(folderId, request)` → `Folder` | Renames and/or updates description. Validates name uniqueness among siblings. |
+| `CreateAsync(folder)` → `Folder` | Creates a folder entity. Validates name uniqueness among siblings. Triggers `EnsureInboxExistsAsync` if this is the user's first folder. |
+| `UpdateAsync(folderId, folder)` → `Folder` | Updates folder mutable metadata (name/description). Validates name uniqueness among siblings. |
 | `DeleteAsync(folderId, recursive)` | Deletes a folder. If `recursive=false` and the folder has children or files, rejects with 409. The Inbox folder is never deletable. |
 | `MoveAsync(folderId, newParentId?)` → `Folder` | Moves a folder to a new parent (or root). Validates no cycle is created (a folder cannot become its own descendant) and name uniqueness in the target scope. |
 | `ReorderAsync(folderId, position)` | Sets the `SortOrder` of the folder to the given 0-based position and re-indexes all siblings. |
@@ -50,7 +86,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.3 IFileService
+### 1.5 IFileService
 
 **Purpose.** Manages file metadata CRUD, binary upload/download/replace, and file movement between folders. Validates name uniqueness within a folder, enforces size limits, and delegates binary storage to a blob abstraction.
 
@@ -60,8 +96,8 @@ These are the primary units of business logic. Each service is defined as an int
 |---|---|
 | `GetByIdAsync(fileId)` → `File` | File metadata including owning folder name. |
 | `ListByFolderAsync(folderId, page, pageSize)` → `(List<File> Files, int TotalCount)` | Offset-paginated file listing within a folder. |
-| `UploadAsync(folderId, stream, fileName, contentType, description?)` → `File` | Stores the binary via `IBlobStorageService`, creates a `FileEntity` record. Validates name uniqueness and size limit. |
-| `UpdateMetadataAsync(fileId, request)` → `File` | Updates name/description. Validates name uniqueness within the file's current folder. |
+| `UploadAsync(folderId, file, stream)` → `File` | Stores the binary via `IBlobStorageService`, then persists the provided file metadata entity. Validates name uniqueness and size limit. |
+| `UpdateMetadataAsync(fileId, file)` → `File` | Updates mutable file metadata (name/description). Validates name uniqueness within the file's current folder. |
 | `DeleteAsync(fileId)` | Deletes the metadata record and the binary blob. |
 | `GetContentAsync(fileId, rangeStart?, rangeEnd?)` → `(Stream Content, string ContentType, long SizeBytes)` | Streams the binary content. Returns content type and supports HTTP Range for partial downloads. |
 | `ReplaceContentAsync(fileId, stream, contentType)` → `File` | Replaces the binary blob in place. Metadata (name, description) unchanged; `sizeBytes` and `contentType` updated. |
@@ -79,7 +115,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.4 IChatService
+### 1.6 IChatService
 
 **Purpose.** Manages the single-active-session model, persists messages (user, AI, and cancellation), and serves message history with cursor pagination.
 
@@ -90,9 +126,9 @@ These are the primary units of business logic. Each service is defined as an int
 | `GetOrCreateActiveSessionAsync()` → `ChatSession` | Returns the user's active session. Creates one if none exists. Idempotent. |
 | `DeleteSessionAsync()` | Closes/deletes the active session and its messages. The next `GetOrCreate` call starts fresh. |
 | `GetMessagesAsync(cursor?, limit)` → `(List<ChatMessage> Messages, string? NextCursor)` | Cursor-paginated message history, newest first. The cursor is opaque (encodes `CreatedAt` + `Id` for keyset pagination). |
-| `PersistUserMessageAsync(sessionId, content, attachments?)` → `ChatMessage` | Saves the user's message and links any staged attachments. Returns the persisted entity with a server-assigned ID and timestamp. |
-| `PersistAiMessageAsync(sessionId, content)` → `ChatMessage` | Saves the final AI response text. Called by the orchestration service after streaming completes. |
-| `PersistCancellationRecordAsync(sessionId)` → `ChatMessage` | Saves a system message indicating the AI response was cancelled. Preserves timeline integrity. |
+| `PersistUserMessageAsync(sessionId, message, attachmentIds?)` → `ChatMessage` | Saves the user's message entity and links any staged attachments by ID. Returns the persisted entity with a server-assigned ID and timestamp. |
+| `PersistAiMessageAsync(sessionId, message)` → `ChatMessage` | Saves the final AI response message. Called by the orchestration service after streaming completes. |
+| `PersistCancellationRecordAsync(sessionId, message)` → `ChatMessage` | Saves a system message indicating the AI response was cancelled. Preserves timeline integrity. |
 
 **Dependencies**
 
@@ -104,7 +140,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.5 IAttachmentService
+### 1.7 IAttachmentService
 
 **Purpose.** Stages file uploads that will be referenced in a future `SendMessage` hub invocation. Attachments are a temporary holding area — they exist because SignalR's default 32 KB message limit makes it unsuitable for binary payloads, so files must arrive via REST before the chat message references them by ID.
 
@@ -112,7 +148,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Method | Description |
 |---|---|
-| `UploadAsync(files)` → `List<ChatAttachment>` | Accepts one or more files, stores binaries via `IBlobStorageService`, creates `ChatAttachment` records with metadata. Returns IDs for later reference. |
+| `UploadAsync(attachments, contents)` → `List<ChatAttachment>` | Persists pre-built attachment metadata with matching content streams. WebAPI maps multipart uploads into this contract. Returns IDs for later reference. |
 | `GetByIdsAsync(attachmentIds)` → `List<ChatAttachment>` | Retrieves attachment entities with their storage keys. Used by the orchestration service to build the AI prompt. Validates all IDs belong to the current user and are not yet consumed. |
 | `MarkConsumedAsync(attachmentIds)` | Marks attachments as consumed so they are no longer eligible for reuse or purging. Called after successful association with a chat message. |
 | `PurgeExpiredAsync()` | Deletes attachments older than 1 hour that were never consumed. Intended to be called by a background job or hosted service. |
@@ -127,7 +163,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.6 ISettingsService
+### 1.8 ISettingsService
 
 **Purpose.** Manages per-user AI/LLM provider configuration (base URL and API key). Provides a connectivity test so users get fast feedback before their first real AI request.
 
@@ -135,9 +171,9 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Method | Description |
 |---|---|
-| `GetAsync()` → `AiSettings?` | Returns current config. |
-| `UpdateAsync(request)` → `AiSettings` | Saves/overwrites base URL and API key. Encrypts the API key before persistence. |
-| `TestConnectionAsync()` → `AiConnectionTest` | Decrypts the stored API key, sends a minimal probe request to the configured LLM endpoint, and returns `success`, `latencyMs`, and `errorMessage`. Returns 422 if settings are not yet configured. |
+| `GetAsync()` → `UserAiSettings?` | Returns current config. |
+| `UpdateAsync(settings)` → `UserAiSettings` | Saves/overwrites base URL and API key. Encrypts the API key before persistence. |
+| `TestConnectionAsync()` → `(bool Success, int? LatencyMs, string? ErrorMessage)` | Decrypts the stored API key, sends a minimal probe request to the configured LLM endpoint, and returns test outcome fields. Returns validation failure if settings are not yet configured. |
 
 **Dependencies**
 
@@ -150,7 +186,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.7 IAIOrchestrationService
+### 1.9 IAIOrchestrationService
 
 **Purpose.** This is the central orchestrator for the AI classification pipeline — the most complex service in the system. It is invoked exclusively from `ChatHub`.
 
@@ -158,7 +194,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Method | Description |
 |---|---|
-| `ProcessMessageAsync(content, context?, attachmentIds?, callerConnectionId, cancellationToken)` | Executes the full classification pipeline (described below). Void return — all output is emitted as events through `IChatNotificationService`. The `CancellationToken` is monitored at every async boundary so that `CancelProcessing` can interrupt the flow cleanly. |
+| `ProcessMessageAsync(content, context?, attachmentIds?, callerConnectionId, cancellationToken)` | Executes the full classification pipeline (described below). Returns operation status (`Result`) while all user-facing output is emitted as events through `IChatNotificationService`. The `CancellationToken` is monitored at every async boundary so that `CancelProcessing` can interrupt the flow cleanly. |
 
 **Internal pipeline (single method, multiple stages):**
 
@@ -166,17 +202,17 @@ These are the primary units of business logic. Each service is defined as an int
 2. **User message persistence.** Save the user's message and link attachments via `IChatService`.
 3. **Emit `OnProcessingStarted`.** Generate an `operationId` (GUID) that correlates all subsequent events in this run.
 4. **Settings retrieval.** Load and decrypt the user's AI config via `ISettingsService`. Fail with `LLM_CONNECTION_FAILED` if not configured.
-5. **Prompt construction.** Delegate to `IPromptBuilder`:
-   - Load the user's folder tree (via `IFolderRepository`) to give the AI awareness of existing categories.
-   - Load attachment content (via `IAttachmentService`) to provide the material being classified.
-   - Combine with the user's message text and optional context hint.
+5. **Prompt construction.** Delegate to `IPromptPreparationService.PrepareAsync()`, which internally:
+   - Loads the user's folder tree (via `IFolderService.GetFolderTreeForPromptAsync()`) to give the AI awareness of existing categories.
+   - Resolves attachment content (via `IAttachmentService`) to provide the material being classified.
+   - Assembles the final prompt text (via `IPromptBuilder`).
 6. **LLM streaming call.** Call `IAIService.StreamCompletionAsync()` with the prompt and the user's decrypted credentials. For each token chunk received, emit `OnMessageChunk`. Accumulate the full response text.
 7. **Classification parsing.** Pass the full response to `IClassificationParser` to extract structured decisions (file name → target folder, is-new-folder flag). Emit `OnClassificationResult`.
-8. **Action record creation.** Create an `Action` entity via `IActionRepository` to begin recording mutations.
+8. **Action record creation.** Create an action record via `IActionTrackingService.BeginActionAsync()` to begin recording mutations.
 9. **Decision execution loop.** For each classification decision:
-   - If the target folder doesn't exist, create it via `IFolderService`, emit `OnFolderCreated`, append a `FolderCreated` action item.
-   - Create the file in the target folder (from attachment content) via `IFileService`, emit `OnFileCreated`, append a `FileCreated` action item.
-   - Or if the decision is a move of an existing file, move it via `IFileService`, emit `OnFileMoved`, append a `FileMoved` action item (recording the source folder for rollback).
+   - If the target folder doesn't exist, create it via `IFolderService`, emit `OnFolderCreated`, record via `IActionTrackingService.RecordFolderCreatedAsync()`.
+   - Create the file in the target folder (from attachment content) via `IFileService`, emit `OnFileCreated`, record via `IActionTrackingService.RecordFileCreatedAsync()`.
+   - Or if the decision is a move of an existing file, move it via `IFileService`, emit `OnFileMoved`, record via `IActionTrackingService.RecordFileMovedAsync()` (recording the source folder for rollback).
 10. **AI message persistence.** Save the AI's full response text via `IChatService`. Emit `OnMessageCompleted`.
 11. **Finalize.** Emit `OnProcessingCompleted` with the `actionId`, summary, and counts.
 
@@ -184,26 +220,24 @@ These are the primary units of business logic. Each service is defined as an int
 
 **Cancellation handling:** When the token is cancelled, the service aborts the LLM HTTP request, discards any partial result state, persists a cancellation record in the chat session, and emits `OnProcessingCancelled`.
 
-**Dependencies**
+**Dependencies (10 total)**
 
 | Dependency | Why |
 |---|---|
 | `IChatService` | Session resolution, message persistence. |
-| `IAttachmentService` | Retrieve staged attachments for prompt building. |
+| `IPromptPreparationService` | Consolidates prompt construction: folder tree loading, attachment resolution, and prompt assembly. |
 | `ISettingsService` | Load decrypted LLM credentials. |
-| `IFolderService` | Create folders during execution, load tree for prompt context. |
-| `IFileService` | Create/move files during execution. |
-| `IFolderRepository` | Load raw folder tree for prompt building (bypasses DTO mapping). |
+| `IFolderService` | Create folders during decision execution. |
+| `IFileService` | Create/move files during decision execution. |
 | `IAIService` | Stream LLM completion. |
-| `IActionRepository` | Create and append action items. |
-| `IPromptBuilder` | Construct the classification prompt. |
+| `IActionTrackingService` | Begin action, record action items (folder created, file created, file moved). |
 | `IClassificationParser` | Parse LLM text into structured decisions. |
 | `IChatNotificationService` | Emit all real-time events to the caller. |
 | `ICurrentUserService` | Ownership context. |
 
 ---
 
-### 1.8 IActionQueryService
+### 1.10 IActionQueryService
 
 **Purpose.** Provides read-only access to AI action history. Separated from `IRollbackService` because reading action history is a query concern with its own pagination, while rollback is a command with complex side effects.
 
@@ -223,7 +257,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.9 IRollbackService
+### 1.11 IRollbackService
 
 **Purpose.** Reverses a recorded AI action by iterating its action items in reverse order and undoing each mutation.
 
@@ -231,23 +265,44 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Method | Description |
 |---|---|
-| `RollbackAsync(actionId)` → `RollbackResult` | Loads the action, validates it is eligible for rollback (not already rolled back, files not modified since), reverses each item in reverse order, marks the action as rolled back, and returns results. |
-| `RollbackLastAsync()` → `RollbackResult` | Finds the most recent action that is eligible for rollback and delegates to `RollbackAsync`. Returns 404 if none found. |
+| `RollbackAsync(actionId)` → `UserAction` | Loads the action, validates it is eligible for rollback (not already rolled back, files not modified since), reverses each item in reverse order, marks the action as rolled back, and returns the updated action aggregate. |
+| `RollbackLastAsync()` → `UserAction` | Finds the most recent action that is eligible for rollback and delegates to `RollbackAsync`. Returns 404 if none found. |
 
 **Dependencies**
 
 | Dependency | Why |
 |---|---|
-| `IActionRepository` | Load action with items, mark as rolled back. |
+| `IActionRepository` | Load action with items for reversal. |
+| `IActionTrackingService` | Mark the action as rolled back after successful reversal. |
 | `IFileService` | Delete and move files. |
 | `IFolderService` | Delete folders. |
 | `ICurrentUserService` | Ownership validation. |
 
 ---
 
-### 1.10 IPromptBuilder
+### 1.12 IPromptPreparationService
 
-**Purpose.** Constructs the LLM prompt from contextual inputs.
+**Purpose.** Consolidates the entire prompt preparation pipeline into a single service. Internally depends on `IFolderService` (for folder tree via `GetFolderTreeForPromptAsync`), `IAttachmentService` (for staged file resolution), and `IPromptBuilder` (for text assembly). This reduces three dependencies from the orchestrator to one.
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `PrepareAsync(userMessage, attachmentIds?, contextSession?)` → `PreparedPrompt` | Loads the folder tree, resolves attachments by ID, assembles the full LLM prompt, and returns a `PreparedPrompt` containing the prompt text and a list of consumed attachment IDs. |
+
+**Dependencies**
+
+| Dependency | Why |
+|---|---|
+| `IFolderService` | Load folder tree for prompt context via `GetFolderTreeForPromptAsync()`. |
+| `IAttachmentService` | Resolve staged attachments and their content. |
+| `IPromptBuilder` | Assemble the final prompt text from components. |
+
+---
+
+### 1.13 IPromptBuilder
+
+**Purpose.** Constructs the LLM prompt from contextual inputs. Used internally by `IPromptPreparationService` — not consumed directly by the orchestrator.
 
 **Methods**
 
@@ -257,7 +312,30 @@ These are the primary units of business logic. Each service is defined as an int
 
 ---
 
-### 1.11 IClassificationParser
+### 1.14 IActionTrackingService
+
+**Purpose.** Manages the lifecycle of action tracking during AI orchestration. Encapsulates `IActionRepository` write operations so that the orchestrator and rollback service do not manage entity state transitions directly.
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `BeginActionAsync(sessionId, summary)` → `Guid` | Creates a new action record for the given chat session. Returns the action ID. |
+| `RecordFolderCreatedAsync(actionId, folderId, folderName, parentFolderId?)` | Records that a folder was created as part of the action. |
+| `RecordFileCreatedAsync(actionId, fileId, folderId, fileName)` | Records that a file was created as part of the action. |
+| `RecordFileMovedAsync(actionId, fileId, sourceFolderId, targetFolderId)` | Records that a file was moved as part of the action. |
+| `MarkRolledBackAsync(actionId)` | Marks an existing action as rolled back. Used by `IRollbackService` after successful reversal. |
+
+**Dependencies**
+
+| Dependency | Why |
+|---|---|
+| `IActionRepository` | Persistence of action and action-item entities. |
+| `ICurrentUserService` | Ownership context for action creation. |
+
+---
+
+### 1.15 IClassificationParser
 
 **Purpose.** Parses the LLM's textual response into a structured list of classification decisions. The LLM is instructed (via the prompt) to use specific tools; this service extracts and validates tool calls.
 
@@ -265,11 +343,11 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Method | Description |
 |---|---|
-| `Parse(llmResponseText)` → `List<ClassificationDecision>` | Extracts classification decisions from the response |
+| `Parse(llmResponseText)` → `List<ActionItem>` | Extracts structured action items from the response text. |
 
 ---
 
-### 1.12 IChatNotificationService
+### 1.16 IChatNotificationService
 
 **Purpose.** Abstracts the transport mechanism for sending real-time events from the Application layer to the client. The interface is defined in Application; the implementation lives in WebAPI and uses `IHubContext<ChatHub>`. This boundary prevents SignalR types from leaking into the Application layer.
 
@@ -427,11 +505,11 @@ These interfaces are defined in `ShuKnow.Application` and implemented in `ShuKno
 
 | Method | Description |
 |---|---|
-| `SaveAsync(stream, contentType)` → `string storageKey` | Stores the binary and returns an opaque key. |
-| `GetAsync(storageKey)` → `Stream` | Retrieves the full binary content. |
-| `GetRangeAsync(storageKey, offset, length)` → `Stream` | Retrieves a byte range (for HTTP Range support). |
-| `DeleteAsync(storageKey)` | Removes the binary content. |
-| `GetSizeAsync(storageKey)` → `long` | Returns the stored content size (for Range/Content-Length). |
+| `SaveAsync(content, file)` | Stores the binary content using metadata from the `File` entity. |
+| `GetAsync(fileId)` → `Stream` | Retrieves the full binary content by file ID. |
+| `GetRangeAsync(fileId, rangeStart, rangeEnd)` → `Stream` | Retrieves a byte range (for HTTP Range support). |
+| `DeleteAsync(fileId)` | Removes the binary content by file ID. |
+| `GetSizeAsync(fileId)` → `long` | Returns the stored content size (for Range/Content-Length). |
 
 ---
 
@@ -470,12 +548,18 @@ flowchart LR
         subgraph Workflow["AI classification workflow"]
             direction LR
             ChatService["IChatService"]:::core
-            AttachmentService["IAttachmentService"]:::core
             SettingsService["ISettingsService"]:::core
             AIOrchestration["IAIOrchestrationService"]:::core
-            PromptBuilder["IPromptBuilder"]:::support
+            PromptPrep["IPromptPreparationService"]:::support
             ClassificationParser["IClassificationParser"]:::support
+            ActionTracking["IActionTrackingService"]:::support
             ChatNotification["IChatNotificationService"]:::transport
+        end
+
+        subgraph PromptInternals["Prompt preparation internals"]
+            direction LR
+            AttachmentService["IAttachmentService"]:::core
+            PromptBuilder["IPromptBuilder"]:::support
         end
 
         subgraph Content["Content organization and recovery"]
@@ -490,6 +574,7 @@ flowchart LR
             direction LR
             IdentityService["IIdentityService"]:::support
             CurrentUser["ICurrentUserService"]:::support
+            CurrentConnection["ICurrentConnectionService"]:::support
         end
     end
 
@@ -502,16 +587,21 @@ flowchart LR
     Client -->|rollback| RollbackService
 
     AIOrchestration -->|session and message lifecycle| ChatService
-    AIOrchestration -->|load staged files| AttachmentService
+    AIOrchestration -->|prepare prompt| PromptPrep
     AIOrchestration -->|resolve LLM settings| SettingsService
-    AIOrchestration -->|build prompt| PromptBuilder
     AIOrchestration -->|parse model output| ClassificationParser
+    AIOrchestration -->|track action items| ActionTracking
     AIOrchestration -->|create folders| FolderService
     AIOrchestration -->|create or move files| FileService
     AIOrchestration -->|stream progress and results| ChatNotification
 
+    PromptPrep -->|load folder tree| FolderService
+    PromptPrep -->|resolve attachments| AttachmentService
+    PromptPrep -->|assemble prompt text| PromptBuilder
+
     RollbackService -->|undo file mutations| FileService
     RollbackService -->|undo folder mutations| FolderService
+    RollbackService -->|mark rolled back| ActionTracking
 
     CurrentUser -. caller identity and ownership scope .-> AIOrchestration
     CurrentUser -. caller identity and ownership scope .-> FolderService
@@ -534,6 +624,7 @@ flowchart LR
     subgraph Persistence["Persistence ports"]
         direction TB
         UserRepo["IUserRepository"]:::repo
+        IdentityUserRepo["IIdentityUserRepository"]:::repo
         FolderRepo["IFolderRepository"]:::repo
         FileRepo["IFileRepository"]:::repo
         ChatSessionRepo["IChatSessionRepository"]:::repo
@@ -541,6 +632,7 @@ flowchart LR
         AttachmentRepo["IAttachmentRepository"]:::repo
         SettingsRepo["ISettingsRepository"]:::repo
         ActionRepo["IActionRepository"]:::repo
+        UnitOfWork["IUnitOfWork"]:::repo
     end
 
     subgraph Integrations["Integration ports and helpers"]
@@ -563,6 +655,7 @@ flowchart LR
     end
 
     UserRepo --> DB
+    IdentityUserRepo --> DB
     FolderRepo --> DB
     FileRepo --> DB
     ChatSessionRepo --> DB

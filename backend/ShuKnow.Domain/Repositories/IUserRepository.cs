@@ -5,6 +5,7 @@ namespace ShuKnow.Domain.Repositories;
 
 public interface IUserRepository
 {
-    Task<Result<User>> GetByIdAsync(Guid id);
-    void Add(User user);
+    Task<Result<User>> GetByIdAsync(Guid userId);
+
+    Task<Result> AddAsync(User user);
 }

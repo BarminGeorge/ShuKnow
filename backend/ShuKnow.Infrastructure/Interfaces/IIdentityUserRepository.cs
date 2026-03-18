@@ -6,6 +6,8 @@ namespace ShuKnow.Infrastructure.Interfaces;
 public interface IIdentityUserRepository
 {
     Task<Result<IdentityUser>> GetByLoginAsync(string login);
+    
     Task<Result<bool>> ContainsLoginAsync(string login);
-    void Add(IdentityUser user);
+    
+    Task<Result> AddAsync(IdentityUser user);
 }

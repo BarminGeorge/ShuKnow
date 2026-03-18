@@ -21,8 +21,9 @@ public class IdentityUserRepository(AppDbContext context) : IIdentityUserReposit
         return await context.IdentityUsers.AnyAsync(user => user.Login == login);
     }
 
-    public void Add(IdentityUser user)
+    public Task<Result> AddAsync(IdentityUser user)
     {
         context.IdentityUsers.Add(user);
+        return Task.FromResult(Result.Success());
     }
 }
