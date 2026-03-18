@@ -38,7 +38,7 @@ export function CreateFileModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div className="bg-[#161b22] border border-white/20 rounded-2xl w-full max-w-md mx-4 shadow-2xl">
+      <div className="bg-[#1a1a1a] border border-white/20 rounded-2xl w-full max-w-md mx-4 shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10">
           <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
