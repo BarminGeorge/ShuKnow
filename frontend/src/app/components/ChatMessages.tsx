@@ -1,9 +1,17 @@
-import { Undo2 } from "lucide-react";
+import { Undo2, Paperclip, Image as ImageIcon, FileText } from "lucide-react";
+
+export interface MessageAttachment {
+  id: string;
+  name: string;
+  type: "text" | "photo" | "pdf" | "other";
+  imageUrl?: string;
+}
 
 export interface Message {
   id: string;
   type: "user" | "system";
   content: string;
+  attachments?: MessageAttachment[];
 }
 
 interface ChatMessagesProps {
@@ -23,10 +31,39 @@ export function ChatMessages({ messages }: ChatMessagesProps) {
         >
           {message.type === "user" ? (
             // User message (right side) - Light gray background with dark text
-            <div className="max-w-[70%]">
-              <div className="bg-[#E5E7EB] rounded-xl px-4 py-3">
-                <p className="text-sm text-gray-900 break-words whitespace-pre-wrap">{message.content}</p>
-              </div>
+            <div className="max-w-[70%] flex flex-col items-end gap-2">
+              {/* Attached files - displayed above the message */}
+              {message.attachments && message.attachments.length > 0 && (
+                <div className="flex flex-col gap-2 items-end self-end w-fit max-w-full">
+                  {message.attachments.map((attachment) => (
+                    <div
+                      key={attachment.id}
+                      className="flex items-center gap-2 px-3 py-2 bg-blue-500/10 border border-blue-500/30 rounded-lg text-sm self-end w-fit max-w-full"
+                    >
+                      {attachment.type === "photo" ? (
+                        attachment.imageUrl ? (
+                          <img
+                            src={attachment.imageUrl}
+                            alt={attachment.name}
+                            className="w-20 h-20 object-cover rounded"
+                          />
+                        ) : (
+                          <ImageIcon size={14} className="text-purple-400" />
+                        )
+                      ) : (
+                        <FileText size={14} className="text-blue-400" />
+                      )}
+                      <span className="text-blue-300 truncate max-w-[200px]">{attachment.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Message text */}
+              {message.content && (
+                <div className="bg-[#E5E7EB] rounded-xl px-4 py-3">
+                  <p className="text-sm text-gray-900 break-words whitespace-pre-wrap">{message.content}</p>
+                </div>
+              )}
             </div>
           ) : (
             // System message (left side) with Undo button inside - Dark theme

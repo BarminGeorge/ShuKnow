@@ -25,10 +25,12 @@ export interface Folder {
 export interface FileItem {
   id: string;
   name: string;
-  type: "text" | "photo";
+  type: "text" | "photo" | "pdf" | "other";
   folderId: string;
   content?: string;    // markdown / plain text
   imageUrl?: string;   // URL or base64 for photo files
+  fileUrl?: string;    // base64 data URL for PDF and other files
+  mimeType?: string;   // Original MIME type
   prompt?: string;     // AI instruction for sorting
   createdAt: string;
 }
@@ -161,11 +163,81 @@ export default function App() {
     }
   }, [viewMode]);
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = async (content: string, attachedFiles?: File[]) => {
+    const attachments: { id: string; name: string; type: "text" | "photo" | "pdf" | "other"; imageUrl?: string }[] = [];
+    
+    // If files are attached, process them
+    if (attachedFiles && attachedFiles.length > 0) {
+      // Process all files and wait for them to be read
+      const filePromises = attachedFiles.map((file) => {
+        return new Promise<void>((resolve) => {
+          const isImage = file.type.startsWith("image/");
+          const isPdf = file.type === "application/pdf";
+          const isText = file.type.startsWith("text/") || 
+                         file.name.endsWith(".md") || 
+                         file.name.endsWith(".txt") ||
+                         file.name.endsWith(".json") ||
+                         file.name.endsWith(".js") ||
+                         file.name.endsWith(".ts") ||
+                         file.name.endsWith(".jsx") ||
+                         file.name.endsWith(".tsx") ||
+                         file.name.endsWith(".css") ||
+                         file.name.endsWith(".html");
+          
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const result = event.target?.result as string;
+            
+            let fileType: "text" | "photo" | "pdf" | "other" = "other";
+            if (isImage) fileType = "photo";
+            else if (isPdf) fileType = "pdf";
+            else if (isText) fileType = "text";
+            
+            const fileId = Date.now().toString() + Math.random();
+            
+            // Add to message attachments
+            attachments.push({
+              id: fileId,
+              name: file.name,
+              type: fileType,
+              ...(isImage && { imageUrl: result }),
+            });
+            
+            // Also create file entry in files state
+            const newFile: FileItem = {
+              id: fileId,
+              name: file.name,
+              type: fileType,
+              folderId: selectedFolderPath?.[selectedFolderPath.length - 1] || "1",
+              mimeType: file.type,
+              ...(isImage && { imageUrl: result }),
+              ...(isPdf && { fileUrl: result }),
+              ...(isText && { content: result }),
+              ...(!isImage && !isPdf && !isText && { fileUrl: result }),
+              createdAt: new Date().toISOString(),
+            };
+            setFiles((prev) => [...prev, newFile]);
+            resolve();
+          };
+          
+          // Read text files as text, others as DataURL
+          if (isText) {
+            reader.readAsText(file);
+          } else {
+            reader.readAsDataURL(file);
+          }
+        });
+      });
+      
+      await Promise.all(filePromises);
+    }
+
+    // Create message with attachments
     const newMessage: Message = {
       id: Date.now().toString(),
       type: "user",
-      content,
+      content: content || "",
+      ...(attachments.length > 0 && { attachments }),
     };
     setMessages((prev) => [...prev, newMessage]);
     
@@ -223,10 +295,12 @@ export default function App() {
     );
   };
 
-  const handleCreateFile = (file: FileItem) => {
+  const handleCreateFile = (file: FileItem, openAfterCreate = true) => {
     setFiles((prev) => [...prev, file]);
-    // Small delay so the file is in state before opening the tab
-    setTimeout(() => handleOpenTab(file.id), 50);
+    // Only open tab if explicitly requested (e.g., from modal, not drag-drop)
+    if (openAfterCreate) {
+      setTimeout(() => handleOpenTab(file.id), 50);
+    }
   };
 
   const handleDeleteFile = (fileId: string) => {

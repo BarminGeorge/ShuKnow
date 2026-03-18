@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ImageIcon, Pencil, Eye } from "lucide-react";
+import { ImageIcon, Pencil, Eye, FileText, Download } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -105,6 +105,51 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
             <p className="text-sm italic">Изображение не загружено</p>
           </div>
         )}
+      </div>
+    );
+  }
+
+  // ── PDF viewer ──────────────────────────────────────────────────────
+  if (file.type === "pdf") {
+    return (
+      <div className="h-full flex flex-col bg-[#0e0e0e]">
+        {file.fileUrl ? (
+          <iframe
+            src={file.fileUrl}
+            className="flex-1 w-full border-none"
+            title={file.name}
+          />
+        ) : (
+          <div className="h-full flex flex-col items-center justify-center gap-3 text-gray-700">
+            <FileText size={56} className="opacity-30" />
+            <p className="text-sm italic">PDF не загружен</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Other file types (non-editable) ─────────────────────────────────
+  if (file.type === "other") {
+    return (
+      <div className="h-full flex flex-col items-center justify-center p-10 bg-[#0e0e0e]">
+        <div className="flex flex-col items-center gap-4">
+          <FileText size={64} className="text-gray-600" />
+          <p className="text-lg text-gray-400">{file.name}</p>
+          <p className="text-sm text-gray-600">
+            Этот тип файла не поддерживает просмотр
+          </p>
+          {file.fileUrl && (
+            <a
+              href={file.fileUrl}
+              download={file.name}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
+            >
+              <Download size={16} />
+              Скачать файл
+            </a>
+          )}
+        </div>
       </div>
     );
   }
