@@ -6,7 +6,7 @@ using File = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.Application.Services;
 
-internal class FileService(
+public class FileService(
     IFileRepository fileRepository,
     IFolderRepository folderRepository,
     IBlobStorageService blobStorageService,
@@ -41,7 +41,7 @@ internal class FileService(
     public async Task<Result<File>> UpdateMetadataAsync(File file, CancellationToken ct = default)
     {
         return await fileRepository.GetByIdForUpdateAsync(file.Id, CurrentUserId)
-            .ActAsync(existingFile => ValidateMetadata(existingFile.Name, existingFile.FolderId, existingFile.Id))
+            .ActAsync(existingFile => ValidateMetadata(file.Name, existingFile.FolderId, existingFile.Id))
             .ActAsync(existingFile => existingFile.UpdateMetadata(file.Name, file.Description))
             .SaveChangesAsync(unitOfWork);
     }
@@ -102,14 +102,20 @@ internal class FileService(
 
     private async Task<Result> ValidateMetadata(string name, Guid folderId, Guid fileId)
     {
-        return await fileRepository.ExistsByNameInFolderAsync(name, folderId, CurrentUserId, fileId)
-            .BindAsync(exists => exists ? Result.Conflict() : Result.Success());
+        var existsResult = await fileRepository.ExistsByNameInFolderAsync(name, folderId, CurrentUserId, fileId);
+        if (!existsResult.IsSuccess)
+            return existsResult.Map();
+        
+        return existsResult.Value ? Result.Conflict() : Result.Success();
     }
 
     private async Task<Result> EnsureFolderExistsAsync(Guid folderId)
     {
-        return await folderRepository.ExistsByIdAsync(folderId, CurrentUserId)
-            .BindAsync(exists => exists ? Result.Success() : Result.NotFound());
+        var existsResult = await folderRepository.ExistsByIdAsync(folderId, CurrentUserId);
+        if (!existsResult.IsSuccess)
+            return existsResult.Map();
+
+        return existsResult.Value ? Result.Success() : Result.NotFound();
     }
 
     private async Task<Result<Stream>> GetStreamAsync(
