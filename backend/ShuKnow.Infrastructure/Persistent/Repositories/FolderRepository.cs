@@ -11,6 +11,11 @@ public class FolderRepository : IFolderRepository
         throw new NotImplementedException();
     }
 
+    public Task<Result<bool>> ExistsByIdAsync(Guid folderId, Guid userId)
+    {
+        throw new NotImplementedException();
+    }
+
     public Task<Result<IReadOnlyList<Folder>>> GetTreeAsync(Guid userId)
     {
         throw new NotImplementedException();

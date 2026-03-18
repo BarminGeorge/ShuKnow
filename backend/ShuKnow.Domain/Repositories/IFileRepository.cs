@@ -7,6 +7,8 @@ public interface IFileRepository
 {
     Task<Result<File>> GetByIdAsync(Guid fileId, Guid userId);
 
+    Task<Result<File>> GetByIdForUpdateAsync(Guid fileId, Guid userId);
+
     Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
         Guid folderId,
         Guid userId,

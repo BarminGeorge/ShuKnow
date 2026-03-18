@@ -37,4 +37,24 @@ public class File : IEntity<Guid>
         Version = version;
         ChecksumSha256 = checksumSha256;
     }
+
+    public void UpdateMetadata(string name, string description)
+    {
+        Name = name;
+        Description = description;
+    }
+
+    public void ReplaceContent(string contentType, long sizeBytes, string? checksumSha256 = null)
+    {
+        ContentType = contentType;
+        SizeBytes = sizeBytes;
+        ChecksumSha256 = checksumSha256;
+        Version++;
+    }
+
+    public void MoveTo(Guid targetFolderId)
+    {
+        FolderId = targetFolderId;
+        Version++;
+    }
 }
