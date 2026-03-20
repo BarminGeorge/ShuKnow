@@ -7,11 +7,14 @@ import {
   Bot,
   Send,
   Zap,
-  Settings,
   ArrowRight,
-  CheckCircle2,
   Menu,
   X,
+  LogIn,
+  BookOpen,
+  Lightbulb,
+  Layers,
+  FileText,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { motion, useInView } from "motion/react";
@@ -104,68 +107,6 @@ function FeatureCard({
   );
 }
 
-// ── Step card ───────────────────────────────────────────────────────────────
-
-function StepCard({
-  number,
-  icon,
-  title,
-  description,
-}: {
-  number: number;
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex flex-col items-center text-center">
-      <div className="relative mb-4">
-        <div className="w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-          {icon}
-        </div>
-        <div className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
-          {number}
-        </div>
-      </div>
-      <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
-      <p className="text-gray-400 text-sm leading-relaxed max-w-xs">{description}</p>
-    </div>
-  );
-}
-
-// ── Comparison row ──────────────────────────────────────────────────────────
-
-function ComparisonRow({
-  feature,
-  shuknow,
-  obsidian,
-  memai,
-}: {
-  feature: string;
-  shuknow: boolean;
-  obsidian: boolean;
-  memai: boolean;
-}) {
-  const Cell = ({ value }: { value: boolean }) => (
-    <td className="px-4 py-3 text-center">
-      {value ? (
-        <CheckCircle2 className="inline text-green-400" size={18} />
-      ) : (
-        <X className="inline text-gray-600" size={18} />
-      )}
-    </td>
-  );
-
-  return (
-    <tr className="border-b border-white/5">
-      <td className="px-4 py-3 text-sm text-gray-300">{feature}</td>
-      <Cell value={shuknow} />
-      <Cell value={obsidian} />
-      <Cell value={memai} />
-    </tr>
-  );
-}
-
 // ── Main component ──────────────────────────────────────────────────────────
 
 export default function LandingPage() {
@@ -193,41 +134,33 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       {/* ── Navbar ──────────────────────────────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
+        <div className="w-full px-4 sm:px-6 h-16 flex items-center">
+          {/* Logo — pinned left */}
+          <Link to="/" className="flex items-center gap-2 shrink-0">
             <Sparkles className="text-blue-400" size={22} />
             <span className="text-lg font-bold">ShuKnow</span>
           </Link>
 
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-6">
+          {/* Center nav links */}
+          <div className="hidden md:flex items-center gap-6 flex-1 justify-center">
             <button onClick={() => scrollToSection("features")} className="text-sm text-gray-400 hover:text-white transition-colors">
               Возможности
             </button>
-            <button onClick={() => scrollToSection("how-it-works")} className="text-sm text-gray-400 hover:text-white transition-colors">
-              Как это работает
-            </button>
-            <button onClick={() => scrollToSection("comparison")} className="text-sm text-gray-400 hover:text-white transition-colors">
-              Сравнение
+            <button onClick={() => scrollToSection("use-cases")} className="text-sm text-gray-400 hover:text-white transition-colors">
+              Применение
             </button>
           </div>
 
-          {/* Desktop CTA */}
-          <div className="hidden md:flex items-center gap-3">
+          {/* Login — pinned right */}
+          <div className="hidden md:flex items-center shrink-0">
             {isAuthenticated ? (
-              <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
-                <Link to="/app">Перейти к приложению</Link>
+              <Button asChild size="sm" variant="ghost" className="text-gray-400 hover:text-gray-200 hover:bg-white/5 gap-2">
+                <Link to="/app"><LogIn size={16} />Войти в приложение</Link>
               </Button>
             ) : (
-              <>
-                <Button asChild variant="ghost" size="sm" className="text-gray-300 hover:text-white">
-                  <Link to="/login">Войти</Link>
-                </Button>
-                <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
-                  <Link to="/register">Начать сейчас</Link>
-                </Button>
-              </>
+              <Button asChild size="sm" variant="ghost" className="text-gray-400 hover:text-gray-200 hover:bg-white/5 gap-2">
+                <Link to="/login"><LogIn size={16} />Вход</Link>
+              </Button>
             )}
           </div>
 
@@ -242,30 +175,22 @@ export default function LandingPage() {
 
         {/* Mobile menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-white/5 bg-[#0a0a0a]/95 backdrop-blur-xl px-4 py-4 space-y-3">
+          <div className="md:hidden border-t border-white/5 bg-[#0a0a0a]/95 backdrop-blur-xl px-4 py-4 space-y-2">
             <button onClick={() => scrollToSection("features")} className="block w-full text-left text-sm text-gray-300 hover:text-white py-2">
               Возможности
             </button>
-            <button onClick={() => scrollToSection("how-it-works")} className="block w-full text-left text-sm text-gray-300 hover:text-white py-2">
-              Как это работает
+            <button onClick={() => scrollToSection("use-cases")} className="block w-full text-left text-sm text-gray-300 hover:text-white py-2">
+              Применение
             </button>
-            <button onClick={() => scrollToSection("comparison")} className="block w-full text-left text-sm text-gray-300 hover:text-white py-2">
-              Сравнение
-            </button>
-            <div className="pt-2 border-t border-white/5 flex flex-col gap-2">
+            <div className="pt-2 border-t border-white/5">
               {isAuthenticated ? (
-                <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700 text-white w-full">
-                  <Link to="/app">Перейти к приложению</Link>
+                <Button asChild size="sm" variant="ghost" className="text-gray-300 hover:text-white w-full gap-2">
+                  <Link to="/app"><LogIn size={16} />Войти в приложение</Link>
                 </Button>
               ) : (
-                <>
-                  <Button asChild variant="ghost" size="sm" className="text-gray-300 hover:text-white w-full">
-                    <Link to="/login">Войти</Link>
-                  </Button>
-                  <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700 text-white w-full">
-                    <Link to="/register">Начать сейчас</Link>
-                  </Button>
-                </>
+                <Button asChild size="sm" variant="ghost" className="text-gray-300 hover:text-white w-full gap-2">
+                  <Link to="/login"><LogIn size={16} />Вход</Link>
+                </Button>
               )}
             </div>
           </div>
@@ -280,37 +205,26 @@ export default function LandingPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 mb-6">
-              <Sparkles className="text-blue-400" size={14} />
-              <span className="text-xs text-blue-300 font-medium">AI-powered организация</span>
-            </div>
-
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
-              Отправил —{" "}
-              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
-                и готово
-              </span>
+            <h1 className="text-7xl sm:text-8xl md:text-9xl font-bold tracking-tight leading-[1.0] mb-3">
+              ShuKnow
             </h1>
 
-            <p className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+            <p className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-14">
+              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+                сохраняй без рутины
+              </span>
+            </p>
+
+            <p className="text-base sm:text-lg text-gray-400 max-w-xl mx-auto mb-10 leading-relaxed">
               ИИ-агент, который автоматически сортирует ваши заметки, файлы и изображения
               по нужным папкам. Просто отправьте — остальное сделает агент.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 text-base">
+            <div className="flex items-center justify-center">
+              <Button asChild className="bg-blue-600 hover:bg-blue-500 text-white px-12 py-6 text-lg rounded-full">
                 <Link to={ctaPath}>
-                  {ctaText}
-                  <ArrowRight size={18} className="ml-2" />
+                  Начать сейчас
                 </Link>
-              </Button>
-              <Button
-                variant="ghost"
-                size="lg"
-                className="text-gray-400 hover:text-white text-base"
-                onClick={() => scrollToSection("how-it-works")}
-              >
-                Как это работает?
               </Button>
             </div>
           </motion.div>
@@ -339,30 +253,40 @@ export default function LandingPage() {
       <section id="features" className="py-20 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
           <FadeInSection className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Возможности</h2>
-            <p className="text-gray-400 max-w-xl mx-auto">
-              Всё, что нужно для автоматической организации информации
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Как это устроено</h2>
+            <p className="text-gray-400 max-w-lg mx-auto">
+              Вы отправляете — агент раскладывает. Вот и всё.
             </p>
           </FadeInSection>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FadeInSection>
               <FeatureCard
+                icon={<Send size={20} />}
+                title="Отправьте что угодно"
+                description="Текст, картинку, файл — просто киньте в чат, как сообщение другу. Без лишних кнопок и настроек."
+                imageSrc="/images/landing/feature-chat.webp"
+                imageAlt="Чат-интерфейс для отправки данных"
+              />
+            </FadeInSection>
+
+            <FadeInSection>
+              <FeatureCard
                 icon={<Zap size={20} />}
-                title="Автоматическая сортировка"
-                description="Отправьте текст, картинку или файл через чат — ИИ определит категорию и распределит по нужным папкам. Никакой ручной работы."
+                title="Агент сам разложит"
+                description="ИИ читает содержимое, определяет категорию и кладёт в нужную папку. Вам не нужно думать, куда это деть."
                 imageSrc="/images/landing/feature-sort.webp"
-                imageAlt="Скриншот автоматической сортировки"
+                imageAlt="Автоматическая сортировка по папкам"
               />
             </FadeInSection>
 
             <FadeInSection>
               <FeatureCard
                 icon={<FolderOpen size={20} />}
-                title="Гибкая настройка"
-                description="Создайте папки, опишите что в них хранить — и агент запомнит вашу структуру. Настройте один раз, пользуйтесь всегда."
+                title="Ваши правила"
+                description="Создайте папки и опишите, что в них хранить. Настройте один раз — агент будет следовать вашей структуре."
                 imageSrc="/images/landing/feature-folders.webp"
-                imageAlt="Скриншот настройки папок"
+                imageAlt="Настройка папок и правил"
               />
             </FadeInSection>
 
@@ -370,92 +294,58 @@ export default function LandingPage() {
               <FeatureCard
                 icon={<Bot size={20} />}
                 title="Своя модель"
-                description="Подключите OpenAI, Anthropic или любой другой LLM-провайдер. Используйте бесплатные API вместо дорогих подписок."
+                description="Подключите OpenAI, Anthropic или любой другой LLM. Можно даже бесплатные API — никаких подписок."
                 imageSrc="/images/landing/feature-model.webp"
-                imageAlt="Скриншот настройки API"
-              />
-            </FadeInSection>
-
-            <FadeInSection>
-              <FeatureCard
-                icon={<Send size={20} />}
-                title="Отправил и готово"
-                description="Принцип работы — как мессенджер. Отправьте сообщение с данными в чат, и агент всё сделает сам. Без лишних действий."
-                imageSrc="/images/landing/feature-chat.webp"
-                imageAlt="Скриншот чат-интерфейса"
+                imageAlt="Выбор LLM-провайдера"
               />
             </FadeInSection>
           </div>
         </div>
       </section>
 
-      {/* ── How it works ───────────────────────────────────────────────────── */}
-      <section id="how-it-works" className="py-20 px-4 sm:px-6 border-t border-white/5">
+      {/* ── Use cases ─────────────────────────────────────────────────────── */}
+      <section id="use-cases" className="py-20 px-4 sm:px-6 border-t border-white/5">
         <div className="max-w-4xl mx-auto">
           <FadeInSection className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Как это работает</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Способы применения</h2>
             <p className="text-gray-400 max-w-lg mx-auto">
-              Три простых шага до полной автоматизации
+              Несколько сценариев, где ShuKnow берёт рутину на себя
             </p>
           </FadeInSection>
 
           <FadeInSection>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-8">
-              <StepCard
-                number={1}
-                icon={<Settings size={24} />}
-                title="Настройте папки"
-                description="Создайте папки и опишите, какую информацию в них хранить. Агент будет ориентироваться на ваши описания."
-              />
-              <StepCard
-                number={2}
-                icon={<Send size={24} />}
-                title="Отправьте данные"
-                description="Напишите текст, прикрепите фото или файл — просто отправьте в чат, как сообщение в мессенджере."
-              />
-              <StepCard
-                number={3}
-                icon={<Sparkles size={24} />}
-                title="ИИ всё разложит"
-                description="Агент проанализирует содержимое и автоматически поместит его в подходящую папку и файл."
-              />
-            </div>
-          </FadeInSection>
-        </div>
-      </section>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4">
+                  <BookOpen size={20} />
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">Учёба и конспекты</h3>
+                <p className="text-gray-400 text-sm leading-relaxed">Скиньте лекцию, статью или учебник — агент разберёт материал и разложит по нужным папкам. Готовиться к экзаменам станет проще.</p>
+              </div>
 
-      {/* ── Comparison ─────────────────────────────────────────────────────── */}
-      <section id="comparison" className="py-20 px-4 sm:px-6 border-t border-white/5">
-        <div className="max-w-3xl mx-auto">
-          <FadeInSection className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Сравнение</h2>
-            <p className="text-gray-400 max-w-lg mx-auto">
-              Чем ShuKnow отличается от других решений
-            </p>
-          </FadeInSection>
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4">
+                  <Lightbulb size={20} />
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">Сбор идей и ресёрч</h3>
+                <p className="text-gray-400 text-sm leading-relaxed">Кидайте ссылки, цитаты и заметки в чат. Агент сгруппирует всё по темам — вы сосредоточитесь на главном.</p>
+              </div>
 
-          <FadeInSection>
-            <div className="overflow-x-auto rounded-xl border border-white/[0.06] bg-white/[0.02]">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-white/10 bg-white/[0.03]">
-                    <th className="px-4 py-3 text-left text-gray-400 font-medium">Возможность</th>
-                    <th className="px-4 py-3 text-center text-blue-400 font-semibold">ShuKnow</th>
-                    <th className="px-4 py-3 text-center text-gray-400 font-medium">Obsidian</th>
-                    <th className="px-4 py-3 text-center text-gray-400 font-medium">mem.ai</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <ComparisonRow feature="Авто-сортировка по папкам" shuknow={true} obsidian={false} memai={false} />
-                  <ComparisonRow feature='Принцип "отправил и готово"' shuknow={true} obsidian={false} memai={false} />
-                  <ComparisonRow feature="Поддержка картинок" shuknow={true} obsidian={true} memai={false} />
-                  <ComparisonRow feature="Своя LLM-модель" shuknow={true} obsidian={false} memai={false} />
-                  <ComparisonRow feature="Бесплатный план" shuknow={true} obsidian={true} memai={false} />
-                  <ComparisonRow feature="Пользовательские правила сортировки" shuknow={true} obsidian={false} memai={false} />
-                  <ComparisonRow feature="Офлайн-режим" shuknow={false} obsidian={true} memai={false} />
-                  <ComparisonRow feature="AI-поиск по файлам" shuknow={true} obsidian={false} memai={true} />
-                </tbody>
-              </table>
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4">
+                  <Layers size={20} />
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">Организация проектов</h3>
+                <p className="text-gray-400 text-sm leading-relaxed">Документы, ТЗ, ссылки на доку — отправьте в чат, и агент распределит файлы по папкам проекта за вас.</p>
+              </div>
+
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4">
+                  <FileText size={20} />
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">Личная база знаний</h3>
+                <p className="text-gray-400 text-sm leading-relaxed">Рецепты, книги, заметки из путешествий — всё, что хочется сохранить и легко найти потом. Агент наведёт порядок.</p>
+              </div>
             </div>
           </FadeInSection>
         </div>
@@ -471,10 +361,9 @@ export default function LandingPage() {
             Перестаньте тратить время на ручную сортировку. Позвольте ИИ
             организовать вашу информацию.
           </p>
-          <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 text-base">
+          <Button asChild className="bg-blue-600 hover:bg-blue-500 text-white px-12 py-6 text-lg rounded-full">
             <Link to={ctaPath}>
               {ctaText}
-              <ArrowRight size={18} className="ml-2" />
             </Link>
           </Button>
         </FadeInSection>
@@ -482,11 +371,7 @@ export default function LandingPage() {
 
       {/* ── Footer ─────────────────────────────────────────────────────────── */}
       <footer className="border-t border-white/5 py-8 px-4 sm:px-6">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-gray-500">
-            <Sparkles size={16} className="text-blue-400" />
-            <span className="text-sm font-medium">ShuKnow</span>
-          </div>
+        <div className="max-w-6xl mx-auto flex items-center justify-center">
           <p className="text-xs text-gray-600">
             &copy; {new Date().getFullYear()} ShuKnow. Все права защищены.
           </p>
