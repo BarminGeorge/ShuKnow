@@ -5,7 +5,7 @@ namespace ShuKnow.Domain.Entities;
 public class File : IEntity<Guid>
 {
     public Guid Id { get; private set; }
-
+    public Guid UserId { get; private set; }
     public Guid FolderId { get; private set; }
     public Folder Folder { get; private set; } = null!;
     public string Name { get; private set; } = string.Empty;
@@ -22,6 +22,7 @@ public class File : IEntity<Guid>
     public File(
         Guid fileId,
         Guid folderId,
+        Guid userId,
         string name,
         string description,
         string contentType,
@@ -31,6 +32,7 @@ public class File : IEntity<Guid>
     {
         Id = fileId;
         FolderId = folderId;
+        UserId = userId;
         Name = name;
         Description = description;
         ContentType = contentType;

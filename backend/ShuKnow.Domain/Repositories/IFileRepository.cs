@@ -17,7 +17,7 @@ public interface IFileRepository
 
     Task<Result<int>> CountByFolderAsync(Guid folderId, Guid userId);
 
-    Task<Result> AddAsync(File file);
+    Task<Result> AddAsync(File file, Guid userId);
 
     Task<Result> UpdateAsync(File file);
 

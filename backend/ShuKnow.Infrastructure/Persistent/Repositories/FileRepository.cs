@@ -57,10 +57,16 @@ public class FileRepository(AppDbContext context) : IFileRepository
         return Result.Success(count);
     }
 
-    public Task<Result> AddAsync(File file)
+    public async Task<Result> AddAsync(File file, Guid userId)
     {
+        var folderExists = await context.Folders
+            .AnyAsync(f => f.Id == file.FolderId && f.UserId == userId);
+
+        if (!folderExists)
+            return Result.NotFound();
+
         context.Files.Add(file);
-        return Task.FromResult(Result.Success());
+        return Result.Success();
     }
 
     public Task<Result> UpdateAsync(File file)
