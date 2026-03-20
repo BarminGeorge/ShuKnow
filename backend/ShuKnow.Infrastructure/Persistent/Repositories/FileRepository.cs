@@ -20,19 +20,21 @@ public class FileRepository(AppDbContext context) : IFileRepository
     public async Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
         Guid folderId, Guid userId, int page, int pageSize)
     {
-        var query = context.Files
+        var folderExists = await context.Folders
+            .AnyAsync(f => f.Id == folderId && f.UserId == userId);
+
+        if (!folderExists)
+            return Result.NotFound();
+
+        var files = await context.Files
             .AsNoTracking()
-            .Where(f => f.FolderId == folderId && f.Folder.UserId == userId);
-
-        var totalCount = await query.CountAsync();
-
-        var files = await query
+            .Where(f => f.FolderId == folderId && f.Folder.UserId == userId)
             .OrderBy(f => f.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
 
-        return Result.Success<(IReadOnlyList<File>, int)>((files, totalCount));
+        return Result.Success<(IReadOnlyList<File> Files, int TotalCount)>((files, files.Count));
     }
 
     public async Task<Result<bool>> ExistsByNameInFolderAsync(
