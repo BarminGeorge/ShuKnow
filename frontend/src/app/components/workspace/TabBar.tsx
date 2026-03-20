@@ -1,5 +1,5 @@
 import { X, FileText, ImageIcon, ArrowLeft, FolderOpen } from "lucide-react";
-import type { FileItem } from "../../App";
+import type { FileItem } from "../../Workspace";
 
 interface TabBarProps {
   tabs: FileItem[];

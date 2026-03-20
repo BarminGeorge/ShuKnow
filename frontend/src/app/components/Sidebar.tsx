@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
-import { Settings, Plus, PanelLeftClose, PanelLeftOpen, MessageSquare } from "lucide-react";
+import { Settings, Plus, PanelLeftClose, PanelLeftOpen, MessageSquare, LogOut } from "lucide-react";
 import { FolderItem } from "./FolderItem";
 import { SettingsModal } from "./SettingsModal";
 import { CreateFolderModal } from "./CreateFolderModal";
 import { EditFolderModal } from "./EditFolderModal";
-import type { Folder } from "../App";
+import { useAuth } from "../contexts/AuthContext";
+import { useNavigate } from "react-router";
+import type { Folder } from "../Workspace";
 
 interface SidebarProps {
   folders: Folder[];
@@ -18,6 +20,8 @@ interface SidebarProps {
 
 export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, onLogoClick, onToggleSidebar, isCollapsed }: SidebarProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
   const [createFolderParentPath, setCreateFolderParentPath] = useState<string[] | null>(null);
   const [editFolderState, setEditFolderState] = useState<{
@@ -242,13 +246,20 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
           ))}
         </div>
 
-        <div className="mt-auto pt-4 flex-shrink-0">
+        <div className="mt-auto pt-4 flex-shrink-0 flex flex-col gap-1 items-center">
           <button
             onClick={() => setIsSettingsOpen(true)}
             className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
             title="Настройки"
           >
             <Settings size={18} />
+          </button>
+          <button
+            onClick={() => { logout(); navigate("/"); }}
+            className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-gray-400 hover:text-red-400 transition-colors"
+            title="Выйти"
+          >
+            <LogOut size={18} />
           </button>
         </div>
 
@@ -322,7 +333,7 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
       </div>
 
       {/* Footer Settings */}
-      <div className="p-3 mt-auto">
+      <div className="p-3 mt-auto space-y-1">
         <button
           onClick={() => setIsSettingsOpen(true)}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
@@ -330,6 +341,14 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
         >
           <Settings size={18} />
           <span className="text-sm font-medium">Настройки</span>
+        </button>
+        <button
+          onClick={() => { logout(); navigate("/"); }}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-red-500/10 text-gray-400 hover:text-red-400 transition-colors"
+          title="Выйти"
+        >
+          <LogOut size={18} />
+          <span className="text-sm font-medium">Выйти</span>
         </button>
       </div>
 
