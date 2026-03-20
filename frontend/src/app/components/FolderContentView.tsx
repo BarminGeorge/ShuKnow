@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
-import { ChevronRight, MoreVertical, FileText, ArrowLeft, Plus, Folder as FolderIcon, Image as ImageIcon, Smile } from "lucide-react";
+import { ChevronRight, MoreVertical, FileText, ArrowLeft, Plus, Folder as FolderIcon, Image as ImageIcon, Smile, Upload } from "lucide-react";
 import { useDrag, useDrop, useDragLayer } from "react-dnd";
+import { NativeTypes } from "react-dnd-html5-backend";
 import { getEmptyImage } from "react-dnd-html5-backend";
 import { FileContextMenu } from "./FileContextMenu";
 import { FolderContextMenu } from "./FolderContextMenu";
 import { EditFileModal } from "./EditFileModal";
 import { EditFolderModal } from "./EditFolderModal";
 import { CreateFileModal } from "./CreateFileModal";
-import { CreatePhotoModal } from "./CreatePhotoModal";
 import { CreateFolderModal } from "./CreateFolderModal";
 import { EmojiPicker } from "./EmojiPicker";
 import type { Folder, FileItem } from "../App";
@@ -657,14 +657,9 @@ export function FolderContentView({
 
   const [isCreateFileModalOpen, setIsCreateFileModalOpen] = useState(false);
   const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
-  const [isCreatePhotoModalOpen, setIsCreatePhotoModalOpen] = useState(false);
 
   const handleCreateFile = () => {
     setIsCreateFileModalOpen(true);
-  };
-
-  const handleCreatePhoto = () => {
-    setIsCreatePhotoModalOpen(true);
   };
 
   const handleCreateFileFromModal = (name: string, prompt: string) => {
@@ -680,18 +675,54 @@ export function FolderContentView({
     onCreateFile(newFile);
   };
 
-  const handleCreatePhotoFromModal = (name: string, imageUrl: string, prompt: string) => {
-    const newFile: FileItem = {
-      id: Date.now().toString(),
-      name,
-      type: "photo",
-      folderId: folder.id,
-      imageUrl,
-      prompt: prompt || undefined,
-      createdAt: new Date().toISOString(),
-    };
-    onCreateFile(newFile);
-  };
+  // Handle dropped files from OS file explorer
+  const handleDroppedFiles = useCallback((files: File[]) => {
+    files.forEach((file, index) => {
+      const isImage = file.type.startsWith("image/");
+      
+      if (isImage) {
+        // Create object URL for image preview
+        const imageUrl = URL.createObjectURL(file);
+        const newFile: FileItem = {
+          id: `${Date.now()}-${index}`,
+          name: file.name,
+          type: "photo",
+          folderId: folder.id,
+          imageUrl,
+          createdAt: new Date().toISOString(),
+        };
+        onCreateFile(newFile);
+      } else {
+        // For text files, try to read content
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target?.result as string || "";
+          const newFile: FileItem = {
+            id: `${Date.now()}-${index}`,
+            name: file.name,
+            type: "text",
+            folderId: folder.id,
+            content,
+            createdAt: new Date().toISOString(),
+          };
+          onCreateFile(newFile);
+        };
+        reader.onerror = () => {
+          // If reading fails, create empty text file
+          const newFile: FileItem = {
+            id: `${Date.now()}-${index}`,
+            name: file.name,
+            type: "text",
+            folderId: folder.id,
+            content: "",
+            createdAt: new Date().toISOString(),
+          };
+          onCreateFile(newFile);
+        };
+        reader.readAsText(file);
+      }
+    });
+  }, [folder.id, onCreateFile]);
 
   const handleCreateFolderFromModal = (name: string, emoji: string, prompt: string) => {
     const newFolder: Folder = {
@@ -812,8 +843,26 @@ export function FolderContentView({
   const subfolderCount = folder.subfolders?.length || 0;
   const fileCount = folderFiles.length;
 
+  // Drop zone for files from OS
+  const [{ isFileOver }, fileDropRef] = useDrop({
+    accept: [NativeTypes.FILE],
+    drop: (item: { files: File[] }) => {
+      if (item.files && item.files.length > 0) {
+        handleDroppedFiles(item.files);
+      }
+    },
+    collect: (monitor) => ({
+      isFileOver: monitor.isOver() && monitor.canDrop(),
+    }),
+  });
+
   return (
-    <div className="h-full flex flex-col bg-[#121212]">
+    <div 
+      ref={fileDropRef}
+      className={`h-full flex flex-col bg-[#121212] transition-colors ${
+        isFileOver ? "bg-blue-500/5" : ""
+      }`}
+    >
       {/* Header Section */}
       <div className="border-b border-white/10 px-8 py-6">
 
@@ -897,14 +946,6 @@ export function FolderContentView({
               Создать папку
             </button>
             <button
-              onClick={handleCreatePhoto}
-              className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
-              title="Загрузить фото"
-            >
-              <ImageIcon size={16} />
-              Загрузить фото
-            </button>
-            <button
               onClick={handleCreateFile}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
               title="Создать файл"
@@ -929,7 +970,18 @@ export function FolderContentView({
       </div>
 
       {/* Grid */}
-      <div className="flex-1 overflow-y-auto px-8 py-6">
+      <div className="flex-1 overflow-y-auto px-8 py-6 relative">
+        {/* Drop overlay when dragging files */}
+        {isFileOver && gridItems.length > 0 && (
+          <div className="absolute inset-0 bg-blue-500/5 border-2 border-dashed border-blue-500/50 rounded-xl z-10 flex items-center justify-center pointer-events-none">
+            <div className="bg-[#1a1a1a] px-6 py-4 rounded-xl border border-blue-500/30">
+              <div className="flex items-center gap-3">
+                <Upload size={24} className="text-blue-400" />
+                <span className="text-blue-300 text-lg">Отпустите файлы для загрузки</span>
+              </div>
+            </div>
+          </div>
+        )}
         {/* 自定义拖拽预览层 */}
         <CustomDragLayer />
         <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -971,35 +1023,42 @@ export function FolderContentView({
 
         {/* Empty State */}
         {gridItems.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-4">
-              <span className="text-5xl">{emoji}</span>
+          <div className={`flex flex-col items-center justify-center h-full text-center ${
+            isFileOver ? "ring-2 ring-blue-500/50 ring-inset rounded-xl" : ""
+          }`}>
+            <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-4 transition-colors ${
+              isFileOver ? "bg-blue-500/10" : "bg-white/5"
+            }`}>
+              {isFileOver ? (
+                <Upload size={40} className="text-blue-400" />
+              ) : (
+                <span className="text-5xl">{emoji}</span>
+              )}
             </div>
-            <p className="text-gray-400 text-lg mb-2">Папка пуста</p>
-            <p className="text-gray-500 text-sm mb-4">Файлы появятся здесь автоматически после сортировки</p>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsCreateFolderModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
-              >
-                <FolderIcon size={16} />
-                Создать папку
-              </button>
-              <button
-                onClick={handleCreatePhoto}
-                className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
-              >
-                <ImageIcon size={16} />
-                Загрузить фото
-              </button>
-              <button
-                onClick={handleCreateFile}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
-              >
-                <Plus size={16} />
-                Создать первый файл
-              </button>
-            </div>
+            <p className="text-gray-400 text-lg mb-2">
+              {isFileOver ? "Отпустите файлы для загрузки" : "Папка пуста"}
+            </p>
+            <p className="text-gray-500 text-sm mb-4">
+              {isFileOver ? "" : "Перетащите файлы сюда или создайте новый"}
+            </p>
+            {!isFileOver && (
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setIsCreateFolderModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
+                >
+                  <FolderIcon size={16} />
+                  Создать папку
+                </button>
+                <button
+                  onClick={handleCreateFile}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
+                >
+                  <Plus size={16} />
+                  Создать первый файл
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1037,11 +1096,6 @@ export function FolderContentView({
         isOpen={isCreateFileModalOpen}
         onClose={() => setIsCreateFileModalOpen(false)}
         onCreate={handleCreateFileFromModal}
-      />
-      <CreatePhotoModal
-        isOpen={isCreatePhotoModalOpen}
-        onClose={() => setIsCreatePhotoModalOpen(false)}
-        onCreate={handleCreatePhotoFromModal}
       />
       <CreateFolderModal
         isOpen={isCreateFolderModalOpen}
