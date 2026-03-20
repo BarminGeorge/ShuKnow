@@ -73,36 +73,42 @@ function ImagePlaceholder({
   );
 }
 
-// ── Feature card ────────────────────────────────────────────────────────────
+// ── Feature slide (NotebookLM-style) ────────────────────────────────────────
 
-function FeatureCard({
+function FeatureSlide({
   icon,
   title,
   description,
   imageSrc,
   imageAlt,
+  reverse = false,
 }: {
   icon: React.ReactNode;
   title: string;
   description: string;
   imageSrc: string;
   imageAlt: string;
+  reverse?: boolean;
 }) {
   return (
-    <div className="group relative bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300">
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
+    <div className={`flex flex-col ${reverse ? "md:flex-row-reverse" : "md:flex-row"} items-center gap-10 md:gap-16`}>
+      {/* Text */}
+      <div className="flex-1 max-w-md">
+        <div className="w-11 h-11 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center text-blue-400 mb-5">
           {icon}
         </div>
-        <h3 className="text-lg font-semibold text-white">{title}</h3>
+        <h3 className="text-2xl font-bold text-white mb-3">{title}</h3>
+        <p className="text-gray-400 leading-relaxed">{description}</p>
       </div>
-      <p className="text-gray-400 text-sm leading-relaxed mb-4">{description}</p>
-      <ImagePlaceholder
-        src={imageSrc}
-        alt={imageAlt}
-        className="w-full"
-        aspectClass="aspect-[3/2]"
-      />
+      {/* Image */}
+      <div className="flex-1 w-full">
+        <ImagePlaceholder
+          src={imageSrc}
+          alt={imageAlt}
+          className="w-full shadow-2xl shadow-blue-500/5"
+          aspectClass="aspect-[3/2]"
+        />
+      </div>
     </div>
   );
 }
@@ -141,15 +147,8 @@ export default function LandingPage() {
             <span className="text-lg font-bold">ShuKnow</span>
           </Link>
 
-          {/* Center nav links */}
-          <div className="hidden md:flex items-center gap-6 flex-1 justify-center">
-            <button onClick={() => scrollToSection("features")} className="text-sm text-gray-400 hover:text-white transition-colors">
-              Возможности
-            </button>
-            <button onClick={() => scrollToSection("use-cases")} className="text-sm text-gray-400 hover:text-white transition-colors">
-              Применение
-            </button>
-          </div>
+          {/* Spacer */}
+          <div className="hidden md:flex flex-1" />
 
           {/* Login — pinned right */}
           <div className="hidden md:flex items-center shrink-0">
@@ -176,23 +175,15 @@ export default function LandingPage() {
         {/* Mobile menu */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-white/5 bg-[#0a0a0a]/95 backdrop-blur-xl px-4 py-4 space-y-2">
-            <button onClick={() => scrollToSection("features")} className="block w-full text-left text-sm text-gray-300 hover:text-white py-2">
-              Возможности
-            </button>
-            <button onClick={() => scrollToSection("use-cases")} className="block w-full text-left text-sm text-gray-300 hover:text-white py-2">
-              Применение
-            </button>
-            <div className="pt-2 border-t border-white/5">
-              {isAuthenticated ? (
-                <Button asChild size="sm" variant="ghost" className="text-gray-300 hover:text-white w-full gap-2">
-                  <Link to="/app"><LogIn size={16} />Войти в приложение</Link>
-                </Button>
-              ) : (
-                <Button asChild size="sm" variant="ghost" className="text-gray-300 hover:text-white w-full gap-2">
-                  <Link to="/login"><LogIn size={16} />Вход</Link>
-                </Button>
-              )}
-            </div>
+            {isAuthenticated ? (
+              <Button asChild size="sm" variant="ghost" className="text-gray-300 hover:text-white w-full gap-2">
+                <Link to="/app"><LogIn size={16} />Войти в приложение</Link>
+              </Button>
+            ) : (
+              <Button asChild size="sm" variant="ghost" className="text-gray-300 hover:text-white w-full gap-2">
+                <Link to="/login"><LogIn size={16} />Вход</Link>
+              </Button>
+            )}
           </div>
         )}
       </nav>
@@ -228,75 +219,59 @@ export default function LandingPage() {
               </Button>
             </div>
           </motion.div>
-
-          {/* Hero image */}
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="mt-16"
-          >
-            <div className="relative">
-              <div className="absolute inset-0 -z-10 bg-gradient-to-t from-blue-500/20 via-purple-500/10 to-transparent rounded-3xl blur-3xl" />
-              <ImagePlaceholder
-                src="/images/landing/hero.webp"
-                alt="Интерфейс ShuKnow — чат с ИИ-агентом и папки"
-                className="w-full shadow-2xl shadow-blue-500/5"
-                aspectClass="aspect-[16/9]"
-              />
-            </div>
-          </motion.div>
         </div>
       </section>
 
       {/* ── Features ───────────────────────────────────────────────────────── */}
       <section id="features" className="py-20 px-4 sm:px-6">
-        <div className="max-w-6xl mx-auto">
-          <FadeInSection className="text-center mb-16">
+        <div className="max-w-5xl mx-auto">
+          <FadeInSection className="text-center mb-20">
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">Как это устроено</h2>
             <p className="text-gray-400 max-w-lg mx-auto">
               Вы отправляете — агент раскладывает. Вот и всё.
             </p>
           </FadeInSection>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-24 md:space-y-32">
             <FadeInSection>
-              <FeatureCard
-                icon={<Send size={20} />}
+              <FeatureSlide
+                icon={<Send size={22} />}
                 title="Отправьте что угодно"
                 description="Текст, картинку, файл — просто киньте в чат, как сообщение другу. Без лишних кнопок и настроек."
-                imageSrc="/images/landing/feature-chat.webp"
+                imageSrc="/images/landing/feature-chat.svg"
                 imageAlt="Чат-интерфейс для отправки данных"
               />
             </FadeInSection>
 
             <FadeInSection>
-              <FeatureCard
-                icon={<Zap size={20} />}
+              <FeatureSlide
+                icon={<Zap size={22} />}
                 title="Агент сам разложит"
                 description="ИИ читает содержимое, определяет категорию и кладёт в нужную папку. Вам не нужно думать, куда это деть."
-                imageSrc="/images/landing/feature-sort.webp"
+                imageSrc="/images/landing/feature-sort.svg"
                 imageAlt="Автоматическая сортировка по папкам"
+                reverse
               />
             </FadeInSection>
 
             <FadeInSection>
-              <FeatureCard
-                icon={<FolderOpen size={20} />}
+              <FeatureSlide
+                icon={<FolderOpen size={22} />}
                 title="Ваши правила"
                 description="Создайте папки и опишите, что в них хранить. Настройте один раз — агент будет следовать вашей структуре."
-                imageSrc="/images/landing/feature-folders.webp"
+                imageSrc="/images/landing/feature-folders.svg"
                 imageAlt="Настройка папок и правил"
               />
             </FadeInSection>
 
             <FadeInSection>
-              <FeatureCard
-                icon={<Bot size={20} />}
+              <FeatureSlide
+                icon={<Bot size={22} />}
                 title="Своя модель"
                 description="Подключите OpenAI, Anthropic или любой другой LLM. Можно даже бесплатные API — никаких подписок."
-                imageSrc="/images/landing/feature-model.webp"
+                imageSrc="/images/landing/feature-model.svg"
                 imageAlt="Выбор LLM-провайдера"
+                reverse
               />
             </FadeInSection>
           </div>

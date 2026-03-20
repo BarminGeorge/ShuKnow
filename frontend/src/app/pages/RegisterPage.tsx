@@ -45,9 +45,9 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md relative">
         {/* Logo */}
-        <Link to="/" className="flex items-center justify-center gap-2 mb-8">
+        <Link to="/" className="absolute -top-16 left-1/2 -translate-x-1/2 flex items-center gap-2">
           <Sparkles className="text-blue-400" size={28} />
           <span className="text-2xl font-bold text-white">ShuKnow</span>
         </Link>

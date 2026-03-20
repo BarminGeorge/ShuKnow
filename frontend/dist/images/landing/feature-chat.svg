@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1117"/>
+      <stop offset="100%" stop-color="#131620"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0.08"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="400" rx="16" fill="url(#bg)"/>
+  <rect x="0" y="0" width="600" height="400" rx="16" fill="url(#glow)"/>
+  <!-- Chat area -->
+  <!-- User message 1 -->
+  <rect x="200" y="30" width="370" height="52" rx="12" fill="#1e2030"/>
+  <text x="220" y="53" fill="#e2e8f0" font-family="system-ui, sans-serif" font-size="13">Вот конспект по линейной алгебре 📄</text>
+  <text x="220" y="70" fill="#64748b" font-family="system-ui, sans-serif" font-size="11">lecture_linalg.pdf</text>
+  <!-- Bot response 1 -->
+  <rect x="30" y="100" width="400" height="60" rx="12" fill="#172033"/>
+  <circle cx="52" cy="120" r="12" fill="#3b82f6" opacity="0.2"/>
+  <text x="48" y="124" fill="#3b82f6" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle">✦</text>
+  <text x="74" y="123" fill="#c8d6e5" font-family="system-ui, sans-serif" font-size="12">Файл сохранён в 📁 Учёба / Линейная алгебра</text>
+  <text x="74" y="143" fill="#64748b" font-family="system-ui, sans-serif" font-size="11">Определил тему: матрицы и определители</text>
+  <!-- User message 2 -->
+  <rect x="250" y="180" width="320" height="44" rx="12" fill="#1e2030"/>
+  <text x="270" y="206" fill="#e2e8f0" font-family="system-ui, sans-serif" font-size="13">Сохрани эту статью про React hooks</text>
+  <!-- Bot response 2 -->
+  <rect x="30" y="242" width="380" height="60" rx="12" fill="#172033"/>
+  <circle cx="52" cy="262" r="12" fill="#3b82f6" opacity="0.2"/>
+  <text x="48" y="266" fill="#3b82f6" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle">✦</text>
+  <text x="74" y="265" fill="#c8d6e5" font-family="system-ui, sans-serif" font-size="12">Сохранено в 📁 Разработка / React</text>
+  <text x="74" y="285" fill="#64748b" font-family="system-ui, sans-serif" font-size="11">Тип: статья, тема: хуки useState, useEffect</text>
+  <!-- Input bar -->
+  <rect x="30" y="340" width="540" height="40" rx="20" fill="#1a1d2e" stroke="#2a2d3e" stroke-width="1"/>
+  <text x="55" y="364" fill="#4a5067" font-family="system-ui, sans-serif" font-size="13">Отправьте текст, файл или ссылку...</text>
+  <circle cx="545" cy="360" r="14" fill="#3b82f6" opacity="0.8"/>
+  <text x="545" y="365" fill="white" font-family="system-ui, sans-serif" font-size="14" text-anchor="middle">↑</text>
+</svg>
