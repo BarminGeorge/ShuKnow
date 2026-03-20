@@ -1,4 +1,4 @@
-using ShuKnow.Domain.Enums;
+using ShuKnow.WebAPI.Dto.Enums;
 
 namespace ShuKnow.WebAPI.Dto.Chat;
 
@@ -7,4 +7,3 @@ public record ChatSessionDto(
     ChatSessionStatus Status,
     int MessageCount,
     bool CanRollback);
- 

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ShuKnow.Domain.Enums;
+using ShuKnow.WebAPI.Dto.Enums;
 using ShuKnow.WebAPI.Dto.Actions;
 
 namespace ShuKnow.WebAPI.Controllers;
