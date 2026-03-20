@@ -1,9 +1,17 @@
-import { Undo2 } from "lucide-react";
+import { Undo2, Paperclip } from "lucide-react";
+
+export interface Attachment {
+  id: string;
+  name: string;
+  file: File;
+  url?: string;
+}
 
 export interface Message {
   id: string;
   type: "user" | "system";
   content: string;
+  attachments?: Attachment[];
 }
 
 interface ChatMessagesProps {
@@ -24,6 +32,20 @@ export function ChatMessages({ messages }: ChatMessagesProps) {
           {message.type === "user" ? (
             // User message (right side) - Light gray background with dark text
             <div className="max-w-[70%]">
+              {/* Attachments displayed above message */}
+              {message.attachments && message.attachments.length > 0 && (
+                <div className="flex flex-col items-end gap-1 mb-2">
+                  {message.attachments.map((attachment) => (
+                    <div
+                      key={attachment.id}
+                      className="flex items-center gap-2 bg-[#D1D5DB] rounded-lg px-3 py-1.5 max-w-full"
+                    >
+                      <Paperclip size={14} className="text-gray-600 flex-shrink-0" />
+                      <span className="text-sm text-gray-700 truncate">{attachment.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="bg-[#E5E7EB] rounded-xl px-4 py-3">
                 <p className="text-sm text-gray-900 break-words whitespace-pre-wrap">{message.content}</p>
               </div>

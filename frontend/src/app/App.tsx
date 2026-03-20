@@ -3,7 +3,7 @@ import { PanelLeftOpen } from "lucide-react";
 import { Panel, PanelGroup, PanelResizeHandle, ImperativePanelHandle } from "react-resizable-panels";
 import { useRef, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
-import { ChatMessages, type Message } from "./components/ChatMessages";
+import { ChatMessages, type Message, type Attachment } from "./components/ChatMessages";
 import { InputConsole } from "./components/InputConsole";
 import { Sparkles } from "lucide-react";
 import { FolderContentView } from "./components/FolderContentView";
@@ -161,11 +161,12 @@ export default function App() {
     }
   }, [viewMode]);
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = (content: string, attachments?: Attachment[]) => {
     const newMessage: Message = {
       id: Date.now().toString(),
       type: "user",
       content,
+      attachments,
     };
     setMessages((prev) => [...prev, newMessage]);
     
