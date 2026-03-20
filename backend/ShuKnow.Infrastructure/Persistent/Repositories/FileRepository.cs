@@ -69,7 +69,7 @@ public class FileRepository(AppDbContext context) : IFileRepository
         return Result.Success();
     }
 
-    public Task<Result> UpdateAsync(File file)
+    public Task<Result> UpdateAsync(File file, Guid userId)
     {
         context.Files.Update(file);
         return Task.FromResult(Result.Success());
@@ -97,9 +97,15 @@ public class FileRepository(AppDbContext context) : IFileRepository
 
         return Result.Success<IReadOnlyList<File>>(files);
     }
-
+    
     public async Task<Result<IReadOnlyList<File>>> GetByFolderAsync(Guid folderId, Guid userId)
     {
+        var folderExists = await context.Folders
+            .AnyAsync(f => f.Id == folderId && f.UserId == userId);
+
+        if (!folderExists)
+            return Result.NotFound();
+
         var files = await context.Files
             .AsNoTracking()
             .Where(f => f.FolderId == folderId && f.Folder.UserId == userId)
