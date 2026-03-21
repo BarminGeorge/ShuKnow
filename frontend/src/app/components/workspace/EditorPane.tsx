@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ImageIcon, Pencil, Eye } from "lucide-react";
+import { ImageIcon, Pencil, Eye, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -103,6 +103,27 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
           <div className="flex flex-col items-center gap-3 text-gray-700">
             <ImageIcon size={56} className="opacity-30" />
             <p className="text-sm italic">Изображение не загружено</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── PDF viewer ──────────────────────────────────────────────────
+  if (file.type === "pdf") {
+    return (
+      <div className="h-full flex flex-col bg-[#0e0e0e]">
+        {file.pdfUrl ? (
+          <iframe
+            src={file.pdfUrl}
+            title={file.name}
+            className="w-full h-full border-0"
+            style={{ minHeight: "100%" }}
+          />
+        ) : (
+          <div className="h-full flex flex-col items-center justify-center gap-3 text-gray-700">
+            <FileText size={56} className="opacity-30" />
+            <p className="text-sm italic">PDF не загружен</p>
           </div>
         )}
       </div>

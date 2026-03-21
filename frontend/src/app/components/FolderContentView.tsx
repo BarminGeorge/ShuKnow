@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
-import { ChevronRight, MoreVertical, FileText, ArrowLeft, Plus, Folder as FolderIcon, Image as ImageIcon, Smile, Upload } from "lucide-react";
+import { ChevronRight, MoreVertical, FileText, ArrowLeft, Plus, Folder as FolderIcon, Image as ImageIcon, Smile, Upload, File as FileIcon } from "lucide-react";
 import { useDrag, useDrop, useDragLayer } from "react-dnd";
 import { NativeTypes } from "react-dnd-html5-backend";
 import { getEmptyImage } from "react-dnd-html5-backend";
@@ -30,7 +30,7 @@ interface FolderContentViewProps {
   onBreadcrumbClick: (index: number) => void;
   files: FileItem[];
   onOpenFile: (fileId: string) => void;
-  onCreateFile: (file: FileItem) => void;
+  onCreateFile: (file: FileItem, openAfterCreate?: boolean) => void;
   onDeleteFile: (fileId: string) => void;
   onUpdateFile: (fileId: string, updates: Partial<FileItem>) => void;
 }
@@ -465,6 +465,8 @@ function DraggableGridItem({
             <div className="w-16 h-16 rounded-lg bg-white/5 flex items-center justify-center mb-3">
               {file.type === "photo" ? (
                 <ImageIcon size={32} className="text-purple-400" />
+              ) : file.type === "pdf" ? (
+                <FileIcon size={32} className="text-red-400" />
               ) : (
                 <FileText size={32} className="text-blue-400" />
               )}
@@ -679,6 +681,7 @@ export function FolderContentView({
   const handleDroppedFiles = useCallback((files: File[]) => {
     files.forEach((file, index) => {
       const isImage = file.type.startsWith("image/");
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
       
       if (isImage) {
         // Create object URL for image preview
@@ -691,7 +694,19 @@ export function FolderContentView({
           imageUrl,
           createdAt: new Date().toISOString(),
         };
-        onCreateFile(newFile);
+        onCreateFile(newFile, false); // Don't open after drop
+      } else if (isPdf) {
+        // Create object URL for PDF viewing
+        const pdfUrl = URL.createObjectURL(file);
+        const newFile: FileItem = {
+          id: `${Date.now()}-${index}`,
+          name: file.name,
+          type: "pdf",
+          folderId: folder.id,
+          pdfUrl,
+          createdAt: new Date().toISOString(),
+        };
+        onCreateFile(newFile, false); // Don't open after drop
       } else {
         // For text files, try to read content
         const reader = new FileReader();
@@ -705,7 +720,7 @@ export function FolderContentView({
             content,
             createdAt: new Date().toISOString(),
           };
-          onCreateFile(newFile);
+          onCreateFile(newFile, false); // Don't open after drop
         };
         reader.onerror = () => {
           // If reading fails, create empty text file
@@ -717,7 +732,7 @@ export function FolderContentView({
             content: "",
             createdAt: new Date().toISOString(),
           };
-          onCreateFile(newFile);
+          onCreateFile(newFile, false); // Don't open after drop
         };
         reader.readAsText(file);
       }
