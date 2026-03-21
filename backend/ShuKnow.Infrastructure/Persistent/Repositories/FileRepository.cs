@@ -1,5 +1,6 @@
 using Ardalis.Result;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using ShuKnow.Domain.Repositories;
 using File = ShuKnow.Domain.Entities.File;
 
@@ -9,18 +10,46 @@ public class FileRepository(AppDbContext context) : IFileRepository
 {
     public async Task<Result<File>> GetByIdAsync(Guid fileId, Guid userId)
     {
+        if (fileId == Guid.Empty)
+            return Result.Error("File id must not be empty.");
+
+        if (userId == Guid.Empty)
+            return Result.Error("User id must not be empty.");
+
         try
         {
             var file = await context.Files
                 .AsNoTracking()
-                .Where(f => f.Id == fileId && f.Folder.UserId == userId)
+                .Where(f => f.Id == fileId)
                 .FirstOrDefaultAsync();
 
-            return file is null ? Result.NotFound() : Result.Success(file);
+            if (file is null)
+                return Result.NotFound($"File with id '{fileId}' was not found.");
+
+            if (file.UserId != userId)
+                return Result.Forbidden("You do not have access to this file.");
+
+            return Result.Success(file);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Result.Error($"Unable to load file '{fileId}' because the query returned an invalid result: {ex.Message}");
+        }
+        catch (TimeoutException ex)
+        {
+            return Result.Error($"Timed out while loading file '{fileId}': {ex.Message}");
+        }
+        catch (PostgresException ex)
+        {
+            return Result.Error($"A database error occurred while loading file '{fileId}': {ex.MessageText}");
+        }
+        catch (NpgsqlException ex)
+        {
+            return Result.Error($"A database connection error occurred while loading file '{fileId}': {ex.Message}");
         }
         catch (Exception ex)
         {
-            return Result.Error(ex.Message);
+            return Result.Error($"An unexpected error occurred while loading file '{fileId}': {ex.Message}");
         }
     }
 
