@@ -1,0 +1,49 @@
+﻿using Ardalis.Result;
+using ShuKnow.Application.Interfaces;
+
+namespace ShuKnow.Application.Extensions;
+
+public static class ResultExtensions
+{
+    public static async Task<Result<T>> SaveChangesAsync<T>(this Task<Result<T>> result, IUnitOfWork unitOfWork)
+    {
+        return await result.BindAsync(arg => unitOfWork.SaveChangesAsync().MapAsync(() => arg));
+    }
+
+    public static async Task<Result> SaveChangesAsync(this Task<Result> result, IUnitOfWork unitOfWork)
+    {
+        return await result.BindAsync(_ => unitOfWork.SaveChangesAsync());
+    }
+
+    public static async Task<Result<TSource>> ActAsync<TSource, TDestination>(
+        this Task<Result<TSource>> result, Func<TSource, Task<Result<TDestination>>> actFunc)
+    {
+        return await result.BindAsync(source => actFunc(source).MapAsync(_ => source));
+    }
+
+    public static async Task<Result<TSource>> ActAsync<TSource>(
+        this Task<Result<TSource>> result, Func<TSource, Task<Result>> actFunc)
+    {
+        return await result.BindAsync(source => actFunc(source).MapAsync(() => source));
+    }
+
+    public static async Task<Result<TSource>> ActAsync<TSource>(
+        this Task<Result<TSource>> result, Func<TSource, Task> actFunc)
+    {
+        return await result.MapAsync(async source =>
+        {
+            await actFunc(source);
+            return source;
+        });
+    }
+    
+    public static async Task<Result<TSource>> ActAsync<TSource>(
+        this Task<Result<TSource>> result, Action<TSource> actFunc)
+    {
+        return await result.MapAsync(source =>
+        {
+            actFunc(source);
+            return Task.FromResult(source);
+        });
+    }
+}

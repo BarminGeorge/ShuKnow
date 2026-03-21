@@ -1,62 +1,152 @@
 using Ardalis.Result;
+using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Domain.Repositories;
 using File = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.Application.Services;
 
-internal class FileService(
+public class FileService(
     IFileRepository fileRepository,
     IFolderRepository folderRepository,
     IBlobStorageService blobStorageService,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    IUnitOfWork unitOfWork)
     : IFileService
 {
-    public Task<Result<File>> GetByIdAsync(Guid fileId, CancellationToken ct = default)
+    private Guid CurrentUserId => currentUserService.UserId;
+
+    public async Task<Result<File>> GetByIdAsync(Guid fileId, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await fileRepository.GetByIdAsync(fileId, CurrentUserId);
     }
 
-    public Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
+    public async Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
         Guid folderId, int page, int pageSize, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await fileRepository.ListByFolderAsync(folderId, CurrentUserId, page, pageSize);
     }
 
-    public Task<Result<File>> UploadAsync(File file, Stream content, CancellationToken ct = default)
+    public async Task<Result<File>> UploadAsync(
+        File file, Stream content, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await EnsureFolderExistsAsync(file.FolderId)
+            .BindAsync(_ => EnsureFileNameUnique(file.Name, file.FolderId, file.Id))
+            .BindAsync(_ => fileRepository.AddAsync(file))
+            .BindAsync(_ => blobStorageService.SaveAsync(content, file, ct))
+            .SaveChangesAsync(unitOfWork)
+            .MapAsync(() => file);
     }
 
-    public Task<Result<File>> UpdateMetadataAsync(File file, CancellationToken ct = default)
+    public async Task<Result<File>> UpdateMetadataAsync(File file, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await fileRepository.GetByIdForUpdateAsync(file.Id, CurrentUserId)
+            .ActAsync(existingFile => EnsureFileNameUnique(file.Name, existingFile.FolderId, existingFile.Id))
+            .ActAsync(existingFile => existingFile.UpdateMetadata(file.Name, file.Description))
+            .SaveChangesAsync(unitOfWork);
     }
 
-    public Task<Result> DeleteAsync(Guid fileId, CancellationToken ct = default)
+    public async Task<Result> DeleteAsync(Guid fileId, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await fileRepository.GetByIdAsync(fileId, CurrentUserId)
+            .BindAsync(file => fileRepository.DeleteAsync(file.Id)
+                .BindAsync(_ => blobStorageService.DeleteAsync(file.Id, ct))
+                .SaveChangesAsync(unitOfWork));
     }
 
-    public Task<Result<(Stream Content, string ContentType, long SizeBytes)>> GetContentAsync(
+    public async Task<Result<(Stream Content, string ContentType, long SizeBytes)>> GetContentAsync(
         Guid fileId, long? rangeStart = null, long? rangeEnd = null, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await fileRepository.GetByIdAsync(fileId, CurrentUserId)
+            .BindAsync(file =>
+            {
+                return GetStreamAsync(file, rangeStart, rangeEnd, ct)
+                    .MapAsync(stream => (stream, file.ContentType, file.SizeBytes));
+            });
     }
 
-    public Task<Result<File>> ReplaceContentAsync(
+    public async Task<Result<File>> ReplaceContentAsync(
         Guid fileId, Stream content, string contentType, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        var existingFileResult = await fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId);
+        if (!existingFileResult.IsSuccess)
+            return existingFileResult;
+
+        var existingFile = existingFileResult.Value;
+
+        await using var bufferedContent = await BufferContentAsync(content, ct);
+
+        existingFile.ReplaceContent(contentType, bufferedContent.Length);
+
+        return await blobStorageService.ReplaceAsync(bufferedContent, existingFile, ct)
+            .SaveChangesAsync(unitOfWork)
+            .MapAsync(() => existingFile);
     }
 
-    public Task<Result<File>> MoveAsync(Guid fileId, Guid targetFolderId, CancellationToken ct = default)
+    public async Task<Result<File>> MoveAsync(Guid fileId, Guid targetFolderId, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await EnsureFolderExistsAsync(targetFolderId)
+            .BindAsync(_ => fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId))
+            .ActAsync(existingFile => EnsureFileNameUnique(existingFile.Name, targetFolderId, existingFile.Id))
+            .ActAsync(existingFile => existingFile.MoveTo(targetFolderId))
+            .SaveChangesAsync(unitOfWork);
     }
 
-    public Task<Result> DeleteByFolderAsync(Guid folderId, CancellationToken ct = default)
+    public async Task<Result> DeleteByFolderAsync(Guid folderId, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await EnsureFolderExistsAsync(folderId)
+            .BindAsync(_ => fileRepository.DeleteByFolderAsync(folderId))
+            .BindAsync(files => DeleteBlobsAsync(files, ct))
+            .SaveChangesAsync(unitOfWork);
+    }
+
+    private async Task<Result> EnsureFileNameUnique(string name, Guid folderId, Guid fileId)
+    {
+        var existsResult = await fileRepository.ExistsByNameInFolderAsync(name, folderId, CurrentUserId, fileId);
+        if (!existsResult.IsSuccess)
+            return existsResult.Map();
+        
+        return existsResult.Value ? Result.Conflict() : Result.Success();
+    }
+
+    private async Task<Result> EnsureFolderExistsAsync(Guid folderId)
+    {
+        var existsResult = await folderRepository.ExistsByIdAsync(folderId, CurrentUserId);
+        if (!existsResult.IsSuccess)
+            return existsResult.Map();
+
+        return existsResult.Value ? Result.Success() : Result.NotFound();
+    }
+
+    private async Task<Result<Stream>> GetStreamAsync(
+        File file, long? rangeStart = null, long? rangeEnd = null, CancellationToken ct = default)
+    {
+        if (rangeStart is null && rangeEnd is null)
+            return await blobStorageService.GetAsync(file.Id, ct);
+
+        var start = rangeStart ?? 0;
+        var end = rangeEnd ?? file.SizeBytes;
+
+        return await blobStorageService.GetRangeAsync(file.Id, start, end, ct);
+    }
+
+    private async Task<Result> DeleteBlobsAsync(IReadOnlyList<File> files, CancellationToken ct)
+    {
+        foreach (var file in files)
+        {
+            var result = await blobStorageService.DeleteAsync(file.Id, ct);
+            if (!result.IsSuccess)
+                return result;
+        }
+
+        return Result.Success();
+    }
+
+    private static async Task<MemoryStream> BufferContentAsync(Stream content, CancellationToken ct)
+    {
+        var bufferedContent = new MemoryStream();
+        await content.CopyToAsync(bufferedContent, ct);
+        bufferedContent.Position = 0;
+        return bufferedContent;
     }
 }

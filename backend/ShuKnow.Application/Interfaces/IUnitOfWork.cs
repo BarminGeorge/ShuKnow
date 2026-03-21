@@ -1,6 +1,6 @@
 ﻿using Ardalis.Result;
 
-namespace ShuKnow.Infrastructure.Interfaces;
+namespace ShuKnow.Application.Interfaces;
 
 public interface IUnitOfWork
 {

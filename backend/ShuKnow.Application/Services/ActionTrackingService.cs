@@ -6,7 +6,7 @@ namespace ShuKnow.Application.Services;
 
 internal class ActionTrackingService(
     IActionRepository actionRepository,
-    ICurrentUserService currentUserService) 
+    ICurrentUserService currentUserService)
     : IActionTrackingService
 {
     public Task<Result<Guid>> BeginActionAsync(Guid sessionId, string summary, CancellationToken ct = default)

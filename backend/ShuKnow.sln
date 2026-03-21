@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShuKnow.Infrastructure", "S
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShuKnow.WebAPI", "ShuKnow.WebAPI\ShuKnow.WebAPI.csproj", "{308DD397-F486-4519-BF2C-7948F47CE037}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShuKnow.Application.Tests", "ShuKnow.Application.Tests\ShuKnow.Application.Tests.csproj", "{5104ADFC-BB06-4034-A076-16CDC6869117}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -36,5 +38,9 @@ Global
 		{308DD397-F486-4519-BF2C-7948F47CE037}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{308DD397-F486-4519-BF2C-7948F47CE037}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{308DD397-F486-4519-BF2C-7948F47CE037}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5104ADFC-BB06-4034-A076-16CDC6869117}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5104ADFC-BB06-4034-A076-16CDC6869117}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5104ADFC-BB06-4034-A076-16CDC6869117}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5104ADFC-BB06-4034-A076-16CDC6869117}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

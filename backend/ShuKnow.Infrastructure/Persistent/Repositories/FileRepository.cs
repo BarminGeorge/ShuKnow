@@ -11,6 +11,11 @@ public class FileRepository : IFileRepository
         throw new NotImplementedException();
     }
 
+    public Task<Result<File>> GetByIdForUpdateAsync(Guid fileId, Guid userId)
+    {
+        throw new NotImplementedException();
+    }
+
     public Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
         Guid folderId, Guid userId, int page, int pageSize)
     {

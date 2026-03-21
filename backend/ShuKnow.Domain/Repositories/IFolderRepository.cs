@@ -7,6 +7,8 @@ public interface IFolderRepository
 {
     Task<Result<Folder>> GetByIdAsync(Guid folderId, Guid userId);
 
+    Task<Result<bool>> ExistsByIdAsync(Guid folderId, Guid userId);
+
     Task<Result<IReadOnlyList<Folder>>> GetTreeAsync(Guid userId);
 
     Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid parentId, Guid userId);
