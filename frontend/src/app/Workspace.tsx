@@ -204,7 +204,13 @@ export default function Workspace() {
         const idx = prev.indexOf(fileId);
         const newActive = next[idx] ?? next[idx - 1] ?? null;
         setActiveTabId(newActive);
-        if (newActive === null) setViewMode("chat");
+        if (newActive === null) {
+          if (selectedFolderPath) {
+            setViewMode("folder");
+          } else {
+            setViewMode("chat");
+          }
+        }
       }
 
       return next;
@@ -224,10 +230,12 @@ export default function Workspace() {
     );
   };
 
-  const handleCreateFile = (file: FileItem) => {
+  const handleCreateFile = (file: FileItem, openAfterCreate: boolean = true) => {
     setFiles((prev) => [...prev, file]);
-    // Small delay so the file is in state before opening the tab
-    setTimeout(() => handleOpenTab(file.id), 50);
+    if (openAfterCreate) {
+      // Small delay so the file is in state before opening the tab
+      setTimeout(() => handleOpenTab(file.id), 50);
+    }
   };
 
   const handleDeleteFile = (fileId: string) => {
