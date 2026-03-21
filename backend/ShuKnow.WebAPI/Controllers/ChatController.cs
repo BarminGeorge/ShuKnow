@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using ShuKnow.WebAPI.Dto.Enums;
 using ShuKnow.WebAPI.Dto.Chat;
 
 namespace ShuKnow.WebAPI.Controllers;
@@ -16,7 +17,7 @@ public class ChatController : ControllerBase
     public async Task<ActionResult<ChatSessionDto>> GetChatSession()
     {
         // TODO: implement
-        return new ChatSessionDto(MockSessionId, 0, false);
+        return new ChatSessionDto(MockSessionId, ChatSessionStatus.Active, 0, false);
     }
 
     [HttpDelete("session")]

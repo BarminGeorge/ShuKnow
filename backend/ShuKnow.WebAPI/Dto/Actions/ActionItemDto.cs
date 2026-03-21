@@ -1,14 +1,6 @@
-using System.Text.Json.Serialization;
+using ShuKnow.WebAPI.Dto.Enums;
 
 namespace ShuKnow.WebAPI.Dto.Actions;
-
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum ActionItemType
-{
-    FileCreated,
-    FileMoved,
-    FolderCreated
-}
 
 public record ActionItemDto(
     ActionItemType Type,
