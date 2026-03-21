@@ -146,9 +146,89 @@ public class FileRepository(AppDbContext context) : IFileRepository
         }
     }
 
-    public Task<Result> UpdateAsync(File file)
+    public async Task<Result> UpdateAsync(File file)
     {
-        throw new NotImplementedException();
+        if (file.Id == Guid.Empty)
+            return Result.Error("File id must not be empty.");
+
+        if (file.UserId == Guid.Empty)
+            return Result.Error("User id must not be empty.");
+
+        try
+        {
+            var existingFile = await context.Files
+                .FirstOrDefaultAsync(f => f.Id == file.Id);
+
+            if (existingFile is null)
+                return Result.NotFound($"File with id '{file.Id}' was not found.");
+
+            if (existingFile.UserId != file.UserId)
+                return Result.Forbidden("You do not have access to this file.");
+
+            var entry = context.Entry(existingFile);
+            var hasChanges = false;
+
+            if (existingFile.FolderId != file.FolderId)
+            {
+                entry.Property(f => f.FolderId).CurrentValue = file.FolderId;
+                hasChanges = true;
+            }
+
+            if (existingFile.Name != file.Name)
+            {
+                entry.Property(f => f.Name).CurrentValue = file.Name;
+                hasChanges = true;
+            }
+
+            if (existingFile.Description != file.Description)
+            {
+                entry.Property(f => f.Description).CurrentValue = file.Description;
+                hasChanges = true;
+            }
+
+            if (existingFile.ContentType != file.ContentType)
+            {
+                entry.Property(f => f.ContentType).CurrentValue = file.ContentType;
+                hasChanges = true;
+            }
+
+            if (existingFile.SizeBytes != file.SizeBytes)
+            {
+                entry.Property(f => f.SizeBytes).CurrentValue = file.SizeBytes;
+                hasChanges = true;
+            }
+
+            if (existingFile.ChecksumSha256 != file.ChecksumSha256)
+            {
+                entry.Property(f => f.ChecksumSha256).CurrentValue = file.ChecksumSha256;
+                hasChanges = true;
+            }
+
+            if (hasChanges)
+                entry.Property(f => f.Version).CurrentValue = existingFile.Version + 1;
+
+            return Result.Success();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Result.Error($"Unable to update file '{file.Id}' because the query returned an invalid result: {ex.Message}");
+        }
+        catch (TimeoutException ex)
+        {
+            return Result.Error($"Timed out while updating file '{file.Id}': {ex.Message}");
+        }
+        catch (PostgresException ex)
+        {
+            return Result.Error($"A database error occurred while updating file '{file.Id}': {ex.MessageText}");
+        }
+        catch (NpgsqlException ex)
+        {
+            return Result.Error($"A database connection error occurred while updating file '{file.Id}': {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            return Result.Error($"An unexpected error occurred while updating file '{file.Id}': {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(Guid fileId, Guid userId)
