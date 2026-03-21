@@ -1,6 +1,6 @@
 import { FileText } from "lucide-react";
 import { EditorPane } from "./EditorPane";
-import type { FileItem } from "../../App";
+import type { FileItem } from "../../Workspace";
 
 interface TabsWorkspaceProps {
   activeFile: FileItem | null;

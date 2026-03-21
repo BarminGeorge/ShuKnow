@@ -10,7 +10,7 @@ import { EditFolderModal } from "./EditFolderModal";
 import { CreateFileModal } from "./CreateFileModal";
 import { CreateFolderModal } from "./CreateFolderModal";
 import { EmojiPicker } from "./EmojiPicker";
-import type { Folder, FileItem } from "../App";
+import type { Folder, FileItem } from "../Workspace";
 
 type GridItemType = "folder" | "file";
 
