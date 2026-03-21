@@ -18,18 +18,23 @@ public class FileRepository(AppDbContext context) : IFileRepository
 
         try
         {
-            var file = await context.Files
+            var lookup = await context.Files
                 .AsNoTracking()
                 .Where(f => f.Id == fileId)
+                .Select(f => new
+                {
+                    File = f,
+                    HasAccess = f.UserId == userId
+                })
                 .FirstOrDefaultAsync();
 
-            if (file is null)
+            if (lookup is null)
                 return Result.NotFound($"File with id '{fileId}' was not found.");
 
-            if (file.UserId != userId)
+            if (!lookup.HasAccess)
                 return Result.Forbidden("You do not have access to this file.");
 
-            return Result.Success(file);
+            return Result.Success(lookup.File);
         }
         catch (InvalidOperationException ex)
         {
@@ -58,19 +63,27 @@ public class FileRepository(AppDbContext context) : IFileRepository
     {
         try
         {
-            var folderExists = await context.Folders
-                .AnyAsync(f => f.Id == folderId && f.UserId == userId);
+            var filesWithFolderMarker = await context.Folders
+                .AsNoTracking()
+                .Where(folder => folder.Id == folderId && folder.UserId == userId)
+                .SelectMany(
+                    folder => context.Files
+                        .AsNoTracking()
+                        .Where(file => file.FolderId == folder.Id && file.UserId == userId)
+                        .OrderBy(file => file.Name)
+                        .Skip((page - 1) * pageSize)
+                        .Take(pageSize)
+                        .DefaultIfEmpty(),
+                    (_, file) => file)
+                .ToListAsync();
 
-            if (!folderExists)
+            if (filesWithFolderMarker.Count == 0)
                 return Result.NotFound();
 
-            var files = await context.Files
-                .AsNoTracking()
-                .Where(f => f.FolderId == folderId && f.Folder.UserId == userId)
-                .OrderBy(f => f.Name)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
+            var files = filesWithFolderMarker
+                .Where(file => file is not null)
+                .Cast<File>()
+                .ToList();
 
             return Result.Success<(IReadOnlyList<File> Files, int TotalCount)>((files, files.Count));
         }
@@ -86,7 +99,7 @@ public class FileRepository(AppDbContext context) : IFileRepository
         try
         {
             var query = context.Files
-                .Where(f => f.Name == name && f.FolderId == folderId && f.Folder.UserId == userId);
+                .Where(f => f.Name == name && f.FolderId == folderId && f.UserId == userId);
 
             if (excludeId.HasValue)
                 query = query.Where(f => f.Id != excludeId.Value);
@@ -104,7 +117,7 @@ public class FileRepository(AppDbContext context) : IFileRepository
         try
         {
             var count = await context.Files
-                .CountAsync(f => f.FolderId == folderId && f.Folder.UserId == userId);
+                .CountAsync(f => f.FolderId == folderId && f.UserId == userId);
 
             return Result.Success(count);
         }
@@ -143,7 +156,7 @@ public class FileRepository(AppDbContext context) : IFileRepository
         try
         {
             var deleted = await context.Files
-                .Where(f => f.Id == fileId && f.Folder.UserId == userId)
+                .Where(f => f.Id == fileId && f.UserId == userId)
                 .ExecuteDeleteAsync();
 
             return deleted == 0 ? Result.NotFound() : Result.Success();
@@ -179,16 +192,24 @@ public class FileRepository(AppDbContext context) : IFileRepository
     {
         try
         {
-            var folderExists = await context.Folders
-                .AnyAsync(f => f.Id == folderId && f.UserId == userId);
+            var filesWithFolderMarker = await context.Folders
+                .AsNoTracking()
+                .Where(folder => folder.Id == folderId && folder.UserId == userId)
+                .SelectMany(
+                    folder => context.Files
+                        .AsNoTracking()
+                        .Where(file => file.FolderId == folder.Id && file.UserId == userId)
+                        .DefaultIfEmpty(),
+                    (_, file) => file)
+                .ToListAsync();
 
-            if (!folderExists)
+            if (filesWithFolderMarker.Count == 0)
                 return Result.NotFound();
 
-            var files = await context.Files
-                .AsNoTracking()
-                .Where(f => f.FolderId == folderId && f.Folder.UserId == userId)
-                .ToListAsync();
+            var files = filesWithFolderMarker
+                .Where(file => file is not null)
+                .Cast<File>()
+                .ToList();
 
             return Result.Success<IReadOnlyList<File>>(files);
         }
