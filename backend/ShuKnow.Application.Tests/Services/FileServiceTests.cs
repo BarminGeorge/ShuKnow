@@ -50,7 +50,7 @@ public class FileServiceTests
 
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().BeSameAs(file);
-        await fileRepository.Received(2).GetByIdAsync(file.Id, currentUserId);
+        await fileRepository.Received(1).GetByIdAsync(file.Id, currentUserId);
     }
 
     [Test]
