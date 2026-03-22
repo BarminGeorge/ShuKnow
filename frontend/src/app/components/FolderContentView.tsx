@@ -169,6 +169,8 @@ function DraggableGridItem({
   const [dropIntent, setDropIntent] = useState<DropIntent>(null);
   // 用于追踪上一次的意图，避免频繁状态更新
   const lastIntentRef = useRef<DropIntent>(null);
+  // Throttle: prevent moveItem from firing more than once per 150ms
+  const lastMoveTimeRef = useRef<number>(0);
 
   // 获取元素名称用于 CustomDragLayer
   const itemName = item.type === "folder" 
@@ -290,13 +292,18 @@ function DraggableGridItem({
         return;
       }
 
-      // 重新排序意图：执行排序逻辑
+      // 重新排序意图：执行排序逻辑 (throttled)
       if (intent === "reorder" && dragIndex !== hoverIndex) {
         const hoverMiddleX = width / 2;
 
         // 判断是否应该移动
         if (dragIndex < hoverIndex && hoverClientX < hoverMiddleX) return;
         if (dragIndex > hoverIndex && hoverClientX > hoverMiddleX) return;
+
+        // Throttle: only allow move every 150ms to prevent flicker
+        const now = Date.now();
+        if (now - lastMoveTimeRef.current < 150) return;
+        lastMoveTimeRef.current = now;
 
         moveItem(dragIndex, hoverIndex);
         draggedItem.index = hoverIndex;
@@ -755,11 +762,12 @@ export function FolderContentView({
     onUpdateFile(fileId, { name: newName });
   };
 
-  // === FLIP 动画逻辑 ===
+  // === FLIP animation logic ===
   const gridRef = useRef<HTMLDivElement>(null);
   const prevRectsRef = useRef<Map<string, DOMRect>>(new Map());
+  const isAnimatingRef = useRef(false);
 
-  // 在 DOM 更新之前捕获所有元素的位置
+  // Capture positions of all grid children before a state update
   const captureGridPositions = useCallback(() => {
     if (!gridRef.current) return;
     const rects = new Map<string, DOMRect>();
@@ -770,12 +778,15 @@ export function FolderContentView({
     prevRectsRef.current = rects;
   }, []);
 
-  // 在 DOM 更新之后应用 FLIP 动画
+  // After DOM update, animate elements from old position to new position
   useLayoutEffect(() => {
-    if (!gridRef.current || prevRectsRef.current.size === 0) return;
+    if (!gridRef.current || prevRectsRef.current.size === 0 || isAnimatingRef.current) return;
+    isAnimatingRef.current = true;
 
-    Array.from(gridRef.current.children).forEach((child) => {
-      const el = child as HTMLElement;
+    const children = Array.from(gridRef.current.children) as HTMLElement[];
+    const animations: { el: HTMLElement; dx: number; dy: number }[] = [];
+
+    children.forEach((el) => {
       const id = el.dataset.gridItemId;
       if (!id) return;
 
@@ -786,49 +797,62 @@ export function FolderContentView({
       const dx = prevRect.left - currRect.left;
       const dy = prevRect.top - currRect.top;
 
-      // 如果位置没有变化，跳过
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
 
-      // Invert: 将元素移回旧位置
-      el.style.transform = `translate(${dx}px, ${dy}px)`;
-      el.style.transition = 'none';
-
-      // Play: 动画到新位置
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          el.style.transform = '';
-          el.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1)';
-
-          const cleanup = () => {
-            el.style.transform = '';
-            el.style.transition = '';
-            el.removeEventListener('transitionend', cleanup);
-          };
-          el.addEventListener('transitionend', cleanup);
-        });
-      });
+      animations.push({ el, dx, dy });
     });
 
+    if (animations.length === 0) {
+      prevRectsRef.current.clear();
+      isAnimatingRef.current = false;
+      return;
+    }
+
+    // Step 1 (Invert): instantly move elements to their old positions
+    animations.forEach(({ el, dx, dy }) => {
+      el.style.transition = 'none';
+      el.style.transform = `translate(${dx}px, ${dy}px)`;
+      el.style.willChange = 'transform';
+    });
+
+    // Force a reflow so the browser registers the "old" position
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    gridRef.current.offsetHeight;
+
+    // Step 2 (Play): animate to the new (natural) position
+    animations.forEach(({ el }) => {
+      el.style.transition = 'transform 250ms cubic-bezier(0.2, 0, 0.2, 1)';
+      el.style.transform = '';
+    });
+
+    // Cleanup after animation finishes
+    const timeout = setTimeout(() => {
+      animations.forEach(({ el }) => {
+        el.style.transition = '';
+        el.style.transform = '';
+        el.style.willChange = '';
+      });
+      isAnimatingRef.current = false;
+    }, 260);
+
     prevRectsRef.current.clear();
+
+    return () => {
+      clearTimeout(timeout);
+      isAnimatingRef.current = false;
+    };
   }, [gridItems]);
 
-  // 包装 moveGridItem 以支持 FLIP
+  // Wrapper: capture positions, then update state
   const moveGridItemWithFlip = useCallback((dragIndex: number, hoverIndex: number) => {
-    captureGridPositions(); // 在更新前捕获位置
-    const newItems = [...gridItems];
-    const draggedItem = newItems[dragIndex];
-    newItems.splice(dragIndex, 1);
-    newItems.splice(hoverIndex, 0, draggedItem);
-    setGridItems(newItems);
-  }, [captureGridPositions, gridItems]);
-
-  const moveGridItem = (dragIndex: number, hoverIndex: number) => {
-    const newItems = [...gridItems];
-    const draggedItem = newItems[dragIndex];
-    newItems.splice(dragIndex, 1);
-    newItems.splice(hoverIndex, 0, draggedItem);
-    setGridItems(newItems);
-  };
+    captureGridPositions();
+    setGridItems((prev) => {
+      const newItems = [...prev];
+      const [draggedItem] = newItems.splice(dragIndex, 1);
+      newItems.splice(hoverIndex, 0, draggedItem);
+      return newItems;
+    });
+  }, [captureGridPositions]);
 
   const handleDragEnd = () => {
     // Save custom order only after drag operation
