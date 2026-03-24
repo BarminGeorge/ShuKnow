@@ -18,7 +18,7 @@ public class ChatService(
     public async Task<Result<ChatSession>> GetOrCreateActiveSessionAsync(CancellationToken ct = default)
     {
         var activeSessionResult = await chatSessionRepository.GetActiveAsync(CurrentUserId);
-        if (activeSessionResult.IsSuccess)
+        if (!activeSessionResult.IsNotFound())
             return activeSessionResult;
 
         var session = new ChatSession(Guid.NewGuid(), CurrentUserId);

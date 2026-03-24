@@ -51,7 +51,7 @@ public class ChatServiceTests
     }
 
     [Test]
-    public async Task GetOrCreateActiveSessionAsync_WhenActiveSessionIsMissing_ShouldCreateAndPersistSession()
+    public async Task GetOrCreateActiveSessionAsync_WhenActiveSessionNotFound_ShouldCreateAndPersistSession()
     {
         ChatSession? persistedSession = null;
         chatSessionRepository.AddAsync(Arg.Do<ChatSession>(session => persistedSession = session))
@@ -65,6 +65,19 @@ public class ChatServiceTests
         result.Value.UserId.Should().Be(currentUserId);
         await chatSessionRepository.Received(1).AddAsync(Arg.Any<ChatSession>());
         await unitOfWork.Received(1).SaveChangesAsync();
+    }
+    
+    [Test]
+    public async Task GetOrCreateActiveSessionAsync_WhenActiveSessionReturnsError_ShouldReturnError()
+    {
+        var error = Result.Error();
+        chatSessionRepository.GetActiveAsync(currentUserId).Returns(error);
+
+        var result = await sut.GetOrCreateActiveSessionAsync();
+
+        result.Status.Should().Be(error.Status);
+        await chatSessionRepository.DidNotReceive().AddAsync(Arg.Any<ChatSession>());
+        await unitOfWork.DidNotReceive().SaveChangesAsync();
     }
 
     [Test]
