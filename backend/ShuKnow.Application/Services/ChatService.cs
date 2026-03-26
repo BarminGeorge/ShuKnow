@@ -1,46 +1,78 @@
 using Ardalis.Result;
+using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Repositories;
 
 namespace ShuKnow.Application.Services;
 
-internal class ChatService(
+public class ChatService(
     IChatSessionRepository chatSessionRepository,
     IChatMessageRepository chatMessageRepository,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    IUnitOfWork unitOfWork)
     : IChatService
 {
-    public Task<Result<ChatSession>> GetOrCreateActiveSessionAsync(CancellationToken ct = default)
+    private Guid CurrentUserId => currentUserService.UserId;
+
+    public async Task<Result<ChatSession>> GetOrCreateActiveSessionAsync(CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        var activeSessionResult = await chatSessionRepository.GetActiveAsync(CurrentUserId);
+        if (!activeSessionResult.IsNotFound())
+            return activeSessionResult;
+
+        var session = new ChatSession(Guid.NewGuid(), CurrentUserId);
+
+        return await chatSessionRepository.AddAsync(session)
+            .SaveChangesAsync(unitOfWork)
+            .MapAsync(() => session);
     }
 
-    public Task<Result> DeleteSessionAsync(CancellationToken ct = default)
+    public async Task<Result> DeleteSessionAsync(CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await chatSessionRepository.GetActiveAsync(CurrentUserId)
+            .ActAsync(session => chatMessageRepository.DeleteBySessionAsync(session.Id))
+            .BindAsync(session => chatSessionRepository.DeleteAsync(session.Id))
+            .SaveChangesAsync(unitOfWork);
     }
 
-    public Task<Result<(IReadOnlyList<ChatMessage> Messages, string? NextCursor)>> GetMessagesAsync(
+    public async Task<Result<(IReadOnlyList<ChatMessage> Messages, string? NextCursor)>> GetMessagesAsync(
         string? cursor, int limit, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        if (limit is < 1 or > 100)
+            return Result.Error("The limit must be between 1 and 100.");
+
+        return await GetOrCreateActiveSessionAsync(ct)
+            .BindAsync(session => chatMessageRepository.GetPageAsync(session.Id, cursor, limit));
     }
 
-    public Task<Result<ChatMessage>> PersistUserMessageAsync(ChatMessage message,
-        IReadOnlyCollection<Guid>? attachmentIds = null,
-        CancellationToken ct = default)
+    public async Task<Result<ChatMessage>> PersistUserMessageAsync(ChatMessage message,
+        IReadOnlyCollection<Guid>? attachmentIds = null, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await PersistMessageAsync(message);
     }
 
-    public Task<Result<ChatMessage>> PersistAiMessageAsync(ChatMessage message, CancellationToken ct = default)
+    public async Task<Result<ChatMessage>> PersistAiMessageAsync(ChatMessage message, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await PersistMessageAsync(message);
     }
 
-    public Task<Result<ChatMessage>> PersistCancellationRecordAsync(ChatMessage message, CancellationToken ct = default)
+    public async Task<Result<ChatMessage>> PersistCancellationRecordAsync(
+        ChatMessage message, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await PersistMessageAsync(message);
+    }
+
+    private async Task<Result<ChatMessage>> PersistMessageAsync(ChatMessage message)
+    {
+        return await chatSessionRepository.GetActiveAsync(CurrentUserId)
+            .BindAsync(session => Task.FromResult(
+                session.Id == message.SessionId
+                    ? Result.Success(session)
+                    : Result<ChatSession>.NotFound()))
+            .ActAsync(session => session.AddMessage(message))
+            .BindAsync(_ => chatMessageRepository.AddAsync(message))
+            .SaveChangesAsync(unitOfWork)
+            .MapAsync(() => message);
     }
 }
