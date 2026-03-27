@@ -20,6 +20,12 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Reset Docker auth
+        run: |
+          rm -f ~/.docker/config.json
+          docker logout docker.io || true
+          docker logout https://index.docker.io/v1/ || true
+
       - name: Restore
         run: dotnet restore backend/ShuKnow.sln
 
