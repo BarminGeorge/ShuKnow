@@ -14,7 +14,8 @@ public class GlobalExceptionHandler(IHostEnvironment environment) : IExceptionHa
             Status = StatusCodes.Status500InternalServerError,
             Title = "An unexpected error occurred",
             Type = "https://tools.ietf.org/html/rfc9110#section-15.6.1",
-            Instance = httpContext.Request.Path
+            Instance = httpContext.Request.Path,
+            Extensions = { ["traceId"] = httpContext.TraceIdentifier }
         };
 
         if (environment.IsDevelopment())
