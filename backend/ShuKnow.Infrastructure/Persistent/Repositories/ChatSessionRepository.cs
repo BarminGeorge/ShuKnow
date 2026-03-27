@@ -12,9 +12,7 @@ public class ChatSessionRepository(AppDbContext context) : IChatSessionRepositor
     {
         var session = await context.ChatSessions
             .AsNoTracking()
-            .SingleOrDefaultAsync(session =>
-                session.UserId == userId &&
-                session.Status == ChatSessionStatus.Active);
+            .SingleOrDefaultAsync(session => session.UserId == userId && session.Status == ChatSessionStatus.Active);
 
         return session is null ? Result.NotFound() : Result.Success(session);
     }
