@@ -1,23 +1,43 @@
 using Ardalis.Result;
+using Microsoft.EntityFrameworkCore;
 using ShuKnow.Domain.Entities;
+using ShuKnow.Domain.Enums;
 using ShuKnow.Domain.Repositories;
 
 namespace ShuKnow.Infrastructure.Persistent.Repositories;
 
-public class ChatSessionRepository : IChatSessionRepository
+public class ChatSessionRepository(AppDbContext context) : IChatSessionRepository
 {
-    public Task<Result<ChatSession>> GetActiveAsync(Guid userId)
+    public async Task<Result<ChatSession>> GetActiveAsync(Guid userId)
     {
-        throw new NotImplementedException();
+        var session = await context.ChatSessions
+            .AsNoTracking()
+            .SingleOrDefaultAsync(session =>
+                session.UserId == userId &&
+                session.Status == ChatSessionStatus.Active);
+
+        return session is null ? Result.NotFound() : Result.Success(session);
     }
 
     public Task<Result> AddAsync(ChatSession session)
     {
-        throw new NotImplementedException();
+        context.ChatSessions.Add(session);
+        return Task.FromResult(Result.Success());
     }
 
     public Task<Result> DeleteAsync(Guid sessionId)
     {
-        throw new NotImplementedException();
+        var trackedSessionEntry = context.ChangeTracker
+            .Entries<ChatSession>()
+            .SingleOrDefault(entry => entry.Entity.Id == sessionId);
+
+        if (trackedSessionEntry is not null)
+        {
+            trackedSessionEntry.State = EntityState.Deleted;
+            return Task.FromResult(Result.Success());
+        }
+
+        context.ChatSessions.Remove(new ChatSession(sessionId, Guid.Empty, ChatSessionStatus.Closed));
+        return Task.FromResult(Result.Success());
     }
 }
