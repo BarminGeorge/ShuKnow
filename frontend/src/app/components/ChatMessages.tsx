@@ -1,10 +1,51 @@
 import { Undo2, Paperclip } from "lucide-react";
+import type { AttachmentDto } from "../../api/chatService";
 
 export interface Attachment {
-  id: string;
+  /** Local ID for React keys (generated client-side) */
+  localId: string;
+  /** Server-assigned ID after upload (used when sending message) */
+  serverId?: string;
+  /** File name */
   name: string;
-  file: File;
+  /** Original File object (for upload) */
+  file?: File;
+  /** Blob URL for preview */
   url?: string;
+  /** Content type */
+  contentType?: string;
+  /** Size in bytes */
+  sizeBytes?: number;
+}
+
+/**
+ * Creates an Attachment from a local File
+ */
+export function createAttachmentFromFile(file: File): Attachment {
+  return {
+    localId: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    name: file.name,
+    file,
+    url: URL.createObjectURL(file),
+    contentType: file.type || "application/octet-stream",
+    sizeBytes: file.size,
+  };
+}
+
+/**
+ * Updates attachments with server IDs after upload
+ */
+export function applyServerIds(
+  attachments: Attachment[],
+  serverAttachments: AttachmentDto[]
+): Attachment[] {
+  // Match by fileName since that's the only correlation we have
+  const serverMap = new Map(serverAttachments.map((a) => [a.fileName, a.id]));
+  
+  return attachments.map((attachment) => ({
+    ...attachment,
+    serverId: serverMap.get(attachment.name),
+  }));
 }
 
 export interface Message {
@@ -12,6 +53,8 @@ export interface Message {
   type: "user" | "system";
   content: string;
   attachments?: Attachment[];
+  /** Action ID for undo (from AI completion) */
+  actionId?: string;
 }
 
 interface ChatMessagesProps {
@@ -37,7 +80,7 @@ export function ChatMessages({ messages }: ChatMessagesProps) {
                 <div className="flex flex-col items-end gap-1 mb-2">
                   {message.attachments.map((attachment) => (
                     <div
-                      key={attachment.id}
+                      key={attachment.localId}
                       className="flex items-center gap-2 bg-[#D1D5DB] rounded-lg px-3 py-1.5 max-w-full"
                     >
                       <Paperclip size={14} className="text-gray-600 flex-shrink-0" />
