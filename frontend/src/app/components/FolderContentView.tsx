@@ -412,12 +412,10 @@ function DraggableGridItem({
             <FolderIcon size={40} className="text-blue-400" />
           </div>
           <div className="w-full text-center">
-            {folder.emoji && (
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <span className="text-2xl">{folder.emoji}</span>
-              </div>
-            )}
-            <p className="text-sm text-gray-200 font-medium line-clamp-2">{folder.name}</p>
+            <p className="text-lg text-gray-200 font-medium line-clamp-2">
+              {folder.emoji && <span className="mr-1">{folder.emoji}</span>}
+              {folder.name}
+            </p>
           </div>
         </div>
         {/* 嵌套意图指示器：显示一个半透明的覆盖层提示 */}
@@ -438,10 +436,6 @@ function DraggableGridItem({
     );
   } else {
     const file = item.data as FileItem;
-    const formattedDate = new Date(file.createdAt).toLocaleDateString("ru-RU", { 
-      day: "numeric", 
-      month: "short" 
-    }).replace(".", "");
 
     // 文件只支持重新排序意图
     const getFileDropStyles = () => {
@@ -488,20 +482,19 @@ function DraggableGridItem({
                   onClick={(e) => e.stopPropagation()}
                 />
               ) : (
-                <p className="text-sm text-white font-medium truncate">{file.name}</p>
+                <p className="text-lg text-white font-medium truncate">{file.name}</p>
               )}
-              <p className="text-xs text-gray-300 mt-1">{formattedDate}</p>
             </div>
           </div>
         ) : (
           <div className="aspect-[4/3] flex flex-col items-center justify-center p-4">
-            <div className="w-16 h-16 rounded-lg bg-white/5 flex items-center justify-center mb-3">
+            <div className="w-20 h-20 rounded-lg bg-white/5 flex items-center justify-center mb-3">
               {file.type === "photo" ? (
-                <ImageIcon size={32} className="text-purple-400" />
+                <ImageIcon size={40} className="text-purple-400" />
               ) : file.type === "pdf" ? (
-                <FileIcon size={32} className="text-red-400" />
+                <FileIcon size={40} className="text-red-400" />
               ) : (
-                <FileText size={32} className="text-blue-400" />
+                <FileText size={40} className="text-blue-400" />
               )}
             </div>
             {editingFileId === file.id ? (
@@ -513,14 +506,13 @@ function DraggableGridItem({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === "Escape") onEditingComplete();
                 }}
-                className="w-full text-sm text-white font-medium bg-[#0d0d0d] px-2 py-1 rounded outline-none border border-blue-500 text-center mb-2"
+                className="w-full text-sm text-white font-medium bg-[#0d0d0d] px-2 py-1 rounded outline-none border border-blue-500 text-center"
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
-              <p className="text-sm text-gray-200 font-medium text-center line-clamp-2 mb-2">{file.name}</p>
+              <p className="text-lg text-gray-200 font-medium text-center line-clamp-2">{file.name}</p>
             )}
-            <p className="text-xs text-gray-400">{formattedDate}</p>
           </div>
         )}
 
@@ -1134,6 +1126,7 @@ export function FolderContentView({
         onEdit={handleEditFile}
         onDelete={handleDeleteFile}
         position={fileContextMenu.position}
+        isPhoto={files.find(f => f.id === fileContextMenu.fileId)?.type === "photo"}
       />
       <FolderContextMenu
         isOpen={folderContextMenu.isOpen}

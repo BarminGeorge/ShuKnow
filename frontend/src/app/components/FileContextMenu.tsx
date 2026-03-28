@@ -6,6 +6,7 @@ interface FileContextMenuProps {
   onEdit: () => void;
   onDelete: () => void;
   position: { x: number; y: number };
+  isPhoto?: boolean;
 }
 
 export function FileContextMenu({
@@ -14,6 +15,7 @@ export function FileContextMenu({
   onEdit,
   onDelete,
   position,
+  isPhoto = false,
 }: FileContextMenuProps) {
   if (!isOpen) return null;
 
@@ -30,17 +32,21 @@ export function FileContextMenu({
           left: `${position.x}px`,
         }}
       >
-        <button
-          onClick={() => {
-            onEdit();
-            onClose();
-          }}
-          className="w-full px-4 py-2 text-left text-sm text-gray-200 hover:bg-white/10 transition-colors flex items-center gap-3"
-        >
-          <FileEdit size={14} className="text-gray-400" />
-          Редактировать
-        </button>
-        <div className="h-px bg-white/10 my-1" />
+        {!isPhoto && (
+          <>
+            <button
+              onClick={() => {
+                onEdit();
+                onClose();
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-gray-200 hover:bg-white/10 transition-colors flex items-center gap-3"
+            >
+              <FileEdit size={14} className="text-gray-400" />
+              Редактировать
+            </button>
+            <div className="h-px bg-white/10 my-1" />
+          </>
+        )}
         <button
           onClick={() => {
             onDelete();
