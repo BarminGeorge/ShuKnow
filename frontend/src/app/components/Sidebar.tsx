@@ -4,8 +4,10 @@ import { FolderItem } from "./FolderItem";
 import { SettingsModal } from "./SettingsModal";
 import { CreateFolderModal } from "./CreateFolderModal";
 import { EditFolderModal } from "./EditFolderModal";
+import { DeleteFolderModal } from "./DeleteFolderModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router";
+import { folderService } from "../../api";
 import type { Folder } from "../Workspace";
 
 interface SidebarProps {
@@ -29,8 +31,28 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
     folder: Folder | null;
     path: string[];
   }>({ isOpen: false, folder: null, path: [] });
+  const [deleteFolderState, setDeleteFolderState] = useState<{
+    isOpen: boolean;
+    folder: Folder | null;
+    path: string[];
+  }>({ isOpen: false, folder: null, path: [] });
 
-  const moveFolder = (dragPath: string[], hoverPath: string[], dropZone: "before" | "after" | "inside") => {
+  // Helper to get folder by path
+  const getFolderByPath = (path: string[]): Folder | null => {
+    if (path.length === 0) return null;
+    if (path.length === 1) {
+      return folders[parseInt(path[0])] || null;
+    }
+    let current: Folder[] = folders;
+    for (let i = 0; i < path.length - 1; i++) {
+      const idx = parseInt(path[i]);
+      if (!current[idx] || !current[idx].subfolders) return null;
+      current = current[idx].subfolders!;
+    }
+    return current[parseInt(path[path.length - 1])] || null;
+  };
+
+  const moveFolder= (dragPath: string[], hoverPath: string[], dropZone: "before" | "after" | "inside") => {
     setFolders((prevFolders) => {
       const newFolders = JSON.parse(JSON.stringify(prevFolders)) as Folder[];
 
@@ -178,8 +200,20 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
   };
 
   const handleDeleteFolder = (path: string[]) => {
-    if (!confirm("Вы уверены, что хотите удалить эту папку и все её содержимое?")) return;
+    const folder = getFolderByPath(path);
+    if (folder) {
+      setDeleteFolderState({ isOpen: true, folder, path });
+    }
+  };
 
+  const handleConfirmDelete = async (recursive: boolean) => {
+    const { folder, path } = deleteFolderState;
+    if (!folder) return;
+
+    // Call API to delete folder
+    await folderService.deleteFolder(folder.id, recursive);
+
+    // Remove from local state on success
     setFolders((prevFolders) => {
       const newFolders = JSON.parse(JSON.stringify(prevFolders)) as Folder[];
 
@@ -366,6 +400,12 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
         folderEmoji={editFolderState.folder?.emoji || ""}
         currentDescription={editFolderState.folder?.description || ""}
         onSave={handleSaveFolderEdit}
+      />
+      <DeleteFolderModal
+        isOpen={deleteFolderState.isOpen}
+        folder={deleteFolderState.folder}
+        onClose={() => setDeleteFolderState({ isOpen: false, folder: null, path: [] })}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );
