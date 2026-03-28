@@ -18,11 +18,10 @@ public class SettingsRepository(AppDbContext context) : ISettingsRepository
 
     public async Task<Result> UpsertAsync(UserAiSettings settings)
     {
-        var existing = await context.UserAiSettings
-            .SingleOrDefaultAsync(s => s.UserId == settings.UserId);
+        var exists = await context.UserAiSettings.AnyAsync(s => s.UserId == settings.UserId);
 
-        if (existing is not null)
-            context.Entry(existing).CurrentValues.SetValues(settings);
+        if (exists)
+            context.UserAiSettings.Update(settings);
         else
             context.UserAiSettings.Add(settings);
 
