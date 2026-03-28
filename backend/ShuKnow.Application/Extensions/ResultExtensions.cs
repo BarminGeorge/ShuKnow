@@ -37,7 +37,20 @@ public static class ResultExtensions
         });
     }
     
-    public static async Task<Result<TSource>> ActAsync<TSource>(
+    public static async Task<Result<TSource>> Act<TSource, TDestination>(
+        this Task<Result<TSource>> result, Func<TSource, Result<TDestination>> actFunc)
+    {
+        return await result.BindAsync(source => actFunc(source).Map(_ => source));
+    }
+
+    public static async Task<Result<TSource>> Act<TSource>(
+        this Task<Result<TSource>> result, Func<TSource, Result> actFunc)
+    {
+        return await result.BindAsync(source => actFunc(source).Map(() => source));
+    }
+
+    
+    public static async Task<Result<TSource>> Act<TSource>(
         this Task<Result<TSource>> result, Action<TSource> actFunc)
     {
         return await result.MapAsync(source =>

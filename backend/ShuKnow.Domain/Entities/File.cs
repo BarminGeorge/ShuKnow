@@ -2,7 +2,7 @@ using ShuKnow.Domain.Interfaces;
 
 namespace ShuKnow.Domain.Entities;
 
-public class File : IEntity<Guid>
+public class File : IEntity<Guid>, IOrderedItem
 {
     public Guid Id { get; private set; }
 
@@ -62,5 +62,10 @@ public class File : IEntity<Guid>
     {
         FolderId = targetFolderId;
         Version++;
+    }
+
+    public void SetSortOrder(int sortOrder)
+    {
+        SortOrder = sortOrder;
     }
 }
