@@ -9,6 +9,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<User> Users { get; set; }
     public DbSet<IdentityUser> IdentityUsers { get; set; }
     public DbSet<ChatSession> ChatSessions { get; set; }
+    public DbSet<UserAiSettings> UserAiSettings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,6 +51,23 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
             // TODO: убрать после реализации ChatMessageRepository
             entity.Ignore(session => session.Messages);
+        });
+
+        modelBuilder.Entity<UserAiSettings>(entity =>
+        {
+            entity.ToTable("user_ai_settings");
+            entity.HasKey(settings => settings.UserId);
+
+            entity.Property(settings => settings.BaseUrl)
+                .IsRequired();
+
+            entity.Property(settings => settings.ApiKeyEncrypted)
+                .IsRequired();
+
+            entity.HasOne<User>()
+                .WithOne()
+                .HasForeignKey<UserAiSettings>(settings => settings.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

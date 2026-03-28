@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ShuKnow.Infrastructure.Persistent;
@@ -11,9 +12,11 @@ using ShuKnow.Infrastructure.Persistent;
 namespace ShuKnow.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260328081000_AddUserAiSettings")]
+    partial class AddUserAiSettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -131,16 +134,6 @@ namespace ShuKnow.Infrastructure.Migrations
                         .HasConstraintName("fk_chat_sessions_users_user_id");
                 });
 
-            modelBuilder.Entity("ShuKnow.Infrastructure.Misc.IdentityUser", b =>
-                {
-                    b.HasOne("ShuKnow.Domain.Entities.User", null)
-                        .WithOne()
-                        .HasForeignKey("ShuKnow.Infrastructure.Misc.IdentityUser", "Id")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_identity_users_users_id");
-                });
-
             modelBuilder.Entity("ShuKnow.Domain.Entities.UserAiSettings", b =>
                 {
                     b.HasOne("ShuKnow.Domain.Entities.User", null)
@@ -149,6 +142,16 @@ namespace ShuKnow.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_ai_settings_users_user_id");
+                });
+
+            modelBuilder.Entity("ShuKnow.Infrastructure.Misc.IdentityUser", b =>
+                {
+                    b.HasOne("ShuKnow.Domain.Entities.User", null)
+                        .WithOne()
+                        .HasForeignKey("ShuKnow.Infrastructure.Misc.IdentityUser", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_identity_users_users_id");
                 });
 #pragma warning restore 612, 618
         }
