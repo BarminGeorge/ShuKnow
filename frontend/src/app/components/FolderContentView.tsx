@@ -440,10 +440,10 @@ function DraggableGridItem({
         onClick={() => handleFileClick(file.id)}
         title="Нажмите для открытия"
       >
-        {file.type === "photo" && file.imageUrl ? (
+        {file.type === "photo" && file.contentUrl ? (
           <div className="relative aspect-[4/3] overflow-hidden">
             <img
-              src={file.imageUrl}
+              src={file.contentUrl}
               alt={file.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
@@ -694,25 +694,27 @@ export function FolderContentView({
       
       if (isImage) {
         // Create object URL for image preview
-        const imageUrl = URL.createObjectURL(file);
+        const contentUrl = URL.createObjectURL(file);
         const newFile: FileItem = {
           id: `${Date.now()}-${index}`,
           name: file.name,
           type: "photo",
           folderId: folder.id,
-          imageUrl,
+          contentUrl,
+          contentType: file.type,
           createdAt: new Date().toISOString(),
         };
         onCreateFile(newFile, false); // Don't open after drop
       } else if (isPdf) {
         // Create object URL for PDF viewing
-        const pdfUrl = URL.createObjectURL(file);
+        const contentUrl = URL.createObjectURL(file);
         const newFile: FileItem = {
           id: `${Date.now()}-${index}`,
           name: file.name,
           type: "pdf",
           folderId: folder.id,
-          pdfUrl,
+          contentUrl,
+          contentType: "application/pdf",
           createdAt: new Date().toISOString(),
         };
         onCreateFile(newFile, false); // Don't open after drop
@@ -727,6 +729,7 @@ export function FolderContentView({
             type: "text",
             folderId: folder.id,
             content,
+            contentType: file.type || "text/plain",
             createdAt: new Date().toISOString(),
           };
           onCreateFile(newFile, false); // Don't open after drop
@@ -739,6 +742,7 @@ export function FolderContentView({
             type: "text",
             folderId: folder.id,
             content: "",
+            contentType: "text/plain",
             createdAt: new Date().toISOString(),
           };
           onCreateFile(newFile, false); // Don't open after drop

@@ -33,7 +33,7 @@ export interface FileItem {
   type: "text" | "photo" | "pdf" | "other";
   folderId: string;
   content?: string;
-  imageUrl?: string;
+  /** URL to fetch file content (images, PDFs, etc.) - from API or local blob */
   contentUrl?: string;
   description?: string;
   contentType?: string;
@@ -80,7 +80,6 @@ function mapApiFile(apiFile: ApiFileItem): FileItem {
     contentType: apiFile.contentType,
     sizeBytes: apiFile.sizeBytes,
     type,
-    imageUrl: type === "photo" ? apiFile.contentUrl : undefined,
     contentUrl: apiFile.contentUrl,
     createdAt: new Date().toISOString(), // Backend should add createdAt
   };
@@ -149,7 +148,7 @@ const initialFiles: FileItem[] = [
     name: "фото1.webp",
     type: "photo",
     folderId: "1",
-    imageUrl: "/mock_foto/фото1.webp",
+    contentUrl: "/mock_foto/фото1.webp",
     createdAt: new Date("2026-03-02T10:00:00").toISOString(),
   },
   {
@@ -157,7 +156,7 @@ const initialFiles: FileItem[] = [
     name: "фото2.webp",
     type: "photo",
     folderId: "1-2",
-    imageUrl: "/mock_foto/фото2.webp",
+    contentUrl: "/mock_foto/фото2.webp",
     createdAt: new Date("2026-03-02T11:00:00").toISOString(),
   },
   {

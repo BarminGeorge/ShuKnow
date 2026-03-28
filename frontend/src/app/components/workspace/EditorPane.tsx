@@ -90,10 +90,10 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   if (file.type === "photo") {
     return (
       <div className="h-full flex flex-col items-center justify-center p-10 bg-[#0e0e0e]">
-        {file.imageUrl ? (
+        {file.contentUrl ? (
           <>
             <img
-              src={file.imageUrl}
+              src={file.contentUrl}
               alt={file.name}
               className="max-w-full max-h-[75vh] object-contain rounded-xl shadow-2xl ring-1 ring-white/10"
             />
@@ -113,9 +113,9 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   if (file.type === "pdf") {
     return (
       <div className="h-full flex flex-col bg-[#0e0e0e]">
-        {file.pdfUrl ? (
+        {file.contentUrl ? (
           <iframe
-            src={file.pdfUrl}
+            src={file.contentUrl}
             title={file.name}
             className="w-full h-full border-0"
             style={{ minHeight: "100%" }}
