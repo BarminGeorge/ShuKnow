@@ -88,6 +88,7 @@ function CustomDragLayer() {
   if (!isDragging || !currentOffset || !item || itemType !== GRID_ITEM_TYPE) return null;
 
   const isFolder = item.origType === "folder";
+  const isPhoto = item.fileType === "photo" && item.imageUrl;
 
   return (
     <div
@@ -112,21 +113,36 @@ function CustomDragLayer() {
         <div className={`
           w-[140px] h-[100px] rounded-xl flex flex-col items-center justify-center
           bg-[#1e1e1e]/95 backdrop-blur-md
-          border-2 ${isFolder ? 'border-blue-500/50' : 'border-purple-500/50'}
+          border-2 border-blue-500/50
           shadow-2xl shadow-black/60
           transform rotate-[2deg] scale-95
+          overflow-hidden
         `}>
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 ${
-            isFolder ? 'bg-blue-500/20' : 'bg-purple-500/20'
-          }`}>
-            {isFolder 
-              ? <FolderIcon size={22} className="text-blue-400" /> 
-              : <FileText size={22} className="text-purple-400" />
-            }
-          </div>
-          <span className="text-[11px] text-gray-300 truncate max-w-[120px] px-2 font-medium">
-            {item.name || "Перемещение..."}
-          </span>
+          {isPhoto ? (
+            <div className="relative w-full h-full">
+              <img
+                src={item.imageUrl}
+                alt={item.name}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+              <span className="absolute bottom-2 left-0 right-0 text-[10px] text-white text-center truncate px-2 font-medium">
+                {item.name || "Перемещение..."}
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 bg-blue-500/20`}>
+                {isFolder
+                  ? <FolderIcon size={22} className="text-blue-400" />
+                  : <FileText size={22} className="text-blue-400" />
+                }
+              </div>
+              <span className="text-[11px] text-gray-300 truncate max-w-[120px] px-2 font-medium">
+                {item.name || "Перемещение..."}
+              </span>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -176,17 +192,24 @@ function DraggableGridItem({
   const lastMoveTimeRef = useRef<number>(0);
 
   // 获取元素名称用于 CustomDragLayer
-  const itemName = item.type === "folder" 
-    ? (item.data as Folder).name 
+  const itemName = item.type === "folder"
+    ? (item.data as Folder).name
     : (item.data as FileItem).name;
+
+  // Получаем imageUrl и fileType для превью фото
+  const fileData = item.type === "file" ? (item.data as FileItem) : null;
+  const imageUrl = fileData?.imageUrl;
+  const fileType = fileData?.type;
 
   const [{ isDragging }, drag, dragPreview] = useDrag({
     type: GRID_ITEM_TYPE,
-    item: () => ({ 
-      index, 
-      id: item.id, 
+    item: () => ({
+      index,
+      id: item.id,
       origType: item.type,
-      name: itemName, // 传递名称给 drag preview
+      name: itemName,
+      imageUrl,
+      fileType,
     }),
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
