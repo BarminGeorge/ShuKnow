@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
-import { ChevronRight, MoreVertical, FileText, ArrowLeft, Plus, Folder as FolderIcon, Image as ImageIcon, Smile, Upload, File as FileIcon } from "lucide-react";
+import { ChevronRight, MoreVertical, FileText, ArrowLeft, Plus, Folder as FolderIcon, Image as ImageIcon, Smile, Upload, File as FileIcon, Loader2 } from "lucide-react";
 import { useDrag, useDrop, useDragLayer } from "react-dnd";
 import { NativeTypes } from "react-dnd-html5-backend";
 import { getEmptyImage } from "react-dnd-html5-backend";
@@ -33,6 +33,7 @@ interface FolderContentViewProps {
   onCreateFile: (file: FileItem, openAfterCreate?: boolean) => void;
   onDeleteFile: (fileId: string) => void;
   onUpdateFile: (fileId: string, updates: Partial<FileItem>) => void;
+  isLoadingFiles?: boolean;
 }
 
 const GRID_ITEM_TYPE = "GRID_ITEM";
@@ -525,10 +526,11 @@ export function FolderContentView({
   onCreateFile,
   onDeleteFile,
   onUpdateFile,
+  isLoadingFiles = false,
 }: FolderContentViewProps) {
   const [title, setTitle] = useState(folder.name);
   const [emoji, setEmoji] = useState(folder.emoji || "");
-  const [aiPrompt, setAiPrompt] = useState(folder.prompt || "");
+  const [description, setDescription] = useState(folder.description || "");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
@@ -564,8 +566,8 @@ export function FolderContentView({
   useEffect(() => {
     setTitle(folder.name);
     setEmoji(folder.emoji || "");
-    setAiPrompt(folder.prompt || "");
-  }, [folder.name, folder.emoji, folder.prompt]);
+    setDescription(folder.description || "");
+  }, [folder.name, folder.emoji, folder.description]);
 
   // Rebuild grid only on folder change
   useEffect(() => {
@@ -643,10 +645,10 @@ export function FolderContentView({
     setFolderContextMenu({ ...folderContextMenu, isOpen: false });
   };
 
-  const handleSaveFolderEdit = (name: string, emoji: string, prompt: string) => {
+  const handleSaveFolderEdit = (name: string, emoji: string, description: string) => {
     if (!editFolderModal.folder) return;
     const updatedSubfolders = folder.subfolders?.map((f) =>
-      f.id === editFolderModal.folder!.id ? { ...f, name, emoji, prompt } : f
+      f.id === editFolderModal.folder!.id ? { ...f, name, emoji, description } : f
     );
     onUpdateFolder({ subfolders: updatedSubfolders });
     setEditFolderModal({ isOpen: false, folder: null });
@@ -746,12 +748,12 @@ export function FolderContentView({
     });
   }, [folder.id, onCreateFile]);
 
-  const handleCreateFolderFromModal = (name: string, emoji: string, prompt: string) => {
+  const handleCreateFolderFromModal = (name: string, emoji: string, description: string) => {
     const newFolder: Folder = {
       id: Date.now().toString(),
       name,
       emoji,
-      prompt,
+      description,
     };
     onUpdateFolder({
       subfolders: [...(folder.subfolders || []), newFolder]
@@ -874,8 +876,8 @@ export function FolderContentView({
     if (title !== folder.name) onUpdateFolder({ name: title });
   };
 
-  const handlePromptBlur = () => {
-    if (aiPrompt !== folder.prompt) onUpdateFolder({ prompt: aiPrompt });
+  const handleDescriptionBlur = () => {
+    if (description !== folder.description) onUpdateFolder({ description });
   };
 
   const folderFiles = files.filter((f) => f.folderId === folder.id);
@@ -995,13 +997,13 @@ export function FolderContentView({
           </div>
         </div>
 
-        {/* AI Prompt Field */}
+        {/* Description Field */}
         <div>
           <textarea
-            value={aiPrompt}
-            onChange={(e) => setAiPrompt(e.target.value)}
-            onBlur={handlePromptBlur}
-            placeholder="Инструкция для ИИ: что должно попадать в эту папку..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onBlur={handleDescriptionBlur}
+            placeholder="Описание папки: что должно попадать в эту папку..."
             className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/20 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-purple-500/50 transition-colors"
             rows={2}
           />
@@ -1060,8 +1062,16 @@ export function FolderContentView({
           ))}
         </div>
 
+        {/* Loading State */}
+        {isLoadingFiles && gridItems.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <Loader2 size={40} className="text-blue-400 animate-spin mb-4" />
+            <p className="text-gray-400 text-lg">Загрузка файлов...</p>
+          </div>
+        )}
+
         {/* Empty State */}
-        {gridItems.length === 0 && (
+        {!isLoadingFiles && gridItems.length === 0 && (
           <div className={`flex flex-col items-center justify-center h-full text-center ${
             isFileOver ? "ring-2 ring-blue-500/50 ring-inset rounded-xl" : ""
           }`}>
@@ -1128,7 +1138,7 @@ export function FolderContentView({
         onClose={() => setEditFolderModal({ isOpen: false, folder: null })}
         folderName={editFolderModal.folder?.name || ""}
         folderEmoji={editFolderModal.folder?.emoji || ""}
-        currentPrompt={editFolderModal.folder?.prompt || ""}
+        currentDescription={editFolderModal.folder?.description || ""}
         onSave={handleSaveFolderEdit}
       />
       <CreateFileModal

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
@@ -8,23 +8,30 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../co
 import { Sparkles } from "lucide-react";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [loginValue, setLoginValue] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect to app if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/app", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!email || !password) {
+    if (!loginValue || !password) {
       setError("Заполните все поля");
       return;
     }
 
     try {
-      await login(email, password);
+      await login(loginValue, password);
       navigate("/app");
     } catch {
       setError("Ошибка входа. Попробуйте снова.");
@@ -44,7 +51,7 @@ export default function LoginPage() {
           <CardHeader className="text-center">
             <CardTitle className="text-xl text-white">Войти в аккаунт</CardTitle>
             <CardDescription className="text-gray-400">
-              Введите email и пароль для входа
+              Введите логин и пароль для входа
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -56,13 +63,13 @@ export default function LoginPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-300">Email</Label>
+                <Label htmlFor="login" className="text-gray-300">Логин</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="login"
+                  type="text"
+                  placeholder="Ваш логин"
+                  value={loginValue}
+                  onChange={(e) => setLoginValue(e.target.value)}
                   className="bg-[#0d0d0d] border-white/10 text-white placeholder:text-gray-500"
                 />
               </div>

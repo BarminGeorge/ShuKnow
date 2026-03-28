@@ -5,22 +5,22 @@ import { EmojiPicker } from "./EmojiPicker";
 interface CreateFolderModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreateFolder: (name: string, emoji: string, prompt: string) => void;
+  onCreateFolder: (name: string, emoji: string, description: string) => void;
 }
 
 export function CreateFolderModal({ isOpen, onClose, onCreateFolder }: CreateFolderModalProps) {
   const [folderName, setFolderName] = useState("");
   const [folderEmoji, setFolderEmoji] = useState("");
-  const [aiPrompt, setAiPrompt] = useState("");
+  const [description, setDescription] = useState("");
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
 
   const handleCreate = () => {
     if (folderName.trim()) {
-      onCreateFolder(folderName, folderEmoji, aiPrompt);
+      onCreateFolder(folderName, folderEmoji, description);
       setFolderName("");
       setFolderEmoji("");
-      setAiPrompt("");
+      setDescription("");
       setIsEmojiPickerOpen(false);
       onClose();
     }
@@ -29,7 +29,7 @@ export function CreateFolderModal({ isOpen, onClose, onCreateFolder }: CreateFol
   const handleClose = () => {
     setFolderName("");
     setFolderEmoji("");
-    setAiPrompt("");
+    setDescription("");
     setIsEmojiPickerOpen(false);
     onClose();
   };
@@ -79,14 +79,14 @@ export function CreateFolderModal({ isOpen, onClose, onCreateFolder }: CreateFol
 
         {/* Content */}
         <div className="px-6 py-5">
-          {/* AI Prompt */}
+          {/* Description for AI */}
           <div>
             <label className="text-sm font-medium text-gray-300 mb-2 block">
-              Инструкция для ИИ
+              Описание папки
             </label>
             <textarea
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="Опишите, какие файлы и заметки должны попадать в эту папку..."
               className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-blue-500/50 transition-colors"
               rows={4}

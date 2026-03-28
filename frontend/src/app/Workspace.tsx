@@ -1,7 +1,7 @@
-import { useState, useCallback } from "react";
-import { PanelLeftOpen } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { PanelLeftOpen, Loader2 } from "lucide-react";
 import { Panel, PanelGroup, PanelResizeHandle, ImperativePanelHandle } from "react-resizable-panels";
-import { useRef, useEffect } from "react";
+import { useRef } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { ChatMessages, type Message, type Attachment } from "./components/ChatMessages";
 import { InputConsole } from "./components/InputConsole";
@@ -12,25 +12,78 @@ import { TabBar } from "./components/workspace/TabBar";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { Toaster } from "sonner";
+import { folderService, fileService } from "../api";
+import type { Folder as ApiFolder, FileItem as ApiFileItem } from "../api/types";
 
+// Frontend types (extended from API types for UI-specific fields)
 export interface Folder {
   id: string;
   name: string;
   emoji?: string;
-  prompt?: string;
+  description?: string;
   subfolders?: Folder[];
-  customOrder?: string[]; // IDs of children (files and subfolders) in custom order
+  customOrder?: string[];
+  fileCount?: number;
+  sortOrder?: number;
 }
 
 export interface FileItem {
   id: string;
   name: string;
-  type: "text" | "photo";
+  type: "text" | "photo" | "pdf" | "other";
   folderId: string;
-  content?: string;    // markdown / plain text
-  imageUrl?: string;   // URL or base64 for photo files
-  prompt?: string;     // AI instruction for sorting
+  content?: string;
+  imageUrl?: string;
+  contentUrl?: string;
+  description?: string;
+  contentType?: string;
+  sizeBytes?: number;
   createdAt: string;
+}
+
+/**
+ * Maps API Folder to frontend Folder type (adds emoji field for UI)
+ */
+function mapApiFolder(apiFolder: ApiFolder): Folder {
+  return {
+    id: apiFolder.id,
+    name: apiFolder.name,
+    description: apiFolder.description,
+    sortOrder: apiFolder.sortOrder,
+    fileCount: apiFolder.fileCount,
+    emoji: undefined, // Backend doesn't have emoji yet
+    subfolders: apiFolder.subfolders?.map(mapApiFolder),
+    customOrder: undefined,
+  };
+}
+
+/**
+ * Maps API FileItem to frontend FileItem type
+ */
+function mapApiFile(apiFile: ApiFileItem): FileItem {
+  const contentType = apiFile.contentType || "application/octet-stream";
+  let type: FileItem["type"] = "other";
+  
+  if (contentType.startsWith("text/") || contentType === "application/json") {
+    type = "text";
+  } else if (contentType.startsWith("image/")) {
+    type = "photo";
+  } else if (contentType === "application/pdf") {
+    type = "pdf";
+  }
+  
+  return {
+    id: apiFile.id,
+    name: apiFile.name,
+    folderId: apiFile.folderId,
+    description: apiFile.description,
+    contentType: apiFile.contentType,
+    sizeBytes: apiFile.sizeBytes,
+    type,
+    imageUrl: type === "photo" ? apiFile.contentUrl : undefined,
+    contentUrl: apiFile.contentUrl,
+    createdAt: new Date().toISOString(), // Backend should add createdAt
+  };
 }
 
 // ── Initial data ──────────────────────────────────────────────────────────────
@@ -40,17 +93,17 @@ const initialFolders: Folder[] = [
     id: "1",
     name: "Идеи",
     emoji: "💡",
-    prompt: "Все идеи, заметки о новых концепциях и креативные мысли",
+    description: "Все идеи, заметки о новых концепциях и креативные мысли",
     subfolders: [
-      { id: "1-1", name: "Бизнес",  emoji: "💼", prompt: "Бизнес-идеи и предложения" },
-      { id: "1-2", name: "Личное",  emoji: "✨", prompt: "Личные идеи и планы" },
+      { id: "1-1", name: "Бизнес",  emoji: "💼", description: "Бизнес-идеи и предложения" },
+      { id: "1-2", name: "Личное",  emoji: "✨", description: "Личные идеи и планы" },
     ],
   },
   {
     id: "2",
     name: "Дизайн",
     emoji: "🎨",
-    prompt: "Визуальные материалы, скриншоты дизайна и референсы",
+    description: "Визуальные материалы, скриншоты дизайна и референсы",
     subfolders: [
       { id: "2-1", name: "UI-вдохновение",    emoji: "🖼️" },
       { id: "2-2", name: "Цветовые палитры",  emoji: "🌈" },
@@ -61,19 +114,19 @@ const initialFolders: Folder[] = [
     id: "3",
     name: "Проекты",
     emoji: "🚀",
-    prompt: "Все файлы, связанные с проектами",
+    description: "Все файлы, связанные с проектами",
     subfolders: [
       { id: "3-1", name: "Активные", emoji: "⚡" },
       { id: "3-2", name: "Архив",    emoji: "📦" },
     ],
   },
-  { id: "4", name: "Исследования",   emoji: "📚", prompt: "Исследовательские материалы и аналитика" },
-  { id: "5", name: "Заметки встреч", emoji: "📋", prompt: "Записи с встреч, протоколы и заметки" },
+  { id: "4", name: "Исследования",   emoji: "📚", description: "Исследовательские материалы и аналитика" },
+  { id: "5", name: "Заметки встреч", emoji: "📋", description: "Записи с встреч, протоколы и заметки" },
   {
     id: "6",
     name: "Ресурсы",
     emoji: "🔗",
-    prompt: "Полезные ресурсы, ссылки и материалы",
+    description: "Полезные ресурсы, ссылки и материалы",
     subfolders: [
       { id: "6-1", name: "Статьи", emoji: "📰" },
       { id: "6-2", name: "Видео",  emoji: "🎥" },
@@ -148,10 +201,90 @@ export default function Workspace() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const sidebarRef = useRef<ImperativePanelHandle>(null);
   const [selectedFolderPath, setSelectedFolderPath] = useState<string[] | null>(null);
+  const [selectedFolderId, setSelectedFolderId]   = useState<string | null>(null);
   const [folders, setFolders]                     = useState<Folder[]>(initialFolders);
   const [files, setFiles]                         = useState<FileItem[]>(initialFiles);
+  const [folderFiles, setFolderFiles]             = useState<Map<string, FileItem[]>>(new Map());
   const [messages, setMessages]                   = useState<Message[]>([]);
   const [currentTitle, setCurrentTitle]           = useState<string>(CHAT_TITLES[0]);
+  
+  // Loading states
+  const [isLoadingFolders, setIsLoadingFolders]   = useState(false);
+  const [isLoadingFiles, setIsLoadingFiles]       = useState(false);
+  const [loadError, setLoadError]                 = useState<string | null>(null);
+
+  // Load folder tree on mount
+  useEffect(() => {
+    let mounted = true;
+    
+    async function loadFolders() {
+      setIsLoadingFolders(true);
+      setLoadError(null);
+      
+      try {
+        const apiFolders = await folderService.getFolderTree();
+        if (mounted) {
+          setFolders(apiFolders.map(mapApiFolder));
+        }
+      } catch (error) {
+        console.error("Failed to load folders:", error);
+        // Keep using initial folders as fallback
+        if (mounted) {
+          setLoadError("Не удалось загрузить папки. Используются локальные данные.");
+        }
+      } finally {
+        if (mounted) {
+          setIsLoadingFolders(false);
+        }
+      }
+    }
+    
+    loadFolders();
+    
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Load files when a folder is selected
+  useEffect(() => {
+    if (!selectedFolderId) return;
+    
+    // Check if we already have files for this folder
+    if (folderFiles.has(selectedFolderId)) return;
+    
+    let mounted = true;
+    
+    async function loadFiles() {
+      setIsLoadingFiles(true);
+      
+      try {
+        const result = await fileService.listFolderFilesAsMapped(selectedFolderId!, 1, 100);
+        if (mounted) {
+          const mappedFiles = result.items.map(mapApiFile);
+          setFolderFiles(prev => new Map(prev).set(selectedFolderId!, mappedFiles));
+          // Also add to global files array for compatibility
+          setFiles(prev => {
+            const otherFiles = prev.filter(f => f.folderId !== selectedFolderId);
+            return [...otherFiles, ...mappedFiles];
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load files for folder:", selectedFolderId, error);
+        // Files will remain from initialFiles as fallback
+      } finally {
+        if (mounted) {
+          setIsLoadingFiles(false);
+        }
+      }
+    }
+    
+    loadFiles();
+    
+    return () => {
+      mounted = false;
+    };
+  }, [selectedFolderId, folderFiles]);
 
   // Randomize title when entering chat view
   useEffect(() => {
@@ -276,14 +409,16 @@ export default function Workspace() {
     return crumbs;
   };
 
-  const handleFolderClick = (_folder: Folder, path: string[]) => {
+  const handleFolderClick = (folder: Folder, path: string[]) => {
     setSelectedFolderPath(path);
+    setSelectedFolderId(folder.id);
     setViewMode("folder");
   };
 
   const handleGoToChat = () => {
     setViewMode("chat");
     setSelectedFolderPath(null);
+    setSelectedFolderId(null);
   };
 
   const handleNavigateBack = () => {
@@ -295,17 +430,23 @@ export default function Workspace() {
       }
     } else if (viewMode === "folder") {
       if (selectedFolderPath && selectedFolderPath.length > 1) {
-        setSelectedFolderPath((prev) => prev ? prev.slice(0, -1) : null);
+        const newPath = selectedFolderPath.slice(0, -1);
+        setSelectedFolderPath(newPath);
+        // Update selectedFolderId to match parent folder
+        const parentFolder = getFolderByPath(newPath);
+        setSelectedFolderId(parentFolder?.id || null);
       } else {
         setViewMode("chat");
         setSelectedFolderPath(null);
+        setSelectedFolderId(null);
       }
     }
   };
 
-  const handleNavigateToSubfolder = (_subfolder: Folder, subfolderIndex: number) => {
+  const handleNavigateToSubfolder = (subfolder: Folder, subfolderIndex: number) => {
     if (!selectedFolderPath) return;
     setSelectedFolderPath([...selectedFolderPath, subfolderIndex.toString()]);
+    setSelectedFolderId(subfolder.id);
   };
 
   const handleUpdateFolder = (path: string[], updates: Partial<Folder>) => {
@@ -320,11 +461,11 @@ export default function Workspace() {
       }
 
       const fi = parseInt(path[path.length - 1]);
-      if (updates.name       !== undefined) current[fi].name       = updates.name;
-      if (updates.emoji      !== undefined) current[fi].emoji      = updates.emoji;
-      if (updates.prompt     !== undefined) current[fi].prompt     = updates.prompt;
+      if (updates.name        !== undefined) current[fi].name        = updates.name;
+      if (updates.emoji       !== undefined) current[fi].emoji       = updates.emoji;
+      if (updates.description !== undefined) current[fi].description = updates.description;
       if (updates.customOrder !== undefined) current[fi].customOrder = updates.customOrder;
-      if (updates.subfolders !== undefined) current[fi].subfolders = updates.subfolders;
+      if (updates.subfolders  !== undefined) current[fi].subfolders  = updates.subfolders;
 
       return newFolders;
     });
@@ -454,6 +595,7 @@ export default function Workspace() {
                       onCreateFile={handleCreateFile}
                       onDeleteFile={handleDeleteFile}
                       onUpdateFile={handleUpdateFile}
+                      isLoadingFiles={isLoadingFiles}
                     />
                   ) : null
 

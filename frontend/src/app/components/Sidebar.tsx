@@ -117,12 +117,12 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
     });
   };
 
-  const handleCreateFolder = (name: string, emoji: string, prompt: string) => {
+  const handleCreateFolder = (name: string, emoji: string, description: string) => {
     const newFolder: Folder = {
       id: Date.now().toString(),
       name,
       emoji,
-      prompt,
+      description,
     };
 
     if (createFolderParentPath === null) {
@@ -170,10 +170,10 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
     setEditFolderState({ isOpen: true, folder, path });
   };
 
-  const handleSaveFolderEdit = (name: string, emoji: string, prompt: string) => {
+  const handleSaveFolderEdit = (name: string, emoji: string, description: string) => {
     if (!editFolderState.path.length) return;
     
-    onUpdateFolder(editFolderState.path, { name, emoji, prompt });
+    onUpdateFolder(editFolderState.path, { name, emoji, description });
     setEditFolderState({ isOpen: false, folder: null, path: [] });
   };
 
@@ -364,7 +364,7 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
         onClose={() => setEditFolderState({ isOpen: false, folder: null, path: [] })}
         folderName={editFolderState.folder?.name || ""}
         folderEmoji={editFolderState.folder?.emoji || ""}
-        currentPrompt={editFolderState.folder?.prompt || ""}
+        currentDescription={editFolderState.folder?.description || ""}
         onSave={handleSaveFolderEdit}
       />
     </div>
