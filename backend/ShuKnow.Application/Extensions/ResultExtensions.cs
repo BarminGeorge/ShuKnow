@@ -15,6 +15,12 @@ public static class ResultExtensions
         return await result.BindAsync(_ => unitOfWork.SaveChangesAsync());
     }
 
+    public static async Task<Result> BindAsync<TSource>(
+        this Task<Result<TSource>> resultTask, Func<TSource, Result> bindFunc)
+    {
+        return await resultTask.BindAsync(source => Task.FromResult(bindFunc(source)));
+    }
+
     public static async Task<Result<TSource>> ActAsync<TSource, TDestination>(
         this Task<Result<TSource>> result, Func<TSource, Task<Result<TDestination>>> actFunc)
     {

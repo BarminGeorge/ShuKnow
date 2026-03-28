@@ -71,19 +71,15 @@ public class FileService(
     public async Task<Result<File>> ReplaceContentAsync(
         Guid fileId, Stream content, string contentType, CancellationToken ct = default)
     {
-        var existingFileResult = await fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId);
-        if (!existingFileResult.IsSuccess)
-            return existingFileResult;
-
-        var existingFile = existingFileResult.Value;
-
-        await using var bufferedContent = await BufferContentAsync(content, ct);
-
-        existingFile.ReplaceContent(contentType, bufferedContent.Length);
-
-        return await blobStorageService.ReplaceAsync(bufferedContent, existingFile, ct)
-            .SaveChangesAsync(unitOfWork)
-            .MapAsync(() => existingFile);
+        return await fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId)
+            .BindAsync(async existingFile =>
+            {
+                await using var bufferedContent = await BufferContentAsync(content, ct);
+                existingFile.ReplaceContent(contentType, bufferedContent.Length);
+                return await blobStorageService.ReplaceAsync(bufferedContent, existingFile, ct)
+                    .MapAsync(() => existingFile);
+            })
+            .SaveChangesAsync(unitOfWork);
     }
 
     public async Task<Result<File>> MoveAsync(Guid fileId, Guid targetFolderId, CancellationToken ct = default)
@@ -136,20 +132,14 @@ public class FileService(
 
     private async Task<Result> EnsureFileNameUnique(string name, Guid folderId, Guid fileId)
     {
-        var existsResult = await fileRepository.ExistsByNameInFolderAsync(name, folderId, CurrentUserId, fileId);
-        if (!existsResult.IsSuccess)
-            return existsResult.Map();
-
-        return existsResult.Value ? Result.Conflict() : Result.Success();
+        return await fileRepository.ExistsByNameInFolderAsync(name, folderId, CurrentUserId, fileId)
+            .BindAsync(exists => exists ? Result.Conflict() : Result.Success());
     }
 
     private async Task<Result> EnsureFolderExistsAsync(Guid folderId)
     {
-        var existsResult = await folderRepository.ExistsByIdAsync(folderId, CurrentUserId);
-        if (!existsResult.IsSuccess)
-            return existsResult.Map();
-
-        return existsResult.Value ? Result.Success() : Result.NotFound();
+        return await folderRepository.ExistsByIdAsync(folderId, CurrentUserId)
+            .BindAsync(exists => exists ? Result.Success() : Result.NotFound());
     }
 
     private async Task<Result<Stream>> GetStreamAsync(
@@ -203,18 +193,13 @@ public class FileService(
     {
         return files.Cast<IOrderedItem>()
             .Concat(folders)
-            .OrderBy(item => item switch
-            {
-                File f => f.SortOrder,
-                Folder folder => folder.SortOrder,
-                _ => 0
-            })
+            .OrderBy(item => item.SortOrder)
             .ToList();
     }
 
     private static void ApplySortOrder<T>(List<T> items) where T : IOrderedItem
     {
-        for (var i = 0; i < items.Count; i++) 
+        for (var i = 0; i < items.Count; i++)
             items[i].SetSortOrder(i);
     }
 }
