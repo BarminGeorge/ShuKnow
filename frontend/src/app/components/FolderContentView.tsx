@@ -40,6 +40,42 @@ const GRID_ITEM_TYPE = "GRID_ITEM";
 // 放置意图类型：重新排序 vs 嵌套到文件夹内
 type DropIntent = "reorder" | "nest" | null;
 
+// Helper: Remove file extension from name
+function getFileNameWithoutExtension(filename: string): string {
+  return filename.replace(/\.[^.]+$/, '');
+}
+
+// Helper: Get file extension for badge
+function getFileExtension(filename: string): string {
+  const ext = filename.split('.').pop()?.toUpperCase() || "";
+  return ext.length > 4 ? ext.slice(0, 4) : ext;
+}
+
+// Helper: Format relative date
+function formatRelativeDate(dateString: string | undefined): string | null {
+  if (!dateString) return null;
+  
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffTime = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) return "Изменён сегодня";
+  if (diffDays === 1) return "Изменён вчера";
+  if (diffDays < 7) return `Изменён ${diffDays} ${diffDays === 1 ? "день" : diffDays < 5 ? "дня" : "дней"} назад`;
+  
+  // Format as date
+  const months = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+  return `Изменён ${date.getDate()} ${months[date.getMonth()]}`;
+}
+
+// Helper: Pluralize items count
+function pluralizeItems(count: number): string {
+  if (count === 1) return "1 элемент";
+  if (count < 5) return `${count} элемента`;
+  return `${count} элементов`;
+}
+
 // 计算放置意图的辅助函数
 function calculateDropIntent(
   hoverClientX: number,
@@ -105,17 +141,17 @@ function CustomDragLayer() {
       <div
         style={{
           position: "absolute",
-          left: currentOffset.x - 110,
-          top: currentOffset.y - 60,
+          left: currentOffset.x - 140,
+          top: currentOffset.y - 90,
         }}
         className="animate-drag-pickup"
       >
         <div className={`
-          w-[220px] h-[120px] rounded-2xl overflow-hidden
+          w-[280px] h-[180px] rounded-[20px] overflow-hidden
           bg-[#1e1e1e]/95 backdrop-blur-md
           border border-blue-500/50
           shadow-2xl shadow-black/60
-          transform rotate-[2deg] scale-95
+          transform rotate-[2deg] scale-90
         `}>
           {isPhoto ? (
             <div className="relative w-full h-full">
@@ -125,24 +161,28 @@ function CustomDragLayer() {
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-              <span className="absolute bottom-3 left-3 right-3 text-[14px] text-white font-medium truncate">
-                {item.name || "Перемещение..."}
+              {/* Format badge */}
+              <span className="absolute top-3 right-3 text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-white/85">
+                {getFileExtension(item.name || "")}
+              </span>
+              <span className="absolute bottom-5 left-5 right-5 text-[18px] text-white font-medium truncate">
+                {item.name ? getFileNameWithoutExtension(item.name) : "Перемещение..."}
               </span>
             </div>
           ) : isFolder ? (
-            <div className="h-full p-4 flex flex-col justify-between bg-gradient-to-br from-[rgba(99,102,241,0.12)] to-[rgba(99,102,241,0.06)]">
-              <span className="text-[28px] leading-none">📁</span>
-              <span className="text-[15px] text-[rgba(255,255,255,0.92)] font-medium truncate">
+            <div className="h-full p-6 flex flex-col justify-between bg-gradient-to-br from-[rgba(99,102,241,0.12)] to-[rgba(99,102,241,0.06)]">
+              <span className="text-[40px] leading-none">📁</span>
+              <span className="text-[18px] text-[rgba(255,255,255,0.92)] font-medium truncate">
                 {item.name || "Перемещение..."}
               </span>
             </div>
           ) : (
-            <div className="h-full p-4 flex flex-col justify-between bg-gradient-to-br from-[rgba(52,211,153,0.10)] to-[rgba(52,211,153,0.04)]">
-              <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400">
-                {item.name?.split('.').pop()?.toUpperCase() || "TXT"}
+            <div className="h-full p-6 flex flex-col justify-between bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.04)]">
+              <span className="text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-[rgba(129,140,248,0.15)] text-[#818cf8]">
+                {getFileExtension(item.name || "")}
               </span>
-              <span className="text-[15px] text-[rgba(255,255,255,0.92)] font-medium truncate">
-                {item.name || "Перемещение..."}
+              <span className="text-[18px] text-[rgba(255,255,255,0.92)] font-medium truncate">
+                {item.name ? getFileNameWithoutExtension(item.name) : "Перемещение..."}
               </span>
             </div>
           )}
@@ -379,12 +419,10 @@ function DraggableGridItem({
   if (item.type === "folder") {
     const folder = item.data as Folder;
     
-    // Count items in folder for meta info
+    // Count all items in folder for meta info
     const subfolderCount = folder.subfolders?.length || 0;
-    const itemCount = subfolderCount;
-    const metaText = itemCount > 0 
-      ? `${itemCount} ${itemCount === 1 ? "папка" : itemCount < 5 ? "папки" : "папок"}` 
-      : "Пустая";
+    const totalItems = subfolderCount; // Could also count files if we had that data
+    const metaText = totalItems > 0 ? pluralizeItems(totalItems) : "Пусто";
 
     // 根据 dropIntent 决定视觉样式
     const getDropZoneStyles = () => {
@@ -413,7 +451,7 @@ function DraggableGridItem({
         ref={ref}
         data-grid-item-id={item.id}
         className={`
-          group relative h-[120px] rounded-2xl overflow-hidden cursor-pointer
+          group relative h-[180px] rounded-[20px] overflow-hidden cursor-pointer
           ${getItemAnimationClass()} ${getDropZoneStyles()}
           bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)]
           hover:from-[rgba(99,102,241,0.12)] hover:to-[rgba(99,102,241,0.06)]
@@ -424,10 +462,10 @@ function DraggableGridItem({
         onClick={() => onFolderClick(folder)}
       >
         {/* Content - Single unified block */}
-        <div className="h-full p-4 flex flex-col justify-between">
+        <div className="h-full px-7 py-6 flex flex-col justify-between">
           {/* Top: Emoji */}
           <div className="flex items-start justify-between">
-            <span className="text-[28px] leading-none">
+            <span className="text-[40px] leading-none">
               {folder.emoji || "📁"}
             </span>
             {/* Context menu button - only visible on hover */}
@@ -445,10 +483,10 @@ function DraggableGridItem({
           
           {/* Bottom: Name and Meta */}
           <div className="min-w-0">
-            <p className="text-[15px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis">
+            <p className="text-[18px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis">
               {folder.name}
             </p>
-            <p className="text-[12px] text-[rgba(255,255,255,0.35)] mt-0.5">
+            <p className={`text-[13px] mt-1 ${totalItems > 0 ? "text-[rgba(255,255,255,0.35)]" : "text-[rgba(255,255,255,0.25)]"}`}>
               {metaText}
             </p>
           </div>
@@ -456,7 +494,7 @@ function DraggableGridItem({
         
         {/* 嵌套意图指示器：显示一个半透明的覆盖层提示 */}
         {dropIntent === "nest" && (
-          <div className="absolute inset-0 bg-green-500/10 pointer-events-none rounded-2xl" />
+          <div className="absolute inset-0 bg-green-500/10 pointer-events-none rounded-[20px]" />
         )}
       </div>
     );
@@ -477,30 +515,23 @@ function DraggableGridItem({
       return "opacity-100 transition-all duration-200 ease-out";
     };
 
-    // Get file type badge info
+    // Get display name without extension
+    const displayName = getFileNameWithoutExtension(file.name);
+    const fileExtension = getFileExtension(file.name);
+
+    // Get file type badge info - INDIGO for all text files
     const getTypeBadge = () => {
       if (file.type === "pdf") {
-        return { label: "PDF", bgColor: "bg-red-500/15", textColor: "text-red-400" };
+        return { label: "PDF", bgColor: "bg-[rgba(129,140,248,0.15)]", textColor: "text-[#818cf8]" };
       }
-      if (file.type === "photo") {
-        return { label: "IMG", bgColor: "bg-purple-500/15", textColor: "text-purple-400" };
-      }
-      // Default text files
-      const ext = file.name.split('.').pop()?.toUpperCase() || "TXT";
-      return { label: ext.length > 4 ? ext.slice(0, 4) : ext, bgColor: "bg-emerald-500/15", textColor: "text-emerald-400" };
+      // All other files (text, photos shown in card, etc) - indigo
+      return { label: fileExtension, bgColor: "bg-[rgba(129,140,248,0.15)]", textColor: "text-[#818cf8]" };
     };
 
     const typeBadge = getTypeBadge();
 
-    // Get content preview for text files
-    const getContentPreview = () => {
-      if (file.type !== "text" && file.type !== "pdf") return null;
-      const content = file.content || "";
-      const lines = content.split('\n').slice(0, 2).join(' ').slice(0, 100);
-      return lines || null;
-    };
-
-    const contentPreview = getContentPreview();
+    // Get relative date for meta info
+    const relativeDate = formatRelativeDate(file.createdAt || file.updatedAt);
 
     // Photo card - special design with thumbnail and overlay
     if (file.type === "photo" && file.imageUrl) {
@@ -509,7 +540,7 @@ function DraggableGridItem({
           ref={ref}
           data-grid-item-id={item.id}
           className={`
-            group relative h-[120px] rounded-2xl overflow-hidden cursor-pointer
+            group relative h-[180px] rounded-[20px] overflow-hidden cursor-pointer
             ${getItemAnimationClass()} ${getFileDropStyles()}
             hover:scale-[1.02] hover:ring-1 hover:ring-white/10
           `}
@@ -524,10 +555,15 @@ function DraggableGridItem({
           />
           
           {/* Bottom gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+          
+          {/* Format badge - top right */}
+          <span className="absolute top-3 right-3 text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-white/85">
+            {fileExtension}
+          </span>
           
           {/* Content at bottom */}
-          <div className="absolute bottom-0 left-0 right-0 p-3 min-w-0">
+          <div className="absolute bottom-0 left-0 right-0 px-5 py-4 min-w-0">
             {editingFileId === file.id ? (
               <input
                 type="text"
@@ -537,20 +573,23 @@ function DraggableGridItem({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === "Escape") onEditingComplete();
                 }}
-                className="w-full text-[14px] text-white font-medium bg-black/50 px-2 py-1 rounded outline-none border border-blue-500"
+                className="w-full text-[18px] text-white font-medium bg-black/50 px-2 py-1 rounded outline-none border border-blue-500"
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
-              <p className="text-[14px] font-medium text-white whitespace-nowrap overflow-hidden text-ellipsis">
-                {file.name}
-              </p>
+              <>
+                <p className="text-[18px] font-medium text-white whitespace-nowrap overflow-hidden text-ellipsis">
+                  {displayName}
+                </p>
+                {/* File size could be shown here if available */}
+              </>
             )}
           </div>
 
           {/* Context menu button - only visible on hover */}
           <button
-            className="absolute top-2 right-2 w-6 h-6 rounded-md bg-black/50 backdrop-blur-sm hover:bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+            className="absolute top-3 left-3 w-6 h-6 rounded-md bg-black/50 backdrop-blur-sm hover:bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
@@ -563,17 +602,17 @@ function DraggableGridItem({
       );
     }
 
-    // Regular file card - with badge and content preview
+    // Regular file card - with badge and date meta
     return (
       <div
         ref={ref}
         data-grid-item-id={item.id}
         className={`
-          group relative h-[120px] rounded-2xl overflow-hidden cursor-pointer
+          group relative h-[180px] rounded-[20px] overflow-hidden cursor-pointer
           ${getItemAnimationClass()} ${getFileDropStyles()}
-          bg-gradient-to-br from-[rgba(52,211,153,0.06)] to-[rgba(52,211,153,0.02)]
-          hover:from-[rgba(52,211,153,0.10)] hover:to-[rgba(52,211,153,0.04)]
-          hover:border hover:border-[rgba(52,211,153,0.15)]
+          bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)]
+          hover:from-[rgba(99,102,241,0.12)] hover:to-[rgba(99,102,241,0.06)]
+          hover:border hover:border-[rgba(99,102,241,0.15)]
           hover:-translate-y-[1px]
           border border-transparent
         `}
@@ -581,12 +620,12 @@ function DraggableGridItem({
         title="Нажмите для открытия"
       >
         {/* Content - Single unified block */}
-        <div className="h-full p-4 flex flex-col justify-between">
+        <div className="h-full px-7 py-6 flex flex-col justify-between">
           {/* Top: Type badge and menu */}
           <div className="flex items-start justify-between">
             <span className={`
-              text-[10px] font-semibold uppercase tracking-wide
-              px-2 py-0.5 rounded-md
+              text-[12px] font-semibold uppercase tracking-wide
+              px-3 py-1 rounded-lg
               ${typeBadge.bgColor} ${typeBadge.textColor}
             `}>
               {typeBadge.label}
@@ -604,7 +643,7 @@ function DraggableGridItem({
             </button>
           </div>
           
-          {/* Bottom: Name and Content preview */}
+          {/* Bottom: Name and Date */}
           <div className="min-w-0">
             {editingFileId === file.id ? (
               <input
@@ -615,18 +654,18 @@ function DraggableGridItem({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === "Escape") onEditingComplete();
                 }}
-                className="w-full text-[15px] text-white font-medium bg-black/30 px-2 py-1 rounded outline-none border border-blue-500"
+                className="w-full text-[18px] text-white font-medium bg-black/30 px-2 py-1 rounded outline-none border border-blue-500"
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
               <>
-                <p className="text-[15px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis">
-                  {file.name}
+                <p className="text-[18px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis">
+                  {displayName}
                 </p>
-                {contentPreview && (
-                  <p className="text-[12px] text-[rgba(255,255,255,0.30)] mt-1 line-clamp-2 leading-relaxed">
-                    {contentPreview}
+                {relativeDate && (
+                  <p className="text-[13px] text-[rgba(255,255,255,0.30)] mt-1 font-normal">
+                    {relativeDate}
                   </p>
                 )}
               </>
@@ -1148,7 +1187,7 @@ export function FolderContentView({
         )}
         {/* 自定义拖拽预览层 */}
         <CustomDragLayer />
-        <div ref={gridRef} className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
+        <div ref={gridRef} className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
           {gridItems.map((item, index) => (
             <DraggableGridItem
               key={item.id}
