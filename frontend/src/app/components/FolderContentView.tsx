@@ -626,9 +626,9 @@ export function FolderContentView({
     setFileContextMenu({ ...fileContextMenu, isOpen: false });
   };
 
-  const handleSaveFileEdit = (name: string, prompt: string) => {
+  const handleSaveFileEdit = (name: string, description: string) => {
     if (!editFileModal.file) return;
-    onUpdateFile(editFileModal.file.id, { name, prompt });
+    onUpdateFile(editFileModal.file.id, { name, description });
     setEditFileModal({ isOpen: false, file: null });
   };
 
@@ -673,14 +673,14 @@ export function FolderContentView({
     setIsCreateFileModalOpen(true);
   };
 
-  const handleCreateFileFromModal = (name: string, prompt: string) => {
+  const handleCreateFileFromModal = (name: string, description: string) => {
     const newFile: FileItem = {
       id: Date.now().toString(),
       name,
       type: "text",
       folderId: folder.id,
       content: "",
-      prompt: prompt || undefined,
+      description: description || undefined,
       createdAt: new Date().toISOString(),
     };
     onCreateFile(newFile);
@@ -1134,7 +1134,7 @@ export function FolderContentView({
         isOpen={editFileModal.isOpen}
         onClose={() => setEditFileModal({ isOpen: false, file: null })}
         fileName={editFileModal.file?.name || ""}
-        currentPrompt={editFileModal.file?.prompt || ""}
+        currentDescription={editFileModal.file?.description || ""}
         onSave={handleSaveFileEdit}
       />
       <EditFolderModal

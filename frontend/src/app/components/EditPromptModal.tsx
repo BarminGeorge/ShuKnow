@@ -1,36 +1,36 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 
-interface EditPromptModalProps {
+interface EditDescriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
   folderName: string;
   folderEmoji: string;
-  currentPrompt: string;
-  onSave: (prompt: string) => void;
+  currentDescription: string;
+  onSave: (description: string) => void;
 }
 
-// This component is deprecated - redirecting to EditFolderModal functionality
+// This component is deprecated - use EditFolderModal instead
 export function EditPromptModal({
   isOpen,
   onClose,
   folderName,
   folderEmoji,
-  currentPrompt,
+  currentDescription,
   onSave,
-}: EditPromptModalProps) {
+}: EditDescriptionModalProps) {
   const [name, setName] = useState(folderName);
   const [emoji, setEmoji] = useState(folderEmoji);
-  const [prompt, setPrompt] = useState(currentPrompt);
+  const [description, setDescription] = useState(currentDescription);
 
   useEffect(() => {
     setName(folderName);
     setEmoji(folderEmoji);
-    setPrompt(currentPrompt);
-  }, [folderName, folderEmoji, currentPrompt, isOpen]);
+    setDescription(currentDescription);
+  }, [folderName, folderEmoji, currentDescription, isOpen]);
 
   const handleSave = () => {
-    onSave(prompt);
+    onSave(description);
     onClose();
   };
 
@@ -67,20 +67,20 @@ export function EditPromptModal({
 
         {/* Content */}
         <div className="px-6 py-5">
-          {/* AI Prompt */}
+          {/* Description (AI Instruction) */}
           <div>
             <label className="text-sm font-medium text-gray-300 mb-2 block">
-              Инструкция для ИИ
+              Описание / Инструкция для ИИ
             </label>
             <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="Опишите, какие файлы и заметки должны попадать в эту папку..."
               className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-blue-500/50 transition-colors"
               rows={6}
             />
             <p className="text-xs text-gray-500 mt-2">
-              ИИ будет использовать эту инструкцию для автоматической сортировки файлов
+              ИИ будет использовать это описание для автоматической сортировки файлов
             </p>
           </div>
         </div>
