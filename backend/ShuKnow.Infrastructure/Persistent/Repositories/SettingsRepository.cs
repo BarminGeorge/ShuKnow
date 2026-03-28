@@ -1,18 +1,31 @@
 using Ardalis.Result;
+using Microsoft.EntityFrameworkCore;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Repositories;
 
 namespace ShuKnow.Infrastructure.Persistent.Repositories;
 
-public class SettingsRepository : ISettingsRepository
+public class SettingsRepository(AppDbContext context) : ISettingsRepository
 {
-    public Task<Result<UserAiSettings>> GetByUserAsync(Guid userId)
+    public async Task<Result<UserAiSettings>> GetByUserAsync(Guid userId)
     {
-        throw new NotImplementedException();
+        var settings = await context.UserAiSettings
+            .AsNoTracking()
+            .SingleOrDefaultAsync(s => s.UserId == userId);
+
+        return settings is null ? Result.NotFound() : Result.Success(settings);
     }
 
-    public Task<Result> UpsertAsync(UserAiSettings settings)
+    public async Task<Result> UpsertAsync(UserAiSettings settings)
     {
-        throw new NotImplementedException();
+        var existing = await context.UserAiSettings
+            .SingleOrDefaultAsync(s => s.UserId == settings.UserId);
+
+        if (existing is not null)
+            context.Entry(existing).CurrentValues.SetValues(settings);
+        else
+            context.UserAiSettings.Add(settings);
+
+        return Result.Success();
     }
 }
