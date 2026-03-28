@@ -33,6 +33,4 @@ public interface IFolderService
         CancellationToken ct = default);
     
     Task<Result> ReorderAsync(Guid folderId, int position, CancellationToken ct = default);
-    
-    Task<Result<Folder>> EnsureInboxExistsAsync(CancellationToken ct = default);
 }

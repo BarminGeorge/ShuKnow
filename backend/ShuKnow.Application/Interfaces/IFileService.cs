@@ -40,4 +40,11 @@ public interface IFileService
         CancellationToken ct = default);
 
     Task<Result> DeleteByFolderAsync(Guid folderId, CancellationToken ct = default);
+
+    Task<Result> ReorderAsync(Guid fileId, int position, CancellationToken ct = default);
+
+    Task<Result<File>> UpdateTextContentAsync(
+        Guid fileId,
+        string content,
+        CancellationToken ct = default);
 }

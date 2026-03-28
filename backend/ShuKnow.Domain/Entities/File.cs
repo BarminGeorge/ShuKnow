@@ -13,6 +13,8 @@ public class File : IEntity<Guid>
     public long SizeBytes { get; private set; }
     public int Version { get; private set; } = 1;
     public string? ChecksumSha256 { get; private set; }
+    public int SortOrder { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
 
     protected File()
     {
@@ -26,7 +28,9 @@ public class File : IEntity<Guid>
         string contentType,
         long sizeBytes,
         int version = 1,
-        string? checksumSha256 = null)
+        string? checksumSha256 = null,
+        int sortOrder = 0,
+        DateTimeOffset? createdAt = null)
     {
         Id = fileId;
         FolderId = folderId;
@@ -36,6 +40,8 @@ public class File : IEntity<Guid>
         SizeBytes = sizeBytes;
         Version = version;
         ChecksumSha256 = checksumSha256;
+        SortOrder = sortOrder;
+        CreatedAt = createdAt ?? DateTimeOffset.UtcNow;
     }
 
     public void UpdateMetadata(string name, string description)

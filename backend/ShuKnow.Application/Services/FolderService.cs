@@ -61,9 +61,4 @@ internal class FolderService(
     {
         throw new NotImplementedException();
     }
-
-    public Task<Result<Folder>> EnsureInboxExistsAsync(CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
-    }
 }

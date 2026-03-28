@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ShuKnow.WebAPI.Dto.Enums;
 using ShuKnow.WebAPI.Dto.Settings;
 using ShuKnow.WebAPI.Requests.Settings;
 
@@ -14,7 +15,7 @@ public class SettingsController : ControllerBase
     public async Task<ActionResult<AiSettingsDto>> GetAiSettings()
     {
         // TODO: implement
-        return new AiSettingsDto("https://api.openai.com/v1", "sk-****abc1", true);
+        return new AiSettingsDto("https://api.openai.com/v1", "sk-****abc1", AiProvider.OpenAI, "gpt-4o", true);
     }
 
     [HttpPut("ai")]
@@ -26,7 +27,7 @@ public class SettingsController : ControllerBase
             ? "sk-****" + request.ApiKey[^4..]
             : "sk-****";
 
-        return new AiSettingsDto(request.BaseUrl, masked, true);
+        return new AiSettingsDto(request.BaseUrl, masked, request.Provider, request.ModelId, true);
     }
 
     [HttpPost("ai/test")]

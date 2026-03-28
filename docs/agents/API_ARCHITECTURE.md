@@ -251,11 +251,27 @@ The current contract implies several domain and persistence capabilities that mu
 
 | Area | Required addition | Why it exists |
 |---|---|---|
-| Folder ordering | `Folder.SortOrder` | Required for sibling reorder operations. |
-| User AI config | `UserSettings` with encrypted API key | Required for per-user LLM configuration. |
+| Content ordering | `Folder.SortOrder` and `FileEntity.SortOrder` | Folders and files share the same ordering space within a parent, enabling mixed drag-and-drop reordering. |
+| User AI config | `UserSettings` with encrypted API key, `AiProvider` enum, and `ModelId` | Required for per-user LLM configuration including provider and model selection. |
 | Rollback log | `Action` aggregate with `ActionItem` children | Required for deterministic rollback. |
 | Temporary attachments | `Attachment` staging entity | Required because attachments are uploaded before `SendMessage`. |
 | File move history | Original location tracking inside action items | Required so rollback can restore moved files. |
+
+## Key Contract Details
+
+The full DTO schemas live in [openapi.yaml](../openapi.yaml). This section highlights fields and endpoints that carry architectural implications.
+
+**UserDto** includes both `id` (Guid) and `login` (string), so the client can display a user name without a separate profile lookup.
+
+**FolderDto / FolderTreeNodeDto** include an `emoji` field (string?, max 8 chars) that allows users to assign an icon to a folder.
+
+**FileDto** includes `sortOrder` (int) that shares the same ordering space as sibling folders, enabling mixed drag-and-drop reordering of files and folders within a parent. It also includes `createdAt` (DateTimeOffset) for display and sorting by creation time.
+
+**AiSettingsDto** includes `provider` (AiProvider enum: OpenAI, OpenRouter, Gemini) and `modelId` (string?) alongside the existing base URL and API key, allowing users to select specific LLM providers and models.
+
+**`PATCH /api/files/{fileId}/content`** — A lightweight JSON-body endpoint for updating text content of text-based files. Unlike the multipart binary `PUT` on `/api/files/{fileId}/content`, this accepts a JSON payload with the new text, avoiding multipart overhead for simple edits.
+
+**`PATCH /api/files/{fileId}/reorder`** — Reorders a file within its parent folder, following the same pattern as folder reorder (`PATCH /api/folders/{folderId}/reorder`).
 
 ## Boundaries and Ownership
 

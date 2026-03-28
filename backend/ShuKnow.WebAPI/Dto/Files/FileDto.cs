@@ -9,4 +9,6 @@ public record FileDto(
     string ContentType,
     long SizeBytes,
     int Version,
-    string? ChecksumSha256);
+    string? ChecksumSha256,
+    int SortOrder,
+    DateTimeOffset CreatedAt);

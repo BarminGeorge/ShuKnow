@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -12,13 +13,14 @@ namespace ShuKnow.WebAPI.Controllers;
 public class FilesController : ControllerBase
 {
     private static readonly Guid MockFolderId = Guid.Parse("6ef7d767-88fb-4d3a-b52c-9586d304f022");
+    private static readonly DateTimeOffset MockCreatedAt = new(2026, 1, 15, 10, 30, 0, TimeSpan.Zero);
 
     [HttpGet("{fileId}")]
     public async Task<ActionResult<FileDto>> GetFile(Guid fileId)
     {
         // TODO: implement
         return new FileDto(fileId, MockFolderId, "Documents", "report.pdf",
-            "Annual report", "application/pdf", 204_800, 1, null);
+            "Annual report", "application/pdf", 204_800, 1, null, 0, MockCreatedAt);
     }
 
     [HttpPut("{fileId}")]
@@ -27,7 +29,7 @@ public class FilesController : ControllerBase
         // TODO: implement
         return new FileDto(fileId, MockFolderId, "Documents",
             request.Name ?? "report.pdf", request.Description ?? "Annual report",
-            "application/pdf", 204_800, 1, null);
+            "application/pdf", 204_800, 1, null, 0, MockCreatedAt);
     }
 
     [HttpDelete("{fileId}")]
@@ -50,7 +52,18 @@ public class FilesController : ControllerBase
     public async Task<ActionResult<FileDto>> ReplaceFileContent(Guid fileId, IFormFile file)
     {
         // TODO: implement
-        return new FileDto(fileId, MockFolderId, "Documents", file.FileName, string.Empty, file.ContentType, file.Length, 1, null);
+        return new FileDto(fileId, MockFolderId, "Documents", file.FileName, string.Empty,
+            file.ContentType, file.Length, 1, null, 0, MockCreatedAt);
+    }
+
+    [HttpPatch("{fileId}/content")]
+    public async Task<ActionResult<FileDto>> UpdateTextContent(Guid fileId,
+        [FromBody] UpdateTextContentRequest request)
+    {
+        // TODO: implement
+        var contentBytes = Encoding.UTF8.GetByteCount(request.Content);
+        return new FileDto(fileId, MockFolderId, "Documents", "note.md", string.Empty,
+            "text/markdown", contentBytes, 2, null, 0, MockCreatedAt);
     }
 
     [HttpPatch("{fileId}/move")]
@@ -58,6 +71,13 @@ public class FilesController : ControllerBase
     {
         // TODO: implement
         return new FileDto(fileId, request.TargetFolderId, "Target Folder",
-            "report.pdf", "Annual report", "application/pdf", 204_800, 1, null);
+            "report.pdf", "Annual report", "application/pdf", 204_800, 1, null, 0, MockCreatedAt);
+    }
+
+    [HttpPatch("{fileId}/reorder")]
+    public async Task<ActionResult> ReorderFile(Guid fileId, [FromBody] ReorderFileRequest request)
+    {
+        // TODO: implement
+        return NoContent();
     }
 }

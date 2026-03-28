@@ -100,6 +100,19 @@ public class FileService(
             .SaveChangesAsync(unitOfWork);
     }
 
+    public Task<Result> ReorderAsync(Guid fileId, int position, CancellationToken ct = default)
+    {
+        // TODO: implement — reindex file SortOrder among siblings in the same folder
+        throw new NotImplementedException();
+    }
+
+    public Task<Result<File>> UpdateTextContentAsync(
+        Guid fileId, string content, CancellationToken ct = default)
+    {
+        // TODO: implement — validate file is text/*, convert string to stream, delegate to blob storage
+        throw new NotImplementedException();
+    }
+
     private async Task<Result> EnsureFileNameUnique(string name, Guid folderId, Guid fileId)
     {
         var existsResult = await fileRepository.ExistsByNameInFolderAsync(name, folderId, CurrentUserId, fileId);

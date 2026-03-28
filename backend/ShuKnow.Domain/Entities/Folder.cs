@@ -10,6 +10,7 @@ public class Folder : IEntity<Guid>
     public string Name { get; private set; } = string.Empty;
     public string Description { get; private set; } = string.Empty;
     public int SortOrder { get; private set; }
+    public string? Emoji { get; private set; }
 
     protected Folder()
     {
@@ -21,7 +22,8 @@ public class Folder : IEntity<Guid>
         string name,
         string description,
         Guid? parentFolderId = null,
-        int sortOrder = 0)
+        int sortOrder = 0,
+        string? emoji = null)
     {
         Id = folderId;
         UserId = userId;
@@ -29,5 +31,6 @@ public class Folder : IEntity<Guid>
         Name = name;
         Description = description;
         SortOrder = sortOrder;
+        Emoji = emoji;
     }
 }
