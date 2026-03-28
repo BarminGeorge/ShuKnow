@@ -105,7 +105,24 @@ internal class EncryptionService(IConfiguration configuration) : IEncryptionServ
             return Result<byte[]>.Error($"Encryption key is not configured. Set '{EncryptionKeyConfigPath}'.");
         }
 
-        return Result.Success(SHA256.HashData(Encoding.UTF8.GetBytes(key)));
+        byte[] keyBytes;
+        try
+        {
+            keyBytes = Convert.FromBase64String(key);
+        }
+        catch (FormatException)
+        {
+            return Result<byte[]>.Error(
+                $"Encryption key has invalid format. '{EncryptionKeyConfigPath}' must be a base64-encoded 32-byte key.");
+        }
+
+        if (keyBytes.Length != 32)
+        {
+            return Result<byte[]>.Error(
+                $"Encryption key has invalid length. '{EncryptionKeyConfigPath}' must decode to exactly 32 bytes.");
+        }
+
+        return Result.Success(keyBytes);
     }
 
     private static UserAiSettings CloneWithApiKey(UserAiSettings settings, string apiKey)

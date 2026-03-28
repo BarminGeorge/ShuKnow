@@ -9,7 +9,7 @@ namespace ShuKnow.Application.Tests.Services;
 
 public class EncryptionServiceTests
 {
-    private const string EncryptionKey = "test-encryption-key";
+    private const string EncryptionKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     private EncryptionService sut = null!;
 
     [SetUp]
