@@ -296,20 +296,24 @@ export default function Workspace() {
   const handleSendMessage = (content: string, attachments?: Attachment[]) => {
     const newMessage: Message = {
       id: Date.now().toString(),
-      type: "user",
+      role: "User",
       content,
       attachments,
     };
     setMessages((prev) => [...prev, newMessage]);
     
-    // Fake AI response
+    // Fake AI response (in production, this comes from SignalR hub)
     setTimeout(() => {
       setMessages((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
-          type: "system",
+          role: "Ai",
           content: "✅ Ваш запрос обрабатывается...",
+          // In production, actionId and actionSummary come from OnProcessingCompleted
+          actionId: `mock-action-${Date.now()}`,
+          actionSummary: "Создан 1 файл в папке Идеи",
+          canRollback: true,
         },
       ]);
     }, 1000);
