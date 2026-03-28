@@ -76,13 +76,16 @@ function calculateDropIntent(
 
 // 自定义 Drag Layer：在拖拽时显示自定义的拖拽预览
 function CustomDragLayer() {
-  const { isDragging, item, currentOffset } = useDragLayer((monitor) => ({
+  const { isDragging, item, currentOffset, itemType } = useDragLayer((monitor) => ({
     isDragging: monitor.isDragging(),
     item: monitor.getItem(),
     currentOffset: monitor.getClientOffset(),
+    itemType: monitor.getItemType(),
   }));
 
-  if (!isDragging || !currentOffset || !item) return null;
+  // Не показываем preview для нативных файлов из ОС (NativeTypes.FILE)
+  // и для случаев, когда нет валидного элемента
+  if (!isDragging || !currentOffset || !item || itemType !== GRID_ITEM_TYPE) return null;
 
   const isFolder = item.origType === "folder";
 
