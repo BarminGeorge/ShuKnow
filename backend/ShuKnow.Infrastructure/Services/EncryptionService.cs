@@ -23,7 +23,7 @@ internal class EncryptionService(IConfiguration configuration) : IEncryptionServ
         var keyResult = GetEncryptionKey();
         if (!keyResult.IsSuccess)
         {
-            return Result<UserAiSettings>.Error(keyResult.Errors);
+            return Result<UserAiSettings>.Error(string.Join("; ", keyResult.Errors));
         }
 
         try
@@ -35,7 +35,7 @@ internal class EncryptionService(IConfiguration configuration) : IEncryptionServ
             var cipherText = new byte[plainTextBytes.Length];
             var tag = new byte[TagLength];
 
-            using var aesGcm = new AesGcm(keyResult.Value);
+            using var aesGcm = new AesGcm(keyResult.Value, TagLength);
             aesGcm.Encrypt(nonce, plainTextBytes, cipherText, tag);
 
             var encryptedPayload = new byte[NonceLength + TagLength + cipherText.Length];
@@ -61,7 +61,7 @@ internal class EncryptionService(IConfiguration configuration) : IEncryptionServ
         var keyResult = GetEncryptionKey();
         if (!keyResult.IsSuccess)
         {
-            return Result<UserAiSettings>.Error(keyResult.Errors);
+            return Result<UserAiSettings>.Error(string.Join("; ", keyResult.Errors));
         }
 
         byte[] encryptedPayload;
@@ -86,7 +86,7 @@ internal class EncryptionService(IConfiguration configuration) : IEncryptionServ
             var cipherText = encryptedPayload[(NonceLength + TagLength)..];
             var plainTextBytes = new byte[cipherText.Length];
 
-            using var aesGcm = new AesGcm(keyResult.Value);
+            using var aesGcm = new AesGcm(keyResult.Value, TagLength);
             aesGcm.Decrypt(nonce, cipherText, tag, plainTextBytes);
 
             return Result.Success(CloneWithApiKey(settings, Encoding.UTF8.GetString(plainTextBytes)));

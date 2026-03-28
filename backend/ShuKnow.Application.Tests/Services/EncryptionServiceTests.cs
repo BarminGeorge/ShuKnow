@@ -1,6 +1,7 @@
 using Ardalis.Result;
 using AwesomeAssertions;
 using Microsoft.Extensions.Configuration;
+using NSubstitute;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Infrastructure.Services;
 
@@ -14,12 +15,8 @@ public class EncryptionServiceTests
     [SetUp]
     public void SetUp()
     {
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Encryption:Key"] = EncryptionKey,
-            })
-            .Build();
+        var configuration = Substitute.For<IConfiguration>();
+        configuration["Encryption:Key"].Returns(EncryptionKey);
 
         sut = new EncryptionService(configuration);
     }
@@ -64,8 +61,9 @@ public class EncryptionServiceTests
     [Test]
     public void Encrypt_WhenEncryptionKeyMissing_ShouldReturnError()
     {
-        var emptyConfiguration = new ConfigurationBuilder().Build();
-        var service = new EncryptionService(emptyConfiguration);
+        var configuration = Substitute.For<IConfiguration>();
+        configuration["Encryption:Key"].Returns((string?)null);
+        var service = new EncryptionService(configuration);
         var settings = CreateSettings("sk-no-key");
 
         var result = service.Encrypt(settings);
