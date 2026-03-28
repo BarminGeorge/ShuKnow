@@ -9,7 +9,7 @@ namespace ShuKnow.Application.Tests.Services;
 
 public class EncryptionServiceTests
 {
-    private const string EncryptionKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    private const string EncryptionKey = "MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=";
     private EncryptionService sut = null!;
 
     [SetUp]
@@ -59,10 +59,48 @@ public class EncryptionServiceTests
     }
 
     [Test]
+    public void Decrypt_WhenEncryptedValueIsTooShort_ShouldReturnError()
+    {
+        var shortPayloadBase64 = Convert.ToBase64String([1, 2, 3, 4, 5]);
+        var settings = CreateSettings(shortPayloadBase64);
+
+        var result = sut.Decrypt(settings);
+
+        result.Status.Should().Be(ResultStatus.Error);
+    }
+
+    [Test]
     public void Encrypt_WhenEncryptionKeyMissing_ShouldReturnError()
     {
         var configuration = Substitute.For<IConfiguration>();
         configuration["Encryption:Key"].Returns((string?)null);
+        var service = new EncryptionService(configuration);
+        var settings = CreateSettings("sk-no-key");
+
+        var result = service.Encrypt(settings);
+
+        result.Status.Should().Be(ResultStatus.Error);
+    }
+
+    [Test]
+    public void Encrypt_WhenEncryptionKeyHasInvalidFormat_ShouldReturnError()
+    {
+        var configuration = Substitute.For<IConfiguration>();
+        configuration["Encryption:Key"].Returns("not-base64");
+        var service = new EncryptionService(configuration);
+        var settings = CreateSettings("sk-no-key");
+
+        var result = service.Encrypt(settings);
+
+        result.Status.Should().Be(ResultStatus.Error);
+    }
+
+    [Test]
+    public void Encrypt_WhenEncryptionKeyHasInvalidLength_ShouldReturnError()
+    {
+        var shortKey = Convert.ToBase64String([1, 2, 3, 4]);
+        var configuration = Substitute.For<IConfiguration>();
+        configuration["Encryption:Key"].Returns(shortKey);
         var service = new EncryptionService(configuration);
         var settings = CreateSettings("sk-no-key");
 
