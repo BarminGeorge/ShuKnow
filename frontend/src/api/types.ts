@@ -148,3 +148,22 @@ export function mapFileDto(dto: FileDto): FileItem {
     contentUrl: `/api/files/${dto.id}/content`,
   };
 }
+
+// ── AI Settings ───────────────────────────────
+
+export interface AiSettingsDto {
+  baseUrl: string;
+  apiKeyMasked: string;
+  isConfigured: boolean;
+}
+
+export interface UpdateAiSettingsRequest {
+  baseUrl: string;
+  apiKey: string;
+}
+
+export interface AiConnectionTestDto {
+  success: boolean;
+  latencyMs: number | null;
+  errorMessage: string | null;
+}
