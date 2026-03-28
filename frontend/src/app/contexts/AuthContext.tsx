@@ -1,15 +1,14 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 
 interface User {
-  email: string;
-  name: string;
+  login: string;
 }
 
 interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  login: (login: string, password: string) => Promise<void>;
+  register: (login: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -37,22 +36,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  const login = async (email: string, _password: string) => {
-    // Mock: accept any credentials
-    setUser({ email, name: email.split("@")[0] });
-  };
+  const handleLogin = useCallback(async (loginValue: string, password: string) => {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ login: loginValue, password }),
+    });
+    if (!res.ok) throw new Error("Ошибка входа");
+    setUser({ login: loginValue });
+  }, []);
 
-  const register = async (email: string, _password: string, name: string) => {
-    // Mock: accept any credentials
-    setUser({ email, name });
-  };
+  const handleRegister = useCallback(async (loginValue: string, password: string) => {
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ login: loginValue, password }),
+    });
+    if (!res.ok) throw new Error("Ошибка регистрации");
+    setUser({ login: loginValue });
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null);
-  };
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, register, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, login: handleLogin, register: handleRegister, logout }}>
       {children}
     </AuthContext.Provider>
   );
