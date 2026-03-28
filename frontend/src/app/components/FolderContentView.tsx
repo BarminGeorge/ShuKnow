@@ -105,18 +105,17 @@ function CustomDragLayer() {
       <div
         style={{
           position: "absolute",
-          left: currentOffset.x - 70,
-          top: currentOffset.y - 50,
+          left: currentOffset.x - 110,
+          top: currentOffset.y - 60,
         }}
         className="animate-drag-pickup"
       >
         <div className={`
-          w-[140px] h-[100px] rounded-xl flex flex-col items-center justify-center
+          w-[220px] h-[120px] rounded-2xl overflow-hidden
           bg-[#1e1e1e]/95 backdrop-blur-md
-          border-2 border-blue-500/50
+          border border-blue-500/50
           shadow-2xl shadow-black/60
           transform rotate-[2deg] scale-95
-          overflow-hidden
         `}>
           {isPhoto ? (
             <div className="relative w-full h-full">
@@ -125,23 +124,27 @@ function CustomDragLayer() {
                 alt={item.name}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-              <span className="absolute bottom-2 left-0 right-0 text-[10px] text-white text-center truncate px-2 font-medium">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+              <span className="absolute bottom-3 left-3 right-3 text-[14px] text-white font-medium truncate">
+                {item.name || "Перемещение..."}
+              </span>
+            </div>
+          ) : isFolder ? (
+            <div className="h-full p-4 flex flex-col justify-between bg-gradient-to-br from-[rgba(99,102,241,0.12)] to-[rgba(99,102,241,0.06)]">
+              <span className="text-[28px] leading-none">📁</span>
+              <span className="text-[15px] text-[rgba(255,255,255,0.92)] font-medium truncate">
                 {item.name || "Перемещение..."}
               </span>
             </div>
           ) : (
-            <>
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 bg-blue-500/20`}>
-                {isFolder
-                  ? <FolderIcon size={22} className="text-blue-400" />
-                  : <FileText size={22} className="text-blue-400" />
-                }
-              </div>
-              <span className="text-[11px] text-gray-300 truncate max-w-[120px] px-2 font-medium">
+            <div className="h-full p-4 flex flex-col justify-between bg-gradient-to-br from-[rgba(52,211,153,0.10)] to-[rgba(52,211,153,0.04)]">
+              <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400">
+                {item.name?.split('.').pop()?.toUpperCase() || "TXT"}
+              </span>
+              <span className="text-[15px] text-[rgba(255,255,255,0.92)] font-medium truncate">
                 {item.name || "Перемещение..."}
               </span>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -376,62 +379,85 @@ function DraggableGridItem({
   if (item.type === "folder") {
     const folder = item.data as Folder;
     
+    // Count items in folder for meta info
+    const subfolderCount = folder.subfolders?.length || 0;
+    const itemCount = subfolderCount;
+    const metaText = itemCount > 0 
+      ? `${itemCount} ${itemCount === 1 ? "папка" : itemCount < 5 ? "папки" : "папок"}` 
+      : "Пустая";
+
     // 根据 dropIntent 决定视觉样式
     const getDropZoneStyles = () => {
-      if (!isOver || !canDrop) return "border-white/10";
+      if (!isOver || !canDrop) return "";
       
       if (dropIntent === "nest") {
-        // 嵌套意图：绿色发光边框，轻微放大，表示"放入文件夹"
-        return "border-green-500 ring-2 ring-green-500/40 scale-[1.03] shadow-[0_0_20px_rgba(34,197,94,0.3)]";
+        return "ring-2 ring-green-500/40 scale-[1.02] shadow-[0_0_20px_rgba(34,197,94,0.3)]";
       }
       
       if (dropIntent === "reorder") {
-        // 重新排序意图：蓝色边框，不放大，表示"在此位置插入"
-        return "border-blue-500 ring-1 ring-blue-500/30";
+        return "ring-1 ring-blue-500/30";
       }
       
-      return "border-white/10";
+      return "";
     };
 
     // 动画类：根据状态返回不同的动画效果
     const getItemAnimationClass = () => {
       if (isDragging) return "opacity-0 scale-95 transition-opacity duration-150";
       if (justDropped) return "animate-drop-land"; // landing 动画
-      return "opacity-100 scale-100 transition-all duration-200 ease-out";
+      return "opacity-100 transition-all duration-200 ease-out";
     };
 
     return (
       <div
         ref={ref}
         data-grid-item-id={item.id}
-        className={`group relative bg-[#1a1a1a] border rounded-xl overflow-hidden hover:border-blue-400/50 cursor-pointer ${getItemAnimationClass()} ${getDropZoneStyles()}`}
+        className={`
+          group relative h-[120px] rounded-2xl overflow-hidden cursor-pointer
+          ${getItemAnimationClass()} ${getDropZoneStyles()}
+          bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)]
+          hover:from-[rgba(99,102,241,0.12)] hover:to-[rgba(99,102,241,0.06)]
+          hover:border hover:border-[rgba(99,102,241,0.15)]
+          hover:-translate-y-[1px]
+          border border-transparent
+        `}
         onClick={() => onFolderClick(folder)}
       >
-        <div className="aspect-[4/3] flex flex-col items-center justify-center p-4 bg-gradient-to-br from-blue-500/10 to-purple-500/10 pointer-events-none">
-          <div className="w-20 h-20 rounded-lg bg-blue-500/20 flex items-center justify-center mb-3">
-            <FolderIcon size={40} className="text-blue-400" />
+        {/* Content - Single unified block */}
+        <div className="h-full p-4 flex flex-col justify-between">
+          {/* Top: Emoji */}
+          <div className="flex items-start justify-between">
+            <span className="text-[28px] leading-none">
+              {folder.emoji || "📁"}
+            </span>
+            {/* Context menu button - only visible on hover */}
+            <button
+              className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onFolderContextMenu(folder.id, e);
+              }}
+            >
+              <MoreVertical size={14} className="text-white/60" strokeWidth={1.5} />
+            </button>
           </div>
-          <div className="w-full text-center">
-            <p className="text-lg text-gray-200 font-medium line-clamp-2">
-              {folder.emoji && <span className="mr-1">{folder.emoji}</span>}
+          
+          {/* Bottom: Name and Meta */}
+          <div className="min-w-0">
+            <p className="text-[15px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis">
               {folder.name}
+            </p>
+            <p className="text-[12px] text-[rgba(255,255,255,0.35)] mt-0.5">
+              {metaText}
             </p>
           </div>
         </div>
+        
         {/* 嵌套意图指示器：显示一个半透明的覆盖层提示 */}
         {dropIntent === "nest" && (
-          <div className="absolute inset-0 bg-green-500/10 pointer-events-none rounded-xl" />
+          <div className="absolute inset-0 bg-green-500/10 pointer-events-none rounded-2xl" />
         )}
-        <button
-          className="absolute top-2 right-2 w-8 h-8 rounded-lg bg-black/50 backdrop-blur-sm hover:bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-20"
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            onFolderContextMenu(folder.id, e);
-          }}
-        >
-          <MoreVertical size={16} className="text-white" />
-        </button>
       </div>
     );
   } else {
@@ -439,64 +465,69 @@ function DraggableGridItem({
 
     // 文件只支持重新排序意图
     const getFileDropStyles = () => {
-      if (!isOver || !canDrop) return "border-white/10";
-      if (dropIntent === "reorder") return "border-blue-500 ring-1 ring-blue-500/30";
-      return "border-white/10";
+      if (!isOver || !canDrop) return "";
+      if (dropIntent === "reorder") return "ring-1 ring-blue-500/30";
+      return "";
     };
 
     // 动画类：根据状态返回不同的动画效果
     const getItemAnimationClass = () => {
       if (isDragging) return "opacity-0 scale-95 transition-opacity duration-150";
       if (justDropped) return "animate-drop-land"; // landing 动画
-      return "opacity-100 scale-100 transition-all duration-200 ease-out";
+      return "opacity-100 transition-all duration-200 ease-out";
     };
 
-    return (
-      <div
-        ref={ref}
-        data-grid-item-id={item.id}
-        className={`group relative bg-[#1a1a1a] border rounded-xl overflow-hidden hover:border-white/30 cursor-pointer ${getItemAnimationClass()} ${getFileDropStyles()}`}
-        onClick={() => handleFileClick(file.id)}
-        title="Нажмите для открытия"
-      >
-        {file.type === "photo" && file.imageUrl ? (
-          <div className="relative aspect-[4/3] overflow-hidden">
-            <img
-              src={file.imageUrl}
-              alt={file.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-3">
-              {editingFileId === file.id ? (
-                <input
-                  type="text"
-                  value={file.name}
-                  onChange={(e) => onFileNameChange(file.id, e.target.value)}
-                  onBlur={onEditingComplete}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === "Escape") onEditingComplete();
-                  }}
-                  className="w-full text-sm text-white font-medium bg-black/50 px-2 py-1 rounded outline-none border border-blue-500"
-                  autoFocus
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <p className="text-lg text-white font-medium truncate">{file.name}</p>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="aspect-[4/3] flex flex-col items-center justify-center p-4">
-            <div className="w-20 h-20 rounded-lg bg-white/5 flex items-center justify-center mb-3">
-              {file.type === "photo" ? (
-                <ImageIcon size={40} className="text-purple-400" />
-              ) : file.type === "pdf" ? (
-                <FileIcon size={40} className="text-red-400" />
-              ) : (
-                <FileText size={40} className="text-blue-400" />
-              )}
-            </div>
+    // Get file type badge info
+    const getTypeBadge = () => {
+      if (file.type === "pdf") {
+        return { label: "PDF", bgColor: "bg-red-500/15", textColor: "text-red-400" };
+      }
+      if (file.type === "photo") {
+        return { label: "IMG", bgColor: "bg-purple-500/15", textColor: "text-purple-400" };
+      }
+      // Default text files
+      const ext = file.name.split('.').pop()?.toUpperCase() || "TXT";
+      return { label: ext.length > 4 ? ext.slice(0, 4) : ext, bgColor: "bg-emerald-500/15", textColor: "text-emerald-400" };
+    };
+
+    const typeBadge = getTypeBadge();
+
+    // Get content preview for text files
+    const getContentPreview = () => {
+      if (file.type !== "text" && file.type !== "pdf") return null;
+      const content = file.content || "";
+      const lines = content.split('\n').slice(0, 2).join(' ').slice(0, 100);
+      return lines || null;
+    };
+
+    const contentPreview = getContentPreview();
+
+    // Photo card - special design with thumbnail and overlay
+    if (file.type === "photo" && file.imageUrl) {
+      return (
+        <div
+          ref={ref}
+          data-grid-item-id={item.id}
+          className={`
+            group relative h-[120px] rounded-2xl overflow-hidden cursor-pointer
+            ${getItemAnimationClass()} ${getFileDropStyles()}
+            hover:scale-[1.02] hover:ring-1 hover:ring-white/10
+          `}
+          onClick={() => handleFileClick(file.id)}
+          title="Нажмите для открытия"
+        >
+          {/* Thumbnail fills entire card */}
+          <img
+            src={file.imageUrl}
+            alt={file.name}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          
+          {/* Bottom gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+          
+          {/* Content at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 p-3 min-w-0">
             {editingFileId === file.id ? (
               <input
                 type="text"
@@ -506,26 +537,102 @@ function DraggableGridItem({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === "Escape") onEditingComplete();
                 }}
-                className="w-full text-sm text-white font-medium bg-[#0d0d0d] px-2 py-1 rounded outline-none border border-blue-500 text-center"
+                className="w-full text-[14px] text-white font-medium bg-black/50 px-2 py-1 rounded outline-none border border-blue-500"
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
-              <p className="text-lg text-gray-200 font-medium text-center line-clamp-2">{file.name}</p>
+              <p className="text-[14px] font-medium text-white whitespace-nowrap overflow-hidden text-ellipsis">
+                {file.name}
+              </p>
             )}
           </div>
-        )}
 
-        <button
-          className="absolute top-2 right-2 w-8 h-8 rounded-lg bg-black/50 backdrop-blur-sm hover:bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            onFileContextMenu(file.id, e);
-          }}
-        >
-          <MoreVertical size={16} className="text-white" />
-        </button>
+          {/* Context menu button - only visible on hover */}
+          <button
+            className="absolute top-2 right-2 w-6 h-6 rounded-md bg-black/50 backdrop-blur-sm hover:bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onFileContextMenu(file.id, e);
+            }}
+          >
+            <MoreVertical size={14} className="text-white/70" strokeWidth={1.5} />
+          </button>
+        </div>
+      );
+    }
+
+    // Regular file card - with badge and content preview
+    return (
+      <div
+        ref={ref}
+        data-grid-item-id={item.id}
+        className={`
+          group relative h-[120px] rounded-2xl overflow-hidden cursor-pointer
+          ${getItemAnimationClass()} ${getFileDropStyles()}
+          bg-gradient-to-br from-[rgba(52,211,153,0.06)] to-[rgba(52,211,153,0.02)]
+          hover:from-[rgba(52,211,153,0.10)] hover:to-[rgba(52,211,153,0.04)]
+          hover:border hover:border-[rgba(52,211,153,0.15)]
+          hover:-translate-y-[1px]
+          border border-transparent
+        `}
+        onClick={() => handleFileClick(file.id)}
+        title="Нажмите для открытия"
+      >
+        {/* Content - Single unified block */}
+        <div className="h-full p-4 flex flex-col justify-between">
+          {/* Top: Type badge and menu */}
+          <div className="flex items-start justify-between">
+            <span className={`
+              text-[10px] font-semibold uppercase tracking-wide
+              px-2 py-0.5 rounded-md
+              ${typeBadge.bgColor} ${typeBadge.textColor}
+            `}>
+              {typeBadge.label}
+            </span>
+            {/* Context menu button - only visible on hover */}
+            <button
+              className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onFileContextMenu(file.id, e);
+              }}
+            >
+              <MoreVertical size={14} className="text-white/60" strokeWidth={1.5} />
+            </button>
+          </div>
+          
+          {/* Bottom: Name and Content preview */}
+          <div className="min-w-0">
+            {editingFileId === file.id ? (
+              <input
+                type="text"
+                value={file.name}
+                onChange={(e) => onFileNameChange(file.id, e.target.value)}
+                onBlur={onEditingComplete}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === "Escape") onEditingComplete();
+                }}
+                className="w-full text-[15px] text-white font-medium bg-black/30 px-2 py-1 rounded outline-none border border-blue-500"
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <>
+                <p className="text-[15px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis">
+                  {file.name}
+                </p>
+                {contentPreview && (
+                  <p className="text-[12px] text-[rgba(255,255,255,0.30)] mt-1 line-clamp-2 leading-relaxed">
+                    {contentPreview}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
@@ -1041,7 +1148,7 @@ export function FolderContentView({
         )}
         {/* 自定义拖拽预览层 */}
         <CustomDragLayer />
-        <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div ref={gridRef} className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
           {gridItems.map((item, index) => (
             <DraggableGridItem
               key={item.id}
