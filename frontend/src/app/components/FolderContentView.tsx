@@ -182,7 +182,7 @@ function CustomDragLayer() {
           left: currentOffset.x - 140,
           top: currentOffset.y - 90,
           transform: "rotate(-4deg) scale(1.03)",
-          opacity: 0.92,
+          opacity: 1,
           cursor: "grabbing",
         }}
       >
@@ -548,7 +548,7 @@ function DraggableGridItem({
 
     // 动画类：根据状态返回不同的动画效果
     const getItemAnimationClass = () => {
-      if (isDragging) return "opacity-30 scale-95 transition-opacity duration-150";
+      if (isDragging) return "opacity-0 scale-95 transition-opacity duration-150";
       if (justDropped) return "animate-drop-land"; // landing 动画
       return "opacity-100 transition-all duration-200 ease-out";
     };
@@ -617,7 +617,7 @@ function DraggableGridItem({
 
     // 动画类：根据状态返回不同的动画效果
     const getItemAnimationClass = () => {
-      if (isDragging) return "opacity-30 scale-95 transition-opacity duration-150";
+      if (isDragging) return "opacity-0 scale-95 transition-opacity duration-150";
       if (justDropped) return "animate-drop-land"; // landing 动画
       return "opacity-100 transition-all duration-200 ease-out";
     };
