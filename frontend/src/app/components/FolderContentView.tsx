@@ -557,8 +557,8 @@ function DraggableGridItem({
           {/* Bottom gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
           
-          {/* Format badge - top right */}
-          <span className="absolute top-3 right-3 text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-white/85">
+          {/* Format badge - top left */}
+          <span className="absolute top-3 left-3 text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-white/85">
             {fileExtension}
           </span>
           
@@ -587,9 +587,10 @@ function DraggableGridItem({
             )}
           </div>
 
-          {/* Context menu button - only visible on hover */}
+          {/* Context menu button - top right, only visible on hover */}
           <button
-            className="absolute top-3 left-3 w-6 h-6 rounded-md bg-black/50 backdrop-blur-sm hover:bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+            aria-label="More options"
+            className="absolute top-3 right-3 w-6 h-6 rounded-md bg-black/50 backdrop-blur-sm hover:bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
