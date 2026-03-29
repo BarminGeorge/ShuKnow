@@ -87,7 +87,7 @@ function pluralizeRussian(count: number, one: string, few: string, many: string)
   return `${count} ${many}`;
 }
 
-// Helper: Format folder stats (folders, files, photos)
+// Helper: Format folder stats for card subtitle (omits zero counts)
 function formatFolderStats(subfolderCount: number, fileCount: number, photoCount: number): string {
   const total = subfolderCount + fileCount + photoCount;
   if (total === 0) return "Пусто";
@@ -98,6 +98,16 @@ function formatFolderStats(subfolderCount: number, fileCount: number, photoCount
   if (photoCount > 0) parts.push(`${photoCount} фото`);
   
   return parts.join(" · ");
+}
+
+// Helper: Format folder stats for header (omits zero counts, comma-separated)
+function formatFolderStatsHeader(subfolderCount: number, fileCount: number, photoCount: number): string {
+  const parts: string[] = [];
+  if (subfolderCount > 0) parts.push(pluralizeRussian(subfolderCount, "папка", "папки", "папок"));
+  if (fileCount > 0) parts.push(pluralizeRussian(fileCount, "файл", "файла", "файлов"));
+  if (photoCount > 0) parts.push(`${photoCount} фото`);
+  
+  return parts.join(", ");
 }
 
 // 计算放置意图的辅助函数
@@ -1078,7 +1088,8 @@ export function FolderContentView({
 
   const folderFiles = files.filter((f) => f.folderId === folder.id);
   const subfolderCount = folder.subfolders?.length || 0;
-  const fileCount = folderFiles.length;
+  const fileCount = folderFiles.filter(f => f.type !== "photo").length;
+  const photoCount = folderFiles.filter(f => f.type === "photo").length;
 
   // Drop zone for files from OS
   const [{ isFileOver }, fileDropRef] = useDrop({
@@ -1166,9 +1177,7 @@ export function FolderContentView({
                 {title}
               </h1>
               <p className="text-sm text-gray-400 mt-1">
-                {subfolderCount > 0 && `${subfolderCount} ${subfolderCount === 1 ? "папка" : "папок"}`}
-                {subfolderCount > 0 && fileCount > 0 && " • "}
-                {fileCount > 0 && `${fileCount} ${fileCount === 1 ? "файл" : "файлов"}`}
+                {formatFolderStatsHeader(subfolderCount, fileCount, photoCount)}
               </p>
             </div>
           )}
