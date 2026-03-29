@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
-import { ChevronRight, MoreVertical, FileText, ArrowLeft, Plus, Folder as FolderIcon, Image as ImageIcon, Smile, Upload, File as FileIcon } from "lucide-react";
+import { ChevronRight, MoreVertical, FileText, ArrowLeft, Plus, Folder as FolderIcon, Image as ImageIcon, Smile, Upload, File as FileIcon, Paperclip } from "lucide-react";
 import { useDrag, useDrop, useDragLayer } from "react-dnd";
 import { NativeTypes } from "react-dnd-html5-backend";
 import { getEmptyImage } from "react-dnd-html5-backend";
@@ -822,6 +822,7 @@ export function FolderContentView({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [gridItems, setGridItems] = useState<GridItem[]>([]);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   
@@ -1294,8 +1295,33 @@ export function FolderContentView({
               <Plus size={16} />
               Создать файл
             </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
+              title="Прикрепить файл"
+            >
+              <Paperclip size={16} />
+              Прикрепить файл
+            </button>
           </div>
         </div>
+
+        {/* Hidden file input for attaching files */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*,.pdf,.txt,.md,.json,.js,.ts,.tsx,.jsx,.html,.css"
+          className="hidden"
+          onChange={(e) => {
+            const files = Array.from(e.target.files || []);
+            if (files.length > 0) {
+              handleDroppedFiles(files);
+            }
+            // Reset input so the same file can be selected again
+            e.target.value = "";
+          }}
+        />
 
         {/* AI Prompt Field */}
         <div>
