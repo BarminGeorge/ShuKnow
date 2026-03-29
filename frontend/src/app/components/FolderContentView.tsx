@@ -550,7 +550,7 @@ function DraggableGridItem({
       if (!isOver || !canDrop) return "";
       
       if (dropIntent === "nest") {
-        return "ring-2 ring-green-500/40 scale-[1.02] shadow-[0_0_20px_rgba(34,197,94,0.3)]";
+        return "ring-2 ring-indigo-500/40 scale-[1.02] shadow-[0_0_20px_rgba(99,102,241,0.3)]";
       }
       
       if (dropIntent === "reorder") {
@@ -615,7 +615,7 @@ function DraggableGridItem({
         
         {/* 嵌套意图指示器：显示一个半透明的覆盖层提示 */}
         {dropIntent === "nest" && (
-          <div className="absolute inset-0 bg-green-500/10 pointer-events-none rounded-2xl" />
+          <div className="absolute inset-0 bg-indigo-500/10 pointer-events-none rounded-2xl" />
         )}
       </div>
     );

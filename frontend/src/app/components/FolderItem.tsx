@@ -240,7 +240,7 @@ export function FolderItem({
                 <Edit3 size={14} />
               </button>
               <button
-                className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-green-400 transition-colors"
+                className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-indigo-400 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   onAddSubfolder(path);
@@ -250,7 +250,7 @@ export function FolderItem({
                 <Plus size={14} />
               </button>
               <button
-                className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-red-500 transition-colors"
+                className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-indigo-400 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDeleteFolder(path);
