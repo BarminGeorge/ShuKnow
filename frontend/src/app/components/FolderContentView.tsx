@@ -292,6 +292,8 @@ interface DraggableGridItemProps {
   currentFolderSubfolderIds?: string[];
   // All files for counting folder stats
   allFiles: FileItem[];
+  // Context menu state for hiding the button
+  openContextMenuId: string | null;
 }
 
 function DraggableGridItem({
@@ -309,6 +311,7 @@ function DraggableGridItem({
   onEditingComplete,
   currentFolderSubfolderIds = [],
   allFiles,
+  openContextMenuId,
 }: DraggableGridItemProps) {
   const ref = useRef<HTMLDivElement>(null);
   // "刚刚放下"状态 — 用于 landing 动画
@@ -589,9 +592,9 @@ function DraggableGridItem({
             <span className="text-[40px] leading-none">
               {folder.emoji || "📁"}
             </span>
-            {/* Context menu button - only visible on hover */}
+            {/* Context menu button - always visible when menu is open */}
             <button
-              className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              className={`w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center transition-opacity ${openContextMenuId === item.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
@@ -711,10 +714,10 @@ function DraggableGridItem({
             )}
           </div>
 
-          {/* Context menu button - top right, only visible on hover */}
+          {/* Context menu button - always visible when menu is open */}
           <button
             aria-label="More options"
-            className="absolute top-6 right-7 w-6 h-6 rounded-md bg-black/50 backdrop-blur-sm hover:bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+            className={`absolute top-6 right-7 w-6 h-6 rounded-md bg-black/50 backdrop-blur-sm hover:bg-black/70 flex items-center justify-center transition-opacity z-10 ${openContextMenuId === item.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
@@ -755,9 +758,9 @@ function DraggableGridItem({
             `}>
               {typeBadge.label}
             </span>
-            {/* Context menu button - only visible on hover */}
+            {/* Context menu button - always visible when menu is open */}
             <button
-              className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              className={`w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center transition-opacity ${openContextMenuId === item.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
@@ -911,14 +914,12 @@ export function FolderContentView({
 
   const handleFileContextMenu = (fileId: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    const rect = event.currentTarget.getBoundingClientRect();
-    setFileContextMenu({ isOpen: true, fileId, position: { x: rect.right - 180, y: rect.bottom + 5 } });
+    setFileContextMenu({ isOpen: true, fileId, position: { x: event.clientX + 4, y: event.clientY + 4 } });
   };
 
   const handleFolderContextMenu = (folderId: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    const rect = event.currentTarget.getBoundingClientRect();
-    setFolderContextMenu({ isOpen: true, folderId, position: { x: rect.right - 180, y: rect.bottom + 5 } });
+    setFolderContextMenu({ isOpen: true, folderId, position: { x: event.clientX + 4, y: event.clientY + 4 } });
   };
 
   const handleEditFile = () => {
@@ -1416,6 +1417,10 @@ export function FolderContentView({
               onFileNameChange={handleFileNameChange}
               onEditingComplete={() => setEditingFileId(null)}
               allFiles={files}
+              openContextMenuId={
+                fileContextMenu.isOpen ? fileContextMenu.fileId :
+                folderContextMenu.isOpen ? folderContextMenu.folderId : null
+              }
             />
           ))}
         </div>
