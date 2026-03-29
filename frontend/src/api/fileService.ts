@@ -33,7 +33,7 @@ export async function listFolderFilesAsMapped(
   folderId: string,
   page: number = 1,
   pageSize: number = 50
-): Promise<{ items: FileItem[]; totalCount: number; page: number; pageSize: number; totalPages: number }> {
+): Promise<{ items: FileItem[]; totalCount: number; page: number; pageSize: number; hasNextPage: boolean }> {
   const result = await listFolderFiles(folderId, page, pageSize);
   return {
     ...result,
@@ -146,27 +146,35 @@ export async function getFileContentAsText(fileId: string): Promise<string> {
 
 /**
  * Update file content (for text files)
+ * Converts text to a Blob and uploads as multipart/form-data
  */
 export async function updateFileContent(
   fileId: string,
   content: string,
-  contentType: string = "text/plain"
-): Promise<void> {
+  contentType: string = "text/plain",
+  fileName?: string
+): Promise<FileDto> {
   const token = getAuthToken();
-  const headers: HeadersInit = {
-    "Content-Type": contentType,
-  };
+  const headers: HeadersInit = {};
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
+  // Convert text content to a Blob and wrap in FormData
+  // Backend expects IFormFile via multipart/form-data
+  const blob = new Blob([content], { type: contentType });
+  const formData = new FormData();
+  formData.append("file", blob, fileName || "content.txt");
+
   const response = await fetch(`/api/files/${fileId}/content`, {
     method: "PUT",
     headers,
-    body: content,
+    body: formData,
   });
 
   if (!response.ok) {
     throw new Error(`Failed to update content: ${response.status}`);
   }
+
+  return response.json();
 }

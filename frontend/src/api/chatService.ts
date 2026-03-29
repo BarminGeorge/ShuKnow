@@ -7,9 +7,13 @@ import { apiRequest, getAuthToken } from "./client";
 
 // ── Types ─────────────────────────────────────
 
+export type ChatSessionStatus = "Active" | "Closed";
+
 export interface ChatSessionDto {
   id: string;
-  createdAt: string;
+  status: ChatSessionStatus;
+  messageCount: number;
+  canRollback: boolean;
 }
 
 export interface AttachmentDto {

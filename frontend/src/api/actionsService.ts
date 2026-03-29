@@ -45,7 +45,7 @@ export interface PagedActionResult {
   totalCount: number;
   page: number;
   pageSize: number;
-  totalPages: number;
+  hasNextPage: boolean;
 }
 
 // ── API Functions ─────────────────────────────

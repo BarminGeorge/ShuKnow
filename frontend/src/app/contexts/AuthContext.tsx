@@ -62,17 +62,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error("Login failed");
     }
 
-    const data = await response.json();
-    
-    // Store token if provided
-    if (data.token) {
-      localStorage.setItem(TOKEN_KEY, data.token);
-    }
+    // Backend returns plain JWT string directly, not {token: ...}
+    const token = await response.text();
+    localStorage.setItem(TOKEN_KEY, token);
 
     // Fetch user info from /api/auth/me (returns { id })
     const meResponse = await fetch("/api/auth/me", {
       headers: {
-        "Authorization": `Bearer ${data.token || localStorage.getItem(TOKEN_KEY)}`,
+        "Authorization": `Bearer ${token}`,
       },
     });
 

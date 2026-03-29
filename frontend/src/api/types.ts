@@ -53,6 +53,8 @@ export interface FileDto {
   description?: string;
   contentType: string;
   sizeBytes: number;
+  version: number;
+  checksumSha256?: string | null;
 }
 
 export interface UpdateFileRequest {
@@ -69,7 +71,7 @@ export interface PagedFileResult {
   totalCount: number;
   page: number;
   pageSize: number;
-  totalPages: number;
+  hasNextPage: boolean;
 }
 
 // ── Mapped types for frontend use ─────────────
