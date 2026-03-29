@@ -1,10 +1,11 @@
-import { Trash2, FileEdit } from "lucide-react";
+import { Trash2, FileEdit, Download } from "lucide-react";
 
 interface FileContextMenuProps {
   isOpen: boolean;
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onDownload: () => void;
   position: { x: number; y: number };
   isPhoto?: boolean;
 }
@@ -14,6 +15,7 @@ export function FileContextMenu({
   onClose,
   onEdit,
   onDelete,
+  onDownload,
   position,
   isPhoto = false,
 }: FileContextMenuProps) {
@@ -47,6 +49,17 @@ export function FileContextMenu({
             <div className="h-px bg-white/10 mx-3 my-0.5" />
           </>
         )}
+        <button
+          onClick={() => {
+            onDownload();
+            onClose();
+          }}
+          className="w-full px-4 py-2.5 text-left text-sm text-gray-200 hover:bg-white/5 transition-colors flex items-center gap-3"
+        >
+          <Download size={15} className="text-gray-400" />
+          Скачать
+        </button>
+        <div className="h-px bg-white/10 mx-3 my-0.5" />
         <button
           onClick={() => {
             onDelete();

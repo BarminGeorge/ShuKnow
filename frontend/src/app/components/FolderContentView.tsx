@@ -940,6 +940,35 @@ export function FolderContentView({
     setFileContextMenu({ ...fileContextMenu, isOpen: false });
   };
 
+  const handleDownloadFile = () => {
+    const file = files.find((f) => f.id === fileContextMenu.fileId);
+    if (!file) return;
+
+    if (file.type === "photo" && file.imageUrl) {
+      // Download photo
+      const link = document.createElement("a");
+      link.href = file.imageUrl;
+      link.download = file.name;
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (file.content) {
+      // Download text file
+      const blob = new Blob([file.content], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    setFileContextMenu({ ...fileContextMenu, isOpen: false });
+  };
+
   const handleEditFolder = () => {
     const targetFolder = folder.subfolders?.find((f) => f.id === folderContextMenu.folderId);
     if (targetFolder) setEditFolderModal({ isOpen: true, folder: targetFolder });
@@ -1438,6 +1467,7 @@ export function FolderContentView({
         onClose={() => setFileContextMenu({ ...fileContextMenu, isOpen: false })}
         onEdit={handleEditFile}
         onDelete={handleDeleteFile}
+        onDownload={handleDownloadFile}
         position={fileContextMenu.position}
         isPhoto={files.find(f => f.id === fileContextMenu.fileId)?.type === "photo"}
       />
