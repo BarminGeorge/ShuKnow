@@ -37,7 +37,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative">
         {/* Logo */}
         <Link to="/" className="absolute -top-16 left-1/2 -translate-x-1/2 flex items-center gap-2">
-          <Sparkles className="text-blue-400" size={28} />
+          <Sparkles className="text-indigo-400" size={28} />
           <span className="text-2xl font-bold text-white">ShuKnow</span>
         </Link>
 
@@ -66,7 +66,7 @@ export default function LoginPage() {
                   placeholder="Ваш логин"
                   value={loginValue}
                   onChange={(e) => setLoginValue(e.target.value)}
-                  className="bg-[#0d0d0d] border-white/10 text-white placeholder:text-gray-500"
+                  className="bg-[#1a1a1a] border-white/10 text-white placeholder:text-gray-500"
                 />
               </div>
 
@@ -79,7 +79,7 @@ export default function LoginPage() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="bg-[#0d0d0d] border-white/10 text-white placeholder:text-gray-500 pr-10"
+                    className="bg-[#1a1a1a] border-white/10 text-white placeholder:text-gray-500 pr-10"
                   />
                   <button
                     type="button"
@@ -91,14 +91,14 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+              <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
                 Войти
               </Button>
             </form>
 
             <p className="mt-6 text-center text-sm text-gray-400">
               Нет аккаунта?{" "}
-              <Link to="/register" className="text-blue-400 hover:text-blue-300 underline underline-offset-4">
+              <Link to="/register" className="text-indigo-400 hover:text-indigo-300 underline underline-offset-4">
                 Зарегистрироваться
               </Link>
             </p>

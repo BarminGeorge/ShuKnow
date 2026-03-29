@@ -32,7 +32,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={handleClose}>
       <div 
-        className="bg-[#1a1a1a] border border-white/20 rounded-xl w-full max-w-lg mx-4 shadow-2xl"
+        className="bg-[#141414] border border-white/10 rounded-2xl w-full max-w-lg mx-4 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -56,13 +56,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <div>
                 <h3 className="text-sm font-medium text-gray-300 mb-3">Аккаунт</h3>
                 <div className="space-y-3">
-                  <div>
-                    <label className="text-xs text-gray-400 block mb-1">Логин</label>
-                    <div className="w-full px-4 py-2 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-400">
-                      {user?.login || "—"}
-                    </div>
-                  </div>
-                  <button className="w-full px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-gray-200 transition-colors text-sm">
+                                  <div>
+                                    <label className="text-xs text-gray-400 block mb-1">Логин</label>
+                                    <div className="w-full px-4 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-400">
+                                      {user?.login || "—"}
+                                    </div>
+                                  </div>                  <button className="w-full px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-gray-200 transition-colors text-sm">
                     Сменить пароль
                   </button>
                 </div>
@@ -71,7 +70,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               {/* API Key Section */}
               <div>
                 <h3 className="text-sm font-medium text-gray-300 mb-3">API Настройки</h3>
-                <div className="bg-[#0d0d0d] border border-white/10 rounded-lg p-4 flex justify-between items-center">
+                <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-4 flex justify-between items-center">
                   <div className="flex flex-col gap-1.5">
                     <span className="text-sm font-medium text-gray-200">{provider} — {modelId}</span>
                     <div className="flex items-center gap-2">
@@ -82,7 +81,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </div>
                 <button
                     onClick={() => setIsEditingKey(true)}
-                    className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-gray-300 transition-colors whitespace-nowrap ml-4"
+                    className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm text-gray-300 transition-colors whitespace-nowrap ml-4"
                   >
                     Изменить API ключ
                   </button>
@@ -97,7 +96,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <select
                     value={provider}
                     onChange={(e) => setProvider(e.target.value)}
-                    className="w-full pl-3 pr-10 py-2 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-blue-500/50 appearance-none"
+                    className="w-full pl-3 pr-10 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 focus:outline-none focus:border-indigo-500/50 appearance-none"
                   >
                     <option value="OpenAI">OpenAI</option>
                     <option value="OpenRouter">OpenRouter</option>
@@ -115,7 +114,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   value={modelId}
                   onChange={(e) => setModelId(e.target.value)}
                   placeholder="Например: gpt-4o"
-                  className="w-full px-3 py-2 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50"
+                  className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50"
                 />
               </div>
               <div>
@@ -126,7 +125,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder="Введите ваш API ключ"
-                    className="w-full pl-3 pr-10 py-2 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50"
+                    className="w-full pl-3 pr-10 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50"
                   />
                   {apiKey && (
                     <button 
@@ -141,7 +140,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <div className="flex justify-end pt-4">
                 <button
                   onClick={() => setIsEditingKey(false)}
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm font-medium"
                 >
                   Сохранить
                 </button>

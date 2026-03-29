@@ -45,8 +45,7 @@ export function EditPromptModal({
             type="text"
             value={emoji}
             onChange={(e) => setEmoji(e.target.value)}
-            className="w-12 h-12 text-center text-2xl bg-[#0d0d0d] border border-white/10 rounded-lg outline-none focus:border-blue-500/50 transition-colors flex-shrink-0"
-            maxLength={2}
+                          className="w-12 h-12 text-center text-2xl bg-[#0d0d0d] border border-white/10 rounded-lg outline-none focus:border-indigo-500/50 transition-colors flex-shrink-0"            maxLength={2}
             disabled
           />
           <input
@@ -54,8 +53,7 @@ export function EditPromptModal({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Название папки"
-            className="flex-1 text-lg font-semibold px-3 py-2 bg-transparent text-white placeholder:text-gray-500 outline-none border-b border-transparent focus:border-blue-500/50 transition-colors"
-            disabled
+                          className="flex-1 text-lg font-semibold px-3 py-2 bg-transparent text-white placeholder:text-gray-500 outline-none border-b border-transparent focus:border-indigo-500/50 transition-colors"            disabled
           />
           <button
             onClick={onClose}
@@ -76,7 +74,7 @@ export function EditPromptModal({
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Опишите, какие файлы и заметки должны попадать в эту папку..."
-              className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-blue-500/50 transition-colors"
+              className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-indigo-500/50 transition-colors"
               rows={6}
             />
             <p className="text-xs text-gray-500 mt-2">
@@ -95,8 +93,7 @@ export function EditPromptModal({
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
-          >
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm"          >
             Сохранить
           </button>
         </div>

@@ -126,7 +126,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
   };
 
   return (
-    <div className="bg-[#121212] px-4 md:px-6 pb-6 pt-2">
+    <div className="bg-[#0a0a0a] px-4 md:px-6 pb-6 pt-2">
       <div className="max-w-3xl mx-auto">
         {/* Hidden file input */}
         <input
@@ -143,7 +143,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
             {attachments.map((attachment) => (
               <div
                 key={attachment.id}
-                className="flex items-center gap-2 bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 max-w-[80%] group"
+                className="flex items-center gap-2 bg-white/10 border border-white/10 rounded-xl px-3 py-1.5 max-w-[80%] group"
               >
                 <Paperclip size={14} className="text-gray-400 flex-shrink-0" />
                 <span className="text-sm text-gray-300 truncate">{attachment.name}</span>
@@ -161,10 +161,10 @@ export function InputConsole({ onSend }: InputConsoleProps) {
 
         {/* Input container with drag-and-drop */}
         <div
-          className={`flex items-end bg-[#2f2f2f] rounded-[24px] border transition-colors shadow-lg pl-3 pr-2 py-2 ${
+          className={`flex items-end bg-[#1a1a1a] rounded-2xl border transition-colors shadow-lg pl-3 pr-2 py-2 ${
             isDragging
-              ? "border-blue-500/50 bg-blue-500/5"
-              : "border-white/5 focus-within:border-white/10"
+              ? "border-indigo-500/50 bg-indigo-500/5"
+              : "border-white/10 focus-within:border-white/20"
           }`}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}

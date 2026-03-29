@@ -55,7 +55,7 @@ export function ChatMessages({ messages }: ChatMessagesProps) {
             <div className="max-w-[70%]">
               <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-3">
                 <p className="text-sm text-gray-200 mb-3 break-words whitespace-pre-wrap">{message.content}</p>
-                <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-blue-400 transition-all text-xs">
+                <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-indigo-400 transition-all text-xs">
                   <Undo2 size={14} />
                   <span>Отменить</span>
                 </button>

@@ -389,7 +389,7 @@ export default function Workspace() {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="h-screen w-screen bg-[#121212] text-white overflow-hidden">
+      <div className="h-screen w-screen bg-[#0a0a0a] text-white overflow-hidden">
         <PanelGroup direction="horizontal">
           {/* ── Sidebar ─────────────────────────────────────────────── */}
           <Panel 
@@ -413,7 +413,7 @@ export default function Workspace() {
             />
           </Panel>
 
-          <PanelResizeHandle className="w-[1px] bg-white/10 hover:bg-blue-500/50 transition-colors cursor-col-resize" />
+          <PanelResizeHandle className="w-[1px] bg-white/10 hover:bg-indigo-500/50 transition-colors cursor-col-resize" />
 
           {/* ── Main workspace ──────────────────────────────────────── */}
           <Panel minSize={50}>
@@ -462,7 +462,7 @@ export default function Workspace() {
                     {messages.length === 0 ? (
                       <div className="flex-1 flex flex-col items-center justify-center pb-20">
                         <div className="flex items-center gap-3 mb-6">
-                          <div className="w-8 h-8 flex items-center justify-center text-blue-400">
+                          <div className="w-8 h-8 flex items-center justify-center text-indigo-400">
                             <Sparkles size={24} />
                           </div>
                           <h2 className="text-2xl font-semibold text-white text-center">{currentTitle}</h2>

@@ -43,8 +43,7 @@ export function EditFileModal({
             onChange={(e) => setName(e.target.value.slice(0, 50))}
             placeholder="Название файла"
             maxLength={50}
-            className="flex-1 text-lg font-semibold px-3 py-2 bg-transparent text-white placeholder:text-gray-500 outline-none border-b border-transparent focus:border-blue-500/50 transition-colors"
-          />
+                          className="flex-1 text-lg font-semibold px-3 py-2 bg-transparent text-white placeholder:text-gray-500 outline-none border-b border-transparent focus:border-indigo-500/50 transition-colors"          />
           <span className="text-xs text-gray-500 flex-shrink-0">{name.length}/50</span>
           <button
             onClick={onClose}
@@ -65,7 +64,7 @@ export function EditFileModal({
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Опишите, как ИИ должен работать с этим файлом..."
-              className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-blue-500/50 transition-colors"
+              className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-indigo-500/50 transition-colors"
               rows={6}
             />
             <p className="text-xs text-gray-500 mt-2">
@@ -85,8 +84,7 @@ export function EditFileModal({
           <button
             onClick={handleSave}
             disabled={!name.trim()}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm"
-          >
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm"          >
             Сохранить
           </button>
         </div>

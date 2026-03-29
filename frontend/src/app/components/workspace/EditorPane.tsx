@@ -404,10 +404,9 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
                        prose-em:text-gray-300
                        prose-li:text-gray-300 prose-li:marker:text-gray-500
                        prose-ul:my-2 prose-ol:my-2
-                       prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline
-                       prose-code:text-blue-300 prose-code:bg-white/5 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
-                       prose-pre:bg-[#0a0a0a] prose-pre:border prose-pre:border-white/5
-                       prose-blockquote:border-blue-500/50 prose-blockquote:text-gray-400
+                                 prose-a:text-indigo-400 prose-a:no-underline hover:prose-a:underline
+                                 prose-code:text-indigo-300 prose-code:bg-white/5 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded                       prose-pre:bg-[#0a0a0a] prose-pre:border prose-pre:border-white/5
+                       prose-blockquote:border-indigo-500/50 prose-blockquote:text-gray-400
                        prose-hr:border-white/10
                        min-h-[calc(100vh-200px)]"
           >
@@ -425,7 +424,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
             placeholder="Начните вводить текст…"
             autoFocus
             spellCheck={false}
-            className="w-full bg-transparent text-gray-200 resize-none outline-none placeholder:text-gray-700 caret-blue-400"
+            className="w-full bg-transparent text-gray-200 resize-none outline-none placeholder:text-gray-700 caret-indigo-400"
             style={{
               fontFamily:
                 "'ui-monospace','SFMono-Regular','Menlo','Monaco','Consolas',monospace",

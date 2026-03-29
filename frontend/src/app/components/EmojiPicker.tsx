@@ -294,8 +294,7 @@ export function EmojiPicker({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Поиск эмодзи..."
-            className="w-full pl-8 pr-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder:text-gray-500 outline-none focus:border-blue-500/50 transition-colors"
-            autoFocus
+                          className="w-full pl-8 pr-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder:text-gray-500 outline-none focus:border-indigo-500/50 transition-colors"            autoFocus
           />
         </div>
       </div>
@@ -310,7 +309,7 @@ export function EmojiPicker({
               title={cat.name}
               className={`flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-base transition-colors ${
                 activeCategory === idx
-                  ? "bg-blue-600/40 text-blue-200"
+                  ? "bg-indigo-600/40 text-indigo-200"
                   : "hover:bg-white/10 text-gray-400"
               }`}
             >

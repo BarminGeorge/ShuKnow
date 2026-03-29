@@ -193,7 +193,7 @@ function CustomDragLayer() {
         {/* Photo Card Preview */}
         {isPhoto ? (
           <div
-            className="rounded-[20px] overflow-hidden relative cursor-pointer shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
+            className="rounded-2xl overflow-hidden relative cursor-pointer shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
             style={{ width: cardWidth, height: cardHeight, borderRadius: '20px', overflow: 'hidden' }}
           >
             <img
@@ -222,7 +222,7 @@ function CustomDragLayer() {
         ) : isFolder ? (
           /* Folder Card Preview */
           <div
-            className="rounded-[20px] overflow-hidden cursor-pointer bg-[#1e1e2e] border border-[rgba(99,102,241,0.2)] shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
+            className="rounded-2xl overflow-hidden cursor-pointer bg-[#1e1e2e] border border-[rgba(99,102,241,0.2)] shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
             style={{ width: cardWidth, height: cardHeight }}
           >
             <div className="h-full px-7 py-6 flex flex-col justify-between">
@@ -246,7 +246,7 @@ function CustomDragLayer() {
         ) : (
           /* File Card Preview */
           <div
-            className="rounded-[20px] overflow-hidden cursor-pointer bg-[#1e1e2e] border border-[rgba(99,102,241,0.2)] shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
+            className="rounded-2xl overflow-hidden cursor-pointer bg-[#1e1e2e] border border-[rgba(99,102,241,0.2)] shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
             style={{ width: cardWidth, height: cardHeight }}
           >
             <div className="h-full px-7 py-6 flex flex-col justify-between">
@@ -554,7 +554,7 @@ function DraggableGridItem({
       }
       
       if (dropIntent === "reorder") {
-        return "ring-1 ring-blue-500/30";
+        return "ring-1 ring-indigo-500/30";
       }
       
       return "";
@@ -572,7 +572,7 @@ function DraggableGridItem({
         ref={ref}
         data-grid-item-id={item.id}
         className={`
-          group relative h-[180px] rounded-[20px] overflow-hidden cursor-pointer
+          group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
           ${getItemAnimationClass()} ${getDropZoneStyles()}
           bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)]
           hover:from-[rgba(99,102,241,0.12)] hover:to-[rgba(99,102,241,0.06)]
@@ -615,7 +615,7 @@ function DraggableGridItem({
         
         {/* 嵌套意图指示器：显示一个半透明的覆盖层提示 */}
         {dropIntent === "nest" && (
-          <div className="absolute inset-0 bg-green-500/10 pointer-events-none rounded-[20px]" />
+          <div className="absolute inset-0 bg-green-500/10 pointer-events-none rounded-2xl" />
         )}
       </div>
     );
@@ -625,7 +625,7 @@ function DraggableGridItem({
     // 文件只支持重新排序意图
     const getFileDropStyles = () => {
       if (!isOver || !canDrop) return "";
-      if (dropIntent === "reorder") return "ring-1 ring-blue-500/30";
+      if (dropIntent === "reorder") return "ring-1 ring-indigo-500/30";
       return "";
     };
 
@@ -661,7 +661,7 @@ function DraggableGridItem({
           ref={ref}
           data-grid-item-id={item.id}
           className={`
-            group relative h-[180px] rounded-[20px] overflow-hidden cursor-pointer
+            group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
             ${getItemAnimationClass()} ${getFileDropStyles()}
             hover:scale-[1.02] hover:ring-1 hover:ring-white/10
           `}
@@ -694,8 +694,7 @@ function DraggableGridItem({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === "Escape") onEditingComplete();
                 }}
-                className="w-full text-[18px] text-white font-medium bg-black/50 px-2 py-1 rounded outline-none border border-blue-500"
-                autoFocus
+                                  className="w-full text-[18px] text-white font-medium bg-black/50 px-2 py-1 rounded outline-none border border-indigo-500"                autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
@@ -734,7 +733,7 @@ function DraggableGridItem({
         ref={ref}
         data-grid-item-id={item.id}
         className={`
-          group relative h-[180px] rounded-[20px] overflow-hidden cursor-pointer
+          group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
           ${getItemAnimationClass()} ${getFileDropStyles()}
           bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)]
           hover:from-[rgba(99,102,241,0.12)] hover:to-[rgba(99,102,241,0.06)]
@@ -780,7 +779,7 @@ function DraggableGridItem({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === "Escape") onEditingComplete();
                 }}
-                className="w-full text-[18px] text-white font-medium bg-black/30 px-2 py-1 rounded outline-none border border-blue-500"
+                className="w-full text-[18px] text-white font-medium bg-black/30 px-2 py-1 rounded outline-none border border-indigo-500"
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
@@ -1204,8 +1203,7 @@ export function FolderContentView({
     <div 
       ref={fileDropRef}
       className={`h-full flex flex-col bg-[#121212] transition-colors ${
-        isFileOver ? "bg-blue-500/5" : ""
-      }`}
+                  isFileOver ? "bg-indigo-500/5" : ""      }`}
     >
       {/* Header Section */}
       <div className="border-b border-white/10 px-8 py-6">
@@ -1260,7 +1258,7 @@ export function FolderContentView({
               onBlur={handleTitleBlur}
               onKeyDown={(e) => { if (e.key === "Enter") handleTitleBlur(); }}
               maxLength={50}
-              className="text-3xl font-semibold bg-transparent text-white border-b-2 border-blue-500 outline-none"
+              className="text-3xl font-semibold bg-transparent text-white border-b-2 border-indigo-500 outline-none"
               autoFocus
             />
           ) : (
@@ -1289,7 +1287,7 @@ export function FolderContentView({
             </button>
             <button
               onClick={handleCreateFile}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm"
               title="Создать файл"
             >
               <Plus size={16} />
@@ -1330,7 +1328,7 @@ export function FolderContentView({
             onChange={(e) => setAiPrompt(e.target.value)}
             onBlur={handlePromptBlur}
             placeholder="Инструкция для ИИ: что должно попадать в эту папку..."
-            className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/20 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-purple-500/50 transition-colors"
+            className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/20 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-indigo-500/50 transition-colors"
             rows={2}
           />
         </div>
@@ -1340,11 +1338,11 @@ export function FolderContentView({
       <div className="flex-1 overflow-y-auto px-8 py-6 relative">
         {/* Drop overlay when dragging files */}
         {isFileOver && gridItems.length > 0 && (
-          <div className="absolute inset-0 bg-blue-500/5 border-2 border-dashed border-blue-500/50 rounded-xl z-10 flex items-center justify-center pointer-events-none">
-            <div className="bg-[#1a1a1a] px-6 py-4 rounded-xl border border-blue-500/30">
+          <div className="absolute inset-0 bg-indigo-500/5 border-2 border-dashed border-indigo-500/50 rounded-xl z-10 flex items-center justify-center pointer-events-none">
+            <div className="bg-[#1a1a1a] px-6 py-4 rounded-xl border border-indigo-500/30">
               <div className="flex items-center gap-3">
-                <Upload size={24} className="text-blue-400" />
-                <span className="text-blue-300 text-lg">Отпустите файлы для загрузки</span>
+                <Upload size={24} className="text-indigo-400" />
+                <span className="text-indigo-300 text-lg">Отпустите файлы для загрузки</span>
               </div>
             </div>
           </div>
@@ -1392,13 +1390,13 @@ export function FolderContentView({
         {/* Empty State */}
         {gridItems.length === 0 && (
           <div className={`flex flex-col items-center justify-center h-full text-center ${
-            isFileOver ? "ring-2 ring-blue-500/50 ring-inset rounded-xl" : ""
+            isFileOver ? "ring-2 ring-indigo-500/50 ring-inset rounded-xl" : ""
           }`}>
             <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-4 transition-colors ${
-              isFileOver ? "bg-blue-500/10" : "bg-white/5"
+              isFileOver ? "bg-indigo-500/10" : "bg-white/5"
             }`}>
               {isFileOver ? (
-                <Upload size={40} className="text-blue-400" />
+                <Upload size={40} className="text-indigo-400" />
               ) : (
                 <span className="text-5xl">{emoji}</span>
               )}
@@ -1420,7 +1418,7 @@ export function FolderContentView({
                 </button>
                 <button
                   onClick={handleCreateFile}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm"
                 >
                   <Plus size={16} />
                   Создать первый файл
