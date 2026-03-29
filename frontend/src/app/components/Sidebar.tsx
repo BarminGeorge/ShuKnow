@@ -256,7 +256,7 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
           </button>
           <button
             onClick={() => { logout(); navigate("/"); }}
-            className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-gray-400 hover:text-red-400 transition-colors"
+            className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-indigo-500/10 text-gray-400 hover:text-indigo-400 transition-colors"
             title="Выйти"
           >
             <LogOut size={18} />
@@ -344,7 +344,7 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
         </button>
         <button
           onClick={() => { logout(); navigate("/"); }}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-red-500/10 text-gray-400 hover:text-red-400 transition-colors"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-indigo-500/10 text-gray-400 hover:text-indigo-400 transition-colors"
           title="Выйти"
         >
           <LogOut size={18} />

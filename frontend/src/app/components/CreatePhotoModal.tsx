@@ -99,7 +99,7 @@ export function CreatePhotoModal({
                       setPreviewUrl("");
                       if (fileInputRef.current) fileInputRef.current.value = "";
                     }}
-                    className="w-full px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm rounded transition-colors"
+                    className="w-full px-3 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-sm rounded transition-colors"
                   >
                     Удалить фото
                   </button>

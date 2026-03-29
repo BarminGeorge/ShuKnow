@@ -149,7 +149,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
                 <span className="text-sm text-gray-300 truncate">{attachment.name}</span>
                 <button
                   onClick={() => removeAttachment(attachment.id)}
-                  className="flex-shrink-0 p-0.5 rounded hover:bg-white/10 text-gray-400 hover:text-red-400 transition-colors"
+                  className="flex-shrink-0 p-0.5 rounded hover:bg-white/10 text-gray-400 hover:text-indigo-400 transition-colors"
                   title="Удалить"
                 >
                   <X size={14} />

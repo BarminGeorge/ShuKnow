@@ -46,7 +46,7 @@ export function FolderContextMenu({
             onDelete();
             onClose();
           }}
-          className="w-full px-4 py-2 text-left text-sm text-gray-200 hover:bg-red-500/20 hover:text-red-400 transition-colors flex items-center gap-3"
+          className="w-full px-4 py-2 text-left text-sm text-gray-200 hover:bg-indigo-500/20 hover:text-indigo-400 transition-colors flex items-center gap-3"
         >
           <Trash2 size={14} className="text-gray-400" />
           Удалить

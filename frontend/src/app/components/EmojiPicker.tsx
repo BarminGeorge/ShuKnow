@@ -278,7 +278,7 @@ export function EmojiPicker({
         {hasEmoji && (
           <button
             onClick={onRemove}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors mb-2"
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors mb-2"
           >
             <X size={13} />
             <span>Убрать иконку</span>
