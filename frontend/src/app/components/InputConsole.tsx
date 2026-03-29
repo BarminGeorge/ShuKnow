@@ -21,6 +21,8 @@ export function InputConsole({ onSend }: InputConsoleProps) {
       name: file.name,
       file,
       url: URL.createObjectURL(file),
+      size: file.size,
+      type: file.type,
     }));
     
     setAttachments((prev) => {

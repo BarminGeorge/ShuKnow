@@ -162,25 +162,65 @@ export default function Workspace() {
   }, [viewMode]);
 
   const handleSendMessage = (content: string, attachments?: Attachment[]) => {
-    const newMessage: Message = {
+    const userMessage: Message = {
       id: Date.now().toString(),
       type: "user",
       content,
       attachments,
+      timestamp: new Date(),
+      status: "sending",
     };
-    setMessages((prev) => [...prev, newMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     
-    // Fake AI response
+    // Simulate processing -> success/error
+    const agentMessageId = (Date.now() + 1).toString();
+    
+    // Show processing state
     setTimeout(() => {
       setMessages((prev) => [
         ...prev,
         {
-          id: (Date.now() + 1).toString(),
-          type: "system",
-          content: "✅ Ваш запрос обрабатывается...",
+          id: agentMessageId,
+          type: "agent",
+          content: "",
+          timestamp: new Date(),
+          status: "processing",
+          attachments,
         },
       ]);
-    }, 1000);
+    }, 500);
+    
+    // Simulate AI response (success or error randomly for demo)
+    setTimeout(() => {
+      setMessages((prev) => 
+        prev.map((msg) => {
+          if (msg.id === agentMessageId) {
+            // Demo: 80% success, 20% error
+            if (Math.random() > 0.2) {
+              return {
+                ...msg,
+                status: "success" as const,
+                timestamp: new Date(),
+                result: attachments?.map((a) => ({
+                  name: a.name,
+                  folder: "📁 Учёба / Матан",
+                  folderId: "demo-folder-id",
+                  action: "sorted" as const,
+                })) || [{ name: "заметка.txt", folder: "📁 Заметки", folderId: "notes-folder", action: "created" as const }],
+              };
+            } else {
+              return {
+                ...msg,
+                status: "error" as const,
+                timestamp: new Date(),
+                errorMessage: "Не удалось определить папку",
+              };
+            }
+          }
+          return msg;
+        })
+      );
+    }, 2000);
   };
 
   // Tab state (replaces floating windows)
@@ -473,7 +513,26 @@ export default function Workspace() {
                       </div>
                     ) : (
                       <>
-                        <ChatMessages messages={messages} />
+                        <ChatMessages 
+                          messages={messages} 
+                          onOpenFolder={(folderId) => {
+                            // TODO: Navigate to folder
+                            console.log("Open folder:", folderId);
+                          }}
+                          onUndo={(messageId) => {
+                            // TODO: Implement undo
+                            console.log("Undo:", messageId);
+                            setMessages((prev) => prev.filter((m) => m.id !== messageId));
+                          }}
+                          onRetry={(messageId) => {
+                            // TODO: Implement retry
+                            console.log("Retry:", messageId);
+                          }}
+                          onSelectFolder={(messageId) => {
+                            // TODO: Show folder picker
+                            console.log("Select folder for:", messageId);
+                          }}
+                        />
                         <InputConsole onSend={handleSendMessage} />
                       </>
                     )}
