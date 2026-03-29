@@ -159,7 +159,11 @@ function CustomDragLayer() {
 
   const isFolder = item.origType === "folder";
   const isPhoto = item.fileType === "photo" && item.imageUrl;
-  
+
+  // Use captured dimensions or fall back to defaults
+  const cardWidth = item.sourceWidth || 280;
+  const cardHeight = item.sourceHeight || 180;
+
   // Get display name without extension
   const displayName = item.name ? getFileNameWithoutExtension(item.name) : "Перемещение...";
   const fileExtension = getFileExtension(item.name || "");
@@ -179,8 +183,8 @@ function CustomDragLayer() {
       <div
         style={{
           position: "absolute",
-          left: currentOffset.x - 140,
-          top: currentOffset.y - 90,
+          left: currentOffset.x - cardWidth / 2,
+          top: currentOffset.y - cardHeight / 2,
           transform: "rotate(-4deg) scale(1.03)",
           opacity: 1,
           cursor: "grabbing",
@@ -189,8 +193,8 @@ function CustomDragLayer() {
         {/* Photo Card Preview */}
         {isPhoto ? (
           <div
-            className="w-[280px] h-[180px] rounded-[20px] overflow-hidden relative cursor-pointer shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
-            style={{ borderRadius: '20px', overflow: 'hidden' }}
+            className="rounded-[20px] overflow-hidden relative cursor-pointer shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
+            style={{ width: cardWidth, height: cardHeight, borderRadius: '20px', overflow: 'hidden' }}
           >
             <img
               src={item.imageUrl}
@@ -217,12 +221,10 @@ function CustomDragLayer() {
           </div>
         ) : isFolder ? (
           /* Folder Card Preview */
-          <div className={`
-            w-[280px] h-[180px] rounded-[20px] overflow-hidden cursor-pointer
-            bg-[#1e1e2e]
-            border border-[rgba(99,102,241,0.2)]
-            shadow-[0_25px_60px_rgba(0,0,0,0.5)]
-          `}>
+          <div
+            className="rounded-[20px] overflow-hidden cursor-pointer bg-[#1e1e2e] border border-[rgba(99,102,241,0.2)] shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
+            style={{ width: cardWidth, height: cardHeight }}
+          >
             <div className="h-full px-7 py-6 flex flex-col justify-between">
               {/* Top: Emoji */}
               <div className="flex items-start justify-between">
@@ -243,12 +245,10 @@ function CustomDragLayer() {
           </div>
         ) : (
           /* File Card Preview */
-          <div className={`
-            w-[280px] h-[180px] rounded-[20px] overflow-hidden cursor-pointer
-            bg-[#1e1e2e]
-            border border-[rgba(99,102,241,0.2)]
-            shadow-[0_25px_60px_rgba(0,0,0,0.5)]
-          `}>
+          <div
+            className="rounded-[20px] overflow-hidden cursor-pointer bg-[#1e1e2e] border border-[rgba(99,102,241,0.2)] shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
+            style={{ width: cardWidth, height: cardHeight }}
+          >
             <div className="h-full px-7 py-6 flex flex-col justify-between">
               {/* Top: Type badge */}
               <div className="flex items-start justify-between">
@@ -349,17 +349,22 @@ function DraggableGridItem({
 
   const [{ isDragging }, drag, dragPreview] = useDrag({
     type: GRID_ITEM_TYPE,
-    item: () => ({
-      index,
-      id: item.id,
-      origType: item.type,
-      name: itemName,
-      imageUrl,
-      fileType,
-      emoji,
-      relativeDate,
-      metaText,
-    }),
+    item: () => {
+      const rect = ref.current?.getBoundingClientRect();
+      return {
+        index,
+        id: item.id,
+        origType: item.type,
+        name: itemName,
+        imageUrl,
+        fileType,
+        emoji,
+        relativeDate,
+        metaText,
+        sourceWidth: rect?.width ?? 280,
+        sourceHeight: rect?.height ?? 180,
+      };
+    },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
