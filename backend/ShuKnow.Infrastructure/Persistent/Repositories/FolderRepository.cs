@@ -1,5 +1,6 @@
 using Ardalis.Result;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Repositories;
 
@@ -30,12 +31,18 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
         var folders = await context.Folders
             .AsNoTracking()
             .Where(folder => folder.UserId == userId)
-            .OrderBy(folder => folder.ParentFolderId)
-            .ThenBy(folder => folder.SortOrder)
+            .OrderBy(folder => folder.SortOrder)
             .ThenBy(folder => folder.Name)
             .ToListAsync();
 
-        return Result.Success<IReadOnlyList<Folder>>(folders);
+        var childrenByParentId = folders
+            .ToLookup(folder => folder.ParentFolderId);
+
+        var orderedFolders = new List<Folder>(folders.Count);
+
+        AppendSubtree(null, childrenByParentId, orderedFolders);
+
+        return Result.Success<IReadOnlyList<Folder>>(orderedFolders);
     }
 
     public async Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid parentId, Guid userId)
@@ -77,21 +84,18 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
     public async Task<Result<IReadOnlyList<Guid>>> GetAncestorIdsAsync(Guid folderId)
     {
         var ancestorIds = new List<Guid>();
-        var currentParentId = await context.Folders
+        var folderLinks = await context.Folders
             .AsNoTracking()
-            .Where(folder => folder.Id == folderId)
-            .Select(folder => folder.ParentFolderId)
-            .SingleOrDefaultAsync();
+            .Select(folder => new { folder.Id, folder.ParentFolderId })
+            .ToDictionaryAsync(folder => folder.Id, folder => folder.ParentFolderId);
+
+        if (!folderLinks.TryGetValue(folderId, out var currentParentId))
+            return Result.Success<IReadOnlyList<Guid>>(ancestorIds);
 
         while (currentParentId.HasValue)
         {
             ancestorIds.Add(currentParentId.Value);
-
-            currentParentId = await context.Folders
-                .AsNoTracking()
-                .Where(folder => folder.Id == currentParentId.Value)
-                .Select(folder => folder.ParentFolderId)
-                .SingleOrDefaultAsync();
+            currentParentId = folderLinks.GetValueOrDefault(currentParentId.Value);
         }
 
         return Result.Success<IReadOnlyList<Guid>>(ancestorIds);
@@ -132,57 +136,62 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
         return Task.FromResult(Result.Success());
     }
 
-    public Task<Result> DeleteAsync(Guid folderId)
+    public async Task<Result> DeleteAsync(Guid folderId)
     {
-        var trackedFolder = context.ChangeTracker
-            .Entries<Folder>()
-            .SingleOrDefault(entry => entry.Entity.Id == folderId);
+        var trackedFolder = GetTrackedFolder(folderId);
 
         if (trackedFolder is not null)
         {
             trackedFolder.State = EntityState.Deleted;
-            return Task.FromResult(Result.Success());
+            return Result.Success();
         }
 
-        context.Folders.Remove(new Folder(folderId, Guid.Empty, string.Empty, string.Empty));
-        return Task.FromResult(Result.Success());
+        var folder = await context.Folders
+            .FirstOrDefaultAsync(folder => folder.Id == folderId);
+
+        if (folder is null)
+            return Result.Success();
+
+        context.Folders.Remove(folder);
+        return Result.Success();
     }
 
     public async Task<Result> DeleteSubtreeAsync(Guid folderId)
     {
-        var subtreeIds = new List<Guid> { folderId };
-        var currentLevel = new List<Guid> { folderId };
+        var folderLinks = await context.Folders
+            .AsNoTracking()
+            .Select(folder => new { folder.Id, folder.ParentFolderId })
+            .ToListAsync();
 
-        while (currentLevel.Count > 0)
+        if (folderLinks.All(folder => folder.Id != folderId))
+            return Result.Success();
+
+        var childIdsByParentId = folderLinks
+            .Where(folder => folder.ParentFolderId.HasValue)
+            .GroupBy(folder => folder.ParentFolderId!.Value)
+            .ToDictionary(group => group.Key, group => group.Select(folder => folder.Id).ToList());
+
+        var subtreeIds = new List<Guid>();
+        var pendingIds = new Queue<Guid>();
+        pendingIds.Enqueue(folderId);
+
+        while (pendingIds.Count > 0)
         {
-            var childIds = await context.Folders
-                .AsNoTracking()
-                .Where(folder => folder.ParentFolderId.HasValue && currentLevel.Contains(folder.ParentFolderId.Value))
-                .Select(folder => folder.Id)
-                .ToListAsync();
+            var currentId = pendingIds.Dequeue();
+            subtreeIds.Add(currentId);
 
-            if (childIds.Count == 0)
-                break;
-
-            subtreeIds.AddRange(childIds);
-            currentLevel = childIds;
-        }
-
-        var trackedFolders = context.ChangeTracker
-            .Entries<Folder>()
-            .Where(entry => subtreeIds.Contains(entry.Entity.Id))
-            .ToDictionary(entry => entry.Entity.Id);
-
-        foreach (var subtreeId in subtreeIds)
-        {
-            if (trackedFolders.TryGetValue(subtreeId, out var trackedFolder))
-            {
-                trackedFolder.State = EntityState.Deleted;
+            if (!childIdsByParentId.TryGetValue(currentId, out var childIds))
                 continue;
-            }
 
-            context.Folders.Remove(new Folder(subtreeId, Guid.Empty, string.Empty, string.Empty));
+            foreach (var childId in childIds)
+                pendingIds.Enqueue(childId);
         }
+
+        var folders = await context.Folders
+            .Where(folder => subtreeIds.Contains(folder.Id))
+            .ToListAsync();
+
+        context.Folders.RemoveRange(folders);
 
         return Result.Success();
     }
@@ -194,5 +203,24 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
             .CountAsync(folder => folder.UserId == userId);
 
         return Result.Success(count);
+    }
+
+    private EntityEntry<Folder>? GetTrackedFolder(Guid folderId)
+    {
+        return context.ChangeTracker
+            .Entries<Folder>()
+            .SingleOrDefault(entry => entry.Entity.Id == folderId);
+    }
+
+    private static void AppendSubtree(
+        Guid? parentId,
+        ILookup<Guid?, Folder> childrenByParentId,
+        ICollection<Folder> orderedFolders)
+    {
+        foreach (var child in childrenByParentId[parentId])
+        {
+            orderedFolders.Add(child);
+            AppendSubtree(child.Id, childrenByParentId, orderedFolders);
+        }
     }
 }

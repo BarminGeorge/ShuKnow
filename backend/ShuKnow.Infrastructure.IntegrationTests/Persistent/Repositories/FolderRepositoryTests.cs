@@ -43,7 +43,7 @@ public class FolderRepositoryTests : BaseRepositoryTests
     }
 
     [Test]
-    public async Task TreeQueries_ShouldReturnOnlyUserFoldersInExpectedOrder()
+    public async Task GetTreeAsync_ShouldReturnFoldersInParentBeforeChildrenOrder()
     {
         var user = await SeedUserAsync();
         var otherUser = await SeedUserAsync();
@@ -54,24 +54,59 @@ public class FolderRepositoryTests : BaseRepositoryTests
         await SeedFolderAsync(otherUser.Id, "foreign");
 
         var treeResult = await sut.GetTreeAsync(user.Id);
-        var rootsResult = await sut.GetRootFoldersAsync(user.Id);
-        var childrenResult = await sut.GetChildrenAsync(rootB.Id, user.Id);
-        var siblingsResult = await sut.GetSiblingsAsync(rootB.ParentFolderId, user.Id);
 
         treeResult.Status.Should().Be(ResultStatus.Ok);
         treeResult.Value.Select(folder => folder.Id).Should().BeEquivalentTo(
-            [rootB.Id, rootA.Id, childB.Id, childA.Id],
+            [rootB.Id, childB.Id, childA.Id, rootA.Id],
             options => options.WithStrictOrdering());
+    }
 
-        rootsResult.Value.Select(folder => folder.Id).Should().BeEquivalentTo(
+    [Test]
+    public async Task GetRootFoldersAsync_ShouldReturnOnlyRootFoldersForUser()
+    {
+        var user = await SeedUserAsync();
+        var otherUser = await SeedUserAsync();
+        var rootA = await SeedFolderAsync(user.Id, "B-root", sortOrder: 2);
+        var rootB = await SeedFolderAsync(user.Id, "A-root", sortOrder: 1);
+        await SeedFolderAsync(user.Id, "child", parentFolderId: rootB.Id, sortOrder: 1);
+        await SeedFolderAsync(otherUser.Id, "foreign");
+
+        var result = await sut.GetRootFoldersAsync(user.Id);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Select(folder => folder.Id).Should().BeEquivalentTo(
             [rootB.Id, rootA.Id],
             options => options.WithStrictOrdering());
+    }
 
-        childrenResult.Value.Select(folder => folder.Id).Should().BeEquivalentTo(
+    [Test]
+    public async Task GetChildrenAsync_ShouldReturnOnlyDirectChildrenForParent()
+    {
+        var user = await SeedUserAsync();
+        var root = await SeedFolderAsync(user.Id, "root");
+        var childA = await SeedFolderAsync(user.Id, "child-2", parentFolderId: root.Id, sortOrder: 2);
+        var childB = await SeedFolderAsync(user.Id, "child-1", parentFolderId: root.Id, sortOrder: 1);
+        await SeedFolderAsync(user.Id, "grand-child", parentFolderId: childA.Id);
+
+        var result = await sut.GetChildrenAsync(root.Id, user.Id);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Select(folder => folder.Id).Should().BeEquivalentTo(
             [childB.Id, childA.Id],
             options => options.WithStrictOrdering());
+    }
 
-        siblingsResult.Value.Select(folder => folder.Id).Should().BeEquivalentTo(
+    [Test]
+    public async Task GetSiblingsAsync_ShouldReturnFoldersWithSameParent()
+    {
+        var user = await SeedUserAsync();
+        var rootA = await SeedFolderAsync(user.Id, "B-root", sortOrder: 2);
+        var rootB = await SeedFolderAsync(user.Id, "A-root", sortOrder: 1);
+
+        var result = await sut.GetSiblingsAsync(null, user.Id);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Select(folder => folder.Id).Should().BeEquivalentTo(
             [rootB.Id, rootA.Id],
             options => options.WithStrictOrdering());
     }
@@ -100,6 +135,8 @@ public class FolderRepositoryTests : BaseRepositoryTests
         var existsResult = await sut.ExistsByNameInParentAsync("Invoices", root.Id, user.Id);
         var excludedResult = await sut.ExistsByNameInParentAsync("Invoices", root.Id, user.Id, folder.Id);
 
+        existsResult.Status.Should().Be(ResultStatus.Ok);
+        excludedResult.Status.Should().Be(ResultStatus.Ok);
         existsResult.Value.Should().BeTrue();
         excludedResult.Value.Should().BeFalse();
     }
@@ -150,6 +187,30 @@ public class FolderRepositoryTests : BaseRepositoryTests
 
         await using var assertContext = CreateDbContext();
         (await assertContext.Folders.CountAsync()).Should().Be(0);
+    }
+
+    [Test]
+    public async Task DeleteAsync_WhenFolderDoesNotExist_ShouldBeNoOp()
+    {
+        var result = await sut.DeleteAsync(Guid.NewGuid());
+        await Context.SaveChangesAsync();
+
+        result.Status.Should().Be(ResultStatus.Ok);
+    }
+
+    [Test]
+    public async Task DeleteSubtreeAsync_WhenFolderDoesNotExist_ShouldBeNoOp()
+    {
+        var user = await SeedUserAsync();
+        await SeedFolderAsync(user.Id, "root");
+
+        var result = await sut.DeleteSubtreeAsync(Guid.NewGuid());
+        await Context.SaveChangesAsync();
+
+        result.Status.Should().Be(ResultStatus.Ok);
+
+        await using var assertContext = CreateDbContext();
+        (await assertContext.Folders.CountAsync()).Should().Be(1);
     }
 
     private async Task<User> SeedUserAsync(Guid? userId = null)
