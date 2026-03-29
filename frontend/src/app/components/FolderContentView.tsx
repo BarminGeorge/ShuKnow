@@ -51,7 +51,7 @@ function getFileExtension(filename: string): string {
   return ext.length > 4 ? ext.slice(0, 4) : ext;
 }
 
-// Helper: Format relative date
+// Helper: Format relative date (short format, no prefix)
 function formatRelativeDate(dateString: string | undefined): string | null {
   if (!dateString) return null;
   
@@ -60,13 +60,13 @@ function formatRelativeDate(dateString: string | undefined): string | null {
   const diffTime = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   
-  if (diffDays === 0) return "Изменён сегодня";
-  if (diffDays === 1) return "Изменён вчера";
-  if (diffDays < 7) return `Изменён ${diffDays} ${diffDays === 1 ? "день" : diffDays < 5 ? "дня" : "дней"} назад`;
+  if (diffDays === 0) return "сегодня";
+  if (diffDays === 1) return "вчера";
+  if (diffDays < 7) return `${diffDays} ${diffDays === 1 ? "день" : diffDays < 5 ? "дня" : "дней"} назад`;
   
   // Format as date
   const months = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
-  return `Изменён ${date.getDate()} ${months[date.getMonth()]}`;
+  return `${date.getDate()} ${months[date.getMonth()]}`;
 }
 
 // Helper: Pluralize items count
@@ -74,6 +74,30 @@ function pluralizeItems(count: number): string {
   if (count === 1) return "1 элемент";
   if (count < 5) return `${count} элемента`;
   return `${count} элементов`;
+}
+
+// Helper: Russian pluralization for nouns
+function pluralizeRussian(count: number, one: string, few: string, many: string): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  
+  if (mod100 >= 11 && mod100 <= 19) return `${count} ${many}`;
+  if (mod10 === 1) return `${count} ${one}`;
+  if (mod10 >= 2 && mod10 <= 4) return `${count} ${few}`;
+  return `${count} ${many}`;
+}
+
+// Helper: Format folder stats (folders, files, photos)
+function formatFolderStats(subfolderCount: number, fileCount: number, photoCount: number): string {
+  const total = subfolderCount + fileCount + photoCount;
+  if (total === 0) return "Пусто";
+  
+  const parts: string[] = [];
+  if (subfolderCount > 0) parts.push(pluralizeRussian(subfolderCount, "папка", "папки", "папок"));
+  if (fileCount > 0) parts.push(pluralizeRussian(fileCount, "файл", "файла", "файлов"));
+  if (photoCount > 0) parts.push(`${photoCount} фото`);
+  
+  return parts.join(" · ");
 }
 
 // 计算放置意图的辅助函数
@@ -207,6 +231,8 @@ interface DraggableGridItemProps {
   onEditingComplete: () => void;
   // 新增：父文件夹的子文件夹ID列表，用于验证
   currentFolderSubfolderIds?: string[];
+  // All files for counting folder stats
+  allFiles: FileItem[];
 }
 
 function DraggableGridItem({
@@ -223,6 +249,7 @@ function DraggableGridItem({
   onFileNameChange,
   onEditingComplete,
   currentFolderSubfolderIds = [],
+  allFiles,
 }: DraggableGridItemProps) {
   const ref = useRef<HTMLDivElement>(null);
   // "刚刚放下"状态 — 用于 landing 动画
@@ -421,8 +448,10 @@ function DraggableGridItem({
     
     // Count all items in folder for meta info
     const subfolderCount = folder.subfolders?.length || 0;
-    const totalItems = subfolderCount; // Could also count files if we had that data
-    const metaText = totalItems > 0 ? pluralizeItems(totalItems) : "Пусто";
+    const folderFiles = allFiles.filter((f) => f.folderId === folder.id);
+    const fileCount = folderFiles.filter(f => f.type !== "photo").length;
+    const photoCount = folderFiles.filter(f => f.type === "photo").length;
+    const metaText = formatFolderStats(subfolderCount, fileCount, photoCount);
 
     // 根据 dropIntent 决定视觉样式
     const getDropZoneStyles = () => {
@@ -486,7 +515,7 @@ function DraggableGridItem({
             <p className="text-[18px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis">
               {folder.name}
             </p>
-            <p className={`text-[13px] mt-1 ${totalItems > 0 ? "text-[rgba(255,255,255,0.35)]" : "text-[rgba(255,255,255,0.25)]"}`}>
+            <p className="text-[13px] text-[rgba(255,255,255,0.60)] mt-1 font-normal">
               {metaText}
             </p>
           </div>
@@ -558,12 +587,12 @@ function DraggableGridItem({
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
           
           {/* Format badge - top left */}
-          <span className="absolute top-3 left-3 text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-white/85">
+          <span className="absolute top-6 left-7 text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-white/85">
             {fileExtension}
           </span>
           
           {/* Content at bottom */}
-          <div className="absolute bottom-0 left-0 right-0 px-5 py-4 min-w-0">
+          <div className="absolute bottom-0 left-0 right-0 px-7 py-6 min-w-0">
             {editingFileId === file.id ? (
               <input
                 type="text"
@@ -582,7 +611,11 @@ function DraggableGridItem({
                 <p className="text-[18px] font-medium text-white whitespace-nowrap overflow-hidden text-ellipsis">
                   {displayName}
                 </p>
-                {/* File size could be shown here if available */}
+                {relativeDate && (
+                  <p className="text-[13px] text-white/60 mt-1 font-normal">
+                    {relativeDate}
+                  </p>
+                )}
               </>
             )}
           </div>
@@ -590,7 +623,7 @@ function DraggableGridItem({
           {/* Context menu button - top right, only visible on hover */}
           <button
             aria-label="More options"
-            className="absolute top-3 right-3 w-6 h-6 rounded-md bg-black/50 backdrop-blur-sm hover:bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+            className="absolute top-6 right-7 w-6 h-6 rounded-md bg-black/50 backdrop-blur-sm hover:bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
@@ -665,7 +698,7 @@ function DraggableGridItem({
                   {displayName}
                 </p>
                 {relativeDate && (
-                  <p className="text-[13px] text-[rgba(255,255,255,0.30)] mt-1 font-normal">
+                  <p className="text-[13px] text-[rgba(255,255,255,0.60)] mt-1 font-normal">
                     {relativeDate}
                   </p>
                 )}
@@ -1221,6 +1254,7 @@ export function FolderContentView({
               editingFileId={editingFileId}
               onFileNameChange={handleFileNameChange}
               onEditingComplete={() => setEditingFileId(null)}
+              allFiles={files}
             />
           ))}
         </div>
