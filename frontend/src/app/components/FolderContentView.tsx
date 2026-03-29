@@ -169,7 +169,7 @@ function CustomDragLayer() {
       style={{
         position: "fixed",
         pointerEvents: "none",
-        zIndex: 9999,
+        zIndex: 10000,
         left: 0,
         top: 0,
         width: "100%",
@@ -190,7 +190,7 @@ function CustomDragLayer() {
         {isPhoto ? (
           <div className={`
             w-[280px] h-[180px] rounded-[20px] overflow-hidden cursor-pointer
-            shadow-[0_20px_40px_rgba(0,0,0,0.35)]
+            shadow-[0_25px_60px_rgba(0,0,0,0.5)]
           `}>
             <img
               src={item.imageUrl}
@@ -218,9 +218,9 @@ function CustomDragLayer() {
           /* Folder Card Preview */
           <div className={`
             w-[280px] h-[180px] rounded-[20px] overflow-hidden cursor-pointer
-            bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)]
-            border border-transparent
-            shadow-[0_20px_40px_rgba(0,0,0,0.35)]
+            bg-[#1e1e2e]
+            border border-[rgba(99,102,241,0.2)]
+            shadow-[0_25px_60px_rgba(0,0,0,0.5)]
           `}>
             <div className="h-full px-7 py-6 flex flex-col justify-between">
               {/* Top: Emoji */}
@@ -244,9 +244,9 @@ function CustomDragLayer() {
           /* File Card Preview */
           <div className={`
             w-[280px] h-[180px] rounded-[20px] overflow-hidden cursor-pointer
-            bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)]
-            border border-transparent
-            shadow-[0_20px_40px_rgba(0,0,0,0.35)]
+            bg-[#1e1e2e]
+            border border-[rgba(99,102,241,0.2)]
+            shadow-[0_25px_60px_rgba(0,0,0,0.5)]
           `}>
             <div className="h-full px-7 py-6 flex flex-col justify-between">
               {/* Top: Type badge */}
