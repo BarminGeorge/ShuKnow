@@ -61,6 +61,7 @@ public class BaseRepositoryTests
     {
         await using var resetContext = CreateDbContext();
         
+        resetContext.RemoveRange(resetContext.Folders);
         resetContext.RemoveRange(resetContext.Users);
         resetContext.RemoveRange(resetContext.IdentityUsers);
         resetContext.RemoveRange(resetContext.ChatSessions);
