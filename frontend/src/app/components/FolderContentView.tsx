@@ -187,7 +187,7 @@ function CustomDragLayer() {
           top: currentOffset.y - cardHeight / 2,
           transform: "rotate(-4deg) scale(1.03)",
           opacity: 1,
-          cursor: "grabbing",
+          pointerEvents: "none",
         }}
       >
         {/* Photo Card Preview */}
@@ -374,7 +374,7 @@ function DraggableGridItem({
       setDropIntent(null);
       lastIntentRef.current = null;
       onDragEnd();
-      
+
       // 动画结束后清除状态
       setTimeout(() => setJustDropped(false), 400);
     },
@@ -384,6 +384,14 @@ function DraggableGridItem({
   useEffect(() => {
     dragPreview(getEmptyImage(), { captureDraggingState: true });
   }, [dragPreview]);
+
+  // Ensure pointer events are restored after drag ends
+  useEffect(() => {
+    if (!isDragging) {
+      // Force cleanup any lingering drag state
+      document.body.style.cursor = '';
+    }
+  }, [isDragging]);
 
   // 辅助函数：检查 candidateId 是否是 ancestorFolder 的后代
   const isDescendantOf = (ancestorFolder: Folder, candidateId: string): boolean => {
@@ -831,6 +839,19 @@ export function FolderContentView({
   useEffect(() => {
     updateRef.current = onUpdateFolder;
   }, [onUpdateFolder]);
+
+  // Global dragend cleanup to ensure pointer events are restored
+  useEffect(() => {
+    const handleDragEnd = () => {
+      // Ensure cursor is restored after drag
+      document.body.style.cursor = '';
+      // Remove any lingering drag-related styles
+      document.body.classList.remove('dragging');
+    };
+
+    document.addEventListener('dragend', handleDragEnd);
+    return () => document.removeEventListener('dragend', handleDragEnd);
+  }, []);
 
   // Silently update order ref on grid changes
   useEffect(() => {
