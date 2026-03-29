@@ -60,12 +60,15 @@ public class BaseRepositoryTests
     private async Task ResetDatabaseAsync()
     {
         await using var resetContext = CreateDbContext();
-        
-        resetContext.RemoveRange(resetContext.Folders);
-        resetContext.RemoveRange(resetContext.Users);
-        resetContext.RemoveRange(resetContext.IdentityUsers);
-        resetContext.RemoveRange(resetContext.ChatSessions);
-        resetContext.RemoveRange(resetContext.UserAiSettings);
-        await resetContext.SaveChangesAsync();
+
+        await resetContext.Database.ExecuteSqlRawAsync("""
+            TRUNCATE TABLE
+                folders,
+                identity_users,
+                chat_sessions,
+                user_ai_settings,
+                users
+            CASCADE;
+            """);
     }
 }
