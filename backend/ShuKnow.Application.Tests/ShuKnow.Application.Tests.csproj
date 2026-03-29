@@ -28,13 +28,4 @@
       <ProjectReference Include="..\ShuKnow.Domain\ShuKnow.Domain.csproj" />
     </ItemGroup>
 
-<!--    <ItemGroup>-->
-<!--      <Compile Include="..\ShuKnow.Application\Extensions\ResultExtensions.cs" Link="Application\Extensions\ResultExtensions.cs" />-->
-<!--      <Compile Include="..\ShuKnow.Application\Interfaces\IBlobStorageService.cs" Link="Application\Interfaces\IBlobStorageService.cs" />-->
-<!--      <Compile Include="..\ShuKnow.Application\Interfaces\ICurrentUserService.cs" Link="Application\Interfaces\ICurrentUserService.cs" />-->
-<!--      <Compile Include="..\ShuKnow.Application\Interfaces\IFileService.cs" Link="Application\Interfaces\IFileService.cs" />-->
-<!--      <Compile Include="..\ShuKnow.Application\Interfaces\IUnitOfWork.cs" Link="Application\Interfaces\IUnitOfWork.cs" />-->
-<!--      <Compile Include="..\ShuKnow.Application\Services\FileService.cs" Link="Application\Services\FileService.cs" />-->
-<!--    </ItemGroup>-->
-
 </Project>
