@@ -86,15 +86,11 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     setIsEditing(!isEditing);
   };
 
-  // ── Image viewer with zoom and pan (Telegram-style) ─────────────────────────────────────────────
+  // ── Image viewer with zoom (no pan) ───────────────────────────────────────────────────────────
   // Refs as source of truth for real-time input (avoids stale closures)
   const scaleRef = useRef(1);
   const posRef = useRef({ x: 0, y: 0 });
   const animatingRef = useRef(false);
-  const draggingRef = useRef(false);
-  const lastPointerPos = useRef({ x: 0, y: 0 });
-  const dragStartPos = useRef({ x: 0, y: 0 });
-  const isDragConfirmed = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
@@ -117,44 +113,8 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     scaleRef.current = 1;
     posRef.current = { x: 0, y: 0 };
     animatingRef.current = false;
-    draggingRef.current = false;
-    isDragConfirmed.current = false;
     triggerRender();
   }, [file.id, triggerRender]);
-
-  // Calculate bounds for clamping (used only for drag gravity)
-  const getBounds = useCallback((): { minX: number; maxX: number; minY: number; maxY: number } | null => {
-    const container = containerRef.current;
-    const image = imageRef.current;
-    if (!container || !image) return null;
-
-    const containerRect = container.getBoundingClientRect();
-    const imageRect = image.getBoundingClientRect();
-
-    // How much the scaled image extends beyond container center
-    const overflowX = Math.max(0, (imageRect.width - containerRect.width) / 2);
-    const overflowY = Math.max(0, (imageRect.height - containerRect.height) / 2);
-
-    return {
-      minX: -overflowX,
-      maxX: overflowX,
-      minY: -overflowY,
-      maxY: overflowY,
-    };
-  }, []);
-
-  // Clamp position for gravity snap (only called on pointer up)
-  const clampPosition = useCallback((x: number, y: number, scale: number): { x: number; y: number } => {
-    if (scale <= 1) return { x: 0, y: 0 };
-
-    const bounds = getBounds();
-    if (!bounds) return { x, y };
-
-    return {
-      x: Math.max(bounds.minX, Math.min(bounds.maxX, x)),
-      y: Math.max(bounds.minY, Math.min(bounds.maxY, y)),
-    };
-  }, [getBounds]);
 
   // WHEEL ZOOM - Telegram style: linear, no clamping
   const onWheel = useCallback(
@@ -220,150 +180,83 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     [enableAnimation, triggerRender]
   );
 
-  // PAN - using pointer events for better touch support
-  // onPointerDown is attached to the IMAGE element
-  const onPointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      if (scaleRef.current <= 1) return;
-      // Don't prevent default - it kills double-click events
-      draggingRef.current = true;
-      isDragConfirmed.current = false;
-      dragStartPos.current = { x: e.clientX, y: e.clientY };
-      lastPointerPos.current = { x: e.clientX, y: e.clientY };
-      triggerRender(); // Immediately update UI to disable transitions
-    },
-    [triggerRender]
-  );
+  // DOUBLE CLICK - toggle between 1x (fit) and fill-container
+  const onDoubleClick = useCallback(() => {
+    const image = imageRef.current;
+    const container = containerRef.current;
+    if (!image || !container) return;
 
-  // onPointerMove and onPointerUp are attached to the CONTAINER
-  // so dragging continues even if cursor leaves the image bounds
-  const onPointerMove = useCallback(
-    (e: React.PointerEvent) => {
-      if (!draggingRef.current || scaleRef.current <= 1) return;
+    const currentScale = scaleRef.current;
 
-      // Check drag threshold before confirming drag
-      if (!isDragConfirmed.current) {
-        const dx = e.clientX - dragStartPos.current.x;
-        const dy = e.clientY - dragStartPos.current.y;
-        if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return; // below threshold
-        isDragConfirmed.current = true;
-      }
-
-      const dx = e.clientX - lastPointerPos.current.x;
-      const dy = e.clientY - lastPointerPos.current.y;
-
-      lastPointerPos.current = { x: e.clientX, y: e.clientY };
-
-      // Update position directly - no clamping during drag for smooth feel
-      posRef.current = {
-        x: posRef.current.x + dx,
-        y: posRef.current.y + dy,
-      };
-      triggerRender();
-    },
-    [triggerRender]
-  );
-
-  const onPointerUp = useCallback(() => {
-    if (!draggingRef.current) return;
-    draggingRef.current = false;
-    triggerRender(); // Update cursor style
-
-    // Skip gravity snap if it was just a click (not a confirmed drag)
-    if (!isDragConfirmed.current) return;
-
-    // Gravity snap: if out of bounds, animate back
-    const scale = scaleRef.current;
-    if (scale > 1) {
-      const currentPos = posRef.current;
-      const clamped = clampPosition(currentPos.x, currentPos.y, scale);
-
-      // Only animate if position changed
-      if (clamped.x !== currentPos.x || clamped.y !== currentPos.y) {
-        enableAnimation();
-        posRef.current = clamped;
-        triggerRender();
-      }
-    }
-  }, [clampPosition, enableAnimation, triggerRender]);
-
-  // DOUBLE CLICK - toggle between 1x and 2x with animation
-  const onDoubleClick = useCallback(
-    (e: React.MouseEvent) => {
-      const image = imageRef.current;
-      const container = containerRef.current;
-      if (!image || !container) return;
-
-      // Reset drag state
-      draggingRef.current = false;
-      isDragConfirmed.current = false;
-
-      const containerRect = container.getBoundingClientRect();
-
-      // Mouse position relative to image's transform origin (top-left of untransformed image)
-      const imgBaseLeft = containerRect.left + (containerRect.width - image.offsetWidth) / 2;
-      const imgBaseTop = containerRect.top + (containerRect.height - image.offsetHeight) / 2;
-
-      const mouseX = e.clientX - imgBaseLeft;
-      const mouseY = e.clientY - imgBaseTop;
-
-      if (scaleRef.current > 1) {
-        // Reset to 1x centered
-        scaleRef.current = 1;
-        posRef.current = { x: 0, y: 0 };
-      } else {
-        // Zoom to 2x at click position
-        const targetScale = 2;
-        const currentScale = scaleRef.current;
-        const currentPos = posRef.current;
-        const scaleRatio = targetScale / currentScale;
-        const newX = mouseX - (mouseX - currentPos.x) * scaleRatio;
-        const newY = mouseY - (mouseY - currentPos.y) * scaleRatio;
-
-        scaleRef.current = targetScale;
-        posRef.current = clampPosition(newX, newY, targetScale);
-      }
+    if (currentScale > 1) {
+      // Already zoomed — reset to 1x centered
+      scaleRef.current = 1;
+      posRef.current = { x: 0, y: 0 };
       enableAnimation();
-    },
-    [clampPosition, enableAnimation]
-  );
+      return;
+    }
+
+    // Calculate scale needed to fit the image inside the container
+    const containerRect = container.getBoundingClientRect();
+
+    // Account for padding (p-10 = 40px)
+    const padding = 40;
+    const availableWidth = containerRect.width - padding * 2;
+    const availableHeight = containerRect.height - padding * 2;
+
+    // Current displayed size of the image at scale=1 (constrained by max-w-full max-h-[75vh])
+    const imgDisplayWidth = image.offsetWidth;
+    const imgDisplayHeight = image.offsetHeight;
+
+    // Scale needed so the image fits inside the container width and height
+    const scaleX = availableWidth / imgDisplayWidth;
+    const scaleY = availableHeight / imgDisplayHeight;
+
+    // Use the SMALLER scale so the image fits entirely inside (like CSS "contain")
+    const fitScale = Math.min(scaleX, scaleY);
+
+    // If image already fits at scale 1, don't zoom
+    if (fitScale <= 1) {
+      return;
+    }
+
+    // Clamp to max zoom
+    const newScale = Math.min(10, fitScale);
+
+    // Center the scaled image in the container
+    // With transformOrigin "0 0", the image top-left is positioned by flexbox at:
+    //   baseX = (containerW - imgDisplayW) / 2
+    //   baseY = (containerH - imgDisplayH) / 2
+    // After scaling, we want the image center to align with container center:
+    //   newX = (containerW - imgDisplayW * newScale) / 2
+    //   newY = (containerH - imgDisplayH * newScale) / 2
+    // But since the base position already centers at scale=1, the offset is:
+    const newX = (containerRect.width - imgDisplayWidth * newScale) / 2 - (containerRect.width - imgDisplayWidth) / 2;
+    const newY = (containerRect.height - imgDisplayHeight * newScale) / 2 - (containerRect.height - imgDisplayHeight) / 2;
+
+    scaleRef.current = newScale;
+    posRef.current = { x: newX, y: newY };
+    enableAnimation();
+  }, [enableAnimation]);
 
   // Zoom controls with animation
   const zoomIn = useCallback(() => {
     const currentScale = scaleRef.current;
-    const currentPos = posRef.current;
     const newScale = Math.min(10, currentScale * 1.5);
-
-    if (newScale === 1) {
-      posRef.current = { x: 0, y: 0 };
-    } else {
-      // Scale from current center
-      const scaleRatio = newScale / currentScale;
-      const newX = currentPos.x * scaleRatio;
-      const newY = currentPos.y * scaleRatio;
-      posRef.current = clampPosition(newX, newY, newScale);
-    }
     scaleRef.current = newScale;
     enableAnimation();
-  }, [clampPosition, enableAnimation]);
+  }, [enableAnimation]);
 
   const zoomOut = useCallback(() => {
     const currentScale = scaleRef.current;
-    const currentPos = posRef.current;
     const newScale = Math.max(1, currentScale / 1.5);
 
     if (newScale === 1) {
       posRef.current = { x: 0, y: 0 };
-    } else {
-      // Scale from current center
-      const scaleRatio = newScale / currentScale;
-      const newX = currentPos.x * scaleRatio;
-      const newY = currentPos.y * scaleRatio;
-      posRef.current = clampPosition(newX, newY, newScale);
     }
     scaleRef.current = newScale;
     enableAnimation();
-  }, [clampPosition, enableAnimation]);
+  }, [enableAnimation]);
 
   const resetZoom = useCallback(() => {
     scaleRef.current = 1;
@@ -374,7 +267,6 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   if (file.type === "photo") {
     const scale = scaleRef.current;
     const pos = posRef.current;
-    const dragging = draggingRef.current;
     const animating = animatingRef.current;
 
     return (
@@ -382,10 +274,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
         ref={containerRef}
         className="h-full flex flex-col items-center justify-center p-10 bg-[#0e0e0e] relative overflow-hidden"
         onWheel={onWheel}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerLeave={onPointerUp}
-        style={{ cursor: scale > 1 ? (dragging ? "grabbing" : "grab") : "default" }}
+        style={{ cursor: "default" }}
       >
         {file.imageUrl ? (
           <>
@@ -397,11 +286,9 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
               style={{
                 transform: `translate(${pos.x}px, ${pos.y}px) scale(${scale})`,
                 transformOrigin: "0 0",
-                transition: animating && !dragging ? "transform 0.1s ease-out" : "none",
-                cursor: scale > 1 ? (dragging ? "grabbing" : "grab") : "default",
+                transition: animating ? "transform 0.1s ease-out" : "none",
               }}
               draggable={false}
-              onPointerDown={onPointerDown}
               onDoubleClick={onDoubleClick}
             />
             <p className="mt-5 text-sm text-gray-500">{file.name}</p>
@@ -440,7 +327,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
             {/* Zoom hint */}
             {scale === 1 && (
               <p className="absolute bottom-6 left-6 text-xs text-gray-600">
-                Прокрутка для масштабирования • Двойной клик для 2x
+                Прокрутка для масштабирования • Двойной клик для заполнения
               </p>
             )}
           </>
