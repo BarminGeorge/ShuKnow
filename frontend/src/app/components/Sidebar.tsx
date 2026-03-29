@@ -279,7 +279,7 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-4">
         <h1 
-          className="text-xl font-semibold text-white select-none cursor-pointer hover:text-blue-400 transition-colors"
+          className="text-xl font-semibold text-white select-none cursor-pointer hover:text-white/80 transition-colors"
           onClick={onLogoClick}
         >
           ShuKnow
