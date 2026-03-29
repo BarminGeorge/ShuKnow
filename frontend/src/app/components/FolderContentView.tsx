@@ -159,6 +159,10 @@ function CustomDragLayer() {
 
   const isFolder = item.origType === "folder";
   const isPhoto = item.fileType === "photo" && item.imageUrl;
+  
+  // Get display name without extension
+  const displayName = item.name ? getFileNameWithoutExtension(item.name) : "Перемещение...";
+  const fileExtension = getFileExtension(item.name || "");
 
   return (
     <div
@@ -177,50 +181,94 @@ function CustomDragLayer() {
           position: "absolute",
           left: currentOffset.x - 140,
           top: currentOffset.y - 90,
+          transform: "rotate(-4deg) scale(1.03)",
+          opacity: 0.92,
+          cursor: "grabbing",
         }}
-        className="animate-drag-pickup"
       >
-        <div className={`
-          w-[280px] h-[180px] rounded-[20px] overflow-hidden
-          bg-[#1e1e1e]/95 backdrop-blur-md
-          border border-blue-500/50
-          shadow-2xl shadow-black/60
-          transform rotate-[2deg] scale-90
-        `}>
-          {isPhoto ? (
-            <div className="relative w-full h-full">
-              <img
-                src={item.imageUrl}
-                alt={item.name}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-              {/* Format badge */}
-              <span className="absolute top-3 right-3 text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-white/85">
-                {getFileExtension(item.name || "")}
-              </span>
-              <span className="absolute bottom-5 left-5 right-5 text-[18px] text-white font-medium truncate">
-                {item.name ? getFileNameWithoutExtension(item.name) : "Перемещение..."}
-              </span>
+        {/* Photo Card Preview */}
+        {isPhoto ? (
+          <div className={`
+            w-[280px] h-[180px] rounded-[20px] overflow-hidden cursor-pointer
+            shadow-[0_20px_40px_rgba(0,0,0,0.35)]
+          `}>
+            <img
+              src={item.imageUrl}
+              alt={item.name}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+            {/* Format badge - top left */}
+            <span className="absolute top-6 left-7 text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-white/85">
+              {fileExtension}
+            </span>
+            {/* Content at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 px-7 py-6 min-w-0">
+              <p className="text-[18px] font-medium text-white whitespace-nowrap overflow-hidden text-ellipsis">
+                {displayName}
+              </p>
+              {item.relativeDate && (
+                <p className="text-[13px] text-white/60 mt-1 font-normal">
+                  {item.relativeDate}
+                </p>
+              )}
             </div>
-          ) : isFolder ? (
-            <div className="h-full p-6 flex flex-col justify-between bg-gradient-to-br from-[rgba(99,102,241,0.12)] to-[rgba(99,102,241,0.06)]">
-              <span className="text-[40px] leading-none">📁</span>
-              <span className="text-[18px] text-[rgba(255,255,255,0.92)] font-medium truncate">
-                {item.name || "Перемещение..."}
-              </span>
+          </div>
+        ) : isFolder ? (
+          /* Folder Card Preview */
+          <div className={`
+            w-[280px] h-[180px] rounded-[20px] overflow-hidden cursor-pointer
+            bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)]
+            border border-transparent
+            shadow-[0_20px_40px_rgba(0,0,0,0.35)]
+          `}>
+            <div className="h-full px-7 py-6 flex flex-col justify-between">
+              {/* Top: Emoji */}
+              <div className="flex items-start justify-between">
+                <span className="text-[40px] leading-none">
+                  {item.emoji || "📁"}
+                </span>
+              </div>
+              {/* Bottom: Name and Meta */}
+              <div className="min-w-0">
+                <p className="text-[18px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis">
+                  {displayName}
+                </p>
+                <p className="text-[13px] text-[rgba(255,255,255,0.60)] mt-1 font-normal">
+                  {item.metaText || "Пусто"}
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="h-full p-6 flex flex-col justify-between bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.04)]">
-              <span className="text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-[rgba(129,140,248,0.15)] text-[#818cf8]">
-                {getFileExtension(item.name || "")}
-              </span>
-              <span className="text-[18px] text-[rgba(255,255,255,0.92)] font-medium truncate">
-                {item.name ? getFileNameWithoutExtension(item.name) : "Перемещение..."}
-              </span>
+          </div>
+        ) : (
+          /* File Card Preview */
+          <div className={`
+            w-[280px] h-[180px] rounded-[20px] overflow-hidden cursor-pointer
+            bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)]
+            border border-transparent
+            shadow-[0_20px_40px_rgba(0,0,0,0.35)]
+          `}>
+            <div className="h-full px-7 py-6 flex flex-col justify-between">
+              {/* Top: Type badge */}
+              <div className="flex items-start justify-between">
+                <span className="text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-[rgba(129,140,248,0.15)] text-[#818cf8]">
+                  {fileExtension}
+                </span>
+              </div>
+              {/* Bottom: Name and Date */}
+              <div className="min-w-0">
+                <p className="text-[18px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis">
+                  {displayName}
+                </p>
+                {item.relativeDate && (
+                  <p className="text-[13px] text-[rgba(255,255,255,0.60)] mt-1 font-normal">
+                    {item.relativeDate}
+                  </p>
+                )}
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -280,6 +328,23 @@ function DraggableGridItem({
   const fileData = item.type === "file" ? (item.data as FileItem) : null;
   const imageUrl = fileData?.imageUrl;
   const fileType = fileData?.type;
+  
+  // Get additional data for drag preview
+  const folderData = item.type === "folder" ? (item.data as Folder) : null;
+  const emoji = folderData?.emoji;
+  const relativeDate = fileData ? formatRelativeDate(fileData.createdAt || fileData.updatedAt) : null;
+  
+  // Calculate metaText for folder preview
+  const getMetaText = () => {
+    if (item.type !== "folder") return null;
+    const folder = folderData!;
+    const subfolderCount = folder.subfolders?.length || 0;
+    const folderFiles = allFiles.filter((f) => f.folderId === folder.id);
+    const fileCount = folderFiles.filter(f => f.type !== "photo").length;
+    const photoCount = folderFiles.filter(f => f.type === "photo").length;
+    return formatFolderStats(subfolderCount, fileCount, photoCount);
+  };
+  const metaText = getMetaText();
 
   const [{ isDragging }, drag, dragPreview] = useDrag({
     type: GRID_ITEM_TYPE,
@@ -290,6 +355,9 @@ function DraggableGridItem({
       name: itemName,
       imageUrl,
       fileType,
+      emoji,
+      relativeDate,
+      metaText,
     }),
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
@@ -480,7 +548,7 @@ function DraggableGridItem({
 
     // 动画类：根据状态返回不同的动画效果
     const getItemAnimationClass = () => {
-      if (isDragging) return "opacity-0 scale-95 transition-opacity duration-150";
+      if (isDragging) return "opacity-30 scale-95 transition-opacity duration-150";
       if (justDropped) return "animate-drop-land"; // landing 动画
       return "opacity-100 transition-all duration-200 ease-out";
     };
@@ -549,7 +617,7 @@ function DraggableGridItem({
 
     // 动画类：根据状态返回不同的动画效果
     const getItemAnimationClass = () => {
-      if (isDragging) return "opacity-0 scale-95 transition-opacity duration-150";
+      if (isDragging) return "opacity-30 scale-95 transition-opacity duration-150";
       if (justDropped) return "animate-drop-land"; // landing 动画
       return "opacity-100 transition-all duration-200 ease-out";
     };
