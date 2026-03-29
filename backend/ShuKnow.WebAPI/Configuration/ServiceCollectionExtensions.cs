@@ -22,6 +22,9 @@ public static class ServiceCollectionExtensions
 {
     public static void AddWeb(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddExceptionHandler<GlobalExceptionHandler>();
+        services.AddProblemDetails();
+        
         services.AddControllers().AddApplicationPart(typeof(ServiceCollectionExtensions).Assembly);
         services.AddSignalR();
 

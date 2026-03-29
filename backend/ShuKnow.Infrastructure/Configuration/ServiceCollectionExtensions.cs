@@ -18,7 +18,7 @@ public static class ServiceCollectionExtensions
         {
             var connectionString = configuration.GetConnectionString("Postgres");
             options
-                .UseNpgsql(connectionString)
+                .UseNpgsql(connectionString, builder => builder.EnableRetryOnFailure())
                 .UseSnakeCaseNamingConvention();
         });
 

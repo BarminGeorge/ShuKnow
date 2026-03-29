@@ -1,12 +1,13 @@
 ﻿using Ardalis.Result;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Infrastructure.Persistent;
 
 namespace ShuKnow.Infrastructure.Services;
 
-public class UnitOfWork(AppDbContext context) : IUnitOfWork
+public class UnitOfWork(AppDbContext context, ILogger<UnitOfWork> logger) : IUnitOfWork
 {
     public async Task<Result> SaveChangesAsync()
     {
@@ -15,15 +16,22 @@ public class UnitOfWork(AppDbContext context) : IUnitOfWork
             await context.SaveChangesAsync();
             return Result.Success();
         }
-        catch (DbUpdateException e)
+        catch (DbUpdateConcurrencyException ex)
         {
-            if (e.InnerException is not PostgresException postgresException)
-                throw;
-
-            switch (postgresException.SqlState)
+            logger.LogWarning(ex, "Concurrency conflict during SaveChanges");
+            return Result.Conflict("The record was modified by another request. Please retry.");
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg)
+        {
+            logger.LogWarning(ex, 
+                "Database constraint violation: {SqlState}, constraint: {ConstraintName}, schema: {Schema}, " +
+                "Table: {Table}, Column: {Column}, at: {Where}",
+                pg.SqlState, pg.ConstraintName, pg.SchemaName, pg.TableName, pg.ColumnName, pg.Where);
+            
+            switch (pg.SqlState)
             {
                 case PostgresErrorCodes.UniqueViolation:
-                    return Result.Conflict("A conflict occurred: unique constraint violation.");
+                    return Result.Conflict("A data conflict occurred. Please retry.");
                 case PostgresErrorCodes.ForeignKeyViolation:
                     return Result.Error("A database error occurred: foreign key constraint violation.");
                 default:
