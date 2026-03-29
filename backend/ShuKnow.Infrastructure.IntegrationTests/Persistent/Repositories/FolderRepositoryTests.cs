@@ -119,7 +119,7 @@ public class FolderRepositoryTests : BaseRepositoryTests
         var middle = await SeedFolderAsync(user.Id, "middle", parentFolderId: root.Id);
         var leaf = await SeedFolderAsync(user.Id, "leaf", parentFolderId: middle.Id);
 
-        var result = await sut.GetAncestorIdsAsync(leaf.Id);
+        var result = await sut.GetAncestorIdsAsync(leaf.Id, user.Id);
 
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().BeEquivalentTo([middle.Id, root.Id], options => options.WithStrictOrdering());
@@ -165,7 +165,7 @@ public class FolderRepositoryTests : BaseRepositoryTests
             persisted.SortOrder.Should().Be(1);
         }
 
-        (await sut.DeleteAsync(folderId)).Status.Should().Be(ResultStatus.Ok);
+        (await sut.DeleteAsync(folderId, user.Id)).Status.Should().Be(ResultStatus.Ok);
         await Context.SaveChangesAsync();
 
         await using var verifyDeletedContext = CreateDbContext();
@@ -180,7 +180,7 @@ public class FolderRepositoryTests : BaseRepositoryTests
         var child = await SeedFolderAsync(user.Id, "child", parentFolderId: root.Id);
         var grandChild = await SeedFolderAsync(user.Id, "grand-child", parentFolderId: child.Id);
 
-        var result = await sut.DeleteSubtreeAsync(root.Id);
+        var result = await sut.DeleteSubtreeAsync(root.Id, user.Id);
         await Context.SaveChangesAsync();
 
         result.Status.Should().Be(ResultStatus.Ok);
@@ -192,7 +192,7 @@ public class FolderRepositoryTests : BaseRepositoryTests
     [Test]
     public async Task DeleteAsync_WhenFolderDoesNotExist_ShouldBeNoOp()
     {
-        var result = await sut.DeleteAsync(Guid.NewGuid());
+        var result = await sut.DeleteAsync(Guid.NewGuid(), Guid.NewGuid());
         await Context.SaveChangesAsync();
 
         result.Status.Should().Be(ResultStatus.Ok);
@@ -204,13 +204,98 @@ public class FolderRepositoryTests : BaseRepositoryTests
         var user = await SeedUserAsync();
         await SeedFolderAsync(user.Id, "root");
 
-        var result = await sut.DeleteSubtreeAsync(Guid.NewGuid());
+        var result = await sut.DeleteSubtreeAsync(Guid.NewGuid(), user.Id);
         await Context.SaveChangesAsync();
 
         result.Status.Should().Be(ResultStatus.Ok);
 
         await using var assertContext = CreateDbContext();
         (await assertContext.Folders.CountAsync()).Should().Be(1);
+    }
+
+    [Test]
+    public async Task GetAncestorIdsAsync_WhenFolderBelongsToAnotherUser_ShouldReturnEmpty()
+    {
+        var user = await SeedUserAsync();
+        var otherUser = await SeedUserAsync();
+        var root = await SeedFolderAsync(otherUser.Id, "root");
+        var leaf = await SeedFolderAsync(otherUser.Id, "leaf", parentFolderId: root.Id);
+
+        var result = await sut.GetAncestorIdsAsync(leaf.Id, user.Id);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task DeleteAsync_WhenFolderBelongsToAnotherUser_ShouldBeNoOp()
+    {
+        var user = await SeedUserAsync();
+        var otherUser = await SeedUserAsync();
+        var folder = await SeedFolderAsync(otherUser.Id, "private");
+
+        var result = await sut.DeleteAsync(folder.Id, user.Id);
+        await Context.SaveChangesAsync();
+
+        result.Status.Should().Be(ResultStatus.Ok);
+
+        await using var assertContext = CreateDbContext();
+        (await assertContext.Folders.AnyAsync(existingFolder => existingFolder.Id == folder.Id)).Should().BeTrue();
+    }
+
+    [Test]
+    public async Task DeleteSubtreeAsync_WhenFolderBelongsToAnotherUser_ShouldBeNoOp()
+    {
+        var user = await SeedUserAsync();
+        var otherUser = await SeedUserAsync();
+        var root = await SeedFolderAsync(otherUser.Id, "private-root");
+        var child = await SeedFolderAsync(otherUser.Id, "private-child", parentFolderId: root.Id);
+
+        var result = await sut.DeleteSubtreeAsync(root.Id, user.Id);
+        await Context.SaveChangesAsync();
+
+        result.Status.Should().Be(ResultStatus.Ok);
+
+        await using var assertContext = CreateDbContext();
+        (await assertContext.Folders.AnyAsync(folder => folder.Id == root.Id)).Should().BeTrue();
+        (await assertContext.Folders.AnyAsync(folder => folder.Id == child.Id)).Should().BeTrue();
+    }
+
+    [Test]
+    public async Task GetAncestorIdsAsync_WhenHierarchyContainsCycle_ShouldReturnError()
+    {
+        var user = await SeedUserAsync();
+        var root = await SeedFolderAsync(user.Id, "root");
+        var middle = await SeedFolderAsync(user.Id, "middle", parentFolderId: root.Id);
+        var leaf = await SeedFolderAsync(user.Id, "leaf", parentFolderId: middle.Id);
+
+        await using (var cycleContext = CreateDbContext())
+        {
+            await cycleContext.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE folders SET parent_folder_id = {leaf.Id} WHERE id = {root.Id}");
+        }
+
+        var result = await sut.GetAncestorIdsAsync(leaf.Id, user.Id);
+
+        result.Status.Should().Be(ResultStatus.Error);
+    }
+
+    [Test]
+    public async Task GetTreeAsync_WhenHierarchyContainsCycle_ShouldReturnError()
+    {
+        var user = await SeedUserAsync();
+        var root = await SeedFolderAsync(user.Id, "root");
+        var child = await SeedFolderAsync(user.Id, "child", parentFolderId: root.Id);
+
+        await using (var cycleContext = CreateDbContext())
+        {
+            await cycleContext.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE folders SET parent_folder_id = {child.Id} WHERE id = {root.Id}");
+        }
+
+        var result = await sut.GetTreeAsync(user.Id);
+
+        result.Status.Should().Be(ResultStatus.Error);
     }
 
     private async Task<User> SeedUserAsync(Guid? userId = null)

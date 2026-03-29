@@ -17,7 +17,7 @@ public interface IFolderRepository
 
     Task<Result<IReadOnlyList<Folder>>> GetSiblingsAsync(Guid? parentId, Guid userId);
 
-    Task<Result<IReadOnlyList<Guid>>> GetAncestorIdsAsync(Guid folderId);
+    Task<Result<IReadOnlyList<Guid>>> GetAncestorIdsAsync(Guid folderId, Guid userId);
 
     Task<Result<bool>> ExistsByNameInParentAsync(string name, Guid? parentId, Guid userId, Guid? excludeId = null);
 
@@ -25,9 +25,9 @@ public interface IFolderRepository
 
     Task<Result> UpdateAsync(Folder folder);
 
-    Task<Result> DeleteAsync(Guid folderId);
+    Task<Result> DeleteAsync(Guid folderId, Guid userId);
 
-    Task<Result> DeleteSubtreeAsync(Guid folderId);
+    Task<Result> DeleteSubtreeAsync(Guid folderId, Guid userId);
 
     Task<Result<int>> CountByUserAsync(Guid userId);
 }
