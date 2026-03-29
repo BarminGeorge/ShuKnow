@@ -50,13 +50,11 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="h-10">
-                {error && (
-                  <div className="text-sm text-indigo-400 bg-indigo-400/10 border border-indigo-400/20 rounded-lg px-3 py-2">
-                    {error}
-                  </div>
-                )}
-              </div>
+              {error && (
+                <div className="text-sm text-indigo-400 bg-indigo-400/10 border border-indigo-400/20 rounded-lg px-3 py-2">
+                  {error}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="login" className="text-gray-300">Логин</Label>
