@@ -188,14 +188,15 @@ function CustomDragLayer() {
       >
         {/* Photo Card Preview */}
         {isPhoto ? (
-          <div className={`
-            w-[280px] h-[180px] rounded-[20px] overflow-hidden cursor-pointer
-            shadow-[0_25px_60px_rgba(0,0,0,0.5)]
-          `}>
+          <div
+            className="w-[280px] h-[180px] rounded-[20px] overflow-hidden relative cursor-pointer shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
+            style={{ borderRadius: '20px', overflow: 'hidden' }}
+          >
             <img
               src={item.imageUrl}
               alt={item.name}
               className="absolute inset-0 w-full h-full object-cover"
+              style={{ borderRadius: '0' }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
             {/* Format badge - top left */}
