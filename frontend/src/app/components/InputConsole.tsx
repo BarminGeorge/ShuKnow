@@ -12,6 +12,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
   const [isDragging, setIsDragging] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef(0);
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const fileArray = Array.from(files);
@@ -51,18 +52,21 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     }
   };
 
-  // Drag and drop handlers
+  // Drag and drop handlers - using counter for stable detection
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
+    dragCounterRef.current++;
+    if (dragCounterRef.current === 1) {
+      setIsDragging(true);
+    }
   }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Only set dragging false if we're leaving the container entirely
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
       setIsDragging(false);
     }
   }, []);
@@ -70,11 +74,16 @@ export function InputConsole({ onSend }: InputConsoleProps) {
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-  }, []);
+    // Ensure we stay highlighted while dragging over
+    if (!isDragging) {
+      setIsDragging(true);
+    }
+  }, [isDragging]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    dragCounterRef.current = 0;
     setIsDragging(false);
     
     const files = e.dataTransfer.files;
