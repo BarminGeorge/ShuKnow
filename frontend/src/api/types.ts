@@ -151,15 +151,27 @@ export function mapFileDto(dto: FileDto): FileItem {
 
 // ── AI Settings ───────────────────────────────
 
+/**
+ * Supported AI providers
+ * Frontend is ready for backend to add provider enum
+ */
+export type AiProvider = "openai" | "openrouter" | "anthropic" | "custom";
+
 export interface AiSettingsDto {
   baseUrl: string;
   apiKeyMasked: string;
   isConfigured: boolean;
+  // Optional fields - ready for when backend adds them
+  provider?: AiProvider;
+  modelId?: string;
 }
 
 export interface UpdateAiSettingsRequest {
   baseUrl: string;
   apiKey: string;
+  // Optional fields - ready for when backend adds them
+  provider?: AiProvider;
+  modelId?: string;
 }
 
 export interface AiConnectionTestDto {

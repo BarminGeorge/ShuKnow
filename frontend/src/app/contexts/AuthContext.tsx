@@ -20,8 +20,8 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const STORAGE_KEY = "shuknow_auth";
 const TOKEN_KEY = "shuknow_token";
 
-// Set to true to use mock auth (no real API calls)
-const USE_MOCK_AUTH = true;
+// Use mock auth if VITE_USE_MOCK_AUTH is set to 'true', defaults to false for real API
+const USE_MOCK_AUTH = import.meta.env.VITE_USE_MOCK_AUTH === "true";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {

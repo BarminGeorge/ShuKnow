@@ -15,6 +15,9 @@ import { Toaster } from "sonner";
 import { folderService, fileService } from "../api";
 import type { Folder as ApiFolder, FileItem as ApiFileItem } from "../api/types";
 
+// Check if we're in mock mode
+const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_AUTH === "true";
+
 // Frontend types (extended from API types for UI-specific fields)
 export interface Folder {
   id: string;
@@ -212,8 +215,13 @@ export default function Workspace() {
   const [isLoadingFiles, setIsLoadingFiles]       = useState(false);
   const [loadError, setLoadError]                 = useState<string | null>(null);
 
-  // Load folder tree on mount
+  // Load folder tree on mount (skip in mock mode - use initialFolders)
   useEffect(() => {
+    if (USE_MOCK_API) {
+      // In mock mode, just use initial folders
+      return;
+    }
+    
     let mounted = true;
     
     async function loadFolders() {
@@ -245,8 +253,13 @@ export default function Workspace() {
     };
   }, []);
 
-  // Load files when a folder is selected
+  // Load files when a folder is selected (skip in mock mode - use initialFiles)
   useEffect(() => {
+    if (USE_MOCK_API) {
+      // In mock mode, use initial files
+      return;
+    }
+    
     if (!selectedFolderId) return;
     
     // Check if we already have files for this folder

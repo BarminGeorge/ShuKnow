@@ -2,7 +2,15 @@ import { useState, useEffect } from "react";
 import { X, Eye, EyeOff, ArrowLeft, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { settingsService } from "../../api";
-import type { AiSettingsDto } from "../../api/types";
+import type { AiSettingsDto, AiProvider } from "../../api/types";
+
+// Available providers - ready for backend enum support
+const AI_PROVIDERS: { value: AiProvider; label: string; baseUrlHint: string }[] = [
+  { value: "openai", label: "OpenAI", baseUrlHint: "https://api.openai.com/v1" },
+  { value: "openrouter", label: "OpenRouter", baseUrlHint: "https://openrouter.ai/api/v1" },
+  { value: "anthropic", label: "Anthropic", baseUrlHint: "https://api.anthropic.com/v1" },
+  { value: "custom", label: "Custom", baseUrlHint: "" },
+];
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -11,7 +19,9 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [settings, setSettings] = useState<AiSettingsDto | null>(null);
+  const [provider, setProvider] = useState<AiProvider>("openai");
   const [baseUrl, setBaseUrl] = useState("");
+  const [modelId, setModelId] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [isEditingKey, setIsEditingKey] = useState(false);
   const [showKey, setShowKey] = useState(false);
@@ -34,6 +44,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       const data = await settingsService.getAiSettings();
       setSettings(data);
       setBaseUrl(data.baseUrl || "");
+      setProvider(data.provider || "openai");
+      setModelId(data.modelId || "");
     } catch (error) {
       console.error("Failed to load settings:", error);
     } finally {
@@ -48,6 +60,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     setShowKey(false);
     setTestResult(null);
     setApiKey("");
+    setModelId("");
     onClose();
   };
 
@@ -56,7 +69,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     
     setIsSaving(true);
     try {
-      const updated = await settingsService.updateAiSettings({ baseUrl, apiKey });
+      const updated = await settingsService.updateAiSettings({ 
+        baseUrl, 
+        apiKey,
+        provider,
+        modelId: modelId || undefined,
+      });
       setSettings(updated);
       setApiKey("");
       setIsEditingKey(false);
@@ -65,6 +83,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       console.error("Failed to save settings:", error);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleProviderChange = (newProvider: AiProvider) => {
+    setProvider(newProvider);
+    // Auto-fill base URL hint when switching providers
+    const providerInfo = AI_PROVIDERS.find(p => p.value === newProvider);
+    if (providerInfo?.baseUrlHint && !baseUrl) {
+      setBaseUrl(providerInfo.baseUrlHint);
     }
   };
 
@@ -127,12 +154,28 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <div className="bg-[#0d0d0d] border border-white/10 rounded-lg p-4">
                   <div className="flex justify-between items-start">
                     <div className="flex flex-col gap-2 flex-1 min-w-0">
+                      {settings?.provider && (
+                        <div>
+                          <span className="text-xs text-gray-500">Провайдер</span>
+                          <p className="text-sm text-gray-200">
+                            {AI_PROVIDERS.find(p => p.value === settings.provider)?.label || settings.provider}
+                          </p>
+                        </div>
+                      )}
                       <div>
                         <span className="text-xs text-gray-500">Base URL</span>
                         <p className="text-sm text-gray-200 truncate">
                           {settings?.baseUrl || "Не настроен"}
                         </p>
                       </div>
+                      {settings?.modelId && (
+                        <div>
+                          <span className="text-xs text-gray-500">Модель</span>
+                          <p className="text-sm text-gray-200">
+                            {settings.modelId}
+                          </p>
+                        </div>
+                      )}
                       <div>
                         <span className="text-xs text-gray-500">API Ключ</span>
                         <p className="text-sm text-gray-400 font-mono">
@@ -189,19 +232,57 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
           ) : (
             <div className="space-y-5">
+              {/* Provider Selection */}
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Провайдер</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {AI_PROVIDERS.map((p) => (
+                    <button
+                      key={p.value}
+                      onClick={() => handleProviderChange(p.value)}
+                      className={`px-3 py-2 rounded-lg text-sm transition-colors border ${
+                        provider === p.value
+                          ? "bg-blue-500/20 border-blue-500/50 text-blue-400"
+                          : "bg-[#0d0d0d] border-white/10 text-gray-300 hover:bg-white/5"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Base URL */}
               <div>
                 <label className="text-xs text-gray-400 block mb-1">Base URL</label>
                 <input
                   type="url"
                   value={baseUrl}
                   onChange={(e) => setBaseUrl(e.target.value)}
-                  placeholder="https://api.openai.com/v1"
+                  placeholder={AI_PROVIDERS.find(p => p.value === provider)?.baseUrlHint || "https://api.openai.com/v1"}
                   className="w-full px-3 py-2 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  URL провайдера (OpenAI, OpenRouter, и т.д.)
+                  URL провайдера API
                 </p>
               </div>
+
+              {/* Model ID */}
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Модель (опционально)</label>
+                <input
+                  type="text"
+                  value={modelId}
+                  onChange={(e) => setModelId(e.target.value)}
+                  placeholder={provider === "openai" ? "gpt-4o" : provider === "anthropic" ? "claude-3-5-sonnet-20241022" : ""}
+                  className="w-full px-3 py-2 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  ID модели для использования
+                </p>
+              </div>
+
+              {/* API Key */}
               <div>
                 <label className="text-xs text-gray-400 block mb-1">API Ключ</label>
                 <div className="relative">

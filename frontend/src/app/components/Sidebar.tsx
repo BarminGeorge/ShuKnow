@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Settings, Plus, PanelLeftClose, PanelLeftOpen, MessageSquare, LogOut } from "lucide-react";
 import { FolderItem } from "./FolderItem";
 import { SettingsModal } from "./SettingsModal";
@@ -7,8 +7,12 @@ import { EditFolderModal } from "./EditFolderModal";
 import { DeleteFolderModal } from "./DeleteFolderModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router";
-import { folderService } from "../../api";
+import { folderService, ApiError } from "../../api";
+import { toast } from "sonner";
 import type { Folder } from "../Workspace";
+
+// Check if we're in mock mode (same logic as AuthContext)
+const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_AUTH === "true";
 
 interface SidebarProps {
   folders: Folder[];
@@ -52,12 +56,40 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
     return current[parseInt(path[path.length - 1])] || null;
   };
 
-  const moveFolder= (dragPath: string[], hoverPath: string[], dropZone: "before" | "after" | "inside") => {
-    setFolders((prevFolders) => {
-      const newFolders = JSON.parse(JSON.stringify(prevFolders)) as Folder[];
+  // Helper to compute new parent ID from path after a drop
+  const getNewParentIdFromPath = (targetPath: string[], dropZone: "before" | "after" | "inside"): string | null => {
+    if (dropZone === "inside") {
+      // Moving inside a folder - target folder becomes the parent
+      const targetFolder = getFolderByPath(targetPath);
+      return targetFolder?.id || null;
+    } else {
+      // Moving before/after - same parent as target
+      if (targetPath.length === 1) {
+        return null; // Root level
+      }
+      const parentPath = targetPath.slice(0, -1);
+      const parentFolder = getFolderByPath(parentPath);
+      return parentFolder?.id || null;
+    }
+  };
 
-      // Get the dragged folder
-      const getDraggedFolder = (path: string[]): Folder | null => {
+  const moveFolder = useCallback(async (dragPath: string[], hoverPath: string[], dropZone: "before" | "after" | "inside") => {
+    // Get the folder being dragged before any state changes
+    const draggedFolder = getFolderByPath(dragPath);
+    if (!draggedFolder) return;
+
+    // Store previous state for rollback
+    const previousFolders = JSON.parse(JSON.stringify(folders)) as Folder[];
+
+    // Calculate new parent ID for API call
+    const newParentFolderId = getNewParentIdFromPath(hoverPath, dropZone);
+
+    // Helper functions for state manipulation
+    const applyMove = (foldersList: Folder[]): Folder[] => {
+      const newFolders = JSON.parse(JSON.stringify(foldersList)) as Folder[];
+
+      // Get the dragged folder from new copy
+      const getDraggedFolderFromList = (path: string[]): Folder | null => {
         if (path.length === 1) {
           return newFolders[parseInt(path[0])];
         }
@@ -87,7 +119,6 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
       // Insert folder based on drop zone
       const insertFolderAtPath = (folder: Folder, targetPath: string[], zone: "before" | "after" | "inside") => {
         if (zone === "inside") {
-          // Nest: add as first subfolder to target
           if (targetPath.length === 1) {
             const targetIdx = parseInt(targetPath[0]);
             if (!newFolders[targetIdx].subfolders) {
@@ -108,7 +139,6 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
             current[targetIdx].subfolders!.unshift(folder);
           }
         } else {
-          // Insert before or after
           const insertIndex = parseInt(targetPath[targetPath.length - 1]) + (zone === "after" ? 1 : 0);
           
           if (targetPath.length === 1) {
@@ -127,19 +157,48 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
         }
       };
 
-      const draggedFolder = getDraggedFolder(dragPath);
-      if (!draggedFolder) return prevFolders;
+      const folder = getDraggedFolderFromList(dragPath);
+      if (!folder) return foldersList;
 
       const removed = removeFolderAtPath(dragPath);
-      if (!removed) return prevFolders;
+      if (!removed) return foldersList;
 
       insertFolderAtPath(removed, hoverPath, dropZone);
 
       return newFolders;
-    });
-  };
+    };
 
-  const handleCreateFolder = (name: string, emoji: string, description: string) => {
+    // Apply optimistic update
+    setFolders(applyMove);
+
+    // Skip API call in mock mode - just keep the local state change
+    if (USE_MOCK_API) {
+      return;
+    }
+
+    // Call API to persist the move
+    try {
+      await folderService.moveFolder(draggedFolder.id, { newParentFolderId });
+    } catch (error) {
+      // Rollback on error
+      setFolders(previousFolders);
+
+      // Show error message
+      if (error instanceof ApiError) {
+        if (error.status === 409) {
+          toast.error("Не удалось переместить папку: конфликт имён или циклическая зависимость");
+        } else if (error.status === 404) {
+          toast.error("Папка не найдена");
+        } else {
+          toast.error(`Ошибка при перемещении: ${error.message}`);
+        }
+      } else {
+        toast.error("Не удалось переместить папку");
+      }
+    }
+  }, [folders, setFolders]);
+
+  const handleCreateFolder= (name: string, emoji: string, description: string) => {
     const newFolder: Folder = {
       id: Date.now().toString(),
       name,
@@ -210,8 +269,10 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
     const { folder, path } = deleteFolderState;
     if (!folder) return;
 
-    // Call API to delete folder
-    await folderService.deleteFolder(folder.id, recursive);
+    // Call API to delete folder (skip in mock mode)
+    if (!USE_MOCK_API) {
+      await folderService.deleteFolder(folder.id, recursive);
+    }
 
     // Remove from local state on success
     setFolders((prevFolders) => {
