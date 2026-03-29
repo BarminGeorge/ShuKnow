@@ -1,17 +1,16 @@
 using Ardalis.Result;
 using ShuKnow.Application.Interfaces;
-using ShuKnow.Domain.Entities;
 
 namespace ShuKnow.Infrastructure.Services;
 
 internal class EncryptionService : IEncryptionService
 {
-    public Result<UserAiSettings> Encrypt(UserAiSettings settings)
+    public Result<string> Encrypt(string plainText)
     {
         throw new NotImplementedException();
     }
 
-    public Result<UserAiSettings> Decrypt(UserAiSettings settings)
+    public Result<string> Decrypt(string cipherText)
     {
         throw new NotImplementedException();
     }

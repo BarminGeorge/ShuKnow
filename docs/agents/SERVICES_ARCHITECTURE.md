@@ -181,7 +181,7 @@ These are the primary units of business logic. Each service is defined as an int
 | Dependency | Why |
 |---|---|
 | `ISettingsRepository` | Persistence for `UserSettings`. |
-| `IEncryptionService` | Encrypt API key on write, decrypt on read (for test and for AI requests). |
+| `IEncryptionService` | Encrypt and decrypt API key strings used by settings storage, connection tests, and AI requests. |
 | `IAIService` | Send the probe request during `TestConnectionAsync`. |
 | `ICurrentUserService` | Ownership scoping. |
 
@@ -202,12 +202,12 @@ These are the primary units of business logic. Each service is defined as an int
 1. **Session resolution.** Load or create the active chat session via `IChatService`.
 2. **User message persistence.** Save the user's message and link attachments via `IChatService`.
 3. **Emit `OnProcessingStarted`.** Generate an `operationId` (GUID) that correlates all subsequent events in this run.
-4. **Settings retrieval.** Load and decrypt the user's AI config via `ISettingsService`. Fail with `LLM_CONNECTION_FAILED` if not configured.
+4. **Settings retrieval.** Load the user's AI config via `ISettingsService` and decrypt the stored API key string before use. Fail with `LLM_CONNECTION_FAILED` if not configured.
 5. **Prompt construction.** Delegate to `IPromptPreparationService.PrepareAsync()`, which internally:
    - Loads the user's folder tree (via `IFolderService.GetFolderTreeForPromptAsync()`) to give the AI awareness of existing categories.
    - Resolves attachment content (via `IAttachmentService`) to provide the material being classified.
    - Assembles the final prompt text (via `IPromptBuilder`).
-6. **LLM streaming call.** Call `IAIService.StreamCompletionAsync()` with the prompt and the user's decrypted credentials. For each token chunk received, emit `OnMessageChunk`. Accumulate the full response text.
+6. **LLM streaming call.** Call `IAIService.StreamCompletionAsync()` with the prompt and the user's settings containing the decrypted API key string. For each token chunk received, emit `OnMessageChunk`. Accumulate the full response text.
 7. **Classification parsing.** Pass the full response to `IClassificationParser` to extract structured decisions (file name → target folder, is-new-folder flag). Emit `OnClassificationResult`.
 8. **Action record creation.** Create an action record via `IActionTrackingService.BeginActionAsync()` to begin recording mutations.
 9. **Decision execution loop.** For each classification decision:
@@ -227,7 +227,7 @@ These are the primary units of business logic. Each service is defined as an int
 |---|---|
 | `IChatService` | Session resolution, message persistence. |
 | `IPromptPreparationService` | Consolidates prompt construction: folder tree loading, attachment resolution, and prompt assembly. |
-| `ISettingsService` | Load decrypted LLM credentials. |
+| `ISettingsService` | Load user LLM settings and decrypt the stored API key string. |
 | `IFolderService` | Create folders during decision execution. |
 | `IFileService` | Create/move files during decision execution. |
 | `IAIService` | Stream LLM completion. |
