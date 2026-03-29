@@ -13,7 +13,7 @@ public class File : IEntity<Guid>, IOrderedItem
     public long SizeBytes { get; private set; }
     public int Version { get; private set; } = 1;
     public string? ChecksumSha256 { get; private set; }
-    public int SortOrder { get; private set; }
+    public int SortOrder { get; set; }
     public DateTimeOffset CreatedAt { get; private set; }
 
     protected File()
@@ -62,10 +62,5 @@ public class File : IEntity<Guid>, IOrderedItem
     {
         FolderId = targetFolderId;
         Version++;
-    }
-
-    public void SetSortOrder(int sortOrder)
-    {
-        SortOrder = sortOrder;
     }
 }

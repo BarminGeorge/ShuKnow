@@ -197,9 +197,9 @@ public class FileService(
             .ToList();
     }
 
-    private static void ApplySortOrder<T>(List<T> items) where T : IOrderedItem
+    private static void ApplySortOrder<T>(List<T> items) where T : class, IOrderedItem
     {
         for (var i = 0; i < items.Count; i++)
-            items[i].SetSortOrder(i);
+            items[i].SortOrder = i;
     }
 }

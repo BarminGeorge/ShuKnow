@@ -10,7 +10,7 @@ public class Folder : IEntity<Guid>, IOrderedItem
     public Guid? ParentFolderId { get; private set; }
     public string Name { get; private set; } = string.Empty;
     public string Description { get; private set; } = string.Empty;
-    public int SortOrder { get; private set; }
+    public int SortOrder { get; set; }
     public string? Emoji { get; private set; }
 
     protected Folder()
@@ -33,10 +33,5 @@ public class Folder : IEntity<Guid>, IOrderedItem
         Description = description;
         SortOrder = sortOrder;
         Emoji = emoji;
-    }
-
-    public void SetSortOrder(int sortOrder)
-    {
-        SortOrder = sortOrder;
     }
 }

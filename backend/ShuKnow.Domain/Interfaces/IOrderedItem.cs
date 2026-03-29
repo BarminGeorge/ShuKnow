@@ -2,7 +2,5 @@
 
 public interface IOrderedItem
 {
-    int SortOrder { get; }
-    
-    void SetSortOrder(int sortOrder);
+    int SortOrder { get; set; }
 }
