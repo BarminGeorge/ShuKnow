@@ -34,7 +34,7 @@ export function EditFileModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div className="bg-[#1a1a1a] border border-white/20 rounded-2xl w-full max-w-md mx-4 shadow-2xl">
+      <div className="bg-[#141414] border border-white/10 rounded-2xl w-full max-w-md mx-4 shadow-2xl">
         {/* Header with Editable Name */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10">
           <input

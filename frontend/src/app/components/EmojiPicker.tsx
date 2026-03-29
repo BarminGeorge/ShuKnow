@@ -197,8 +197,8 @@ export function EmojiPicker({
   useLayoutEffect(() => {
     if (!isOpen || !anchorEl) return;
 
-    const PICKER_WIDTH = 288;
-    const PICKER_HEIGHT = 380;
+    const PICKER_WIDTH = 280;
+    const PICKER_HEIGHT = 360;
     const MARGIN = 8;
 
     const rect = anchorEl.getBoundingClientRect();
@@ -270,47 +270,39 @@ export function EmojiPicker({
   return createPortal(
     <div
       ref={pickerRef}
-      className="fixed z-[9999] w-72 bg-[#161b22] border border-white/20 rounded-xl shadow-2xl overflow-hidden"
+      className="fixed z-[9999] w-[280px] bg-[#141414] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
       style={{ top: position.top, left: position.left }}
     >
-      {/* Top actions */}
-      <div className="p-2 border-b border-white/10">
-        {hasEmoji && (
-          <button
-            onClick={onRemove}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors mb-2"
-          >
-            <X size={13} />
-            <span>Убрать иконку</span>
-          </button>
-        )}
+      {/* Header with search */}
+      <div className="p-3">
         <div className="relative">
           <Search
-            size={13}
+            size={14}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
           />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск эмодзи..."
-                          className="w-full pl-8 pr-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder:text-gray-500 outline-none focus:border-indigo-500/50 transition-colors"            autoFocus
+            placeholder="Поиск..."
+            className="w-full pl-9 pr-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-white placeholder:text-gray-500 outline-none focus:border-indigo-500/50 transition-colors"
+            autoFocus
           />
         </div>
       </div>
 
-      {/* Category tabs (only shown when not searching) */}
+      {/* Category tabs */}
       {!filteredEmojis && (
-        <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-white/10 overflow-x-auto">
+        <div className="flex items-center gap-1 px-3 pb-2">
           {EMOJI_CATEGORIES.map((cat, idx) => (
             <button
               key={cat.name}
               onClick={() => setActiveCategory(idx)}
               title={cat.name}
-              className={`flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-base transition-colors ${
+              className={`flex-1 h-9 flex items-center justify-center rounded-lg text-lg transition-colors ${
                 activeCategory === idx
-                  ? "bg-indigo-600/40 text-indigo-200"
-                  : "hover:bg-white/10 text-gray-400"
+                  ? "bg-indigo-500/15"
+                  : "hover:bg-white/5"
               }`}
             >
               {cat.icon}
@@ -320,20 +312,20 @@ export function EmojiPicker({
       )}
 
       {/* Emoji grid */}
-      <div className="p-2 overflow-y-auto max-h-[248px]">
+      <div className="px-3 pb-3 overflow-y-auto max-h-[240px]">
         {filteredEmojis ? (
           <>
             {filteredEmojis.length === 0 ? (
-              <div className="text-center py-6 text-gray-500 text-sm">
+              <div className="text-center py-8 text-gray-500 text-sm">
                 Ничего не найдено
               </div>
             ) : (
-              <div className="grid grid-cols-8 gap-0.5">
+              <div className="grid grid-cols-8 gap-1">
                 {filteredEmojis.map(({ e }) => (
                   <button
                     key={e}
                     onClick={() => onSelect(e)}
-                    className="aspect-square flex items-center justify-center text-xl rounded-lg hover:bg-white/10 transition-colors leading-none"
+                    className="aspect-square flex items-center justify-center text-xl rounded-lg hover:bg-white/10 active:bg-white/15 transition-colors"
                     title={e}
                   >
                     {e}
@@ -343,25 +335,33 @@ export function EmojiPicker({
             )}
           </>
         ) : (
-          <>
-            <p className="text-xs text-gray-500 px-1 pb-1.5 select-none">
-              {EMOJI_CATEGORIES[activeCategory].name}
-            </p>
-            <div className="grid grid-cols-8 gap-0.5">
-              {EMOJI_CATEGORIES[activeCategory].emojis.map(({ e }) => (
-                <button
-                  key={e}
-                  onClick={() => onSelect(e)}
-                  className="aspect-square flex items-center justify-center text-xl rounded-lg hover:bg-white/10 transition-colors leading-none"
-                  title={e}
-                >
-                  {e}
-                </button>
-              ))}
-            </div>
-          </>
+          <div className="grid grid-cols-8 gap-1">
+            {EMOJI_CATEGORIES[activeCategory].emojis.map(({ e }) => (
+              <button
+                key={e}
+                onClick={() => onSelect(e)}
+                className="aspect-square flex items-center justify-center text-xl rounded-lg hover:bg-white/10 active:bg-white/15 transition-colors"
+                title={e}
+              >
+                {e}
+              </button>
+            ))}
+          </div>
         )}
       </div>
+
+      {/* Footer with remove option */}
+      {hasEmoji && (
+        <div className="px-3 pb-3">
+          <button
+            onClick={onRemove}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-colors"
+          >
+            <X size={14} />
+            <span>Убрать иконку</span>
+          </button>
+        </div>
+      )}
     </div>,
     document.body
   );

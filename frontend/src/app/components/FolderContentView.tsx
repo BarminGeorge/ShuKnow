@@ -1332,7 +1332,7 @@ export function FolderContentView({
             onChange={(e) => setAiPrompt(e.target.value)}
             onBlur={handlePromptBlur}
             placeholder="Инструкция для ИИ: что должно попадать в эту папку..."
-            className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/20 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-indigo-500/50 transition-colors"
+            className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-indigo-500/50 transition-colors"
             rows={2}
           />
         </div>
@@ -1343,7 +1343,7 @@ export function FolderContentView({
         {/* Drop overlay when dragging files */}
         {isFileOver && gridItems.length > 0 && (
           <div className="absolute inset-0 bg-indigo-500/5 border-2 border-dashed border-indigo-500/50 rounded-xl z-10 flex items-center justify-center pointer-events-none">
-            <div className="bg-[#1a1a1a] px-6 py-4 rounded-xl border border-indigo-500/30">
+            <div className="bg-[#141414] px-6 py-4 rounded-xl border border-indigo-500/30">
               <div className="flex items-center gap-3">
                 <Upload size={24} className="text-indigo-400" />
                 <span className="text-indigo-300 text-lg">Отпустите файлы для загрузки</span>

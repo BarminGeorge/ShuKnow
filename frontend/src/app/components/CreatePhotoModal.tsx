@@ -58,7 +58,7 @@ export function CreatePhotoModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div className="bg-[#1a1a1a] border border-white/20 rounded-2xl w-full max-w-md mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#141414] border border-white/10 rounded-2xl w-full max-w-md mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10">
           <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center">

@@ -24,7 +24,7 @@ export function FolderContextMenu({
 
       {/* Menu */}
       <div
-        className="fixed z-50 bg-[#161b22] border border-white/20 rounded-xl shadow-2xl py-2 min-w-[180px]"
+        className="fixed z-50 bg-[#141414] border border-white/10 rounded-2xl shadow-2xl py-1.5 min-w-[180px] overflow-hidden"
         style={{
           top: `${position.y}px`,
           left: `${position.x}px`,
@@ -35,20 +35,20 @@ export function FolderContextMenu({
             onEdit();
             onClose();
           }}
-          className="w-full px-4 py-2 text-left text-sm text-gray-200 hover:bg-white/10 transition-colors flex items-center gap-3"
+          className="w-full px-4 py-2.5 text-left text-sm text-gray-200 hover:bg-white/5 transition-colors flex items-center gap-3"
         >
-          <Edit3 size={14} className="text-gray-400" />
+          <Edit3 size={15} className="text-gray-400" />
           Редактировать
         </button>
-        <div className="h-px bg-white/10 my-1" />
+        <div className="h-px bg-white/10 mx-3 my-0.5" />
         <button
           onClick={() => {
             onDelete();
             onClose();
           }}
-          className="w-full px-4 py-2 text-left text-sm text-gray-200 hover:bg-indigo-500/20 hover:text-indigo-400 transition-colors flex items-center gap-3"
+          className="w-full px-4 py-2.5 text-left text-sm text-gray-200 hover:bg-indigo-500/10 hover:text-indigo-400 transition-colors flex items-center gap-3"
         >
-          <Trash2 size={14} className="text-gray-400" />
+          <Trash2 size={15} className="text-gray-400" />
           Удалить
         </button>
       </div>
