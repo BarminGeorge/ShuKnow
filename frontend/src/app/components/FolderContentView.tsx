@@ -1277,22 +1277,26 @@ export function FolderContentView({
           )}
 
           <div className="ml-auto flex items-center gap-2">
-            <button
-              onClick={() => setIsCreateFolderModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
-              title="Создать папку"
-            >
-              <FolderIcon size={16} />
-              Создать папку
-            </button>
-            <button
-              onClick={handleCreateFile}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm"
-              title="Создать файл"
-            >
-              <Plus size={16} />
-              Создать файл
-            </button>
+            {gridItems.length > 0 && (
+              <>
+                <button
+                  onClick={() => setIsCreateFolderModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
+                  title="Создать папку"
+                >
+                  <FolderIcon size={16} />
+                  Создать папку
+                </button>
+                <button
+                  onClick={handleCreateFile}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg transition-colors text-sm border border-indigo-500/20"
+                  title="Создать файл"
+                >
+                  <Plus size={16} />
+                  Создать файл
+                </button>
+              </>
+            )}
             <button
               onClick={() => fileInputRef.current?.click()}
               className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
@@ -1418,10 +1422,10 @@ export function FolderContentView({
                 </button>
                 <button
                   onClick={handleCreateFile}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm"
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg transition-colors text-sm border border-indigo-500/20"
                 >
                   <Plus size={16} />
-                  Создать первый файл
+                  Создать файл
                 </button>
               </div>
             )}
