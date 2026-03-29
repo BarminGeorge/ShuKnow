@@ -1,6 +1,5 @@
 using Ardalis.Result;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 using ShuKnow.Domain.Repositories;
 using File = ShuKnow.Domain.Entities.File;
 
@@ -8,7 +7,110 @@ namespace ShuKnow.Infrastructure.Persistent.Repositories;
 
 public class FileRepository(AppDbContext context) : IFileRepository
 {
-    public async Task<Result<File>> GetByIdAsync(Guid fileId, Guid userId)
+    public Task<Result<File>> GetByIdAsync(Guid fileId, Guid userId)
+    {
+        return GetByIdAsync(fileId, userId, trackChanges: false);
+    }
+
+    public Task<Result<File>> GetByIdForUpdateAsync(Guid fileId, Guid userId)
+    {
+        return GetByIdAsync(fileId, userId, trackChanges: true);
+    }
+
+    public async Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
+        Guid folderId, Guid userId, int page, int pageSize)
+    {
+        if (folderId == Guid.Empty)
+            return Result.Error("Folder id must not be empty.");
+
+        if (userId == Guid.Empty)
+            return Result.Error("User id must not be empty.");
+
+        if (page <= 0)
+            return Result.Error("Page must be greater than zero.");
+
+        if (pageSize <= 0)
+            return Result.Error("Page size must be greater than zero.");
+
+        if (!await FolderExistsAsync(folderId, userId))
+            return Result.NotFound($"Folder with id '{folderId}' was not found.");
+
+        var query = context.Files
+            .AsNoTracking()
+            .Where(file => file.FolderId == folderId && file.UserId == userId)
+            .OrderBy(file => file.Name);
+
+        var totalCount = await query.CountAsync();
+        var files = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return Result.Success<(IReadOnlyList<File> Files, int TotalCount)>((files, totalCount));
+    }
+
+    public async Task<Result<bool>> ExistsByNameInFolderAsync(
+        string name, Guid folderId, Guid userId, Guid? excludeId = null)
+    {
+        var query = context.Files
+            .AsNoTracking()
+            .Where(file => file.Name == name && file.FolderId == folderId && file.UserId == userId);
+
+        if (excludeId.HasValue)
+            query = query.Where(file => file.Id != excludeId.Value);
+
+        return Result.Success(await query.AnyAsync());
+    }
+
+    public async Task<Result<int>> CountByFolderAsync(Guid folderId, Guid userId)
+    {
+        if (folderId == Guid.Empty)
+            return Result.Error("Folder id must not be empty.");
+
+        if (userId == Guid.Empty)
+            return Result.Error("User id must not be empty.");
+
+        if (!await FolderExistsAsync(folderId, userId))
+            return Result.NotFound($"Folder with id '{folderId}' was not found.");
+
+        var count = await context.Files
+            .AsNoTracking()
+            .CountAsync(file => file.FolderId == folderId && file.UserId == userId);
+
+        return Result.Success(count);
+    }
+
+    public async Task<Result> AddAsync(File file)
+    {
+        if (file.Id == Guid.Empty)
+            return Result.Error("File id must not be empty.");
+
+        if (file.FolderId == Guid.Empty)
+            return Result.Error("Folder id must not be empty.");
+
+        if (file.UserId == Guid.Empty)
+            return Result.Error("User id must not be empty.");
+
+        if (!await FolderExistsAsync(file.FolderId, file.UserId))
+            return Result.NotFound($"Folder with id '{file.FolderId}' was not found.");
+
+        context.Files.Add(file);
+        return Result.Success();
+    }
+
+    public Task<Result> UpdateAsync(File file)
+    {
+        if (file.Id == Guid.Empty)
+            return Task.FromResult(Result.Error("File id must not be empty."));
+
+        if (file.UserId == Guid.Empty)
+            return Task.FromResult(Result.Error("User id must not be empty."));
+
+        context.Files.Update(file);
+        return Task.FromResult(Result.Success());
+    }
+
+    public async Task<Result> DeleteAsync(Guid fileId, Guid userId)
     {
         if (fileId == Guid.Empty)
             return Result.Error("File id must not be empty.");
@@ -16,286 +118,86 @@ public class FileRepository(AppDbContext context) : IFileRepository
         if (userId == Guid.Empty)
             return Result.Error("User id must not be empty.");
 
-        try
-        {
-            var lookup = await context.Files
-                .AsNoTracking()
-                .Where(f => f.Id == fileId)
-                .Select(f => new
-                {
-                    File = f,
-                    HasAccess = f.UserId == userId
-                })
-                .FirstOrDefaultAsync();
+        var deleted = await context.Files
+            .Where(file => file.Id == fileId && file.UserId == userId)
+            .ExecuteDeleteAsync();
 
-            if (lookup is null)
-                return Result.NotFound($"File with id '{fileId}' was not found.");
-
-            if (!lookup.HasAccess)
-                return Result.Forbidden("You do not have access to this file.");
-
-            return Result.Success(lookup.File);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Result.Error($"Unable to load file '{fileId}' because the query returned an invalid result: {ex.Message}");
-        }
-        catch (TimeoutException ex)
-        {
-            return Result.Error($"Timed out while loading file '{fileId}': {ex.Message}");
-        }
-        catch (PostgresException ex)
-        {
-            return Result.Error($"A database error occurred while loading file '{fileId}': {ex.MessageText}");
-        }
-        catch (NpgsqlException ex)
-        {
-            return Result.Error($"A database connection error occurred while loading file '{fileId}': {ex.Message}");
-        }
-        catch (Exception ex)
-        {
-            return Result.Error($"An unexpected error occurred while loading file '{fileId}': {ex.Message}");
-        }
-    }
-
-    public async Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
-        Guid folderId, Guid userId, int page, int pageSize)
-    {
-        try
-        {
-            var filesWithFolderMarker = await context.Folders
-                .AsNoTracking()
-                .Where(folder => folder.Id == folderId && folder.UserId == userId)
-                .SelectMany(
-                    folder => context.Files
-                        .AsNoTracking()
-                        .Where(file => file.FolderId == folder.Id && file.UserId == userId)
-                        .OrderBy(file => file.Name)
-                        .Skip((page - 1) * pageSize)
-                        .Take(pageSize)
-                        .DefaultIfEmpty(),
-                    (_, file) => file)
-                .ToListAsync();
-
-            if (filesWithFolderMarker.Count == 0)
-                return Result.NotFound();
-
-            var files = filesWithFolderMarker
-                .Where(file => file is not null)
-                .Cast<File>()
-                .ToList();
-
-            return Result.Success<(IReadOnlyList<File> Files, int TotalCount)>((files, files.Count));
-        }
-        catch (Exception ex)
-        {
-            return Result.Error(ex.Message);
-        }
-    }
-
-    public async Task<Result<bool>> ExistsByNameInFolderAsync(
-        string name, Guid folderId, Guid userId, Guid? excludeId = null)
-    {
-        try
-        {
-            var query = context.Files
-                .Where(f => f.Name == name && f.FolderId == folderId && f.UserId == userId);
-
-            if (excludeId.HasValue)
-                query = query.Where(f => f.Id != excludeId.Value);
-
-            return Result.Success(await query.AnyAsync());
-        }
-        catch (Exception ex)
-        {
-            return Result.Error(ex.Message);
-        }
-    }
-
-    public async Task<Result<int>> CountByFolderAsync(Guid folderId, Guid userId)
-    {
-        try
-        {
-            var count = await context.Files
-                .CountAsync(f => f.FolderId == folderId && f.UserId == userId);
-
-            return Result.Success(count);
-        }
-        catch (Exception ex)
-        {
-            return Result.Error(ex.Message);
-        }
-    }
-
-    public async Task<Result> AddAsync(File file, Guid userId)
-    {
-        try
-        {
-            var folderExists = await context.Folders
-                .AnyAsync(f => f.Id == file.FolderId && f.UserId == userId);
-
-            if (!folderExists)
-                return Result.NotFound();
-
-            context.Files.Add(file);
-            return Result.Success();
-        }
-        catch (Exception ex)
-        {
-            return Result.Error(ex.Message);
-        }
-    }
-
-    public async Task<Result> UpdateAsync(File file)
-    {
-        if (file.Id == Guid.Empty)
-            return Result.Error("File id must not be empty.");
-
-        if (file.UserId == Guid.Empty)
-            return Result.Error("User id must not be empty.");
-
-        try
-        {
-            var existingFile = await context.Files
-                .FirstOrDefaultAsync(f => f.Id == file.Id);
-
-            if (existingFile is null)
-                return Result.NotFound($"File with id '{file.Id}' was not found.");
-
-            if (existingFile.UserId != file.UserId)
-                return Result.Forbidden("You do not have access to this file.");
-
-            var entry = context.Entry(existingFile);
-            var hasChanges = false;
-
-            if (existingFile.FolderId != file.FolderId)
-            {
-                entry.Property(f => f.FolderId).CurrentValue = file.FolderId;
-                hasChanges = true;
-            }
-
-            if (existingFile.Name != file.Name)
-            {
-                entry.Property(f => f.Name).CurrentValue = file.Name;
-                hasChanges = true;
-            }
-
-            if (existingFile.Description != file.Description)
-            {
-                entry.Property(f => f.Description).CurrentValue = file.Description;
-                hasChanges = true;
-            }
-
-            if (existingFile.ContentType != file.ContentType)
-            {
-                entry.Property(f => f.ContentType).CurrentValue = file.ContentType;
-                hasChanges = true;
-            }
-
-            if (existingFile.SizeBytes != file.SizeBytes)
-            {
-                entry.Property(f => f.SizeBytes).CurrentValue = file.SizeBytes;
-                hasChanges = true;
-            }
-
-            if (existingFile.ChecksumSha256 != file.ChecksumSha256)
-            {
-                entry.Property(f => f.ChecksumSha256).CurrentValue = file.ChecksumSha256;
-                hasChanges = true;
-            }
-
-            if (hasChanges)
-                entry.Property(f => f.Version).CurrentValue = existingFile.Version + 1;
-
-            return Result.Success();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Result.Error($"Unable to update file '{file.Id}' because the query returned an invalid result: {ex.Message}");
-        }
-        catch (TimeoutException ex)
-        {
-            return Result.Error($"Timed out while updating file '{file.Id}': {ex.Message}");
-        }
-        catch (PostgresException ex)
-        {
-            return Result.Error($"A database error occurred while updating file '{file.Id}': {ex.MessageText}");
-        }
-        catch (NpgsqlException ex)
-        {
-            return Result.Error($"A database connection error occurred while updating file '{file.Id}': {ex.Message}");
-        }
-        catch (Exception ex)
-        {
-            return Result.Error($"An unexpected error occurred while updating file '{file.Id}': {ex.Message}");
-        }
-    }
-
-    public async Task<Result> DeleteAsync(Guid fileId, Guid userId)
-    {
-        try
-        {
-            var deleted = await context.Files
-                .Where(f => f.Id == fileId && f.UserId == userId)
-                .ExecuteDeleteAsync();
-
-            return deleted == 0 ? Result.NotFound() : Result.Success();
-        }
-        catch (Exception ex)
-        {
-            return Result.Error(ex.Message);
-        }
+        return deleted == 0
+            ? Result.NotFound($"File with id '{fileId}' was not found.")
+            : Result.Success();
     }
 
     public async Task<Result<IReadOnlyList<File>>> DeleteByFolderAsync(Guid folderId, Guid userId)
     {
-        try
-        {
-            var files = await context.Files
-                .AsNoTracking()
-                .Where(f => f.FolderId == folderId && f.Folder.UserId == userId)
-                .ToListAsync();
+        if (folderId == Guid.Empty)
+            return Result.Error("Folder id must not be empty.");
 
+        if (userId == Guid.Empty)
+            return Result.Error("User id must not be empty.");
+
+        if (!await FolderExistsAsync(folderId, userId))
+            return Result.NotFound($"Folder with id '{folderId}' was not found.");
+
+        var files = await context.Files
+            .AsNoTracking()
+            .Where(file => file.FolderId == folderId && file.UserId == userId)
+            .ToListAsync();
+
+        if (files.Count > 0)
+        {
             await context.Files
-                .Where(f => f.FolderId == folderId && f.Folder.UserId == userId)
+                .Where(file => file.FolderId == folderId && file.UserId == userId)
                 .ExecuteDeleteAsync();
+        }
 
-            return Result.Success<IReadOnlyList<File>>(files);
-        }
-        catch (Exception ex)
-        {
-            return Result.Error(ex.Message);
-        }
+        return Result.Success<IReadOnlyList<File>>(files);
     }
 
     public async Task<Result<IReadOnlyList<File>>> GetByFolderAsync(Guid folderId, Guid userId)
     {
-        try
-        {
-            var filesWithFolderMarker = await context.Folders
-                .AsNoTracking()
-                .Where(folder => folder.Id == folderId && folder.UserId == userId)
-                .SelectMany(
-                    folder => context.Files
-                        .AsNoTracking()
-                        .Where(file => file.FolderId == folder.Id && file.UserId == userId)
-                        .DefaultIfEmpty(),
-                    (_, file) => file)
-                .ToListAsync();
+        if (folderId == Guid.Empty)
+            return Result.Error("Folder id must not be empty.");
 
-            if (filesWithFolderMarker.Count == 0)
-                return Result.NotFound();
+        if (userId == Guid.Empty)
+            return Result.Error("User id must not be empty.");
 
-            var files = filesWithFolderMarker
-                .Where(file => file is not null)
-                .Cast<File>()
-                .ToList();
+        if (!await FolderExistsAsync(folderId, userId))
+            return Result.NotFound($"Folder with id '{folderId}' was not found.");
 
-            return Result.Success<IReadOnlyList<File>>(files);
-        }
-        catch (Exception ex)
-        {
-            return Result.Error(ex.Message);
-        }
+        var files = await context.Files
+            .AsNoTracking()
+            .Where(file => file.FolderId == folderId && file.UserId == userId)
+            .OrderBy(file => file.Name)
+            .ToListAsync();
+
+        return Result.Success<IReadOnlyList<File>>(files);
+    }
+
+    private async Task<Result<File>> GetByIdAsync(Guid fileId, Guid userId, bool trackChanges)
+    {
+        if (fileId == Guid.Empty)
+            return Result.Error("File id must not be empty.");
+
+        if (userId == Guid.Empty)
+            return Result.Error("User id must not be empty.");
+
+        var query = context.Files.Where(file => file.Id == fileId);
+        if (!trackChanges)
+            query = query.AsNoTracking();
+
+        var file = await query.FirstOrDefaultAsync();
+        if (file is null)
+            return Result.NotFound($"File with id '{fileId}' was not found.");
+
+        return file.UserId == userId
+            ? Result.Success(file)
+            : Result.Forbidden("You do not have access to this file.");
+    }
+
+    private Task<bool> FolderExistsAsync(Guid folderId, Guid userId)
+    {
+        return context.Folders
+            .AsNoTracking()
+            .AnyAsync(folder => folder.Id == folderId && folder.UserId == userId);
     }
 }
