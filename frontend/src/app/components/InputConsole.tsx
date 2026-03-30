@@ -1,9 +1,20 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Paperclip, ArrowUp, X } from "lucide-react";
+import { Paperclip, ArrowUp, X, FileText, Image as ImageIcon } from "lucide-react";
 import type { Attachment } from "./ChatMessages";
 
 interface InputConsoleProps {
   onSend?: (text: string, attachments?: Attachment[]) => void;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isImageFile(filename: string): boolean {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '');
 }
 
 export function InputConsole({ onSend }: InputConsoleProps) {
@@ -169,19 +180,39 @@ export function InputConsole({ onSend }: InputConsoleProps) {
           className="hidden"
         />
 
-        {/* Attachments preview */}
+        {/* Attachments preview - horizontal scrollable list */}
         {attachments.length > 0 && (
-          <div className="flex flex-col items-end gap-1.5 mb-3">
+          <div className="flex gap-2 mb-3 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {attachments.map((attachment) => (
               <div
                 key={attachment.id}
-                className="flex items-center gap-2 bg-white/10 border border-white/10 rounded-xl px-3 py-1.5 max-w-[80%] group"
+                className="flex-shrink-0 w-[200px] flex items-center gap-2 bg-[#1a1a1a] border border-white/10 rounded-xl px-2 py-1.5 group hover:border-white/20 transition-colors"
               >
-                <Paperclip size={14} className="text-gray-400 flex-shrink-0" />
-                <span className="text-sm text-gray-300 truncate">{attachment.name}</span>
+                {/* Preview - image or file icon */}
+                <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-white/5 flex items-center justify-center">
+                  {isImageFile(attachment.name) && attachment.url ? (
+                    <img 
+                      src={attachment.url} 
+                      alt={attachment.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <FileText size={18} className="text-gray-500" />
+                  )}
+                </div>
+                
+                {/* File info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-200 truncate">{attachment.name}</p>
+                  {attachment.size && (
+                    <p className="text-xs text-gray-500">{formatFileSize(attachment.size)}</p>
+                  )}
+                </div>
+                
+                {/* Remove button */}
                 <button
                   onClick={() => removeAttachment(attachment.id)}
-                  className="flex-shrink-0 p-0.5 rounded hover:bg-white/10 text-gray-400 hover:text-indigo-400 transition-colors"
+                  className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 text-gray-500 hover:text-white transition-colors"
                   title="Удалить"
                 >
                   <X size={14} />

@@ -60,7 +60,7 @@ function getFileIcon(filename: string) {
   return <FileText size={14} className="text-gray-400" />;
 }
 
-// Draggable attachment component
+// Draggable attachment component with fixed width
 function DraggableAttachment({ attachment }: { attachment: Attachment }) {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -82,13 +82,13 @@ function DraggableAttachment({ attachment }: { attachment: Attachment }) {
       } : null,
     }));
     
-    // Create drag image that looks like the original but constrained
+    // Create drag image that looks like the original
     const dragImage = document.createElement('div');
     dragImage.style.cssText = `
       position: fixed;
       top: -1000px;
       left: -1000px;
-      max-width: 250px;
+      width: 200px;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -100,33 +100,36 @@ function DraggableAttachment({ attachment }: { attachment: Attachment }) {
       z-index: 9999;
     `;
     
-    // Add icon
-    const iconSpan = document.createElement('span');
-    iconSpan.style.cssText = 'width: 14px; height: 14px; flex-shrink: 0;';
+    // Add preview
     if (isImageFile(attachment.name) && attachment.url) {
       const img = document.createElement('img');
       img.src = attachment.url;
       img.style.cssText = 'width: 40px; height: 40px; object-fit: cover; border-radius: 8px; flex-shrink: 0;';
       dragImage.appendChild(img);
     } else {
-      iconSpan.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #9ca3af;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>`;
+      const iconSpan = document.createElement('span');
+      iconSpan.style.cssText = 'width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 8px; flex-shrink: 0;';
+      iconSpan.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #6b7280;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>`;
       dragImage.appendChild(iconSpan);
     }
     
-    // Add filename
+    // Add file info container
+    const infoDiv = document.createElement('div');
+    infoDiv.style.cssText = 'flex: 1; min-width: 0;';
+    
     const nameSpan = document.createElement('span');
     nameSpan.textContent = attachment.name;
-    nameSpan.style.cssText = 'color: #e5e7eb; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
-    dragImage.appendChild(nameSpan);
+    nameSpan.style.cssText = 'display: block; color: #e5e7eb; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
+    infoDiv.appendChild(nameSpan);
     
-    // Add size if available
     if (attachment.size) {
       const sizeSpan = document.createElement('span');
       sizeSpan.textContent = formatFileSize(attachment.size);
-      sizeSpan.style.cssText = 'color: #6b7280; font-size: 12px; flex-shrink: 0;';
-      dragImage.appendChild(sizeSpan);
+      sizeSpan.style.cssText = 'display: block; color: #6b7280; font-size: 11px;';
+      infoDiv.appendChild(sizeSpan);
     }
     
+    dragImage.appendChild(infoDiv);
     document.body.appendChild(dragImage);
     e.dataTransfer.setDragImage(dragImage, 12, 12);
     
@@ -147,22 +150,31 @@ function DraggableAttachment({ attachment }: { attachment: Attachment }) {
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      className={`flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-3 py-2 max-w-full cursor-grab active:cursor-grabbing transition-all hover:bg-indigo-500/15 hover:border-indigo-500/30 ${isDragging ? 'opacity-50' : ''}`}
+      className={`flex-shrink-0 w-[200px] flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-2 py-1.5 cursor-grab active:cursor-grabbing transition-all hover:bg-indigo-500/15 hover:border-indigo-500/30 ${isDragging ? 'opacity-50' : ''}`}
     >
-      <GripVertical size={12} className="text-gray-500 flex-shrink-0" />
-      {isImageFile(attachment.name) && attachment.url ? (
-        <img 
-          src={attachment.url} 
-          alt={attachment.name}
-          className="w-10 h-10 object-cover rounded-lg flex-shrink-0"
-        />
-      ) : (
-        getFileIcon(attachment.name)
-      )}
-      <span className="text-sm text-gray-200 truncate">{attachment.name}</span>
-      {attachment.size && (
-        <span className="text-xs text-gray-500">{formatFileSize(attachment.size)}</span>
-      )}
+      {/* Preview - image or file icon */}
+      <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-white/5 flex items-center justify-center">
+        {isImageFile(attachment.name) && attachment.url ? (
+          <img 
+            src={attachment.url} 
+            alt={attachment.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <FileText size={18} className="text-gray-500" />
+        )}
+      </div>
+      
+      {/* File info */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-gray-200 truncate">{attachment.name}</p>
+        {attachment.size && (
+          <p className="text-xs text-gray-500">{formatFileSize(attachment.size)}</p>
+        )}
+      </div>
+      
+      {/* Drag handle indicator */}
+      <GripVertical size={12} className="text-gray-500 flex-shrink-0 opacity-50" />
     </div>
   );
 }
@@ -181,9 +193,9 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
             {message.type === "user" ? (
               // User message (right side) - Indigo accent
               <div className="max-w-[70%]">
-                {/* Attachments displayed above message */}
+                {/* Attachments displayed above message - horizontal scrollable list */}
                 {message.attachments && message.attachments.length > 0 && (
-                  <div className="flex flex-col items-end gap-1.5 mb-2">
+                  <div className="flex gap-1.5 mb-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] justify-end">
                     {message.attachments.map((attachment) => (
                       <DraggableAttachment key={attachment.id} attachment={attachment} />
                     ))}
