@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
-import { ChevronRight, MoreVertical, FileText, ArrowLeft, Plus, Folder as FolderIcon, Image as ImageIcon, Smile, Upload, File as FileIcon } from "lucide-react";
+import { ChevronRight, MoreVertical, FileText, ArrowLeft, Plus, Folder as FolderIcon, Image as ImageIcon, Smile, Upload, File as FileIcon, Loader2 } from "lucide-react";
 import { useDrag, useDrop, useDragLayer } from "react-dnd";
 import { NativeTypes } from "react-dnd-html5-backend";
 import { getEmptyImage } from "react-dnd-html5-backend";
@@ -33,14 +33,11 @@ interface FolderContentViewProps {
   onCreateFile: (file: FileItem, openAfterCreate?: boolean) => void;
   onDeleteFile: (fileId: string) => void;
   onUpdateFile: (fileId: string, updates: Partial<FileItem>) => void;
+  isLoadingFiles?: boolean;
 }
 
 const GRID_ITEM_TYPE = "GRID_ITEM";
-
-// 放置意图类型：重新排序 vs 嵌套到文件夹内
 type DropIntent = "reorder" | "nest" | null;
-
-// 计算放置意图的辅助函数
 function calculateDropIntent(
   hoverClientX: number,
   hoverClientY: number,
@@ -50,15 +47,8 @@ function calculateDropIntent(
   draggedId: string,
   targetId: string
 ): DropIntent {
-  // 不能拖到自己身上
   if (draggedId === targetId) return null;
-  
-  // 文件只能触发重新排序意图（文件不能接受嵌套）
   if (targetType === "file") return "reorder";
-  
-  // 文件夹：根据位置判断意图
-  // 中心区域（中间60%宽度和高度）= 嵌套意图
-  // 边缘区域（左右各20%宽度，或上下各20%高度）= 重新排序意图
   const centerXStart = width * 0.2;
   const centerXEnd = width * 0.8;
   const centerYStart = height * 0.2;
@@ -68,13 +58,11 @@ function calculateDropIntent(
   const isInCenterY = hoverClientY >= centerYStart && hoverClientY <= centerYEnd;
   
   if (isInCenterX && isInCenterY) {
-    return "nest"; // 中心区域：嵌套意图
+    return "nest"; 
   }
   
-  return "reorder"; // 边缘区域：重新排序意图
+  return "reorder"; 
 }
-
-// 自定义 Drag Layer：在拖拽时显示自定义的拖拽预览
 function CustomDragLayer() {
   const { isDragging, item, currentOffset } = useDragLayer((monitor) => ({
     isDragging: monitor.isDragging(),
@@ -143,7 +131,6 @@ interface DraggableGridItemProps {
   editingFileId: string | null;
   onFileNameChange: (fileId: string, newName: string) => void;
   onEditingComplete: () => void;
-  // 新增：父文件夹的子文件夹ID列表，用于验证
   currentFolderSubfolderIds?: string[];
 }
 
@@ -163,16 +150,10 @@ function DraggableGridItem({
   currentFolderSubfolderIds = [],
 }: DraggableGridItemProps) {
   const ref = useRef<HTMLDivElement>(null);
-  // "刚刚放下"状态 — 用于 landing 动画
   const [justDropped, setJustDropped] = useState(false);
-  // 当前放置意图状态
   const [dropIntent, setDropIntent] = useState<DropIntent>(null);
-  // 用于追踪上一次的意图，避免频繁状态更新
   const lastIntentRef = useRef<DropIntent>(null);
-  // Throttle: prevent moveItem from firing more than once per 150ms
   const lastMoveTimeRef = useRef<number>(0);
-
-  // 获取元素名称用于 CustomDragLayer
   const itemName = item.type === "folder" 
     ? (item.data as Folder).name 
     : (item.data as FileItem).name;
@@ -183,29 +164,22 @@ function DraggableGridItem({
       index, 
       id: item.id, 
       origType: item.type,
-      name: itemName, // 传递名称给 drag preview
+      name: itemName, 
     }),
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
     end: (_item, _monitor) => {
-      // 启动 landing 动画
       setJustDropped(true);
       setDropIntent(null);
       lastIntentRef.current = null;
       onDragEnd();
-      
-      // 动画结束后清除状态
       setTimeout(() => setJustDropped(false), 400);
     },
   });
-
-  // 抑制浏览器默认的 drag preview（防止 snap-back 动画）
   useEffect(() => {
     dragPreview(getEmptyImage(), { captureDraggingState: true });
   }, [dragPreview]);
-
-  // 辅助函数：检查 candidateId 是否是 ancestorFolder 的后代
   const isDescendantOf = (ancestorFolder: Folder, candidateId: string): boolean => {
     if (!ancestorFolder.subfolders) return false;
     for (const sub of ancestorFolder.subfolders) {
@@ -214,32 +188,19 @@ function DraggableGridItem({
     }
     return false;
   };
-
-  // 验证是否可以嵌套到目标文件夹（用于视觉反馈）
   const canNestIntoFolder = (draggedItem: { id: string; origType: GridItemType }): boolean => {
-    // 必须是文件夹才能接受嵌套
     if (item.type !== "folder") return false;
-    // 不能拖到自己身上
     if (draggedItem.id === item.id) return false;
     
     const targetFolder = item.data as Folder;
-    
-    // 如果拖动的是文件夹，需要进行额外的验证
     if (draggedItem.origType === "folder") {
-      // 防止循环引用：目标文件夹不能是被拖动文件夹的后代
-      // 注意：这里检查的是目标文件夹是否是被拖动文件夹的后代
-      // 但由于我们无法访问被拖动文件夹的完整数据，我们只能检查基本情况
       if (isDescendantOf(targetFolder, draggedItem.id)) {
-        return false; // 目标文件夹已经在被拖动文件夹内部（不会发生，因为被拖动的是祖先）
+        return false; 
       }
-      
-      // 检查目标文件夹是否已经包含被拖动的文件夹
       if (targetFolder.subfolders?.some(f => f.id === draggedItem.id)) {
-        return false; // 已经是目标文件夹的子文件夹
+        return false; 
       }
     }
-    
-    // 文件的验证在 drop 时进行
     return true;
   };
 
@@ -259,8 +220,6 @@ function DraggableGridItem({
       const height = hoverBoundingRect.bottom - hoverBoundingRect.top;
       const hoverClientX = clientOffset.x - hoverBoundingRect.left;
       const hoverClientY = clientOffset.y - hoverBoundingRect.top;
-
-      // 计算当前放置意图
       let intent = calculateDropIntent(
         hoverClientX,
         hoverClientY,
@@ -270,37 +229,23 @@ function DraggableGridItem({
         draggedItem.id,
         item.id
       );
-
-      // 如果是嵌套意图，验证是否真的可以嵌套
       if (intent === "nest") {
-        // 创建一个临时对象用于验证
         const draggedItemForValidation = { id: draggedItem.id, origType: draggedItem.origType };
         if (!canNestIntoFolder(draggedItemForValidation)) {
-          // 如果不能嵌套，回退到重新排序意图（仅对文件有效）
           intent = item.type === "folder" ? "reorder" : null;
         }
       }
-
-      // 只在意图变化时更新状态（避免频繁重渲染）
       if (intent !== lastIntentRef.current) {
         setDropIntent(intent);
         lastIntentRef.current = intent;
       }
-
-      // 嵌套意图：不触发排序，只更新视觉状态
       if (intent === "nest") {
         return;
       }
-
-      // 重新排序意图：执行排序逻辑 (throttled)
       if (intent === "reorder" && dragIndex !== hoverIndex) {
         const hoverMiddleX = width / 2;
-
-        // 判断是否应该移动
         if (dragIndex < hoverIndex && hoverClientX < hoverMiddleX) return;
         if (dragIndex > hoverIndex && hoverClientX > hoverMiddleX) return;
-
-        // Throttle: only allow move every 150ms to prevent flicker
         const now = Date.now();
         if (now - lastMoveTimeRef.current < 150) return;
         lastMoveTimeRef.current = now;
@@ -310,18 +255,14 @@ function DraggableGridItem({
       }
     },
     drop: (draggedItem: { index: number; id: string; origType: GridItemType }, monitor) => {
-      // 如果是嵌套意图，执行嵌套操作
       if (dropIntent === "nest" && canNestIntoFolder(draggedItem)) {
         onMoveItemToFolder(draggedItem.id, item.id, draggedItem.origType);
         return { movedIntoFolder: true };
       }
-      // 否则执行重新排序（已在hover中完成，这里只需清理状态）
       setDropIntent(null);
       lastIntentRef.current = null;
     },
     canDrop: (draggedItem) => {
-      // 文件总是可以拖放到其他位置进行排序
-      // 文件夹的特殊验证在 canNestIntoFolder 中处理
       return draggedItem.id !== item.id;
     },
     collect: (monitor) => ({
@@ -329,8 +270,6 @@ function DraggableGridItem({
       canDrop: monitor.canDrop(),
     }),
   });
-
-  // 当离开目标区域时重置意图状态
   useEffect(() => {
     if (!isOver) {
       setDropIntent(null);
@@ -339,38 +278,29 @@ function DraggableGridItem({
   }, [isOver]);
 
   drag(drop(ref));
-
-  // Handle click to open file
   const handleFileClick = (fileId: string) => {
-    // Ignore clicks if item was being dragged
     if (isDragging) return;
     onFileDoubleClick(fileId);
   };
 
   if (item.type === "folder") {
     const folder = item.data as Folder;
-    
-    // 根据 dropIntent 决定视觉样式
     const getDropZoneStyles = () => {
       if (!isOver || !canDrop) return "border-white/10";
       
       if (dropIntent === "nest") {
-        // 嵌套意图：绿色发光边框，轻微放大，表示"放入文件夹"
         return "border-green-500 ring-2 ring-green-500/40 scale-[1.03] shadow-[0_0_20px_rgba(34,197,94,0.3)]";
       }
       
       if (dropIntent === "reorder") {
-        // 重新排序意图：蓝色边框，不放大，表示"在此位置插入"
         return "border-blue-500 ring-1 ring-blue-500/30";
       }
       
       return "border-white/10";
     };
-
-    // 动画类：根据状态返回不同的动画效果
     const getItemAnimationClass = () => {
       if (isDragging) return "opacity-0 scale-95 transition-opacity duration-150";
-      if (justDropped) return "animate-drop-land"; // landing 动画
+      if (justDropped) return "animate-drop-land"; 
       return "opacity-100 scale-100 transition-all duration-200 ease-out";
     };
 
@@ -394,7 +324,6 @@ function DraggableGridItem({
             <p className="text-sm text-gray-200 font-medium line-clamp-2">{folder.name}</p>
           </div>
         </div>
-        {/* 嵌套意图指示器：显示一个半透明的覆盖层提示 */}
         {dropIntent === "nest" && (
           <div className="absolute inset-0 bg-green-500/10 pointer-events-none rounded-xl" />
         )}
@@ -416,18 +345,14 @@ function DraggableGridItem({
       day: "numeric", 
       month: "short" 
     }).replace(".", "");
-
-    // 文件只支持重新排序意图
     const getFileDropStyles = () => {
       if (!isOver || !canDrop) return "border-white/10";
       if (dropIntent === "reorder") return "border-blue-500 ring-1 ring-blue-500/30";
       return "border-white/10";
     };
-
-    // 动画类：根据状态返回不同的动画效果
     const getItemAnimationClass = () => {
       if (isDragging) return "opacity-0 scale-95 transition-opacity duration-150";
-      if (justDropped) return "animate-drop-land"; // landing 动画
+      if (justDropped) return "animate-drop-land"; 
       return "opacity-100 scale-100 transition-all duration-200 ease-out";
     };
 
@@ -439,10 +364,10 @@ function DraggableGridItem({
         onClick={() => handleFileClick(file.id)}
         title="Нажмите для открытия"
       >
-        {file.type === "photo" && file.imageUrl ? (
+        {file.type === "photo" && file.contentUrl ? (
           <div className="relative aspect-[4/3] overflow-hidden">
             <img
-              src={file.imageUrl}
+              src={file.contentUrl}
               alt={file.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
@@ -525,10 +450,11 @@ export function FolderContentView({
   onCreateFile,
   onDeleteFile,
   onUpdateFile,
+  isLoadingFiles = false,
 }: FolderContentViewProps) {
   const [title, setTitle] = useState(folder.name);
   const [emoji, setEmoji] = useState(folder.emoji || "");
-  const [aiPrompt, setAiPrompt] = useState(folder.prompt || "");
+  const [description, setDescription] = useState(folder.description || "");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
@@ -539,18 +465,12 @@ export function FolderContentView({
   const [editFolderModal, setEditFolderModal] = useState<{ isOpen: boolean; folder: Folder | null; }>({ isOpen: false, folder: null });
   const [fileContextMenu, setFileContextMenu] = useState<{ isOpen: boolean; fileId: string; position: { x: number; y: number }; }>({ isOpen: false, fileId: "", position: { x: 0, y: 0 } });
   const [folderContextMenu, setFolderContextMenu] = useState<{ isOpen: boolean; folderId: string; position: { x: number; y: number }; }>({ isOpen: false, folderId: "", position: { x: 0, y: 0 } });
-
-  // Refs for state management without re-renders
   const orderRef = useRef<string[]>([]);
   const updateRef = useRef(onUpdateFolder);
   const hasOrderChangedRef = useRef(false);
-
-  // Keep fresh update function
   useEffect(() => {
     updateRef.current = onUpdateFolder;
   }, [onUpdateFolder]);
-
-  // Silently update order ref on grid changes
   useEffect(() => {
     const newOrder = gridItems.map((item) => item.id);
     const hasChanged = JSON.stringify(newOrder) !== JSON.stringify(orderRef.current);
@@ -559,33 +479,23 @@ export function FolderContentView({
       hasOrderChangedRef.current = true;
     }
   }, [gridItems]);
-
-  // Sync metadata (if changed externally)
   useEffect(() => {
     setTitle(folder.name);
     setEmoji(folder.emoji || "");
-    setAiPrompt(folder.prompt || "");
-  }, [folder.name, folder.emoji, folder.prompt]);
-
-  // Rebuild grid only on folder change
+    setDescription(folder.description || "");
+  }, [folder.name, folder.emoji, folder.description]);
   useEffect(() => {
     const folderFiles = files.filter((f) => f.folderId === folder.id);
     const items: GridItem[] = [];
     let order = 0;
-
-    // Add subfolders first
     if (folder.subfolders) {
       folder.subfolders.forEach((subfolder) => {
         items.push({ id: subfolder.id, type: "folder", data: subfolder, order: order++ });
       });
     }
-
-    // Add files
     folderFiles.forEach((file) => {
       items.push({ id: file.id, type: "file", data: file, order: order++ });
     });
-
-    // Apply custom order if exists
     if (folder.customOrder && folder.customOrder.length > 0) {
       const orderedItems: GridItem[] = [];
       const itemsMap = new Map(items.map((item) => [item.id, item]));
@@ -597,8 +507,6 @@ export function FolderContentView({
           itemsMap.delete(id);
         }
       });
-      
-      // Add remaining items (new files/folders not in customOrder)
       itemsMap.forEach((item) => orderedItems.push(item));
       setGridItems(orderedItems);
     } else {
@@ -624,9 +532,9 @@ export function FolderContentView({
     setFileContextMenu({ ...fileContextMenu, isOpen: false });
   };
 
-  const handleSaveFileEdit = (name: string, prompt: string) => {
+  const handleSaveFileEdit = (name: string, description: string) => {
     if (!editFileModal.file) return;
-    onUpdateFile(editFileModal.file.id, { name, prompt });
+    onUpdateFile(editFileModal.file.id, { name, description });
     setEditFileModal({ isOpen: false, file: null });
   };
 
@@ -643,10 +551,10 @@ export function FolderContentView({
     setFolderContextMenu({ ...folderContextMenu, isOpen: false });
   };
 
-  const handleSaveFolderEdit = (name: string, emoji: string, prompt: string) => {
+  const handleSaveFolderEdit = (name: string, emoji: string, description: string) => {
     if (!editFolderModal.folder) return;
     const updatedSubfolders = folder.subfolders?.map((f) =>
-      f.id === editFolderModal.folder!.id ? { ...f, name, emoji, prompt } : f
+      f.id === editFolderModal.folder!.id ? { ...f, name, emoji, description } : f
     );
     onUpdateFolder({ subfolders: updatedSubfolders });
     setEditFolderModal({ isOpen: false, folder: null });
@@ -656,8 +564,6 @@ export function FolderContentView({
     if (confirm("Вы уверены, что хотите удалить эту папку и все её содержимое?")) {
       const updatedSubfolders = folder.subfolders?.filter((f) => f.id !== folderContextMenu.folderId);
       onUpdateFolder({ subfolders: updatedSubfolders });
-      
-      // Also delete all files in this subfolder
       const filesToDelete = files.filter((f) => f.folderId === folderContextMenu.folderId);
       filesToDelete.forEach((file) => onDeleteFile(file.id));
     }
@@ -671,51 +577,48 @@ export function FolderContentView({
     setIsCreateFileModalOpen(true);
   };
 
-  const handleCreateFileFromModal = (name: string, prompt: string) => {
+  const handleCreateFileFromModal = (name: string, description: string) => {
     const newFile: FileItem = {
       id: Date.now().toString(),
       name,
       type: "text",
       folderId: folder.id,
       content: "",
-      prompt: prompt || undefined,
+      description: description || undefined,
       createdAt: new Date().toISOString(),
     };
     onCreateFile(newFile);
   };
-
-  // Handle dropped files from OS file explorer
   const handleDroppedFiles = useCallback((files: File[]) => {
     files.forEach((file, index) => {
       const isImage = file.type.startsWith("image/");
       const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
       
       if (isImage) {
-        // Create object URL for image preview
-        const imageUrl = URL.createObjectURL(file);
+        const contentUrl = URL.createObjectURL(file);
         const newFile: FileItem = {
           id: `${Date.now()}-${index}`,
           name: file.name,
           type: "photo",
           folderId: folder.id,
-          imageUrl,
+          contentUrl,
+          contentType: file.type,
           createdAt: new Date().toISOString(),
         };
-        onCreateFile(newFile, false); // Don't open after drop
+        onCreateFile(newFile, false);
       } else if (isPdf) {
-        // Create object URL for PDF viewing
-        const pdfUrl = URL.createObjectURL(file);
+        const contentUrl = URL.createObjectURL(file);
         const newFile: FileItem = {
           id: `${Date.now()}-${index}`,
           name: file.name,
           type: "pdf",
           folderId: folder.id,
-          pdfUrl,
+          contentUrl,
+          contentType: "application/pdf",
           createdAt: new Date().toISOString(),
         };
-        onCreateFile(newFile, false); // Don't open after drop
+        onCreateFile(newFile, false);
       } else {
-        // For text files, try to read content
         const reader = new FileReader();
         reader.onload = (e) => {
           const content = e.target?.result as string || "";
@@ -725,33 +628,34 @@ export function FolderContentView({
             type: "text",
             folderId: folder.id,
             content,
+            contentType: file.type || "text/plain",
             createdAt: new Date().toISOString(),
           };
-          onCreateFile(newFile, false); // Don't open after drop
+          onCreateFile(newFile, false);
         };
         reader.onerror = () => {
-          // If reading fails, create empty text file
           const newFile: FileItem = {
             id: `${Date.now()}-${index}`,
             name: file.name,
             type: "text",
             folderId: folder.id,
             content: "",
+            contentType: "text/plain",
             createdAt: new Date().toISOString(),
           };
-          onCreateFile(newFile, false); // Don't open after drop
+          onCreateFile(newFile, false);
         };
         reader.readAsText(file);
       }
     });
   }, [folder.id, onCreateFile]);
 
-  const handleCreateFolderFromModal = (name: string, emoji: string, prompt: string) => {
+  const handleCreateFolderFromModal = (name: string, emoji: string, description: string) => {
     const newFolder: Folder = {
       id: Date.now().toString(),
       name,
       emoji,
-      prompt,
+      description,
     };
     onUpdateFolder({
       subfolders: [...(folder.subfolders || []), newFolder]
@@ -766,8 +670,6 @@ export function FolderContentView({
   const gridRef = useRef<HTMLDivElement>(null);
   const prevRectsRef = useRef<Map<string, DOMRect>>(new Map());
   const isAnimatingRef = useRef(false);
-
-  // Capture positions of all grid children before a state update
   const captureGridPositions = useCallback(() => {
     if (!gridRef.current) return;
     const rects = new Map<string, DOMRect>();
@@ -777,8 +679,6 @@ export function FolderContentView({
     });
     prevRectsRef.current = rects;
   }, []);
-
-  // After DOM update, animate elements from old position to new position
   useLayoutEffect(() => {
     if (!gridRef.current || prevRectsRef.current.size === 0 || isAnimatingRef.current) return;
     isAnimatingRef.current = true;
@@ -807,25 +707,16 @@ export function FolderContentView({
       isAnimatingRef.current = false;
       return;
     }
-
-    // Step 1 (Invert): instantly move elements to their old positions
     animations.forEach(({ el, dx, dy }) => {
       el.style.transition = 'none';
       el.style.transform = `translate(${dx}px, ${dy}px)`;
       el.style.willChange = 'transform';
     });
-
-    // Force a reflow so the browser registers the "old" position
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     gridRef.current.offsetHeight;
-
-    // Step 2 (Play): animate to the new (natural) position
     animations.forEach(({ el }) => {
       el.style.transition = 'transform 250ms cubic-bezier(0.2, 0, 0.2, 1)';
       el.style.transform = '';
     });
-
-    // Cleanup after animation finishes
     const timeout = setTimeout(() => {
       animations.forEach(({ el }) => {
         el.style.transition = '';
@@ -842,8 +733,6 @@ export function FolderContentView({
       isAnimatingRef.current = false;
     };
   }, [gridItems]);
-
-  // Wrapper: capture positions, then update state
   const moveGridItemWithFlip = useCallback((dragIndex: number, hoverIndex: number) => {
     captureGridPositions();
     setGridItems((prev) => {
@@ -855,7 +744,6 @@ export function FolderContentView({
   }, [captureGridPositions]);
 
   const handleDragEnd = () => {
-    // Save custom order only after drag operation
     if (hasOrderChangedRef.current && orderRef.current.length > 0) {
       onUpdateFolder({ customOrder: orderRef.current });
       hasOrderChangedRef.current = false;
@@ -874,15 +762,13 @@ export function FolderContentView({
     if (title !== folder.name) onUpdateFolder({ name: title });
   };
 
-  const handlePromptBlur = () => {
-    if (aiPrompt !== folder.prompt) onUpdateFolder({ prompt: aiPrompt });
+  const handleDescriptionBlur = () => {
+    if (description !== folder.description) onUpdateFolder({ description });
   };
 
   const folderFiles = files.filter((f) => f.folderId === folder.id);
   const subfolderCount = folder.subfolders?.length || 0;
   const fileCount = folderFiles.length;
-
-  // Drop zone for files from OS
   const [{ isFileOver }, fileDropRef] = useDrop({
     accept: [NativeTypes.FILE],
     drop: (item: { files: File[] }) => {
@@ -995,13 +881,13 @@ export function FolderContentView({
           </div>
         </div>
 
-        {/* AI Prompt Field */}
+        {/* Description Field */}
         <div>
           <textarea
-            value={aiPrompt}
-            onChange={(e) => setAiPrompt(e.target.value)}
-            onBlur={handlePromptBlur}
-            placeholder="Инструкция для ИИ: что должно попадать в эту папку..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onBlur={handleDescriptionBlur}
+            placeholder="Описание папки: что должно попадать в эту папку..."
             className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/20 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-purple-500/50 transition-colors"
             rows={2}
           />
@@ -1021,7 +907,6 @@ export function FolderContentView({
             </div>
           </div>
         )}
-        {/* 自定义拖拽预览层 */}
         <CustomDragLayer />
         <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {gridItems.map((item, index) => (
@@ -1060,8 +945,16 @@ export function FolderContentView({
           ))}
         </div>
 
+        {/* Loading State */}
+        {isLoadingFiles && gridItems.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <Loader2 size={40} className="text-blue-400 animate-spin mb-4" />
+            <p className="text-gray-400 text-lg">Загрузка файлов...</p>
+          </div>
+        )}
+
         {/* Empty State */}
-        {gridItems.length === 0 && (
+        {!isLoadingFiles && gridItems.length === 0 && (
           <div className={`flex flex-col items-center justify-center h-full text-center ${
             isFileOver ? "ring-2 ring-blue-500/50 ring-inset rounded-xl" : ""
           }`}>
@@ -1120,7 +1013,7 @@ export function FolderContentView({
         isOpen={editFileModal.isOpen}
         onClose={() => setEditFileModal({ isOpen: false, file: null })}
         fileName={editFileModal.file?.name || ""}
-        currentPrompt={editFileModal.file?.prompt || ""}
+        currentDescription={editFileModal.file?.description || ""}
         onSave={handleSaveFileEdit}
       />
       <EditFolderModal
@@ -1128,7 +1021,7 @@ export function FolderContentView({
         onClose={() => setEditFolderModal({ isOpen: false, folder: null })}
         folderName={editFolderModal.folder?.name || ""}
         folderEmoji={editFolderModal.folder?.emoji || ""}
-        currentPrompt={editFolderModal.folder?.prompt || ""}
+        currentDescription={editFolderModal.folder?.description || ""}
         onSave={handleSaveFolderEdit}
       />
       <CreateFileModal

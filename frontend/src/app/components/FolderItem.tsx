@@ -15,7 +15,7 @@ interface FolderItemProps {
 }
 
 const FOLDER_TYPE = "FOLDER";
-const HOVER_TO_NEST_DELAY = 600; // ms
+const HOVER_TO_NEST_DELAY = 600;
 
 interface DragItem {
   path: string[];
@@ -38,8 +38,6 @@ export function FolderItem({
   const [dropZone, setDropZone] = useState<DropZone>(null);
   const ref = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Track mouse movement to distinguish drag from click
   const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const [isDraggingState, setIsDraggingState] = useState(false);
 
@@ -67,15 +65,11 @@ export function FolderItem({
 
       const dragPath = item.path;
       const hoverPath = path;
-
-      // Don't replace items with themselves
       if (JSON.stringify(dragPath) === JSON.stringify(hoverPath)) {
         clearHoverTimeout();
         setDropZone(null);
         return;
       }
-
-      // Can't drop a parent into its own child
       if (hoverPath.join("/").startsWith(dragPath.join("/"))) {
         clearHoverTimeout();
         setDropZone(null);
@@ -93,29 +87,22 @@ export function FolderItem({
 
       const hoverClientY = clientOffset.y - hoverBoundingRect.top;
       const hoverHeight = hoverBoundingRect.bottom - hoverBoundingRect.top;
-
-      // Calculate drop zones: 25% top, 50% middle, 25% bottom
       const topZoneEnd = hoverHeight * 0.25;
       const bottomZoneStart = hoverHeight * 0.75;
 
       let currentDropZone: DropZone = null;
 
       if (hoverClientY < topZoneEnd) {
-        // Top 25% - insert before
         currentDropZone = "before";
         clearHoverTimeout();
       } else if (hoverClientY > bottomZoneStart) {
-        // Bottom 25% - insert after
         currentDropZone = "after";
         clearHoverTimeout();
       } else {
-        // Middle 50% - nest inside (with delay)
         currentDropZone = "inside";
         
         if (!hoverTimeoutRef.current) {
-          // Start hover-to-nest timer
           hoverTimeoutRef.current = setTimeout(() => {
-            // Auto-expand if has subfolders
             if (hasSubfolders && !isExpanded) {
               setIsExpanded(true);
             }
@@ -130,16 +117,10 @@ export function FolderItem({
 
       const dragPath = item.path;
       const hoverPath = path;
-
-      // Clear hover state
       clearHoverTimeout();
       const finalDropZone = dropZone || "after";
       setDropZone(null);
-
-      // Don't replace items with themselves
       if (JSON.stringify(dragPath) === JSON.stringify(hoverPath)) return;
-
-      // Can't drop a parent into its own child
       if (hoverPath.join("/").startsWith(dragPath.join("/"))) return;
 
       moveFolder(dragPath, hoverPath, finalDropZone);
@@ -159,31 +140,25 @@ export function FolderItem({
   drag(drop(ref));
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Track initial mouse position
     dragStartPosRef.current = { x: e.clientX, y: e.clientY };
   };
 
   const handleClick = (e: React.MouseEvent) => {
-    // Check if this was a drag or a click
     if (dragStartPosRef.current) {
       const deltaX = Math.abs(e.clientX - dragStartPosRef.current.x);
       const deltaY = Math.abs(e.clientY - dragStartPosRef.current.y);
-      const threshold = 5; // pixels
-
-      // If mouse moved more than threshold, it was a drag, not a click
+      const threshold = 5;
       if (deltaX > threshold || deltaY > threshold || isDraggingState) {
         dragStartPosRef.current = null;
         return;
       }
     }
-
-    // This was a genuine click - select folder (don't toggle expand/collapse)
     onFolderClick(folder, path);
     dragStartPosRef.current = null;
   };
 
   const handleToggleExpand = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent click from bubbling to parent
+    e.stopPropagation();
     setIsExpanded(!isExpanded);
   };
 

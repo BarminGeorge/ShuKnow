@@ -1,12 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Settings, Plus, PanelLeftClose, PanelLeftOpen, MessageSquare, LogOut } from "lucide-react";
 import { FolderItem } from "./FolderItem";
 import { SettingsModal } from "./SettingsModal";
 import { CreateFolderModal } from "./CreateFolderModal";
 import { EditFolderModal } from "./EditFolderModal";
+import { DeleteFolderModal } from "./DeleteFolderModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router";
+import { folderService, ApiError } from "../../api";
+import { toast } from "sonner";
 import type { Folder } from "../Workspace";
+
+const IS_MOCK_MODE_ENABLED = import.meta.env.VITE_USE_MOCK_AUTH === "true";
 
 interface SidebarProps {
   folders: Folder[];
@@ -29,127 +34,183 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
     folder: Folder | null;
     path: string[];
   }>({ isOpen: false, folder: null, path: [] });
+  const [deleteFolderState, setDeleteFolderState] = useState<{
+    isOpen: boolean;
+    folder: Folder | null;
+    path: string[];
+  }>({ isOpen: false, folder: null, path: [] });
 
-  const moveFolder = (dragPath: string[], hoverPath: string[], dropZone: "before" | "after" | "inside") => {
-    setFolders((prevFolders) => {
-      const newFolders = JSON.parse(JSON.stringify(prevFolders)) as Folder[];
+  const findFolderByPath = (path: string[]): Folder | null => {
+    if (path.length === 0) return null;
+    if (path.length === 1) {
+      return folders[parseInt(path[0])] || null;
+    }
+    let currentFolderList: Folder[] = folders;
+    for (let pathIndex = 0; pathIndex < path.length - 1; pathIndex++) {
+      const folderIndex = parseInt(path[pathIndex]);
+      if (!currentFolderList[folderIndex] || !currentFolderList[folderIndex].subfolders) return null;
+      currentFolderList = currentFolderList[folderIndex].subfolders!;
+    }
+    return currentFolderList[parseInt(path[path.length - 1])] || null;
+  };
 
-      // Get the dragged folder
-      const getDraggedFolder = (path: string[]): Folder | null => {
+  const computeNewParentIdFromPath = (targetPath: string[], dropZone: "before" | "after" | "inside"): string | null => {
+    if (dropZone === "inside") {
+      const targetFolder = findFolderByPath(targetPath);
+      return targetFolder?.id || null;
+    } else {
+      if (targetPath.length === 1) {
+        return null;
+      }
+      const parentPath = targetPath.slice(0, -1);
+      const parentFolder = findFolderByPath(parentPath);
+      return parentFolder?.id || null;
+    }
+  };
+
+  const moveFolder = useCallback(async (dragPath: string[], hoverPath: string[], dropZone: "before" | "after" | "inside") => {
+    const draggedFolder = findFolderByPath(dragPath);
+    if (!draggedFolder) return;
+
+    const previousFolders = JSON.parse(JSON.stringify(folders)) as Folder[];
+
+    const newParentFolderId = computeNewParentIdFromPath(hoverPath, dropZone);
+
+    const applyMove = (foldersList: Folder[]): Folder[] => {
+      const clonedFolders = JSON.parse(JSON.stringify(foldersList)) as Folder[];
+
+      const findDraggedFolderInList = (path: string[]): Folder | null => {
         if (path.length === 1) {
-          return newFolders[parseInt(path[0])];
+          return clonedFolders[parseInt(path[0])];
         }
-        let current: Folder[] = newFolders;
-        for (let i = 0; i < path.length - 1; i++) {
-          const idx = parseInt(path[i]);
-          if (!current[idx] || !current[idx].subfolders) return null;
-          current = current[idx].subfolders!;
+        let currentFolderList: Folder[] = clonedFolders;
+        for (let pathIndex = 0; pathIndex < path.length - 1; pathIndex++) {
+          const folderIndex = parseInt(path[pathIndex]);
+          if (!currentFolderList[folderIndex] || !currentFolderList[folderIndex].subfolders) return null;
+          currentFolderList = currentFolderList[folderIndex].subfolders!;
         }
-        return current[parseInt(path[path.length - 1])];
+        return currentFolderList[parseInt(path[path.length - 1])];
       };
 
-      // Remove folder from old position
       const removeFolderAtPath = (path: string[]) => {
         if (path.length === 1) {
-          return newFolders.splice(parseInt(path[0]), 1)[0];
+          return clonedFolders.splice(parseInt(path[0]), 1)[0];
         }
-        let current: Folder[] = newFolders;
-        for (let i = 0; i < path.length - 1; i++) {
-          const idx = parseInt(path[i]);
-          if (!current[idx].subfolders) return null;
-          current = current[idx].subfolders!;
+        let currentFolderList: Folder[] = clonedFolders;
+        for (let pathIndex = 0; pathIndex < path.length - 1; pathIndex++) {
+          const folderIndex = parseInt(path[pathIndex]);
+          if (!currentFolderList[folderIndex].subfolders) return null;
+          currentFolderList = currentFolderList[folderIndex].subfolders!;
         }
-        return current.splice(parseInt(path[path.length - 1]), 1)[0];
+        return currentFolderList.splice(parseInt(path[path.length - 1]), 1)[0];
       };
 
-      // Insert folder based on drop zone
       const insertFolderAtPath = (folder: Folder, targetPath: string[], zone: "before" | "after" | "inside") => {
         if (zone === "inside") {
-          // Nest: add as first subfolder to target
           if (targetPath.length === 1) {
-            const targetIdx = parseInt(targetPath[0]);
-            if (!newFolders[targetIdx].subfolders) {
-              newFolders[targetIdx].subfolders = [];
+            const targetFolderIndex = parseInt(targetPath[0]);
+            if (!clonedFolders[targetFolderIndex].subfolders) {
+              clonedFolders[targetFolderIndex].subfolders = [];
             }
-            newFolders[targetIdx].subfolders!.unshift(folder);
+            clonedFolders[targetFolderIndex].subfolders!.unshift(folder);
           } else {
-            let current: Folder[] = newFolders;
-            for (let i = 0; i < targetPath.length - 1; i++) {
-              const idx = parseInt(targetPath[i]);
-              if (!current[idx].subfolders) return;
-              current = current[idx].subfolders!;
+            let currentFolderList: Folder[] = clonedFolders;
+            for (let pathIndex = 0; pathIndex < targetPath.length - 1; pathIndex++) {
+              const folderIndex = parseInt(targetPath[pathIndex]);
+              if (!currentFolderList[folderIndex].subfolders) return;
+              currentFolderList = currentFolderList[folderIndex].subfolders!;
             }
-            const targetIdx = parseInt(targetPath[targetPath.length - 1]);
-            if (!current[targetIdx].subfolders) {
-              current[targetIdx].subfolders = [];
+            const targetFolderIndex = parseInt(targetPath[targetPath.length - 1]);
+            if (!currentFolderList[targetFolderIndex].subfolders) {
+              currentFolderList[targetFolderIndex].subfolders = [];
             }
-            current[targetIdx].subfolders!.unshift(folder);
+            currentFolderList[targetFolderIndex].subfolders!.unshift(folder);
           }
         } else {
-          // Insert before or after
           const insertIndex = parseInt(targetPath[targetPath.length - 1]) + (zone === "after" ? 1 : 0);
           
           if (targetPath.length === 1) {
-            newFolders.splice(insertIndex, 0, folder);
+            clonedFolders.splice(insertIndex, 0, folder);
           } else {
-            let current: Folder[] = newFolders;
-            for (let i = 0; i < targetPath.length - 1; i++) {
-              const idx = parseInt(targetPath[i]);
-              if (!current[idx].subfolders) {
-                current[idx].subfolders = [];
+            let currentFolderList: Folder[] = clonedFolders;
+            for (let pathIndex = 0; pathIndex < targetPath.length - 1; pathIndex++) {
+              const folderIndex = parseInt(targetPath[pathIndex]);
+              if (!currentFolderList[folderIndex].subfolders) {
+                currentFolderList[folderIndex].subfolders = [];
               }
-              current = current[idx].subfolders!;
+              currentFolderList = currentFolderList[folderIndex].subfolders!;
             }
-            current.splice(insertIndex, 0, folder);
+            currentFolderList.splice(insertIndex, 0, folder);
           }
         }
       };
 
-      const draggedFolder = getDraggedFolder(dragPath);
-      if (!draggedFolder) return prevFolders;
+      const folderToMove = findDraggedFolderInList(dragPath);
+      if (!folderToMove) return foldersList;
 
-      const removed = removeFolderAtPath(dragPath);
-      if (!removed) return prevFolders;
+      const removedFolder = removeFolderAtPath(dragPath);
+      if (!removedFolder) return foldersList;
 
-      insertFolderAtPath(removed, hoverPath, dropZone);
+      insertFolderAtPath(removedFolder, hoverPath, dropZone);
 
-      return newFolders;
-    });
-  };
+      return clonedFolders;
+    };
 
-  const handleCreateFolder = (name: string, emoji: string, prompt: string) => {
+    setFolders(applyMove);
+
+    if (IS_MOCK_MODE_ENABLED) {
+      return;
+    }
+
+    try {
+      await folderService.moveFolder(draggedFolder.id, { newParentFolderId });
+    } catch (apiError) {
+      setFolders(previousFolders);
+
+      if (apiError instanceof ApiError) {
+        if (apiError.status === 409) {
+          toast.error("Не удалось переместить папку: конфликт имён или циклическая зависимость");
+        } else if (apiError.status === 404) {
+          toast.error("Папка не найдена");
+        } else {
+          toast.error(`Ошибка при перемещении: ${apiError.message}`);
+        }
+      } else {
+        toast.error("Не удалось переместить папку");
+      }
+    }
+  }, [folders, setFolders]);
+
+  const handleCreateFolder = (name: string, emoji: string, description: string) => {
     const newFolder: Folder = {
       id: Date.now().toString(),
       name,
       emoji,
-      prompt,
+      description,
     };
 
     if (createFolderParentPath === null) {
-      // Root level folder
       setFolders([...folders, newFolder]);
     } else {
-      // Subfolder
-      setFolders((prevFolders) => {
-        const newFolders = JSON.parse(JSON.stringify(prevFolders)) as Folder[];
+      setFolders((previousFolders) => {
+        const clonedFolders = JSON.parse(JSON.stringify(previousFolders)) as Folder[];
         const path = createFolderParentPath;
 
-        let current: Folder[] = newFolders;
-        for (let i = 0; i < path.length; i++) {
-          const idx = parseInt(path[i]);
-          if (i === path.length - 1) {
-            // Last element - add subfolder here
-            if (!current[idx].subfolders) {
-              current[idx].subfolders = [];
+        let currentFolderList: Folder[] = clonedFolders;
+        for (let pathIndex = 0; pathIndex < path.length; pathIndex++) {
+          const folderIndex = parseInt(path[pathIndex]);
+          if (pathIndex === path.length - 1) {
+            if (!currentFolderList[folderIndex].subfolders) {
+              currentFolderList[folderIndex].subfolders = [];
             }
-            current[idx].subfolders!.push(newFolder);
+            currentFolderList[folderIndex].subfolders!.push(newFolder);
           } else {
-            if (!current[idx].subfolders) return prevFolders;
-            current = current[idx].subfolders!;
+            if (!currentFolderList[folderIndex].subfolders) return previousFolders;
+            currentFolderList = currentFolderList[folderIndex].subfolders!;
           }
         }
 
-        return newFolders;
+        return clonedFolders;
       });
     }
 
@@ -170,34 +231,44 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
     setEditFolderState({ isOpen: true, folder, path });
   };
 
-  const handleSaveFolderEdit = (name: string, emoji: string, prompt: string) => {
+  const handleSaveFolderEdit = (name: string, emoji: string, description: string) => {
     if (!editFolderState.path.length) return;
     
-    onUpdateFolder(editFolderState.path, { name, emoji, prompt });
+    onUpdateFolder(editFolderState.path, { name, emoji, description });
     setEditFolderState({ isOpen: false, folder: null, path: [] });
   };
 
   const handleDeleteFolder = (path: string[]) => {
-    if (!confirm("Вы уверены, что хотите удалить эту папку и все её содержимое?")) return;
+    const folder = findFolderByPath(path);
+    if (folder) {
+      setDeleteFolderState({ isOpen: true, folder, path });
+    }
+  };
 
-    setFolders((prevFolders) => {
-      const newFolders = JSON.parse(JSON.stringify(prevFolders)) as Folder[];
+  const handleConfirmDelete = async (isRecursiveDelete: boolean) => {
+    const { folder, path } = deleteFolderState;
+    if (!folder) return;
+
+    if (!IS_MOCK_MODE_ENABLED) {
+      await folderService.deleteFolder(folder.id, isRecursiveDelete);
+    }
+
+    setFolders((previousFolders) => {
+      const clonedFolders = JSON.parse(JSON.stringify(previousFolders)) as Folder[];
 
       if (path.length === 1) {
-        // Root level folder
-        newFolders.splice(parseInt(path[0]), 1);
+        clonedFolders.splice(parseInt(path[0]), 1);
       } else {
-        // Subfolder
-        let current: Folder[] = newFolders;
-        for (let i = 0; i < path.length - 1; i++) {
-          const idx = parseInt(path[i]);
-          if (!current[idx].subfolders) return prevFolders;
-          current = current[idx].subfolders!;
+        let currentFolderList: Folder[] = clonedFolders;
+        for (let pathIndex = 0; pathIndex < path.length - 1; pathIndex++) {
+          const folderIndex = parseInt(path[pathIndex]);
+          if (!currentFolderList[folderIndex].subfolders) return previousFolders;
+          currentFolderList = currentFolderList[folderIndex].subfolders!;
         }
-        current.splice(parseInt(path[path.length - 1]), 1);
+        currentFolderList.splice(parseInt(path[path.length - 1]), 1);
       }
 
-      return newFolders;
+      return clonedFolders;
     });
   };
 
@@ -364,8 +435,14 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
         onClose={() => setEditFolderState({ isOpen: false, folder: null, path: [] })}
         folderName={editFolderState.folder?.name || ""}
         folderEmoji={editFolderState.folder?.emoji || ""}
-        currentPrompt={editFolderState.folder?.prompt || ""}
+        currentDescription={editFolderState.folder?.description || ""}
         onSave={handleSaveFolderEdit}
+      />
+      <DeleteFolderModal
+        isOpen={deleteFolderState.isOpen}
+        folder={deleteFolderState.folder}
+        onClose={() => setDeleteFolderState({ isOpen: false, folder: null, path: [] })}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

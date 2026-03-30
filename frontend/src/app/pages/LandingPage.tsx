@@ -121,8 +121,6 @@ export default function LandingPage() {
 
   const ctaPath = isAuthenticated ? "/app" : "/register";
   const ctaText = isAuthenticated ? "Перейти к приложению" : "Начать бесплатно";
-
-  // Close mobile menu on resize
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768) setMobileMenuOpen(false);

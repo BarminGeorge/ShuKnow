@@ -5,28 +5,28 @@ interface EditFileModalProps {
   isOpen: boolean;
   onClose: () => void;
   fileName: string;
-  currentPrompt: string;
-  onSave: (name: string, prompt: string) => void;
+  currentDescription: string;
+  onSave: (name: string, description: string) => void;
 }
 
 export function EditFileModal({
   isOpen,
   onClose,
   fileName,
-  currentPrompt,
+  currentDescription,
   onSave,
 }: EditFileModalProps) {
   const [name, setName] = useState(fileName);
-  const [prompt, setPrompt] = useState(currentPrompt);
+  const [description, setDescription] = useState(currentDescription);
 
   useEffect(() => {
     setName(fileName);
-    setPrompt(currentPrompt);
-  }, [fileName, currentPrompt, isOpen]);
+    setDescription(currentDescription);
+  }, [fileName, currentDescription, isOpen]);
 
   const handleSave = () => {
     if (!name.trim()) return;
-    onSave(name, prompt);
+    onSave(name, description);
     onClose();
   };
 
@@ -56,20 +56,20 @@ export function EditFileModal({
 
         {/* Content */}
         <div className="px-6 py-5">
-          {/* AI Prompt */}
+          {/* Description (AI Instruction) */}
           <div>
             <label className="text-sm font-medium text-gray-300 mb-2 block">
-              Инструкция для ИИ
+              Описание / Инструкция для ИИ
             </label>
             <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="Опишите, как ИИ должен работать с этим файлом..."
               className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-blue-500/50 transition-colors"
               rows={6}
             />
             <p className="text-xs text-gray-500 mt-2">
-              ИИ будет использовать эту инструкцию при обработке файла
+              ИИ будет использовать это описание при обработке файла
             </p>
           </div>
         </div>

@@ -4,7 +4,7 @@ import { X, FileText } from "lucide-react";
 interface CreateFileModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (name: string, prompt: string) => void;
+  onCreate: (name: string, description: string) => void;
 }
 
 export function CreateFileModal({
@@ -13,14 +13,13 @@ export function CreateFileModal({
   onCreate,
 }: CreateFileModalProps) {
   const [name, setName] = useState("Новая заметка.md");
-  const [prompt, setPrompt] = useState("");
+  const [description, setDescription] = useState("");
 
   const handleCreate = () => {
     if (!name.trim()) return;
-    onCreate(name.trim(), prompt.trim());
-    // Reset for next time
+    onCreate(name.trim(), description.trim());
     setName("Новая заметка.md");
-    setPrompt("");
+    setDescription("");
     onClose();
   };
 
@@ -75,15 +74,15 @@ export function CreateFileModal({
             </div>
           </div>
 
-          {/* AI Prompt */}
+          {/* Description (AI Instruction) */}
           <div>
             <label className="text-sm font-medium text-gray-300 mb-2 block">
-              Инструкция для ИИ
+              Описание / Инструкция для ИИ
               <span className="text-gray-500 font-normal ml-1">(необязательно)</span>
             </label>
             <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="Опишите, как ИИ должен работать с этим файлом..."
               className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-blue-500/50 transition-colors"
               rows={3}

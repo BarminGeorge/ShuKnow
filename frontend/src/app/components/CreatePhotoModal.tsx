@@ -4,7 +4,7 @@ import { X, Image as ImageIcon, Upload } from "lucide-react";
 interface CreatePhotoModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (name: string, imageUrl: string, prompt: string) => void;
+  onCreate: (name: string, imageUrl: string, description: string) => void;
 }
 
 export function CreatePhotoModal({
@@ -14,20 +14,16 @@ export function CreatePhotoModal({
 }: CreatePhotoModalProps) {
   const [name, setName] = useState("");
   const [imageUrl, setImageUrl] = useState("");
-  const [prompt, setPrompt] = useState("");
+  const [description, setDescription] = useState("");
   const [previewUrl, setPreviewUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Set name from file if not already set
     if (!name) {
       setName(file.name);
     }
-
-    // Read file as data URL for preview and storage
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
@@ -39,12 +35,11 @@ export function CreatePhotoModal({
 
   const handleCreate = () => {
     if (!name.trim() || !imageUrl) return;
-    onCreate(name.trim(), imageUrl, prompt.trim());
-    // Reset for next time
+    onCreate(name.trim(), imageUrl, description.trim());
     setName("");
     setImageUrl("");
     setPreviewUrl("");
-    setPrompt("");
+    setDescription("");
     onClose();
   };
 
@@ -146,15 +141,15 @@ export function CreatePhotoModal({
             </div>
           </div>
 
-          {/* AI Prompt */}
+          {/* Description (AI Instruction) */}
           <div>
             <label className="text-sm font-medium text-gray-300 mb-2 block">
-              Инструкция для ИИ
+              Описание / Инструкция для ИИ
               <span className="text-gray-500 font-normal ml-1">(необязательно)</span>
             </label>
             <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="Опишите, как ИИ должен работать с этим фото..."
               className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-blue-500/50 transition-colors"
               rows={3}

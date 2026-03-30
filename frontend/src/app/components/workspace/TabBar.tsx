@@ -20,7 +20,6 @@ export function TabBar({
   onBack,
   onNavigateToFolder,
 }: TabBarProps) {
-  // Hide completely in chat mode when no tabs
   if (viewMode === "chat" && tabs.length === 0) return null;
 
   return (

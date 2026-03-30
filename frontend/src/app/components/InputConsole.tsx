@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Paperclip, ArrowUp, X } from "lucide-react";
+import { Paperclip, ArrowUp, X, Loader2 } from "lucide-react";
 import type { Attachment } from "./ChatMessages";
+import { createAttachmentFromFile, applyServerIds } from "./ChatMessages";
+import { chatService } from "../../api";
 
 interface InputConsoleProps {
   onSend?: (text: string, attachments?: Attachment[]) => void;
@@ -10,48 +12,66 @@ export function InputConsole({ onSend }: InputConsoleProps) {
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const fileArray = Array.from(files);
-    const newAttachments: Attachment[] = fileArray.map((file) => ({
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      name: file.name,
-      file,
-      url: URL.createObjectURL(file),
-    }));
+    const newAttachments: Attachment[] = fileArray.map(createAttachmentFromFile);
     
     setAttachments((prev) => {
-      // Avoid duplicates by checking file name and size
-      const existing = new Set(prev.map((a) => `${a.name}-${a.file.size}`));
+      const existing = new Set(prev.map((a) => `${a.name}-${a.sizeBytes}`));
       const unique = newAttachments.filter(
-        (a) => !existing.has(`${a.name}-${a.file.size}`)
+        (a) => !existing.has(`${a.name}-${a.sizeBytes}`)
       );
       return [...prev, ...unique];
     });
   }, []);
 
-  const removeAttachment = useCallback((id: string) => {
+  const removeAttachment = useCallback((localId: string) => {
     setAttachments((prev) => {
-      const attachment = prev.find((a) => a.id === id);
+      const attachment = prev.find((a) => a.localId === localId);
       if (attachment?.url) {
         URL.revokeObjectURL(attachment.url);
       }
-      return prev.filter((a) => a.id !== id);
+      return prev.filter((a) => a.localId !== localId);
     });
   }, []);
 
-  const handleSend = () => {
-    if (input.trim() || attachments.length > 0) {
-      console.log("Sending:", input, attachments);
-      onSend?.(input.trim(), attachments.length > 0 ? attachments : undefined);
-      setInput("");
-      setAttachments([]);
+  const handleSend = async () => {
+    if (!input.trim() && attachments.length === 0) return;
+    
+    let finalAttachments = attachments;
+    if (attachments.length > 0) {
+      const filesToUpload = attachments
+        .filter((a) => a.file && !a.serverId)
+        .map((a) => a.file!);
+      
+      if (filesToUpload.length > 0) {
+        setIsUploading(true);
+        try {
+          const serverAttachments = await chatService.uploadChatAttachments(filesToUpload);
+          finalAttachments = applyServerIds(attachments, serverAttachments);
+        } catch (error) {
+          console.error("Failed to upload attachments:", error);
+        } finally {
+          setIsUploading(false);
+        }
+      }
     }
+    
+    onSend?.(input.trim(), finalAttachments.length > 0 ? finalAttachments : undefined);
+    
+    for (const attachment of attachments) {
+      if (attachment.url) {
+        URL.revokeObjectURL(attachment.url);
+      }
+    }
+    
+    setInput("");
+    setAttachments([]);
   };
-
-  // Drag and drop handlers
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -61,7 +81,6 @@ export function InputConsole({ onSend }: InputConsoleProps) {
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Only set dragging false if we're leaving the container entirely
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setIsDragging(false);
     }
@@ -88,20 +107,17 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     if (files && files.length > 0) {
       addFiles(files);
     }
-    // Reset input so the same file can be selected again
     e.target.value = "";
   };
 
   const handlePaperclipClick = () => {
     fileInputRef.current?.click();
   };
-
-  // Auto-resize textarea
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       if (input === "") {
-        textarea.style.height = ""; // Reset to default CSS layout
+        textarea.style.height = "";
       } else {
         textarea.style.height = "auto";
         textarea.style.height = `${textarea.scrollHeight}px`;
@@ -133,15 +149,16 @@ export function InputConsole({ onSend }: InputConsoleProps) {
           <div className="flex flex-col items-end gap-1.5 mb-3">
             {attachments.map((attachment) => (
               <div
-                key={attachment.id}
+                key={attachment.localId}
                 className="flex items-center gap-2 bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 max-w-[80%] group"
               >
                 <Paperclip size={14} className="text-gray-400 flex-shrink-0" />
                 <span className="text-sm text-gray-300 truncate">{attachment.name}</span>
                 <button
-                  onClick={() => removeAttachment(attachment.id)}
+                  onClick={() => removeAttachment(attachment.localId)}
                   className="flex-shrink-0 p-0.5 rounded hover:bg-white/10 text-gray-400 hover:text-red-400 transition-colors"
                   title="Удалить"
+                  disabled={isUploading}
                 >
                   <X size={14} />
                 </button>
@@ -185,11 +202,11 @@ export function InputConsole({ onSend }: InputConsoleProps) {
           {/* Right Button - Send */}
           <button
             onClick={handleSend}
-            disabled={!input.trim() && attachments.length === 0}
+            disabled={isUploading || (!input.trim() && attachments.length === 0)}
             className="flex-shrink-0 flex items-center justify-center w-9 h-9 mb-1.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all disabled:opacity-30 disabled:hover:bg-white/10 disabled:cursor-not-allowed"
-            title="Отправить"
+            title={isUploading ? "Загрузка файлов..." : "Отправить"}
           >
-            <ArrowUp size={18} />
+            {isUploading ? <Loader2 size={18} className="animate-spin" /> : <ArrowUp size={18} />}
           </button>
         </div>
 

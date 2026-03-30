@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
@@ -8,19 +8,23 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../co
 import { Sparkles } from "lucide-react";
 
 export default function RegisterPage() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [loginValue, setLoginValue] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
-  const { register } = useAuth();
+  const { register, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/app", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!name || !email || !password || !confirmPassword) {
+    if (!loginValue || !password || !confirmPassword) {
       setError("Заполните все поля");
       return;
     }
@@ -36,7 +40,7 @@ export default function RegisterPage() {
     }
 
     try {
-      await register(email, password, name);
+      await register(loginValue, password);
       navigate("/app");
     } catch {
       setError("Ошибка регистрации. Попробуйте снова.");
@@ -68,25 +72,13 @@ export default function RegisterPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-gray-300">Имя</Label>
+                <Label htmlFor="login" className="text-gray-300">Логин</Label>
                 <Input
-                  id="name"
+                  id="login"
                   type="text"
-                  placeholder="Ваше имя"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="bg-[#0d0d0d] border-white/10 text-white placeholder:text-gray-500"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-300">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Ваш логин"
+                  value={loginValue}
+                  onChange={(e) => setLoginValue(e.target.value)}
                   className="bg-[#0d0d0d] border-white/10 text-white placeholder:text-gray-500"
                 />
               </div>
