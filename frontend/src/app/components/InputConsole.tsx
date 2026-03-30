@@ -37,7 +37,6 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     }));
     
     setAttachments((prev) => {
-      // Avoid duplicates by checking file name and size
       const existing = new Set(prev.map((a) => `${a.name}-${a.file.size}`));
       const unique = newAttachments.filter(
         (a) => !existing.has(`${a.name}-${a.file.size}`)
@@ -58,14 +57,12 @@ export function InputConsole({ onSend }: InputConsoleProps) {
 
   const handleSend = () => {
     if (input.trim() || attachments.length > 0) {
-      console.log("Sending:", input, attachments);
       onSend?.(input.trim(), attachments.length > 0 ? attachments : undefined);
       setInput("");
       setAttachments([]);
     }
   };
 
-  // Drag and drop handlers - using counter for stable detection
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -87,7 +84,6 @@ export function InputConsole({ onSend }: InputConsoleProps) {
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Ensure we stay highlighted while dragging over
     if (!isDragging) {
       setIsDragging(true);
     }
@@ -99,13 +95,11 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     dragCounterRef.current = 0;
     setIsDragging(false);
     
-    // Check for files dragged from chat (JSON data)
     const jsonData = e.dataTransfer.getData('application/json');
     if (jsonData) {
       try {
         const chatFileData = JSON.parse(jsonData);
         if (chatFileData.type === 'chat-file') {
-          // Create attachment from chat file data (no real File object available)
           const newAttachment: Attachment = {
             id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
             name: chatFileData.name || chatFileData.file?.name || 'unknown',
@@ -128,7 +122,6 @@ export function InputConsole({ onSend }: InputConsoleProps) {
       }
     }
     
-    // Check for external files (from file system)
     const files = e.dataTransfer.files;
     if (files.length > 0) {
       addFiles(files);
@@ -140,20 +133,14 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     if (files && files.length > 0) {
       addFiles(files);
     }
-    // Reset input so the same file can be selected again
     e.target.value = "";
   };
 
-  const handlePaperclipClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  // Auto-resize textarea
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       if (input === "") {
-        textarea.style.height = ""; // Reset to default CSS layout
+        textarea.style.height = "";
       } else {
         textarea.style.height = "auto";
         textarea.style.height = `${textarea.scrollHeight}px`;
@@ -169,9 +156,8 @@ export function InputConsole({ onSend }: InputConsoleProps) {
   };
 
   return (
-    <div className="bg-[#0a0a0a] px-4 md:px-6 pb-6 pt-2">
+    <div className="bg-background px-4 pb-4 pt-2">
       <div className="max-w-3xl mx-auto">
-        {/* Hidden file input */}
         <input
           ref={fileInputRef}
           type="file"
@@ -180,96 +166,76 @@ export function InputConsole({ onSend }: InputConsoleProps) {
           className="hidden"
         />
 
-        {/* Combined input container with drag-and-drop and attachments */}
+        {/* Attachments preview */}
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2 px-1">
+            {attachments.map((attachment) => (
+              <div
+                key={attachment.id}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary group"
+              >
+                <div className="w-6 h-6 flex-shrink-0 rounded overflow-hidden bg-muted flex items-center justify-center">
+                  {isImageFile(attachment.name) && attachment.url ? (
+                    <img src={attachment.url} alt={attachment.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <FileText size={14} className="text-muted-foreground" />
+                  )}
+                </div>
+                <span className="text-sm text-foreground max-w-[150px] truncate">{attachment.name}</span>
+                {attachment.size && (
+                  <span className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</span>
+                )}
+                <button
+                  onClick={() => removeAttachment(attachment.id)}
+                  className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Input container - ChatGPT style */}
         <div
-          className={`bg-[#1a1a1a] rounded-2xl border transition-colors shadow-lg ${
-            isDragging
-              ? "border-indigo-500/50 bg-indigo-500/5"
-              : "border-white/10 focus-within:border-white/20"
+          className={`flex items-end gap-2 px-4 py-3 rounded-2xl bg-secondary transition-colors ${
+            isDragging ? "ring-2 ring-foreground/20" : ""
           }`}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          {/* Attachments preview - horizontal scrollable list */}
-          {attachments.length > 0 && (
-            <div className="flex gap-2 p-3 pb-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-              {attachments.map((attachment) => (
-                <div
-                  key={attachment.id}
-                  className="flex-shrink-0 w-[180px] flex items-center gap-2 bg-[#0a0a0a] border border-white/10 rounded-xl px-2 py-1.5 group hover:border-white/20 transition-colors"
-                >
-                  {/* Preview - image or file icon */}
-                  <div className="w-9 h-9 flex-shrink-0 rounded-lg overflow-hidden bg-white/5 flex items-center justify-center">
-                    {isImageFile(attachment.name) && attachment.url ? (
-                      <img 
-                        src={attachment.url} 
-                        alt={attachment.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <FileText size={16} className="text-gray-500" />
-                    )}
-                  </div>
-                  
-                  {/* File info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-200 truncate">{attachment.name}</p>
-                    {attachment.size && (
-                      <p className="text-xs text-gray-500">{formatFileSize(attachment.size)}</p>
-                    )}
-                  </div>
-                  
-                  {/* Remove button */}
-                  <button
-                    onClick={() => removeAttachment(attachment.id)}
-                    className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 text-gray-500 hover:text-white transition-colors"
-                    title="Удалить"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Прикрепить файлы"
+          >
+            <Paperclip size={18} />
+          </button>
 
-          {/* Input row */}
-          <div className="flex items-end pl-3 pr-2 py-2">
-            {/* Left Button - Attachment */}
-            <button
-              onClick={handlePaperclipClick}
-              className="flex-shrink-0 flex items-center justify-center w-9 h-9 mb-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-              title="Прикрепить файлы"
-            >
-              <Paperclip size={20} />
-            </button>
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={isDragging ? "Отпустите файлы здесь..." : "Спросите ShuKnow..."}
+            className="flex-1 max-h-[200px] min-h-[24px] bg-transparent text-foreground placeholder:text-muted-foreground resize-none outline-none text-[15px] leading-relaxed overflow-y-auto"
+            rows={1}
+          />
 
-            {/* Text Input */}
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={isDragging ? "Отпустите файлы здесь..." : "Введите текст, скиньте изображения или файлы..."}
-              className="flex-1 max-h-[200px] min-h-[44px] bg-transparent text-gray-200 placeholder:text-gray-400 resize-none outline-none px-3 py-2.5 text-[15px] leading-relaxed overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-              rows={1}
-            />
-
-            {/* Right Button - Send */}
-            <button
-              onClick={handleSend}
-              disabled={!input.trim() && attachments.length === 0}
-              className="flex-shrink-0 flex items-center justify-center w-9 h-9 mb-1.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all disabled:opacity-30 disabled:hover:bg-white/10 disabled:cursor-not-allowed"
-              title="Отправить"
-            >
-              <ArrowUp size={18} />
-            </button>
-          </div>
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() && attachments.length === 0}
+            className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-foreground text-background hover:bg-foreground/90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Отправить"
+          >
+            <ArrowUp size={18} />
+          </button>
         </div>
 
-        <p className="text-xs text-center mt-3 text-gray-500">
-          Enter — отправить, Shift + Enter — новая строка. ИИ отсортирует всё сам.
+        <p className="text-xs text-center mt-2 text-muted-foreground">
+          ShuKnow может допускать ошибки. Проверяйте важную информацию.
         </p>
       </div>
     </div>

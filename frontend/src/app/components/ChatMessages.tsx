@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Undo2, Paperclip, Sparkles, Loader2, CheckCircle2, XCircle, FolderOpen, FileText, Image as ImageIcon, GripVertical } from "lucide-react";
+import { Undo2, Sparkles, Loader2, CheckCircle2, XCircle, FolderOpen, FileText, Image as ImageIcon, GripVertical } from "lucide-react";
 
 export interface Attachment {
   id: string;
   name: string;
-  file?: File; // Optional: may not exist for files dragged from chat
+  file?: File;
   url?: string;
   size?: number;
   type?: string;
@@ -55,19 +55,18 @@ function isImageFile(filename: string): boolean {
 
 function getFileIcon(filename: string) {
   if (isImageFile(filename)) {
-    return <ImageIcon size={14} className="text-gray-400" />;
+    return <ImageIcon size={14} className="text-muted-foreground" />;
   }
-  return <FileText size={14} className="text-gray-400" />;
+  return <FileText size={14} className="text-muted-foreground" />;
 }
 
-// Draggable attachment component with fixed width
+// Draggable attachment component - ChatGPT style minimal
 function DraggableAttachment({ attachment }: { attachment: Attachment }) {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDragStart = (e: React.DragEvent) => {
     setIsDragging(true);
     
-    // Set drag data
     e.dataTransfer.setData('text/plain', attachment.name);
     e.dataTransfer.setData('application/json', JSON.stringify({
       type: 'chat-file',
@@ -82,62 +81,6 @@ function DraggableAttachment({ attachment }: { attachment: Attachment }) {
       } : null,
     }));
     
-    // Create drag image that looks like the original
-    const dragImage = document.createElement('div');
-    dragImage.style.cssText = `
-      position: fixed;
-      top: -1000px;
-      left: -1000px;
-      width: 200px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      background: rgba(99, 102, 241, 0.15);
-      border: 1px solid rgba(99, 102, 241, 0.3);
-      border-radius: 12px;
-      pointer-events: none;
-      z-index: 9999;
-    `;
-    
-    // Add preview
-    if (isImageFile(attachment.name) && attachment.url) {
-      const img = document.createElement('img');
-      img.src = attachment.url;
-      img.style.cssText = 'width: 40px; height: 40px; object-fit: cover; border-radius: 8px; flex-shrink: 0;';
-      dragImage.appendChild(img);
-    } else {
-      const iconSpan = document.createElement('span');
-      iconSpan.style.cssText = 'width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 8px; flex-shrink: 0;';
-      iconSpan.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #6b7280;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>`;
-      dragImage.appendChild(iconSpan);
-    }
-    
-    // Add file info container
-    const infoDiv = document.createElement('div');
-    infoDiv.style.cssText = 'flex: 1; min-width: 0;';
-    
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = attachment.name;
-    nameSpan.style.cssText = 'display: block; color: #e5e7eb; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
-    infoDiv.appendChild(nameSpan);
-    
-    if (attachment.size) {
-      const sizeSpan = document.createElement('span');
-      sizeSpan.textContent = formatFileSize(attachment.size);
-      sizeSpan.style.cssText = 'display: block; color: #6b7280; font-size: 11px;';
-      infoDiv.appendChild(sizeSpan);
-    }
-    
-    dragImage.appendChild(infoDiv);
-    document.body.appendChild(dragImage);
-    e.dataTransfer.setDragImage(dragImage, 12, 12);
-    
-    // Remove after drag image is captured
-    requestAnimationFrame(() => {
-      document.body.removeChild(dragImage);
-    });
-    
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -150,31 +93,22 @@ function DraggableAttachment({ attachment }: { attachment: Attachment }) {
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      className={`flex-shrink-0 w-[200px] flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-2 py-1.5 cursor-grab active:cursor-grabbing transition-all hover:bg-indigo-500/15 hover:border-indigo-500/30 ${isDragging ? 'opacity-50' : ''}`}
+      className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary/70 cursor-grab active:cursor-grabbing transition-all ${isDragging ? 'opacity-50' : ''}`}
     >
-      {/* Preview - image or file icon */}
-      <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-white/5 flex items-center justify-center">
+      <div className="w-8 h-8 flex-shrink-0 rounded-md overflow-hidden bg-muted flex items-center justify-center">
         {isImageFile(attachment.name) && attachment.url ? (
-          <img 
-            src={attachment.url} 
-            alt={attachment.name}
-            className="w-full h-full object-cover"
-          />
+          <img src={attachment.url} alt={attachment.name} className="w-full h-full object-cover" />
         ) : (
-          <FileText size={18} className="text-gray-500" />
+          <FileText size={16} className="text-muted-foreground" />
         )}
       </div>
-      
-      {/* File info */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-gray-200 truncate">{attachment.name}</p>
+        <p className="text-sm text-foreground truncate">{attachment.name}</p>
         {attachment.size && (
-          <p className="text-xs text-gray-500">{formatFileSize(attachment.size)}</p>
+          <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
         )}
       </div>
-      
-      {/* Drag handle indicator */}
-      <GripVertical size={12} className="text-gray-500 flex-shrink-0 opacity-50" />
+      <GripVertical size={12} className="text-muted-foreground flex-shrink-0 opacity-50" />
     </div>
   );
 }
@@ -183,59 +117,53 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
   if (messages.length === 0) return null;
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-6">
-      <div className="max-w-3xl mx-auto space-y-4 pb-4">
-        {messages.map((message) => (
+    <div className="flex-1 overflow-y-auto bg-background">
+      <div className="max-w-3xl mx-auto">
+        {messages.map((message, index) => (
           <div
             key={message.id}
-            className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}
+            className={`px-4 py-6 ${message.type === "agent" ? "bg-muted/30" : ""} ${index === 0 ? "pt-8" : ""}`}
           >
-            {message.type === "user" ? (
-              // User message (right side) - Indigo accent
-              <div className="max-w-[70%]">
-                {/* Attachments displayed above message - horizontal scrollable list */}
-                {message.attachments && message.attachments.length > 0 && (
-                  <div className="flex gap-1.5 mb-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] justify-end">
-                    {message.attachments.map((attachment) => (
-                      <DraggableAttachment key={attachment.id} attachment={attachment} />
-                    ))}
-                  </div>
-                )}
-                {message.content && (
-                  <div className="bg-indigo-500/15 border border-indigo-500/20 rounded-2xl px-4 py-3">
-                    <p className="text-sm text-gray-200 break-words whitespace-pre-wrap">{message.content}</p>
-                  </div>
-                )}
-                <div className="flex justify-end mt-1">
-                  <span className="text-xs text-gray-500">{formatTime(message.timestamp)}</span>
+            <div className={`flex gap-4 ${message.type === "user" ? "justify-end" : ""}`}>
+              {message.type === "user" ? (
+                // User message - ChatGPT style: clean, no bubble
+                <div className="max-w-[85%]">
+                  {/* Attachments */}
+                  {message.attachments && message.attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {message.attachments.map((attachment) => (
+                        <DraggableAttachment key={attachment.id} attachment={attachment} />
+                      ))}
+                    </div>
+                  )}
+                  {/* Message text */}
+                  {message.content && (
+                    <p className="text-sm text-foreground break-words whitespace-pre-wrap leading-7">{message.content}</p>
+                  )}
                 </div>
-              </div>
-            ) : (
-              // Agent message (left side)
-              <div className="max-w-[70%]">
-                <div className="flex items-start gap-2">
+              ) : (
+                // Agent message - ChatGPT style with avatar
+                <>
                   {/* Agent avatar */}
-                  <div className="w-7 h-7 rounded-lg bg-indigo-500/20 flex items-center justify-center flex-shrink-0 mt-1">
-                    <Sparkles size={14} className="text-indigo-400" />
+                  <div className="w-8 h-8 rounded-full bg-foreground flex items-center justify-center flex-shrink-0">
+                    <Sparkles size={16} className="text-background" />
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     {/* Processing state */}
                     {message.status === "processing" && (
-                      <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3">
-                        <div className="flex items-center gap-2 text-gray-400">
-                          <Loader2 size={16} className="animate-spin" />
-                          <span className="text-sm">Обрабатываю...</span>
-                        </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 size={16} className="animate-spin" />
+                        <span className="text-sm">Обрабатываю...</span>
                       </div>
                     )}
                     
                     {/* Success state */}
                     {message.status === "success" && message.result && (
-                      <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3">
-                        <div className="flex items-center gap-2 mb-3">
-                          <CheckCircle2 size={16} className="text-green-400" />
-                          <span className="text-sm text-gray-200">Сохранено</span>
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 size={18} className="text-emerald-500" />
+                          <span className="text-sm font-medium">Сохранено</span>
                         </div>
                         
                         {/* File results grouped by folder */}
@@ -246,14 +174,14 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                             return acc;
                           }, {} as Record<string, typeof message.result>)
                         ).map(([folder, files]) => (
-                          <div key={folder} className="mb-3 last:mb-0">
-                            <div className="flex items-center gap-2 text-sm text-gray-400 mb-1.5">
+                          <div key={folder} className="pl-5 border-l-2 border-border">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                               <FolderOpen size={14} />
                               <span>{folder}</span>
                             </div>
                             <div className="space-y-1">
                               {files.map((file, idx) => (
-                                <div key={idx} className="flex items-center gap-2 text-sm text-gray-300 pl-5">
+                                <div key={idx} className="flex items-center gap-2 text-sm text-foreground">
                                   {getFileIcon(file.name)}
                                   <span className="truncate">{file.name}</span>
                                 </div>
@@ -264,27 +192,27 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                         
                         {/* Action buttons or Cancelled state */}
                         {message.cancelled ? (
-                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/10 text-gray-500 text-xs">
-                            <XCircle size={12} />
+                          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                            <XCircle size={14} />
                             <span>Отменено</span>
                           </div>
                         ) : (
-                          <div className="flex gap-2 mt-3 pt-3 border-t border-white/10">
+                          <div className="flex gap-2 pt-2">
                             {message.result[0]?.folderId && onOpenFolder && (
                               <button 
                                 onClick={() => onOpenFolder(message.result![0].folderId!)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 transition-colors text-xs"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors text-sm"
                               >
-                                <FolderOpen size={12} />
+                                <FolderOpen size={14} />
                                 <span>Открыть папку</span>
                               </button>
                             )}
                             {onUndo && (
                               <button 
                                 onClick={() => onUndo(message.id)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors text-xs"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors text-sm"
                               >
-                                <Undo2 size={12} />
+                                <Undo2 size={14} />
                                 <span>Отменить</span>
                               </button>
                             )}
@@ -295,17 +223,17 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                     
                     {/* Error state */}
                     {message.status === "error" && (
-                      <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <XCircle size={16} className="text-red-400" />
-                          <span className="text-sm text-gray-200">{message.errorMessage || "Ошибка обработки"}</span>
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <XCircle size={18} className="text-rose-500" />
+                          <span className="text-sm text-foreground">{message.errorMessage || "Ошибка обработки"}</span>
                         </div>
                         
                         {/* Show files that failed */}
                         {message.attachments && message.attachments.length > 0 && (
-                          <div className="space-y-1 mb-3">
+                          <div className="space-y-1 pl-5 border-l-2 border-rose-500/30">
                             {message.attachments.map((file) => (
-                              <div key={file.id} className="flex items-center gap-2 text-sm text-gray-400 pl-5">
+                              <div key={file.id} className="flex items-center gap-2 text-sm text-muted-foreground">
                                 {getFileIcon(file.name)}
                                 <span className="truncate">{file.name}</span>
                               </div>
@@ -318,18 +246,18 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                           {onSelectFolder && (
                             <button 
                               onClick={() => onSelectFolder(message.id)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 transition-colors text-xs"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors text-sm"
                             >
-                              <FolderOpen size={12} />
+                              <FolderOpen size={14} />
                               <span>Выбрать папку</span>
                             </button>
                           )}
                           {onRetry && (
                             <button 
                               onClick={() => onRetry(message.id)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors text-xs"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors text-sm"
                             >
-                              <Undo2 size={12} />
+                              <Undo2 size={14} />
                               <span>Повторить</span>
                             </button>
                           )}
@@ -339,27 +267,23 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                     
                     {/* Default/simple message (no status or legacy) */}
                     {!message.status && (
-                      <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3">
-                        <p className="text-sm text-gray-200 break-words whitespace-pre-wrap">{message.content}</p>
+                      <div>
+                        <p className="text-sm text-foreground break-words whitespace-pre-wrap leading-7">{message.content}</p>
                         {onUndo && (
                           <button 
                             onClick={() => onUndo(message.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-indigo-400 transition-colors text-xs mt-3"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors text-sm mt-3"
                           >
-                            <Undo2 size={12} />
+                            <Undo2 size={14} />
                             <span>Отменить</span>
                           </button>
                         )}
                       </div>
                     )}
-                    
-                    <div className="flex justify-start mt-1">
-                      <span className="text-xs text-gray-500">{formatTime(message.timestamp)}</span>
-                    </div>
                   </div>
-                </div>
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
         ))}
       </div>
