@@ -157,7 +157,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
 
   return (
     <div className="bg-background px-4 pb-4 pt-2">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto px-9">
         <input
           ref={fileInputRef}
           type="file"

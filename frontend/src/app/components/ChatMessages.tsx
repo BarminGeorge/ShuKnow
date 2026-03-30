@@ -149,7 +149,7 @@ function UserMessage({
       
       {/* Message text with Markdown rendering */}
       {message.content && (
-        <div className="text-sm text-foreground break-all leading-7 prose prose-invert prose-sm max-w-none">
+        <div className="text-base text-foreground break-all leading-7 prose prose-invert prose-base max-w-none">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {message.content}
           </ReactMarkdown>
@@ -188,7 +188,7 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
 
   return (
     <div className="flex-1 overflow-y-auto bg-background">
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-7xl mx-auto px-9">
         {messages.map((message, index) => (
           <div
             key={message.id}
@@ -327,7 +327,7 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                     {/* Default/simple message (no status or legacy) */}
                     {!message.status && (
                       <div>
-                        <div className="text-sm text-foreground break-all leading-7 prose prose-invert prose-sm max-w-none">
+                        <div className="text-base text-foreground break-all leading-7 prose prose-invert prose-base max-w-none">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {message.content}
                           </ReactMarkdown>
