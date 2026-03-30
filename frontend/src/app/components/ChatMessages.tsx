@@ -143,6 +143,28 @@ function UserMessage({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Hover actions - top right corner */}
+      {isHovered && message.content && (
+        <div className="absolute -top-2 -right-2 flex gap-1 z-10">
+          <button
+            onClick={handleCopy}
+            className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors shadow-sm"
+            title="Копировать"
+          >
+            {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+          </button>
+          {onResend && (
+            <button
+              onClick={() => onResend(message.id)}
+              className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors shadow-sm"
+              title="Отправить повторно"
+            >
+              <RefreshCw size={14} />
+            </button>
+          )}
+        </div>
+      )}
+      
       {/* Attachments - horizontal scrollable strip */}
       {message.attachments && message.attachments.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-2 mb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -158,30 +180,6 @@ function UserMessage({
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {message.content}
           </ReactMarkdown>
-        </div>
-      )}
-      
-      {/* Hover actions */}
-      {isHovered && message.content && (
-        <div className="flex gap-1 mt-2">
-          <button
-            onClick={handleCopy}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary/80 hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors text-xs"
-            title="Копировать"
-          >
-            {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-            <span>{copied ? 'Скопировано' : 'Копировать'}</span>
-          </button>
-          {onResend && (
-            <button
-              onClick={() => onResend(message.id)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary/80 hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors text-xs"
-              title="Отправить повторно"
-            >
-              <RefreshCw size={14} />
-              <span>Повторить</span>
-            </button>
-          )}
         </div>
       )}
     </div>
@@ -216,17 +214,15 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                   <div className="flex-1 min-w-0">
                     {/* Processing state */}
                     {message.status === "processing" && (
-                      <div className="bg-secondary rounded-xl px-4 py-3 inline-block">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Loader2 size={16} className="animate-spin" />
-                          <span className="text-sm">Обрабатываю...</span>
-                        </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 size={16} className="animate-spin" />
+                        <span className="text-sm">Обрабатываю...</span>
                       </div>
                     )}
                     
                     {/* Success state */}
                     {message.status === "success" && message.result && (
-                      <div className="bg-secondary rounded-xl px-4 py-3 space-y-4 inline-block">
+                      <div className="space-y-4">
                         <div className="flex items-center gap-2">
                           <CheckCircle2 size={18} className="text-emerald-500" />
                           <span className="text-sm font-medium">Сохранено</span>
@@ -267,7 +263,7 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                             {message.result[0]?.folderId && onOpenFolder && (
                               <button 
                                 onClick={() => onOpenFolder(message.result![0].folderId!)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background hover:bg-background/80 text-foreground transition-colors text-sm"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors text-sm"
                               >
                                 <FolderOpen size={14} />
                                 <span>Открыть папку</span>
@@ -276,7 +272,7 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                             {onUndo && (
                               <button 
                                 onClick={() => onUndo(message.id)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground transition-colors text-sm"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors text-sm"
                               >
                                 <Undo2 size={14} />
                                 <span>Отменить</span>
@@ -289,7 +285,7 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                     
                     {/* Error state */}
                     {message.status === "error" && (
-                      <div className="bg-secondary rounded-xl px-4 py-3 space-y-4 inline-block">
+                      <div className="space-y-4">
                         <div className="flex items-center gap-2">
                           <XCircle size={18} className="text-rose-500" />
                           <span className="text-sm text-foreground">{message.errorMessage || "Ошибка обработки"}</span>
@@ -312,7 +308,7 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                           {onSelectFolder && (
                             <button 
                               onClick={() => onSelectFolder(message.id)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background hover:bg-background/80 text-foreground transition-colors text-sm"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors text-sm"
                             >
                               <FolderOpen size={14} />
                               <span>Выбрать папку</span>
@@ -321,7 +317,7 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                           {onRetry && (
                             <button 
                               onClick={() => onRetry(message.id)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground transition-colors text-sm"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors text-sm"
                             >
                               <Undo2 size={14} />
                               <span>Повторить</span>
@@ -333,7 +329,7 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                     
                     {/* Default/simple message (no status or legacy) */}
                     {!message.status && (
-                      <div className="bg-secondary rounded-xl px-4 py-3 inline-block">
+                      <div>
                         <div className="text-sm text-foreground break-words leading-7 prose prose-invert prose-sm max-w-none">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {message.content}
@@ -342,7 +338,7 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                         {onUndo && (
                           <button 
                             onClick={() => onUndo(message.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground transition-colors text-sm mt-3"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors text-sm mt-3"
                           >
                             <Undo2 size={14} />
                             <span>Отменить</span>

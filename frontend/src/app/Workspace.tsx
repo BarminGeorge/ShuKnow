@@ -540,6 +540,13 @@ export default function Workspace() {
                             // TODO: Show folder picker
                             console.log("Select folder for:", messageId);
                           }}
+                          onResend={(messageId) => {
+                            // Find the message and resend it
+                            const message = messages.find(m => m.id === messageId);
+                            if (message) {
+                              handleSendMessage(message.content, message.attachments);
+                            }
+                          }}
                         />
                         <InputConsole onSend={handleSendMessage} />
                       </>
