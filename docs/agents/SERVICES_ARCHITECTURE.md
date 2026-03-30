@@ -161,6 +161,7 @@ These are the primary units of business logic. Each service is defined as an int
 | `IAttachmentRepository` | Attachment metadata persistence. |
 | `IBlobStorageService` | Binary content storage. |
 | `ICurrentUserService` | Ownership validation. |
+| `IUnitOfWork` | Coordinated persistence (metadata + blob saves). |
 
 ---
 
@@ -507,6 +508,7 @@ These interfaces are defined in `ShuKnow.Application` and implemented in `ShuKno
 | Method | Description |
 |---|---|
 | `SaveAsync(content, file)` | Stores the binary content using metadata from the `File` entity. |
+| `SaveAsync(content, id)` | Stores binary content by a raw GUID (used for attachments and other non-`File` blobs). |
 | `GetAsync(fileId)` → `Stream` | Retrieves the full binary content by file ID. |
 | `GetRangeAsync(fileId, rangeStart, rangeEnd)` → `Stream` | Retrieves a byte range (for HTTP Range support). |
 | `DeleteAsync(fileId)` | Removes the binary content by file ID. |
