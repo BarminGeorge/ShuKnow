@@ -188,7 +188,7 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
 
   return (
     <div className="flex-1 overflow-y-auto bg-background">
-      <div className="max-w-3xl mx-auto">
+      <div className="w-full px-6">
         {messages.map((message, index) => (
           <div
             key={message.id}

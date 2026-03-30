@@ -157,7 +157,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
 
   return (
     <div className="bg-background px-4 pb-4 pt-2">
-      <div className="max-w-3xl mx-auto">
+      <div className="w-full px-6">
         <input
           ref={fileInputRef}
           type="file"
@@ -235,10 +235,6 @@ export function InputConsole({ onSend }: InputConsoleProps) {
             <ArrowUp size={18} />
           </button>
         </div>
-
-        <p className="text-xs text-center mt-2 text-muted-foreground">
-          ShuKnow может допускать ошибки. Проверяйте важную информацию.
-        </p>
       </div>
     </div>
   );
