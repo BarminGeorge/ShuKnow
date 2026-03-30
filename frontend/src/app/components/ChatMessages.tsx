@@ -1,10 +1,10 @@
-import { Undo2, Paperclip, Sparkles, Loader2, CheckCircle2, XCircle, FolderOpen, FileText, Image as ImageIcon, GripVertical } from "lucide-react";
 import { useState } from "react";
+import { Undo2, Paperclip, Sparkles, Loader2, CheckCircle2, XCircle, FolderOpen, FileText, Image as ImageIcon, GripVertical } from "lucide-react";
 
 export interface Attachment {
   id: string;
   name: string;
-  file: File;
+  file?: File; // Optional: may not exist for files dragged from chat
   url?: string;
   size?: number;
   type?: string;
@@ -75,15 +75,65 @@ function DraggableAttachment({ attachment }: { attachment: Attachment }) {
       name: attachment.name,
       fileType: attachment.type,
       url: attachment.url,
+      file: attachment.file ? {
+        name: attachment.file.name,
+        size: attachment.file.size,
+        type: attachment.file.type,
+      } : null,
     }));
     
-    // Set drag image
-    const dragImage = e.currentTarget.cloneNode(true) as HTMLElement;
-    dragImage.style.opacity = '0.8';
-    dragImage.style.transform = 'scale(1.02)';
+    // Create drag image that looks like the original but constrained
+    const dragImage = document.createElement('div');
+    dragImage.style.cssText = `
+      position: fixed;
+      top: -1000px;
+      left: -1000px;
+      max-width: 250px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 12px;
+      pointer-events: none;
+      z-index: 9999;
+    `;
+    
+    // Add icon
+    const iconSpan = document.createElement('span');
+    iconSpan.style.cssText = 'width: 14px; height: 14px; flex-shrink: 0;';
+    if (isImageFile(attachment.name) && attachment.url) {
+      const img = document.createElement('img');
+      img.src = attachment.url;
+      img.style.cssText = 'width: 40px; height: 40px; object-fit: cover; border-radius: 8px; flex-shrink: 0;';
+      dragImage.appendChild(img);
+    } else {
+      iconSpan.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #9ca3af;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>`;
+      dragImage.appendChild(iconSpan);
+    }
+    
+    // Add filename
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = attachment.name;
+    nameSpan.style.cssText = 'color: #e5e7eb; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
+    dragImage.appendChild(nameSpan);
+    
+    // Add size if available
+    if (attachment.size) {
+      const sizeSpan = document.createElement('span');
+      sizeSpan.textContent = formatFileSize(attachment.size);
+      sizeSpan.style.cssText = 'color: #6b7280; font-size: 12px; flex-shrink: 0;';
+      dragImage.appendChild(sizeSpan);
+    }
+    
     document.body.appendChild(dragImage);
-    e.dataTransfer.setDragImage(dragImage, 0, 0);
-    setTimeout(() => document.body.removeChild(dragImage), 0);
+    e.dataTransfer.setDragImage(dragImage, 12, 12);
+    
+    // Remove after drag image is captured
+    requestAnimationFrame(() => {
+      document.body.removeChild(dragImage);
+    });
     
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -97,7 +147,7 @@ function DraggableAttachment({ attachment }: { attachment: Attachment }) {
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      className={`flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-3 py-2 max-w-full cursor-grab active:cursor-grabbing transition-all hover:bg-indigo-500/15 hover:border-indigo-500/30 ${isDragging ? 'opacity-50 scale-95' : ''}`}
+      className={`flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-3 py-2 max-w-full cursor-grab active:cursor-grabbing transition-all hover:bg-indigo-500/15 hover:border-indigo-500/30 ${isDragging ? 'opacity-50' : ''}`}
     >
       <GripVertical size={12} className="text-gray-500 flex-shrink-0" />
       {isImageFile(attachment.name) && attachment.url ? (

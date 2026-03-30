@@ -88,6 +88,36 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     dragCounterRef.current = 0;
     setIsDragging(false);
     
+    // Check for files dragged from chat (JSON data)
+    const jsonData = e.dataTransfer.getData('application/json');
+    if (jsonData) {
+      try {
+        const chatFileData = JSON.parse(jsonData);
+        if (chatFileData.type === 'chat-file') {
+          // Create attachment from chat file data (no real File object available)
+          const newAttachment: Attachment = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+            name: chatFileData.name || chatFileData.file?.name || 'unknown',
+            url: chatFileData.url,
+            size: chatFileData.file?.size,
+            type: chatFileData.fileType || chatFileData.file?.type,
+          };
+          
+          setAttachments((prev) => {
+            const existing = new Set(prev.map((a) => `${a.name}-${a.size}`));
+            if (!existing.has(`${newAttachment.name}-${newAttachment.size}`)) {
+              return [...prev, newAttachment];
+            }
+            return prev;
+          });
+          return;
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+    
+    // Check for external files (from file system)
     const files = e.dataTransfer.files;
     if (files.length > 0) {
       addFiles(files);
