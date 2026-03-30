@@ -176,7 +176,7 @@ function UserMessage({
       
       {/* Message text with Markdown rendering */}
       {message.content && (
-        <div className="text-sm text-foreground break-words leading-7 prose prose-invert prose-sm max-w-none">
+        <div className="text-sm text-foreground break-all leading-7 prose prose-invert prose-sm max-w-none">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {message.content}
           </ReactMarkdown>
@@ -330,7 +330,7 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                     {/* Default/simple message (no status or legacy) */}
                     {!message.status && (
                       <div>
-                        <div className="text-sm text-foreground break-words leading-7 prose prose-invert prose-sm max-w-none">
+                        <div className="text-sm text-foreground break-all leading-7 prose prose-invert prose-sm max-w-none">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {message.content}
                           </ReactMarkdown>
