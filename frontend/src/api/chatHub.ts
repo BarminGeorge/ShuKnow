@@ -1,52 +1,41 @@
-/**
- * SignalR ChatHub client service
- * Handles real-time communication for AI-powered file classification
- */
-
 import * as signalR from "@microsoft/signalr";
 import { getAuthToken } from "./client";
+import {
+  CHAT_HUB_URL,
+  SIGNALR_RECONNECT_BASE_DELAY_MS,
+  SIGNALR_RECONNECT_MAX_DELAY_MS,
+} from "../constants";
 
-// ── Hub URL ────────────────────────────────────
-
-const CHAT_HUB_URL = "/hubs/chat";
-
-// ── Types from asyncapi.yaml ───────────────────
-
-/** Client → Server: Send message for AI processing */
 export interface SendMessageCommand {
   content: string;
   context?: string | null;
   attachmentIds?: string[] | null;
 }
 
-/** Server → Client: Processing started */
 export interface ProcessingStartedEvent {
   operationId: string;
 }
 
-/** Server → Client: Streaming LLM token chunk */
 export interface MessageChunkEvent {
   operationId: string;
   messageId: string;
   chunk: string;
 }
 
-/** Server → Client: Complete AI message */
-export interface ChatMessageDto {
+export interface ChatHubMessageDto {
   id: string;
   role: "User" | "Ai";
   content: string;
-  attachments?: AttachmentDto[] | null;
+  attachments?: ChatHubAttachmentDto[] | null;
 }
 
-export interface AttachmentDto {
+export interface ChatHubAttachmentDto {
   id: string;
   fileName: string;
   contentType: string;
   sizeBytes: number;
 }
 
-/** Server → Client: Classification plan */
 export interface ClassificationResultEvent {
   operationId: string;
   decisions: ClassificationDecisionDto[];
@@ -59,8 +48,7 @@ export interface ClassificationDecisionDto {
   isNewFolder: boolean;
 }
 
-/** Server → Client: File created */
-export interface FileDto {
+export interface ChatHubFileDto {
   id: string;
   folderId: string;
   folderName: string;
@@ -70,15 +58,13 @@ export interface FileDto {
   sizeBytes: number;
 }
 
-/** Server → Client: File moved */
 export interface FileMovedEvent {
   fileId: string;
   fromFolderId: string;
   toFolderId: string;
 }
 
-/** Server → Client: Folder created */
-export interface FolderDto {
+export interface ChatHubFolderDto {
   id: string;
   name: string;
   description?: string;
@@ -89,7 +75,6 @@ export interface FolderDto {
   path?: string[] | null;
 }
 
-/** Server → Client: Processing completed */
 export interface ProcessingCompletedEvent {
   operationId: string;
   actionId: string;
@@ -98,34 +83,32 @@ export interface ProcessingCompletedEvent {
   filesMoved: number;
 }
 
-/** Server → Client: Processing failed */
+export type ProcessingFailureCode =
+  | "LLM_CONNECTION_FAILED"
+  | "LLM_RATE_LIMITED"
+  | "LLM_INVALID_RESPONSE"
+  | "CLASSIFICATION_PARSE_ERROR"
+  | "FILE_OPERATION_FAILED"
+  | "INTERNAL_ERROR";
+
 export interface ProcessingFailedEvent {
   operationId: string;
   error: string;
-  code:
-    | "LLM_CONNECTION_FAILED"
-    | "LLM_RATE_LIMITED"
-    | "LLM_INVALID_RESPONSE"
-    | "CLASSIFICATION_PARSE_ERROR"
-    | "FILE_OPERATION_FAILED"
-    | "INTERNAL_ERROR";
+  code: ProcessingFailureCode;
 }
 
-/** Server → Client: Processing cancelled */
 export interface ProcessingCancelledEvent {
   operationId: string;
 }
 
-// ── Event handlers type ────────────────────────
-
 export interface ChatHubEventHandlers {
   onProcessingStarted?: (event: ProcessingStartedEvent) => void;
   onMessageChunk?: (event: MessageChunkEvent) => void;
-  onMessageCompleted?: (message: ChatMessageDto) => void;
+  onMessageCompleted?: (message: ChatHubMessageDto) => void;
   onClassificationResult?: (event: ClassificationResultEvent) => void;
-  onFileCreated?: (file: FileDto) => void;
+  onFileCreated?: (file: ChatHubFileDto) => void;
   onFileMoved?: (event: FileMovedEvent) => void;
-  onFolderCreated?: (folder: FolderDto) => void;
+  onFolderCreated?: (folder: ChatHubFolderDto) => void;
   onProcessingCompleted?: (event: ProcessingCompletedEvent) => void;
   onProcessingFailed?: (event: ProcessingFailedEvent) => void;
   onProcessingCancelled?: (event: ProcessingCancelledEvent) => void;
@@ -135,38 +118,25 @@ export interface ChatHubEventHandlers {
   onClose?: (error?: Error) => void;
 }
 
-// ── ChatHub Client ─────────────────────────────
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 export class ChatHubClient {
   private connection: signalR.HubConnection | null = null;
   private handlers: ChatHubEventHandlers = {};
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
+  private reconnectAttemptCount = 0;
 
-  /**
-   * Get current connection state
-   */
-  get state(): signalR.HubConnectionState {
+  get connectionState(): signalR.HubConnectionState {
     return this.connection?.state ?? signalR.HubConnectionState.Disconnected;
   }
 
-  /**
-   * Check if connected
-   */
   get isConnected(): boolean {
     return this.connection?.state === signalR.HubConnectionState.Connected;
   }
 
-  /**
-   * Set event handlers
-   */
-  setHandlers(handlers: ChatHubEventHandlers): void {
+  setEventHandlers(handlers: ChatHubEventHandlers): void {
     this.handlers = { ...this.handlers, ...handlers };
   }
 
-  /**
-   * Connect to the ChatHub
-   */
   async connect(): Promise<void> {
     if (this.connection?.state === signalR.HubConnectionState.Connected) {
       return;
@@ -182,46 +152,38 @@ export class ChatHubClient {
       })
       .withAutomaticReconnect({
         nextRetryDelayInMilliseconds: (retryContext) => {
-          // Exponential backoff: 0, 2s, 4s, 8s, 16s, then stop
-          if (retryContext.previousRetryCount >= this.maxReconnectAttempts) {
+          if (retryContext.previousRetryCount >= MAX_RECONNECT_ATTEMPTS) {
             return null;
           }
-          return Math.min(1000 * Math.pow(2, retryContext.previousRetryCount), 16000);
+          const delay = SIGNALR_RECONNECT_BASE_DELAY_MS * Math.pow(2, retryContext.previousRetryCount);
+          return Math.min(delay, SIGNALR_RECONNECT_MAX_DELAY_MS);
         },
       })
       .configureLogging(signalR.LogLevel.Warning)
       .build();
 
-    this.registerServerHandlers();
-    this.registerConnectionHandlers();
+    this.registerServerEventHandlers();
+    this.registerConnectionLifecycleHandlers();
 
     try {
       await this.connection.start();
-      this.reconnectAttempts = 0;
+      this.reconnectAttemptCount = 0;
       this.handlers.onConnectionStateChanged?.(signalR.HubConnectionState.Connected);
-    } catch (error) {
-      console.error("Failed to connect to ChatHub:", error);
-      throw error;
+    } catch (connectionError) {
+      throw connectionError;
     }
   }
 
-  /**
-   * Disconnect from the ChatHub
-   */
   async disconnect(): Promise<void> {
     if (this.connection) {
       try {
         await this.connection.stop();
-      } catch (error) {
-        console.error("Error disconnecting from ChatHub:", error);
+      } catch {
       }
       this.connection = null;
     }
   }
 
-  /**
-   * Send a message for AI processing
-   */
   async sendMessage(command: SendMessageCommand): Promise<void> {
     if (!this.isConnected) {
       throw new Error("Not connected to ChatHub");
@@ -229,9 +191,6 @@ export class ChatHubClient {
     await this.connection!.invoke("SendMessage", command);
   }
 
-  /**
-   * Cancel the current AI processing operation
-   */
   async cancelProcessing(): Promise<void> {
     if (!this.isConnected) {
       throw new Error("Not connected to ChatHub");
@@ -239,10 +198,7 @@ export class ChatHubClient {
     await this.connection!.invoke("CancelProcessing");
   }
 
-  /**
-   * Register handlers for server-to-client events
-   */
-  private registerServerHandlers(): void {
+  private registerServerEventHandlers(): void {
     if (!this.connection) return;
 
     this.connection.on("OnProcessingStarted", (event: ProcessingStartedEvent) => {
@@ -253,7 +209,7 @@ export class ChatHubClient {
       this.handlers.onMessageChunk?.(event);
     });
 
-    this.connection.on("OnMessageCompleted", (message: ChatMessageDto) => {
+    this.connection.on("OnMessageCompleted", (message: ChatHubMessageDto) => {
       this.handlers.onMessageCompleted?.(message);
     });
 
@@ -261,7 +217,7 @@ export class ChatHubClient {
       this.handlers.onClassificationResult?.(event);
     });
 
-    this.connection.on("OnFileCreated", (file: FileDto) => {
+    this.connection.on("OnFileCreated", (file: ChatHubFileDto) => {
       this.handlers.onFileCreated?.(file);
     });
 
@@ -269,7 +225,7 @@ export class ChatHubClient {
       this.handlers.onFileMoved?.(event);
     });
 
-    this.connection.on("OnFolderCreated", (folder: FolderDto) => {
+    this.connection.on("OnFolderCreated", (folder: ChatHubFolderDto) => {
       this.handlers.onFolderCreated?.(folder);
     });
 
@@ -286,20 +242,17 @@ export class ChatHubClient {
     });
   }
 
-  /**
-   * Register handlers for connection lifecycle events
-   */
-  private registerConnectionHandlers(): void {
+  private registerConnectionLifecycleHandlers(): void {
     if (!this.connection) return;
 
     this.connection.onreconnecting((error) => {
-      this.reconnectAttempts++;
+      this.reconnectAttemptCount++;
       this.handlers.onConnectionStateChanged?.(signalR.HubConnectionState.Reconnecting);
       this.handlers.onReconnecting?.(error);
     });
 
     this.connection.onreconnected((connectionId) => {
-      this.reconnectAttempts = 0;
+      this.reconnectAttemptCount = 0;
       this.handlers.onConnectionStateChanged?.(signalR.HubConnectionState.Connected);
       this.handlers.onReconnected?.(connectionId);
     });
@@ -311,24 +264,16 @@ export class ChatHubClient {
   }
 }
 
-// ── Singleton instance ─────────────────────────
-
 let chatHubInstance: ChatHubClient | null = null;
 
-/**
- * Get the singleton ChatHub client instance
- */
-export function getChatHub(): ChatHubClient {
+export function getChatHubClient(): ChatHubClient {
   if (!chatHubInstance) {
     chatHubInstance = new ChatHubClient();
   }
   return chatHubInstance;
 }
 
-/**
- * Reset the ChatHub client (for logout/cleanup)
- */
-export async function resetChatHub(): Promise<void> {
+export async function resetChatHubClient(): Promise<void> {
   if (chatHubInstance) {
     await chatHubInstance.disconnect();
     chatHubInstance = null;

@@ -1,52 +1,49 @@
-/**
- * API client with auth token handling
- */
-
-const TOKEN_KEY = "shuknow_token";
+import { LOCAL_STORAGE_AUTH_TOKEN_KEY } from "../constants";
 
 export function getAuthToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  return localStorage.getItem(LOCAL_STORAGE_AUTH_TOKEN_KEY);
 }
 
 export function setAuthToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(LOCAL_STORAGE_AUTH_TOKEN_KEY, token);
 }
 
 export function clearAuthToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(LOCAL_STORAGE_AUTH_TOKEN_KEY);
 }
 
 export class ApiError extends Error {
   constructor(
     public status: number,
     public statusText: string,
-    message?: string
+    errorMessage?: string
   ) {
-    super(message || `API Error: ${status} ${statusText}`);
+    super(errorMessage || `API Error: ${status} ${statusText}`);
     this.name = "ApiError";
   }
 }
 
-interface RequestOptions extends RequestInit {
-  skipAuth?: boolean;
+interface ApiRequestOptions extends RequestInit {
+  shouldSkipAuth?: boolean;
 }
 
-export async function apiRequest<T>(
+export async function apiRequest<ResponseType>(
   url: string,
-  options: RequestOptions = {}
-): Promise<T> {
-  const { skipAuth, ...fetchOptions } = options;
+  options: ApiRequestOptions = {}
+): Promise<ResponseType> {
+  const { shouldSkipAuth, ...fetchOptions } = options;
   
   const headers = new Headers(fetchOptions.headers);
   
-  if (!skipAuth) {
+  if (!shouldSkipAuth) {
     const token = getAuthToken();
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
     }
   }
 
-  if (!headers.has("Content-Type") && fetchOptions.body && typeof fetchOptions.body === "string") {
+  const hasStringBody = fetchOptions.body && typeof fetchOptions.body === "string";
+  if (!headers.has("Content-Type") && hasStringBody) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -56,19 +53,17 @@ export async function apiRequest<T>(
   });
 
   if (!response.ok) {
-    let message: string | undefined;
+    let errorMessage: string | undefined;
     try {
       const errorBody = await response.json();
-      message = errorBody.detail || errorBody.title || errorBody.message;
+      errorMessage = errorBody.detail || errorBody.title || errorBody.message;
     } catch {
-      // Response body is not JSON
     }
-    throw new ApiError(response.status, response.statusText, message);
+    throw new ApiError(response.status, response.statusText, errorMessage);
   }
 
-  // Handle 204 No Content
   if (response.status === 204) {
-    return undefined as T;
+    return undefined as ResponseType;
   }
 
   return response.json();

@@ -1,79 +1,59 @@
-/**
- * React hook for ChatHub SignalR connection
- */
-
 import { useEffect, useRef, useCallback, useState } from "react";
 import { HubConnectionState } from "@microsoft/signalr";
 import {
-  getChatHub,
-  resetChatHub,
+  getChatHubClient,
+  resetChatHubClient,
   ChatHubClient,
   ChatHubEventHandlers,
   SendMessageCommand,
   ProcessingStartedEvent,
   MessageChunkEvent,
-  ChatMessageDto,
+  ChatHubMessageDto,
   ClassificationResultEvent,
   ProcessingCompletedEvent,
   ProcessingFailedEvent,
   ProcessingCancelledEvent,
-  FileDto,
+  ChatHubFileDto,
   FileMovedEvent,
-  FolderDto,
+  ChatHubFolderDto,
 } from "../../api/chatHub";
 
 export interface UseChatHubOptions {
-  /** Auto-connect when hook mounts */
-  autoConnect?: boolean;
-  /** Event handlers */
+  shouldAutoConnect?: boolean;
   handlers?: ChatHubEventHandlers;
 }
 
-export interface UseChatHubReturn {
-  /** Current connection state */
+export interface UseChatHubResult {
   connectionState: HubConnectionState;
-  /** Whether connected */
   isConnected: boolean;
-  /** Whether processing is in progress */
   isProcessing: boolean;
-  /** Current operation ID (if processing) */
-  operationId: string | null;
-  /** Streaming AI message content */
+  currentOperationId: string | null;
   streamingContent: string;
-  /** Last action ID (for undo) */
   lastActionId: string | null;
-  /** Error message if any */
-  error: string | null;
-  /** Connect to hub */
+  errorMessage: string | null;
   connect: () => Promise<void>;
-  /** Disconnect from hub */
   disconnect: () => Promise<void>;
-  /** Send message for AI processing */
   sendMessage: (command: SendMessageCommand) => Promise<void>;
-  /** Cancel current processing */
   cancelProcessing: () => Promise<void>;
-  /** Clear error */
   clearError: () => void;
 }
 
-export function useChatHub(options: UseChatHubOptions = {}): UseChatHubReturn {
-  const { autoConnect = false, handlers: externalHandlers } = options;
+export function useChatHub(options: UseChatHubOptions = {}): UseChatHubResult {
+  const { shouldAutoConnect = false, handlers: externalHandlers } = options;
   
   const hubRef = useRef<ChatHubClient | null>(null);
   const [connectionState, setConnectionState] = useState<HubConnectionState>(
     HubConnectionState.Disconnected
   );
   const [isProcessing, setIsProcessing] = useState(false);
-  const [operationId, setOperationId] = useState<string | null>(null);
+  const [currentOperationId, setCurrentOperationId] = useState<string | null>(null);
   const [streamingContent, setStreamingContent] = useState("");
   const [lastActionId, setLastActionId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Initialize hub on mount
   useEffect(() => {
-    hubRef.current = getChatHub();
+    hubRef.current = getChatHubClient();
     
-    // Set up internal handlers
     const handlers: ChatHubEventHandlers = {
       onConnectionStateChanged: (state) => {
         setConnectionState(state);
@@ -82,18 +62,18 @@ export function useChatHub(options: UseChatHubOptions = {}): UseChatHubReturn {
       
       onProcessingStarted: (event: ProcessingStartedEvent) => {
         setIsProcessing(true);
-        setOperationId(event.operationId);
+        setCurrentOperationId(event.operationId);
         setStreamingContent("");
-        setError(null);
+        setErrorMessage(null);
         externalHandlers?.onProcessingStarted?.(event);
       },
       
       onMessageChunk: (event: MessageChunkEvent) => {
-        setStreamingContent((prev) => prev + event.chunk);
+        setStreamingContent((previous) => previous + event.chunk);
         externalHandlers?.onMessageChunk?.(event);
       },
       
-      onMessageCompleted: (message: ChatMessageDto) => {
+      onMessageCompleted: (message: ChatHubMessageDto) => {
         setStreamingContent(message.content);
         externalHandlers?.onMessageCompleted?.(message);
       },
@@ -102,7 +82,7 @@ export function useChatHub(options: UseChatHubOptions = {}): UseChatHubReturn {
         externalHandlers?.onClassificationResult?.(event);
       },
       
-      onFileCreated: (file: FileDto) => {
+      onFileCreated: (file: ChatHubFileDto) => {
         externalHandlers?.onFileCreated?.(file);
       },
       
@@ -110,27 +90,27 @@ export function useChatHub(options: UseChatHubOptions = {}): UseChatHubReturn {
         externalHandlers?.onFileMoved?.(event);
       },
       
-      onFolderCreated: (folder: FolderDto) => {
+      onFolderCreated: (folder: ChatHubFolderDto) => {
         externalHandlers?.onFolderCreated?.(folder);
       },
       
       onProcessingCompleted: (event: ProcessingCompletedEvent) => {
         setIsProcessing(false);
-        setOperationId(null);
+        setCurrentOperationId(null);
         setLastActionId(event.actionId);
         externalHandlers?.onProcessingCompleted?.(event);
       },
       
       onProcessingFailed: (event: ProcessingFailedEvent) => {
         setIsProcessing(false);
-        setOperationId(null);
-        setError(event.error);
+        setCurrentOperationId(null);
+        setErrorMessage(event.error);
         externalHandlers?.onProcessingFailed?.(event);
       },
       
       onProcessingCancelled: (event: ProcessingCancelledEvent) => {
         setIsProcessing(false);
-        setOperationId(null);
+        setCurrentOperationId(null);
         setStreamingContent("");
         externalHandlers?.onProcessingCancelled?.(event);
       },
@@ -140,72 +120,66 @@ export function useChatHub(options: UseChatHubOptions = {}): UseChatHubReturn {
       onClose: externalHandlers?.onClose,
     };
     
-    hubRef.current.setHandlers(handlers);
+    hubRef.current.setEventHandlers(handlers);
     
-    // Auto-connect if requested
-    if (autoConnect) {
-      hubRef.current.connect().catch((err) => {
-        console.error("Auto-connect failed:", err);
-        setError("Failed to connect to chat");
+    if (shouldAutoConnect) {
+      hubRef.current.connect().catch(() => {
+        setErrorMessage("Failed to connect to chat");
       });
     }
     
-    // Cleanup on unmount
     return () => {
-      // Don't disconnect on unmount - let the singleton persist
-      // The hub will be cleaned up on logout via resetChatHub()
     };
-  }, [autoConnect]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [shouldAutoConnect]);
 
   const connect = useCallback(async () => {
     try {
-      setError(null);
+      setErrorMessage(null);
       await hubRef.current?.connect();
-    } catch (err) {
-      setError("Failed to connect to chat");
-      throw err;
+    } catch (connectionError) {
+      setErrorMessage("Failed to connect to chat");
+      throw connectionError;
     }
   }, []);
 
   const disconnect = useCallback(async () => {
-    await resetChatHub();
-    hubRef.current = getChatHub();
+    await resetChatHubClient();
+    hubRef.current = getChatHubClient();
     setConnectionState(HubConnectionState.Disconnected);
     setIsProcessing(false);
-    setOperationId(null);
+    setCurrentOperationId(null);
     setStreamingContent("");
   }, []);
 
   const sendMessage = useCallback(async (command: SendMessageCommand) => {
     try {
-      setError(null);
+      setErrorMessage(null);
       await hubRef.current?.sendMessage(command);
-    } catch (err) {
-      setError("Failed to send message");
-      throw err;
+    } catch (sendError) {
+      setErrorMessage("Failed to send message");
+      throw sendError;
     }
   }, []);
 
   const cancelProcessing = useCallback(async () => {
     try {
       await hubRef.current?.cancelProcessing();
-    } catch (err) {
-      console.error("Failed to cancel processing:", err);
+    } catch {
     }
   }, []);
 
   const clearError = useCallback(() => {
-    setError(null);
+    setErrorMessage(null);
   }, []);
 
   return {
     connectionState,
     isConnected: connectionState === HubConnectionState.Connected,
     isProcessing,
-    operationId,
+    currentOperationId,
     streamingContent,
     lastActionId,
-    error,
+    errorMessage,
     connect,
     disconnect,
     sendMessage,

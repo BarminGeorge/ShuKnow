@@ -3,8 +3,6 @@ import { X, Eye, EyeOff, ArrowLeft, Loader2, CheckCircle2, XCircle } from "lucid
 import { useAuth } from "../contexts/AuthContext";
 import { settingsService } from "../../api";
 import type { AiSettingsDto, AiProvider } from "../../api/types";
-
-// Available providers - ready for backend enum support
 const AI_PROVIDERS: { value: AiProvider; label: string; baseUrlHint: string }[] = [
   { value: "openai", label: "OpenAI", baseUrlHint: "https://api.openai.com/v1" },
   { value: "openrouter", label: "OpenRouter", baseUrlHint: "https://openrouter.ai/api/v1" },
@@ -30,8 +28,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; latencyMs?: number | null; errorMessage?: string | null } | null>(null);
   const { user } = useAuth();
-
-  // Load settings when modal opens
   useEffect(() => {
     if (isOpen) {
       loadSettings();
@@ -41,7 +37,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const loadSettings = async () => {
     setIsLoading(true);
     try {
-      const data = await settingsService.getAiSettings();
+      const data = await settingsService.fetchAiSettings();
       setSettings(data);
       setBaseUrl(data.baseUrl || "");
       setProvider(data.provider || "openai");
@@ -88,7 +84,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   const handleProviderChange = (newProvider: AiProvider) => {
     setProvider(newProvider);
-    // Auto-fill base URL hint when switching providers
     const providerInfo = AI_PROVIDERS.find(p => p.value === newProvider);
     if (providerInfo?.baseUrlHint && !baseUrl) {
       setBaseUrl(providerInfo.baseUrlHint);

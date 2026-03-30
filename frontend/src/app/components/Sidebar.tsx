@@ -11,8 +11,7 @@ import { folderService, ApiError } from "../../api";
 import { toast } from "sonner";
 import type { Folder } from "../Workspace";
 
-// Check if we're in mock mode (same logic as AuthContext)
-const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_AUTH === "true";
+const IS_MOCK_MODE_ENABLED = import.meta.env.VITE_USE_MOCK_AUTH === "true";
 
 interface SidebarProps {
   folders: Folder[];
@@ -41,156 +40,140 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
     path: string[];
   }>({ isOpen: false, folder: null, path: [] });
 
-  // Helper to get folder by path
-  const getFolderByPath = (path: string[]): Folder | null => {
+  const findFolderByPath = (path: string[]): Folder | null => {
     if (path.length === 0) return null;
     if (path.length === 1) {
       return folders[parseInt(path[0])] || null;
     }
-    let current: Folder[] = folders;
-    for (let i = 0; i < path.length - 1; i++) {
-      const idx = parseInt(path[i]);
-      if (!current[idx] || !current[idx].subfolders) return null;
-      current = current[idx].subfolders!;
+    let currentFolderList: Folder[] = folders;
+    for (let pathIndex = 0; pathIndex < path.length - 1; pathIndex++) {
+      const folderIndex = parseInt(path[pathIndex]);
+      if (!currentFolderList[folderIndex] || !currentFolderList[folderIndex].subfolders) return null;
+      currentFolderList = currentFolderList[folderIndex].subfolders!;
     }
-    return current[parseInt(path[path.length - 1])] || null;
+    return currentFolderList[parseInt(path[path.length - 1])] || null;
   };
 
-  // Helper to compute new parent ID from path after a drop
-  const getNewParentIdFromPath = (targetPath: string[], dropZone: "before" | "after" | "inside"): string | null => {
+  const computeNewParentIdFromPath = (targetPath: string[], dropZone: "before" | "after" | "inside"): string | null => {
     if (dropZone === "inside") {
-      // Moving inside a folder - target folder becomes the parent
-      const targetFolder = getFolderByPath(targetPath);
+      const targetFolder = findFolderByPath(targetPath);
       return targetFolder?.id || null;
     } else {
-      // Moving before/after - same parent as target
       if (targetPath.length === 1) {
-        return null; // Root level
+        return null;
       }
       const parentPath = targetPath.slice(0, -1);
-      const parentFolder = getFolderByPath(parentPath);
+      const parentFolder = findFolderByPath(parentPath);
       return parentFolder?.id || null;
     }
   };
 
   const moveFolder = useCallback(async (dragPath: string[], hoverPath: string[], dropZone: "before" | "after" | "inside") => {
-    // Get the folder being dragged before any state changes
-    const draggedFolder = getFolderByPath(dragPath);
+    const draggedFolder = findFolderByPath(dragPath);
     if (!draggedFolder) return;
 
-    // Store previous state for rollback
     const previousFolders = JSON.parse(JSON.stringify(folders)) as Folder[];
 
-    // Calculate new parent ID for API call
-    const newParentFolderId = getNewParentIdFromPath(hoverPath, dropZone);
+    const newParentFolderId = computeNewParentIdFromPath(hoverPath, dropZone);
 
-    // Helper functions for state manipulation
     const applyMove = (foldersList: Folder[]): Folder[] => {
-      const newFolders = JSON.parse(JSON.stringify(foldersList)) as Folder[];
+      const clonedFolders = JSON.parse(JSON.stringify(foldersList)) as Folder[];
 
-      // Get the dragged folder from new copy
-      const getDraggedFolderFromList = (path: string[]): Folder | null => {
+      const findDraggedFolderInList = (path: string[]): Folder | null => {
         if (path.length === 1) {
-          return newFolders[parseInt(path[0])];
+          return clonedFolders[parseInt(path[0])];
         }
-        let current: Folder[] = newFolders;
-        for (let i = 0; i < path.length - 1; i++) {
-          const idx = parseInt(path[i]);
-          if (!current[idx] || !current[idx].subfolders) return null;
-          current = current[idx].subfolders!;
+        let currentFolderList: Folder[] = clonedFolders;
+        for (let pathIndex = 0; pathIndex < path.length - 1; pathIndex++) {
+          const folderIndex = parseInt(path[pathIndex]);
+          if (!currentFolderList[folderIndex] || !currentFolderList[folderIndex].subfolders) return null;
+          currentFolderList = currentFolderList[folderIndex].subfolders!;
         }
-        return current[parseInt(path[path.length - 1])];
+        return currentFolderList[parseInt(path[path.length - 1])];
       };
 
-      // Remove folder from old position
       const removeFolderAtPath = (path: string[]) => {
         if (path.length === 1) {
-          return newFolders.splice(parseInt(path[0]), 1)[0];
+          return clonedFolders.splice(parseInt(path[0]), 1)[0];
         }
-        let current: Folder[] = newFolders;
-        for (let i = 0; i < path.length - 1; i++) {
-          const idx = parseInt(path[i]);
-          if (!current[idx].subfolders) return null;
-          current = current[idx].subfolders!;
+        let currentFolderList: Folder[] = clonedFolders;
+        for (let pathIndex = 0; pathIndex < path.length - 1; pathIndex++) {
+          const folderIndex = parseInt(path[pathIndex]);
+          if (!currentFolderList[folderIndex].subfolders) return null;
+          currentFolderList = currentFolderList[folderIndex].subfolders!;
         }
-        return current.splice(parseInt(path[path.length - 1]), 1)[0];
+        return currentFolderList.splice(parseInt(path[path.length - 1]), 1)[0];
       };
 
-      // Insert folder based on drop zone
       const insertFolderAtPath = (folder: Folder, targetPath: string[], zone: "before" | "after" | "inside") => {
         if (zone === "inside") {
           if (targetPath.length === 1) {
-            const targetIdx = parseInt(targetPath[0]);
-            if (!newFolders[targetIdx].subfolders) {
-              newFolders[targetIdx].subfolders = [];
+            const targetFolderIndex = parseInt(targetPath[0]);
+            if (!clonedFolders[targetFolderIndex].subfolders) {
+              clonedFolders[targetFolderIndex].subfolders = [];
             }
-            newFolders[targetIdx].subfolders!.unshift(folder);
+            clonedFolders[targetFolderIndex].subfolders!.unshift(folder);
           } else {
-            let current: Folder[] = newFolders;
-            for (let i = 0; i < targetPath.length - 1; i++) {
-              const idx = parseInt(targetPath[i]);
-              if (!current[idx].subfolders) return;
-              current = current[idx].subfolders!;
+            let currentFolderList: Folder[] = clonedFolders;
+            for (let pathIndex = 0; pathIndex < targetPath.length - 1; pathIndex++) {
+              const folderIndex = parseInt(targetPath[pathIndex]);
+              if (!currentFolderList[folderIndex].subfolders) return;
+              currentFolderList = currentFolderList[folderIndex].subfolders!;
             }
-            const targetIdx = parseInt(targetPath[targetPath.length - 1]);
-            if (!current[targetIdx].subfolders) {
-              current[targetIdx].subfolders = [];
+            const targetFolderIndex = parseInt(targetPath[targetPath.length - 1]);
+            if (!currentFolderList[targetFolderIndex].subfolders) {
+              currentFolderList[targetFolderIndex].subfolders = [];
             }
-            current[targetIdx].subfolders!.unshift(folder);
+            currentFolderList[targetFolderIndex].subfolders!.unshift(folder);
           }
         } else {
           const insertIndex = parseInt(targetPath[targetPath.length - 1]) + (zone === "after" ? 1 : 0);
           
           if (targetPath.length === 1) {
-            newFolders.splice(insertIndex, 0, folder);
+            clonedFolders.splice(insertIndex, 0, folder);
           } else {
-            let current: Folder[] = newFolders;
-            for (let i = 0; i < targetPath.length - 1; i++) {
-              const idx = parseInt(targetPath[i]);
-              if (!current[idx].subfolders) {
-                current[idx].subfolders = [];
+            let currentFolderList: Folder[] = clonedFolders;
+            for (let pathIndex = 0; pathIndex < targetPath.length - 1; pathIndex++) {
+              const folderIndex = parseInt(targetPath[pathIndex]);
+              if (!currentFolderList[folderIndex].subfolders) {
+                currentFolderList[folderIndex].subfolders = [];
               }
-              current = current[idx].subfolders!;
+              currentFolderList = currentFolderList[folderIndex].subfolders!;
             }
-            current.splice(insertIndex, 0, folder);
+            currentFolderList.splice(insertIndex, 0, folder);
           }
         }
       };
 
-      const folder = getDraggedFolderFromList(dragPath);
-      if (!folder) return foldersList;
+      const folderToMove = findDraggedFolderInList(dragPath);
+      if (!folderToMove) return foldersList;
 
-      const removed = removeFolderAtPath(dragPath);
-      if (!removed) return foldersList;
+      const removedFolder = removeFolderAtPath(dragPath);
+      if (!removedFolder) return foldersList;
 
-      insertFolderAtPath(removed, hoverPath, dropZone);
+      insertFolderAtPath(removedFolder, hoverPath, dropZone);
 
-      return newFolders;
+      return clonedFolders;
     };
 
-    // Apply optimistic update
     setFolders(applyMove);
 
-    // Skip API call in mock mode - just keep the local state change
-    if (USE_MOCK_API) {
+    if (IS_MOCK_MODE_ENABLED) {
       return;
     }
 
-    // Call API to persist the move
     try {
       await folderService.moveFolder(draggedFolder.id, { newParentFolderId });
-    } catch (error) {
-      // Rollback on error
+    } catch (apiError) {
       setFolders(previousFolders);
 
-      // Show error message
-      if (error instanceof ApiError) {
-        if (error.status === 409) {
+      if (apiError instanceof ApiError) {
+        if (apiError.status === 409) {
           toast.error("Не удалось переместить папку: конфликт имён или циклическая зависимость");
-        } else if (error.status === 404) {
+        } else if (apiError.status === 404) {
           toast.error("Папка не найдена");
         } else {
-          toast.error(`Ошибка при перемещении: ${error.message}`);
+          toast.error(`Ошибка при перемещении: ${apiError.message}`);
         }
       } else {
         toast.error("Не удалось переместить папку");
@@ -198,7 +181,7 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
     }
   }, [folders, setFolders]);
 
-  const handleCreateFolder= (name: string, emoji: string, description: string) => {
+  const handleCreateFolder = (name: string, emoji: string, description: string) => {
     const newFolder: Folder = {
       id: Date.now().toString(),
       name,
@@ -207,30 +190,27 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
     };
 
     if (createFolderParentPath === null) {
-      // Root level folder
       setFolders([...folders, newFolder]);
     } else {
-      // Subfolder
-      setFolders((prevFolders) => {
-        const newFolders = JSON.parse(JSON.stringify(prevFolders)) as Folder[];
+      setFolders((previousFolders) => {
+        const clonedFolders = JSON.parse(JSON.stringify(previousFolders)) as Folder[];
         const path = createFolderParentPath;
 
-        let current: Folder[] = newFolders;
-        for (let i = 0; i < path.length; i++) {
-          const idx = parseInt(path[i]);
-          if (i === path.length - 1) {
-            // Last element - add subfolder here
-            if (!current[idx].subfolders) {
-              current[idx].subfolders = [];
+        let currentFolderList: Folder[] = clonedFolders;
+        for (let pathIndex = 0; pathIndex < path.length; pathIndex++) {
+          const folderIndex = parseInt(path[pathIndex]);
+          if (pathIndex === path.length - 1) {
+            if (!currentFolderList[folderIndex].subfolders) {
+              currentFolderList[folderIndex].subfolders = [];
             }
-            current[idx].subfolders!.push(newFolder);
+            currentFolderList[folderIndex].subfolders!.push(newFolder);
           } else {
-            if (!current[idx].subfolders) return prevFolders;
-            current = current[idx].subfolders!;
+            if (!currentFolderList[folderIndex].subfolders) return previousFolders;
+            currentFolderList = currentFolderList[folderIndex].subfolders!;
           }
         }
 
-        return newFolders;
+        return clonedFolders;
       });
     }
 
@@ -259,40 +239,36 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
   };
 
   const handleDeleteFolder = (path: string[]) => {
-    const folder = getFolderByPath(path);
+    const folder = findFolderByPath(path);
     if (folder) {
       setDeleteFolderState({ isOpen: true, folder, path });
     }
   };
 
-  const handleConfirmDelete = async (recursive: boolean) => {
+  const handleConfirmDelete = async (isRecursiveDelete: boolean) => {
     const { folder, path } = deleteFolderState;
     if (!folder) return;
 
-    // Call API to delete folder (skip in mock mode)
-    if (!USE_MOCK_API) {
-      await folderService.deleteFolder(folder.id, recursive);
+    if (!IS_MOCK_MODE_ENABLED) {
+      await folderService.deleteFolder(folder.id, isRecursiveDelete);
     }
 
-    // Remove from local state on success
-    setFolders((prevFolders) => {
-      const newFolders = JSON.parse(JSON.stringify(prevFolders)) as Folder[];
+    setFolders((previousFolders) => {
+      const clonedFolders = JSON.parse(JSON.stringify(previousFolders)) as Folder[];
 
       if (path.length === 1) {
-        // Root level folder
-        newFolders.splice(parseInt(path[0]), 1);
+        clonedFolders.splice(parseInt(path[0]), 1);
       } else {
-        // Subfolder
-        let current: Folder[] = newFolders;
-        for (let i = 0; i < path.length - 1; i++) {
-          const idx = parseInt(path[i]);
-          if (!current[idx].subfolders) return prevFolders;
-          current = current[idx].subfolders!;
+        let currentFolderList: Folder[] = clonedFolders;
+        for (let pathIndex = 0; pathIndex < path.length - 1; pathIndex++) {
+          const folderIndex = parseInt(path[pathIndex]);
+          if (!currentFolderList[folderIndex].subfolders) return previousFolders;
+          currentFolderList = currentFolderList[folderIndex].subfolders!;
         }
-        current.splice(parseInt(path[path.length - 1]), 1);
+        currentFolderList.splice(parseInt(path[path.length - 1]), 1);
       }
 
-      return newFolders;
+      return clonedFolders;
     });
   };
 

@@ -3,8 +3,8 @@ import { createPortal } from "react-dom";
 import { Search, X } from "lucide-react";
 
 interface EmojiEntry {
-  e: string;
-  k: string; // space-separated keywords in Russian
+  emoji: string;
+  keywords: string;
 }
 
 interface EmojiCategory {
@@ -18,156 +18,156 @@ const EMOJI_CATEGORIES: EmojiCategory[] = [
     name: "Смайлы",
     icon: "😊",
     emojis: [
-      { e: "😀", k: "улыбка счастье радость смайл весёлый" },
-      { e: "😊", k: "улыбка мягкий счастье смайл" },
-      { e: "😂", k: "смех хохот слёзы юмор ржу" },
-      { e: "🥰", k: "любовь сердца влюблённость нежность" },
-      { e: "😎", k: "круто солнечные очки стиль" },
-      { e: "🤔", k: "думать размышление вопрос идея" },
-      { e: "😴", k: "сон усталость zzz отдых дрёма" },
-      { e: "🤗", k: "обнимать радость тепло привет объятие" },
-      { e: "😅", k: "пот нервный облегчение неловко" },
-      { e: "🙃", k: "перевёрнутый ирония сарказм" },
-      { e: "🤩", k: "восхищение звёзды wow восторг" },
-      { e: "🥳", k: "праздник вечеринка день рождения" },
-      { e: "😢", k: "плач грусть слёзы горе печаль" },
-      { e: "😡", k: "злость гнев раздражение сердитый" },
-      { e: "🤯", k: "взрыв мозга шок удивление" },
-      { e: "🤑", k: "деньги богатство жадность купюры" },
-      { e: "😬", k: "неловкость стресс напряжение" },
-      { e: "😇", k: "ангел святой доброта нимб" },
-      { e: "🤭", k: "смущение секрет шёпот" },
-      { e: "😆", k: "смех веселье хихиканье" },
+      { emoji: "😀", keywords: "улыбка счастье радость смайл весёлый" },
+      { emoji: "😊", keywords: "улыбка мягкий счастье смайл" },
+      { emoji: "😂", keywords: "смех хохот слёзы юмор ржу" },
+      { emoji: "🥰", keywords: "любовь сердца влюблённость нежность" },
+      { emoji: "😎", keywords: "круто солнечные очки стиль" },
+      { emoji: "🤔", keywords: "думать размышление вопрос идея" },
+      { emoji: "😴", keywords: "сон усталость zzz отдых дрёма" },
+      { emoji: "🤗", keywords: "обнимать радость тепло привет объятие" },
+      { emoji: "😅", keywords: "пот нервный облегчение неловко" },
+      { emoji: "🙃", keywords: "перевёрнутый ирония сарказм" },
+      { emoji: "🤩", keywords: "восхищение звёзды wow восторг" },
+      { emoji: "🥳", keywords: "праздник вечеринка день рождения" },
+      { emoji: "😢", keywords: "плач грусть слёзы горе печаль" },
+      { emoji: "😡", keywords: "злость гнев раздражение сердитый" },
+      { emoji: "🤯", keywords: "взрыв мозга шок удивление" },
+      { emoji: "🤑", keywords: "деньги богатство жадность купюры" },
+      { emoji: "😬", keywords: "неловкость стресс напряжение" },
+      { emoji: "😇", keywords: "ангел святой доброта нимб" },
+      { emoji: "🤭", keywords: "смущение секрет шёпот" },
+      { emoji: "😆", keywords: "смех веселье хихиканье" },
     ],
   },
   {
     name: "Природа",
     icon: "🌿",
     emojis: [
-      { e: "🐶", k: "собака пёс питомец животное" },
-      { e: "🐱", k: "кот кошка питомец животное" },
-      { e: "🐻", k: "медведь животное лес" },
-      { e: "🦊", k: "лиса животное рыжий лес" },
-      { e: "🐨", k: "коала животное австралия" },
-      { e: "🐼", k: "панда животное чёрно-белый" },
-      { e: "🦋", k: "бабочка насекомое цветок крылья" },
-      { e: "🌸", k: "сакура цветок весна розовый" },
-      { e: "🌺", k: "цветок гибискус тропик" },
-      { e: "🌻", k: "подсолнух цветок жёлтый лето" },
-      { e: "🌈", k: "радуга цвет дождь красота" },
-      { e: "🌊", k: "волна море океан вода" },
-      { e: "🌙", k: "луна ночь небо сон" },
-      { e: "⭐", k: "звезда небо яркий" },
-      { e: "☀️", k: "солнце день тепло лето" },
-      { e: "🍀", k: "клевер удача зелёный растение" },
-      { e: "🌲", k: "дерево лес природа ель" },
-      { e: "🌿", k: "трава зелень природа листья" },
-      { e: "🌹", k: "роза цветок любовь красный" },
-      { e: "🦁", k: "лев животное король сила" },
+      { emoji: "🐶", keywords: "собака пёс питомец животное" },
+      { emoji: "🐱", keywords: "кот кошка питомец животное" },
+      { emoji: "🐻", keywords: "медведь животное лес" },
+      { emoji: "🦊", keywords: "лиса животное рыжий лес" },
+      { emoji: "🐨", keywords: "коала животное австралия" },
+      { emoji: "🐼", keywords: "панда животное чёрно-белый" },
+      { emoji: "🦋", keywords: "бабочка насекомое цветок крылья" },
+      { emoji: "🌸", keywords: "сакура цветок весна розовый" },
+      { emoji: "🌺", keywords: "цветок гибискус тропик" },
+      { emoji: "🌻", keywords: "подсолнух цветок жёлтый лето" },
+      { emoji: "🌈", keywords: "радуга цвет дождь красота" },
+      { emoji: "🌊", keywords: "волна море океан вода" },
+      { emoji: "🌙", keywords: "луна ночь небо сон" },
+      { emoji: "⭐", keywords: "звезда небо яркий" },
+      { emoji: "☀️", keywords: "солнце день тепло лето" },
+      { emoji: "🍀", keywords: "клевер удача зелёный растение" },
+      { emoji: "🌲", keywords: "дерево лес природа ель" },
+      { emoji: "🌿", keywords: "трава зелень природа листья" },
+      { emoji: "🌹", keywords: "роза цветок любовь красный" },
+      { emoji: "🦁", keywords: "лев животное король сила" },
     ],
   },
   {
     name: "Еда",
     icon: "🍕",
     emojis: [
-      { e: "🍕", k: "пицца еда итальянский сыр" },
-      { e: "🍔", k: "бургер гамбургер еда фастфуд" },
-      { e: "🍣", k: "суши японский еда рыба" },
-      { e: "🍜", k: "лапша рамен азиатский суп" },
-      { e: "🎂", k: "торт день рождения праздник" },
-      { e: "🍦", k: "мороженое десерт сладкое" },
-      { e: "🍓", k: "клубника ягода красный сладкое" },
-      { e: "🍇", k: "виноград ягода фиолетовый" },
-      { e: "🌮", k: "тако мексиканский еда" },
-      { e: "🍰", k: "торт пирог десерт сладкое" },
-      { e: "☕", k: "кофе напиток утро тепло" },
-      { e: "🍵", k: "чай напиток японский зелёный" },
-      { e: "🥗", k: "салат зелёный здоровый еда" },
-      { e: "🥑", k: "авокадо зелёный здоровый" },
-      { e: "🍪", k: "печенье сладкое десерт" },
-      { e: "🍩", k: "пончик сладкое десерт" },
-      { e: "🍫", k: "шоколад сладкое коричневый" },
-      { e: "🥐", k: "круассан хлеб завтрак французский" },
-      { e: "🍎", k: "яблоко красный фрукт" },
-      { e: "🍊", k: "апельсин оранжевый фрукт" },
+      { emoji: "🍕", keywords: "пицца еда итальянский сыр" },
+      { emoji: "🍔", keywords: "бургер гамбургер еда фастфуд" },
+      { emoji: "🍣", keywords: "суши японский еда рыба" },
+      { emoji: "🍜", keywords: "лапша рамен азиатский суп" },
+      { emoji: "🎂", keywords: "торт день рождения праздник" },
+      { emoji: "🍦", keywords: "мороженое десерт сладкое" },
+      { emoji: "🍓", keywords: "клубника ягода красный сладкое" },
+      { emoji: "🍇", keywords: "виноград ягода фиолетовый" },
+      { emoji: "🌮", keywords: "тако мексиканский еда" },
+      { emoji: "🍰", keywords: "торт пирог десерт сладкое" },
+      { emoji: "☕", keywords: "кофе напиток утро тепло" },
+      { emoji: "🍵", keywords: "чай напиток японский зелёный" },
+      { emoji: "🥗", keywords: "салат зелёный здоровый еда" },
+      { emoji: "🥑", keywords: "авокадо зелёный здоровый" },
+      { emoji: "🍪", keywords: "печенье сладкое десерт" },
+      { emoji: "🍩", keywords: "пончик сладкое десерт" },
+      { emoji: "🍫", keywords: "шоколад сладкое коричневый" },
+      { emoji: "🥐", keywords: "круассан хлеб завтрак французский" },
+      { emoji: "🍎", keywords: "яблоко красный фрукт" },
+      { emoji: "🍊", keywords: "апельсин оранжевый фрукт" },
     ],
   },
   {
     name: "Места",
     icon: "✈️",
     emojis: [
-      { e: "✈️", k: "самолёт путешествие полёт небо" },
-      { e: "🚗", k: "машина авто поездка" },
-      { e: "🏠", k: "дом жилой квартира" },
-      { e: "🏖️", k: "пляж море отдых лето" },
-      { e: "🗺️", k: "карта путешествие маршрут" },
-      { e: "🧭", k: "компас навигация направление" },
-      { e: "🚀", k: "ракета космос запуск" },
-      { e: "🏔️", k: "гора природа высота альпинизм" },
-      { e: "🌍", k: "земля планета мир глобус" },
-      { e: "🏙️", k: "город небоскрёбы мегаполис" },
-      { e: "🚂", k: "поезд вагон железная дорога" },
-      { e: "⛵", k: "лодка яхта море парус" },
-      { e: "🏕️", k: "лагерь палатка кемпинг природа" },
-      { e: "🗼", k: "эйфелева башня париж франция" },
-      { e: "🗽", k: "статуя свободы нью-йорк сша" },
-      { e: "🌃", k: "ночной город огни небо" },
-      { e: "🏰", k: "замок средневековье крепость" },
-      { e: "🎡", k: "колесо обозрения аттракцион парк" },
-      { e: "🚁", k: "вертолёт полёт авиация" },
-      { e: "🎢", k: "горки аттракцион парк развлечения" },
+      { emoji: "✈️", keywords: "самолёт путешествие полёт небо" },
+      { emoji: "🚗", keywords: "машина авто поездка" },
+      { emoji: "🏠", keywords: "дом жилой квартира" },
+      { emoji: "🏖️", keywords: "пляж море отдых лето" },
+      { emoji: "🗺️", keywords: "карта путешествие маршрут" },
+      { emoji: "🧭", keywords: "компас навигация направление" },
+      { emoji: "🚀", keywords: "ракета космос запуск" },
+      { emoji: "🏔️", keywords: "гора природа высота альпинизм" },
+      { emoji: "🌍", keywords: "земля планета мир глобус" },
+      { emoji: "🏙️", keywords: "город небоскрёбы мегаполис" },
+      { emoji: "🚂", keywords: "поезд вагон железная дорога" },
+      { emoji: "⛵", keywords: "лодка яхта море парус" },
+      { emoji: "🏕️", keywords: "лагерь палатка кемпинг природа" },
+      { emoji: "🗼", keywords: "эйфелева башня париж франция" },
+      { emoji: "🗽", keywords: "статуя свободы нью-йорк сша" },
+      { emoji: "🌃", keywords: "ночной город огни небо" },
+      { emoji: "🏰", keywords: "замок средневековье крепость" },
+      { emoji: "🎡", keywords: "колесо обозрения аттракцион парк" },
+      { emoji: "🚁", keywords: "вертолёт полёт авиация" },
+      { emoji: "🎢", keywords: "горки аттракцион парк развлечения" },
     ],
   },
   {
     name: "Объекты",
     icon: "💡",
     emojis: [
-      { e: "📱", k: "телефон смартфон устройство" },
-      { e: "💻", k: "ноутбук компьютер работа" },
-      { e: "📷", k: "камера фото фотография" },
-      { e: "🎵", k: "музыка нота звук мелодия" },
-      { e: "🎮", k: "игра джойстик гейминг" },
-      { e: "📚", k: "книги учёба библиотека знания" },
-      { e: "🔑", k: "ключ замок открыть" },
-      { e: "💡", k: "лампочка идея свет изобретение" },
-      { e: "🔔", k: "колокол уведомление звонок" },
-      { e: "✉️", k: "письмо почта сообщение конверт" },
-      { e: "📌", k: "булавка закрепить пометить" },
-      { e: "📎", k: "скрепка прикрепить файл" },
-      { e: "🖊️", k: "ручка писать заметка" },
-      { e: "📊", k: "график диаграмма аналитика статистика" },
-      { e: "🔧", k: "гаечный ключ инструмент ремонт" },
-      { e: "💰", k: "деньги мешок богатство финансы" },
-      { e: "🎁", k: "подарок праздник сюрприз" },
-      { e: "🏆", k: "трофей победа успех приз" },
-      { e: "🔒", k: "замок безопасность закрыть" },
-      { e: "📦", k: "коробка посылка упаковка" },
+      { emoji: "📱", keywords: "телефон смартфон устройство" },
+      { emoji: "💻", keywords: "ноутбук компьютер работа" },
+      { emoji: "📷", keywords: "камера фото фотография" },
+      { emoji: "🎵", keywords: "музыка нота звук мелодия" },
+      { emoji: "🎮", keywords: "игра джойстик гейминг" },
+      { emoji: "📚", keywords: "книги учёба библиотека знания" },
+      { emoji: "🔑", keywords: "ключ замок открыть" },
+      { emoji: "💡", keywords: "лампочка идея свет изобретение" },
+      { emoji: "🔔", keywords: "колокол уведомление звонок" },
+      { emoji: "✉️", keywords: "письмо почта сообщение конверт" },
+      { emoji: "📌", keywords: "булавка закрепить пометить" },
+      { emoji: "📎", keywords: "скрепка прикрепить файл" },
+      { emoji: "🖊️", keywords: "ручка писать заметка" },
+      { emoji: "📊", keywords: "график диаграмма аналитика статистика" },
+      { emoji: "🔧", keywords: "гаечный ключ инструмент ремонт" },
+      { emoji: "💰", keywords: "деньги мешок богатство финансы" },
+      { emoji: "🎁", keywords: "подарок праздник сюрприз" },
+      { emoji: "🏆", keywords: "трофей победа успех приз" },
+      { emoji: "🔒", keywords: "замок безопасность закрыть" },
+      { emoji: "📦", keywords: "коробка посылка упаковка" },
     ],
   },
   {
     name: "Символы",
     icon: "✨",
     emojis: [
-      { e: "❤️", k: "сердце любовь красный" },
-      { e: "⚡", k: "молния электричество энергия" },
-      { e: "🔥", k: "огонь горячий тренд горит" },
-      { e: "✨", k: "блеск искры волшебство" },
-      { e: "💫", k: "звезда кружение мерцание" },
-      { e: "🎉", k: "конфетти праздник ура вечеринка" },
-      { e: "💯", k: "сто процентов отлично идеально" },
-      { e: "✅", k: "галочка выполнено готово ок" },
-      { e: "❌", k: "крест нет ошибка отмена" },
-      { e: "⚠️", k: "предупреждение осторожно внимание" },
-      { e: "💎", k: "алмаз бриллиант ценность редкость" },
-      { e: "🌟", k: "звезда блеск особенный" },
-      { e: "💥", k: "взрыв удар бах" },
-      { e: "🎯", k: "цель мишень точность результат" },
-      { e: "🔮", k: "шар магия предсказание кристалл" },
-      { e: "🌀", k: "спираль циклон вихрь" },
-      { e: "🏅", k: "медаль награда достижение" },
-      { e: "🎭", k: "маски театр искусство" },
-      { e: "🧩", k: "пазл кусочек головоломка" },
-      { e: "🎲", k: "кубик игра случайность" },
+      { emoji: "❤️", keywords: "сердце любовь красный" },
+      { emoji: "⚡", keywords: "молния электричество энергия" },
+      { emoji: "🔥", keywords: "огонь горячий тренд горит" },
+      { emoji: "✨", keywords: "блеск искры волшебство" },
+      { emoji: "💫", keywords: "звезда кружение мерцание" },
+      { emoji: "🎉", keywords: "конфетти праздник ура вечеринка" },
+      { emoji: "💯", keywords: "сто процентов отлично идеально" },
+      { emoji: "✅", keywords: "галочка выполнено готово ок" },
+      { emoji: "❌", keywords: "крест нет ошибка отмена" },
+      { emoji: "⚠️", keywords: "предупреждение осторожно внимание" },
+      { emoji: "💎", keywords: "алмаз бриллиант ценность редкость" },
+      { emoji: "🌟", keywords: "звезда блеск особенный" },
+      { emoji: "💥", keywords: "взрыв удар бах" },
+      { emoji: "🎯", keywords: "цель мишень точность результат" },
+      { emoji: "🔮", keywords: "шар магия предсказание кристалл" },
+      { emoji: "🌀", keywords: "спираль циклон вихрь" },
+      { emoji: "🏅", keywords: "медаль награда достижение" },
+      { emoji: "🎭", keywords: "маски театр искусство" },
+      { emoji: "🧩", keywords: "пазл кусочек головоломка" },
+      { emoji: "🎲", keywords: "кубик игра случайность" },
     ],
   },
 ];
@@ -205,45 +205,39 @@ export function EmojiPicker({
     let top = rect.bottom + MARGIN;
     let left = rect.left;
 
-    // Flip up if near bottom edge
     if (top + PICKER_HEIGHT > window.innerHeight - 20) {
       top = rect.top - PICKER_HEIGHT - MARGIN;
     }
 
-    // Align right edge to anchor if near right edge
     if (left + PICKER_WIDTH > window.innerWidth - 20) {
       left = rect.right - PICKER_WIDTH;
     }
 
-    // Clamp to visible area
     if (left < 10) left = 10;
     if (top < 10) top = 10;
 
     setPosition({ top, left });
   }, [isOpen, anchorEl]);
 
-  // Reset search when closing
   useEffect(() => {
     if (!isOpen) {
       setSearch("");
     }
   }, [isOpen]);
 
-  // Escape key to close
   useEffect(() => {
     if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Click outside to close
   useEffect(() => {
     if (!isOpen) return;
-    const handleMouseDown = (e: MouseEvent) => {
-      const target = e.target as Node;
+    const handleMouseDown = (event: MouseEvent) => {
+      const target = event.target as Node;
       if (pickerRef.current && pickerRef.current.contains(target)) return;
       if (anchorEl && anchorEl.contains(target)) return;
       onClose();
@@ -254,15 +248,14 @@ export function EmojiPicker({
 
   if (!isOpen) return null;
 
-  // Filtered emojis when searching
-  const searchTrimmed = search.trim().toLowerCase();
+  const searchTermLower = search.trim().toLowerCase();
   const filteredEmojis =
-    searchTrimmed.length > 0
-      ? EMOJI_CATEGORIES.flatMap((cat) =>
-          cat.emojis.filter(
-            (entry) =>
-              entry.k.toLowerCase().includes(searchTrimmed) ||
-              entry.e.includes(search)
+    searchTermLower.length > 0
+      ? EMOJI_CATEGORIES.flatMap((category) =>
+          category.emojis.filter(
+            (emojiEntry) =>
+              emojiEntry.keywords.toLowerCase().includes(searchTermLower) ||
+              emojiEntry.emoji.includes(search)
           )
         )
       : null;
@@ -273,7 +266,6 @@ export function EmojiPicker({
       className="fixed z-[9999] w-72 bg-[#161b22] border border-white/20 rounded-xl shadow-2xl overflow-hidden"
       style={{ top: position.top, left: position.left }}
     >
-      {/* Top actions */}
       <div className="p-2 border-b border-white/10">
         {hasEmoji && (
           <button
@@ -300,27 +292,25 @@ export function EmojiPicker({
         </div>
       </div>
 
-      {/* Category tabs (only shown when not searching) */}
       {!filteredEmojis && (
         <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-white/10 overflow-x-auto">
-          {EMOJI_CATEGORIES.map((cat, idx) => (
+          {EMOJI_CATEGORIES.map((category, categoryIndex) => (
             <button
-              key={cat.name}
-              onClick={() => setActiveCategory(idx)}
-              title={cat.name}
+              key={category.name}
+              onClick={() => setActiveCategory(categoryIndex)}
+              title={category.name}
               className={`flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-base transition-colors ${
-                activeCategory === idx
+                activeCategory === categoryIndex
                   ? "bg-blue-600/40 text-blue-200"
                   : "hover:bg-white/10 text-gray-400"
               }`}
             >
-              {cat.icon}
+              {category.icon}
             </button>
           ))}
         </div>
       )}
 
-      {/* Emoji grid */}
       <div className="p-2 overflow-y-auto max-h-[248px]">
         {filteredEmojis ? (
           <>
@@ -330,14 +320,14 @@ export function EmojiPicker({
               </div>
             ) : (
               <div className="grid grid-cols-8 gap-0.5">
-                {filteredEmojis.map(({ e }) => (
+                {filteredEmojis.map(({ emoji }) => (
                   <button
-                    key={e}
-                    onClick={() => onSelect(e)}
+                    key={emoji}
+                    onClick={() => onSelect(emoji)}
                     className="aspect-square flex items-center justify-center text-xl rounded-lg hover:bg-white/10 transition-colors leading-none"
-                    title={e}
+                    title={emoji}
                   >
-                    {e}
+                    {emoji}
                   </button>
                 ))}
               </div>
@@ -349,14 +339,14 @@ export function EmojiPicker({
               {EMOJI_CATEGORIES[activeCategory].name}
             </p>
             <div className="grid grid-cols-8 gap-0.5">
-              {EMOJI_CATEGORIES[activeCategory].emojis.map(({ e }) => (
+              {EMOJI_CATEGORIES[activeCategory].emojis.map(({ emoji }) => (
                 <button
-                  key={e}
-                  onClick={() => onSelect(e)}
+                  key={emoji}
+                  onClick={() => onSelect(emoji)}
                   className="aspect-square flex items-center justify-center text-xl rounded-lg hover:bg-white/10 transition-colors leading-none"
-                  title={e}
+                  title={emoji}
                 >
-                  {e}
+                  {emoji}
                 </button>
               ))}
             </div>

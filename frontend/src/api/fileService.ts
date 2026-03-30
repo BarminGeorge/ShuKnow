@@ -1,7 +1,3 @@
-/**
- * File API service
- */
-
 import { apiRequest, getAuthToken } from "./client";
 import {
   FileDto,
@@ -9,13 +5,10 @@ import {
   UpdateFileRequest,
   MoveFileRequest,
   FileItem,
-  mapFileDto,
+  mapFileDtoToFileItem,
 } from "./types";
 
-/**
- * List files in a folder (paginated)
- */
-export async function listFolderFiles(
+export async function fetchFolderFiles(
   folderId: string,
   page: number = 1,
   pageSize: number = 50
@@ -26,31 +19,30 @@ export async function listFolderFiles(
   return apiRequest<PagedFileResult>(`/api/folders/${folderId}/files?${params}`);
 }
 
-/**
- * List files and map to frontend FileItem type
- */
-export async function listFolderFilesAsMapped(
+export interface MappedFileResult {
+  items: FileItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  hasNextPage: boolean;
+}
+
+export async function fetchFolderFilesAsMapped(
   folderId: string,
   page: number = 1,
   pageSize: number = 50
-): Promise<{ items: FileItem[]; totalCount: number; page: number; pageSize: number; hasNextPage: boolean }> {
-  const result = await listFolderFiles(folderId, page, pageSize);
+): Promise<MappedFileResult> {
+  const result = await fetchFolderFiles(folderId, page, pageSize);
   return {
     ...result,
-    items: result.items.map(mapFileDto),
+    items: result.items.map(mapFileDtoToFileItem),
   };
 }
 
-/**
- * Get file metadata
- */
-export async function getFile(fileId: string): Promise<FileDto> {
+export async function fetchFileById(fileId: string): Promise<FileDto> {
   return apiRequest<FileDto>(`/api/files/${fileId}`);
 }
 
-/**
- * Upload a file to a folder
- */
 export async function uploadFile(
   folderId: string,
   file: File,
@@ -85,9 +77,6 @@ export async function uploadFile(
   return response.json();
 }
 
-/**
- * Update file metadata (name, description)
- */
 export async function updateFile(
   fileId: string,
   request: UpdateFileRequest
@@ -98,18 +87,12 @@ export async function updateFile(
   });
 }
 
-/**
- * Delete a file
- */
 export async function deleteFile(fileId: string): Promise<void> {
   return apiRequest<void>(`/api/files/${fileId}`, {
     method: "DELETE",
   });
 }
 
-/**
- * Move a file to a different folder
- */
 export async function moveFile(
   fileId: string,
   request: MoveFileRequest
@@ -120,17 +103,11 @@ export async function moveFile(
   });
 }
 
-/**
- * Get file content URL (for images, PDFs, etc.)
- */
-export function getFileContentUrl(fileId: string): string {
+export function buildFileContentUrl(fileId: string): string {
   return `/api/files/${fileId}/content`;
 }
 
-/**
- * Fetch file content as text (for markdown/text files)
- */
-export async function getFileContentAsText(fileId: string): Promise<string> {
+export async function fetchFileContentAsText(fileId: string): Promise<string> {
   const token = getAuthToken();
   const headers: HeadersInit = {};
   if (token) {
@@ -144,10 +121,6 @@ export async function getFileContentAsText(fileId: string): Promise<string> {
   return response.text();
 }
 
-/**
- * Update file content (for text files)
- * Converts text to a Blob and uploads as multipart/form-data
- */
 export async function updateFileContent(
   fileId: string,
   content: string,
@@ -160,8 +133,6 @@ export async function updateFileContent(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  // Convert text content to a Blob and wrap in FormData
-  // Backend expects IFormFile via multipart/form-data
   const blob = new Blob([content], { type: contentType });
   const formData = new FormData();
   formData.append("file", blob, fileName || "content.txt");

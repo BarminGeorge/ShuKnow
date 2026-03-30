@@ -18,7 +18,6 @@ export function CreateFileModal({
   const handleCreate = () => {
     if (!name.trim()) return;
     onCreate(name.trim(), description.trim());
-    // Reset for next time
     setName("Новая заметка.md");
     setDescription("");
     onClose();

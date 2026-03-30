@@ -13,8 +13,6 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-
-  // Redirect to app if already logged in
   useEffect(() => {
     if (isAuthenticated) {
       navigate("/app", { replace: true });

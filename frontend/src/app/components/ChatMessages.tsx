@@ -41,7 +41,6 @@ export function applyServerIds(
   attachments: Attachment[],
   serverAttachments: AttachmentDto[]
 ): Attachment[] {
-  // Match by fileName since that's the only correlation we have
   const serverMap = new Map(serverAttachments.map((a) => [a.fileName, a.id]));
   
   return attachments.map((attachment) => ({
@@ -100,7 +99,7 @@ export function ChatMessages({ messages, onActionRolledBack }: ChatMessagesProps
     try {
       const result = await actionsService.rollbackAction(actionId);
       
-      if (result.fullyReverted) {
+      if (result.isFullyReverted) {
         setRolledBackActions((prev) => new Set(prev).add(actionId));
         onActionRolledBack?.(actionId);
       } else {
@@ -131,7 +130,6 @@ export function ChatMessages({ messages, onActionRolledBack }: ChatMessagesProps
               className={`flex ${isUser ? "justify-end" : "justify-start"}`}
             >
               {isUser ? (
-                // User message (right side) - Light gray background with dark text
                 <div className="max-w-[70%]">
                   {/* Attachments displayed above message */}
                   {message.attachments && message.attachments.length > 0 && (
@@ -152,7 +150,6 @@ export function ChatMessages({ messages, onActionRolledBack }: ChatMessagesProps
                   </div>
                 </div>
               ) : (
-                // AI message (left side) - Dark theme
                 <div className="max-w-[70%]">
                   <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-3">
                     <p className="text-sm text-gray-200 break-words whitespace-pre-wrap">{message.content}</p>

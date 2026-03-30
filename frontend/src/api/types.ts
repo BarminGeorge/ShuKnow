@@ -1,9 +1,3 @@
-/**
- * API Types matching backend DTOs from openapi.yaml
- */
-
-// ── Folders ───────────────────────────────────
-
 export interface FolderTreeNodeDto {
   id: string;
   name: string;
@@ -43,8 +37,6 @@ export interface ReorderFolderRequest {
   position: number;
 }
 
-// ── Files ─────────────────────────────────────
-
 export interface FileDto {
   id: string;
   folderId: string;
@@ -74,12 +66,6 @@ export interface PagedFileResult {
   hasNextPage: boolean;
 }
 
-// ── Mapped types for frontend use ─────────────
-
-/**
- * Frontend Folder type (recursive tree structure)
- * Maps from FolderTreeNodeDto
- */
 export interface Folder {
   id: string;
   name: string;
@@ -89,10 +75,6 @@ export interface Folder {
   subfolders: Folder[];
 }
 
-/**
- * Frontend FileItem type
- * Maps from FileDto with content loaded separately
- */
 export interface FileItem {
   id: string;
   name: string;
@@ -100,16 +82,13 @@ export interface FileItem {
   description?: string;
   contentType: string;
   sizeBytes: number;
-  // Content is loaded separately via /api/files/{fileId}/content
   content?: string;
-  // For image files, we can generate a URL
   contentUrl?: string;
 }
 
-/**
- * Maps backend content types to UI file types
- */
-export function getFileUiType(contentType: string): "text" | "photo" | "pdf" | "other" {
+export type FileDisplayType = "text" | "photo" | "pdf" | "other";
+
+export function getFileDisplayType(contentType: string): FileDisplayType {
   if (contentType.startsWith("text/") || contentType === "application/json") {
     return "text";
   }
@@ -122,24 +101,18 @@ export function getFileUiType(contentType: string): "text" | "photo" | "pdf" | "
   return "other";
 }
 
-/**
- * Maps FolderTreeNodeDto to frontend Folder type
- */
-export function mapFolderTreeNode(node: FolderTreeNodeDto): Folder {
+export function mapFolderTreeNodeToFolder(node: FolderTreeNodeDto): Folder {
   return {
     id: node.id,
     name: node.name,
     description: node.description,
     sortOrder: node.sortOrder,
     fileCount: node.fileCount,
-    subfolders: node.children.map(mapFolderTreeNode),
+    subfolders: node.children.map(mapFolderTreeNodeToFolder),
   };
 }
 
-/**
- * Maps FileDto to frontend FileItem type
- */
-export function mapFileDto(dto: FileDto): FileItem {
+export function mapFileDtoToFileItem(dto: FileDto): FileItem {
   return {
     id: dto.id,
     name: dto.name,
@@ -151,19 +124,12 @@ export function mapFileDto(dto: FileDto): FileItem {
   };
 }
 
-// ── AI Settings ───────────────────────────────
-
-/**
- * Supported AI providers
- * Frontend is ready for backend to add provider enum
- */
 export type AiProvider = "openai" | "openrouter" | "anthropic" | "custom";
 
 export interface AiSettingsDto {
   baseUrl: string;
   apiKeyMasked: string;
   isConfigured: boolean;
-  // Optional fields - ready for when backend adds them
   provider?: AiProvider;
   modelId?: string;
 }
@@ -171,13 +137,12 @@ export interface AiSettingsDto {
 export interface UpdateAiSettingsRequest {
   baseUrl: string;
   apiKey: string;
-  // Optional fields - ready for when backend adds them
   provider?: AiProvider;
   modelId?: string;
 }
 
-export interface AiConnectionTestDto {
-  success: boolean;
+export interface AiConnectionTestResult {
+  isSuccess: boolean;
   latencyMs: number | null;
   errorMessage: string | null;
 }

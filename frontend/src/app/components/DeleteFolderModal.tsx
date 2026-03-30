@@ -6,33 +6,35 @@ interface DeleteFolderModalProps {
   isOpen: boolean;
   folder: Folder | null;
   onClose: () => void;
-  onConfirm: (recursive: boolean) => Promise<void>;
+  onConfirm: (isRecursiveDelete: boolean) => Promise<void>;
 }
 
 export function DeleteFolderModal({ isOpen, folder, onClose, onConfirm }: DeleteFolderModalProps) {
   const [isDeleting, setIsDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (!isOpen || !folder) return null;
 
   const hasContents = (folder.subfolders && folder.subfolders.length > 0) || folder.fileCount > 0;
 
-  const handleDelete = async (recursive: boolean) => {
+  const handleDelete = async (isRecursiveDelete: boolean) => {
     setIsDeleting(true);
-    setError(null);
+    setErrorMessage(null);
     try {
-      await onConfirm(recursive);
+      await onConfirm(isRecursiveDelete);
       onClose();
-    } catch (err) {
-      if (err instanceof Error) {
-        // Handle 409 Conflict - folder is non-empty
-        if (err.message.includes("409") || err.message.includes("non-empty") || err.message.includes("Conflict")) {
-          setError("Папка содержит файлы или подпапки. Выберите «Удалить всё» для полного удаления.");
+    } catch (caughtError) {
+      if (caughtError instanceof Error) {
+        const isNonEmptyFolderError = caughtError.message.includes("409") || 
+                                       caughtError.message.includes("non-empty") || 
+                                       caughtError.message.includes("Conflict");
+        if (isNonEmptyFolderError) {
+          setErrorMessage("Папка содержит файлы или подпапки. Выберите «Удалить всё» для полного удаления.");
         } else {
-          setError(err.message);
+          setErrorMessage(caughtError.message);
         }
       } else {
-        setError("Ошибка при удалении папки");
+        setErrorMessage("Ошибка при удалении папки");
       }
     } finally {
       setIsDeleting(false);
@@ -41,7 +43,7 @@ export function DeleteFolderModal({ isOpen, folder, onClose, onConfirm }: Delete
 
   const handleClose = () => {
     if (isDeleting) return;
-    setError(null);
+    setErrorMessage(null);
     onClose();
   };
 
@@ -49,9 +51,8 @@ export function DeleteFolderModal({ isOpen, folder, onClose, onConfirm }: Delete
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={handleClose}>
       <div 
         className="bg-[#1a1a1a] border border-white/20 rounded-xl w-full max-w-md mx-4 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10">
           <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-500/20 text-red-400">
             <AlertTriangle size={18} />
@@ -66,7 +67,6 @@ export function DeleteFolderModal({ isOpen, folder, onClose, onConfirm }: Delete
           </button>
         </div>
 
-        {/* Content */}
         <div className="px-6 py-5">
           <p className="text-gray-300 mb-2">
             Вы уверены, что хотите удалить папку <span className="font-medium text-white">«{folder.name}»</span>?
@@ -82,14 +82,13 @@ export function DeleteFolderModal({ isOpen, folder, onClose, onConfirm }: Delete
             </p>
           )}
 
-          {error && (
+          {errorMessage && (
             <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
-              {error}
+              {errorMessage}
             </div>
           )}
         </div>
 
-        {/* Actions */}
         <div className="px-6 py-4 border-t border-white/10 flex gap-3 justify-end">
           <button
             onClick={handleClose}

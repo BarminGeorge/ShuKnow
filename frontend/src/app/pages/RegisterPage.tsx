@@ -14,8 +14,6 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const { register, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-
-  // Redirect to app if already logged in
   useEffect(() => {
     if (isAuthenticated) {
       navigate("/app", { replace: true });

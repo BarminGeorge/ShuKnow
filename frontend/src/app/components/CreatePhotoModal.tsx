@@ -21,13 +21,9 @@ export function CreatePhotoModal({
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Set name from file if not already set
     if (!name) {
       setName(file.name);
     }
-
-    // Read file as data URL for preview and storage
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
@@ -40,7 +36,6 @@ export function CreatePhotoModal({
   const handleCreate = () => {
     if (!name.trim() || !imageUrl) return;
     onCreate(name.trim(), imageUrl, description.trim());
-    // Reset for next time
     setName("");
     setImageUrl("");
     setPreviewUrl("");

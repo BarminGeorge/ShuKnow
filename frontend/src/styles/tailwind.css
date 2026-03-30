@@ -4,7 +4,6 @@
 @plugin '@tailwindcss/typography';
 @import 'tw-animate-css';
 
-/* Landing 动画：元素"着陆"时的弹跳效果 */
 @keyframes drop-land {
   0% {
     transform: scale(0.85);
@@ -27,7 +26,6 @@
   }
 }
 
-/* 拖拽开始时的动画 */
 @keyframes drag-pickup {
   0% {
     transform: scale(1) rotate(0deg);

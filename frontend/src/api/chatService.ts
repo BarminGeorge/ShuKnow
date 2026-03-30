@@ -1,11 +1,4 @@
-/**
- * Chat API service
- * Handles chat session management and attachment staging
- */
-
 import { apiRequest, getAuthToken } from "./client";
-
-// ── Types ─────────────────────────────────────
 
 export type ChatSessionStatus = "Active" | "Closed";
 
@@ -36,26 +29,15 @@ export interface CursorPagedChatMessageResult {
   hasMore: boolean;
 }
 
-// ── Session Management ────────────────────────
-
-/**
- * Get or create the active chat session
- */
-export async function getChatSession(): Promise<ChatSessionDto> {
+export async function fetchChatSession(): Promise<ChatSessionDto> {
   return apiRequest<ChatSessionDto>("/api/chat/session");
 }
 
-/**
- * Delete/close the current chat session
- */
 export async function deleteChatSession(): Promise<void> {
   return apiRequest<void>("/api/chat/session", { method: "DELETE" });
 }
 
-/**
- * Get chat messages with cursor-based pagination
- */
-export async function getChatMessages(
+export async function fetchChatMessages(
   cursor?: string,
   limit: number = 50
 ): Promise<CursorPagedChatMessageResult> {
@@ -69,15 +51,6 @@ export async function getChatMessages(
   );
 }
 
-// ── Attachment Staging ────────────────────────
-
-/**
- * Upload attachments for a chat message.
- * Returns temporary attachment IDs that should be passed to SendMessage via SignalR.
- * 
- * Attachments are uploaded via REST because SignalR has a 32KB message size limit.
- * Unreferenced attachments are purged after 1 hour.
- */
 export async function uploadChatAttachments(files: File[]): Promise<AttachmentDto[]> {
   const formData = new FormData();
   
@@ -105,36 +78,21 @@ export async function uploadChatAttachments(files: File[]): Promise<AttachmentDt
   return response.json();
 }
 
-// ── Frontend Attachment type (for UI) ─────────
+export type AttachmentUploadStatus = "pending" | "uploading" | "uploaded" | "error";
 
-/**
- * Frontend attachment with both local file and server metadata
- */
 export interface StagedAttachment {
-  /** Local ID for React key */
   localId: string;
-  /** Server-assigned ID after upload (used for SendMessage) */
   serverId?: string;
-  /** Original file name */
   fileName: string;
-  /** Local File object */
   file: File;
-  /** Blob URL for preview */
   previewUrl?: string;
-  /** Content type */
   contentType: string;
-  /** File size in bytes */
   sizeBytes: number;
-  /** Upload status */
-  status: "pending" | "uploading" | "uploaded" | "error";
-  /** Error message if upload failed */
-  error?: string;
+  status: AttachmentUploadStatus;
+  errorMessage?: string;
 }
 
-/**
- * Creates a local attachment object from a File
- */
-export function createLocalAttachment(file: File): StagedAttachment {
+export function createStagedAttachment(file: File): StagedAttachment {
   return {
     localId: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     fileName: file.name,
@@ -146,9 +104,6 @@ export function createLocalAttachment(file: File): StagedAttachment {
   };
 }
 
-/**
- * Cleans up blob URLs from attachments
- */
 export function cleanupAttachmentPreviews(attachments: StagedAttachment[]): void {
   for (const attachment of attachments) {
     if (attachment.previewUrl) {

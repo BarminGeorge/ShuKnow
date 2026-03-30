@@ -21,7 +21,6 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     const newAttachments: Attachment[] = fileArray.map(createAttachmentFromFile);
     
     setAttachments((prev) => {
-      // Avoid duplicates by checking file name and size
       const existing = new Set(prev.map((a) => `${a.name}-${a.sizeBytes}`));
       const unique = newAttachments.filter(
         (a) => !existing.has(`${a.name}-${a.sizeBytes}`)
@@ -44,8 +43,6 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     if (!input.trim() && attachments.length === 0) return;
     
     let finalAttachments = attachments;
-    
-    // If there are attachments, stage them first via REST API
     if (attachments.length > 0) {
       const filesToUpload = attachments
         .filter((a) => a.file && !a.serverId)
@@ -58,18 +55,14 @@ export function InputConsole({ onSend }: InputConsoleProps) {
           finalAttachments = applyServerIds(attachments, serverAttachments);
         } catch (error) {
           console.error("Failed to upload attachments:", error);
-          // Continue sending without server IDs - let the caller handle it
-          // In production, this would show an error toast
         } finally {
           setIsUploading(false);
         }
       }
     }
     
-    console.log("Sending:", input, finalAttachments);
     onSend?.(input.trim(), finalAttachments.length > 0 ? finalAttachments : undefined);
     
-    // Clean up blob URLs
     for (const attachment of attachments) {
       if (attachment.url) {
         URL.revokeObjectURL(attachment.url);
@@ -79,8 +72,6 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     setInput("");
     setAttachments([]);
   };
-
-  // Drag and drop handlers
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -90,7 +81,6 @@ export function InputConsole({ onSend }: InputConsoleProps) {
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Only set dragging false if we're leaving the container entirely
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setIsDragging(false);
     }
@@ -117,20 +107,17 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     if (files && files.length > 0) {
       addFiles(files);
     }
-    // Reset input so the same file can be selected again
     e.target.value = "";
   };
 
   const handlePaperclipClick = () => {
     fileInputRef.current?.click();
   };
-
-  // Auto-resize textarea
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       if (input === "") {
-        textarea.style.height = ""; // Reset to default CSS layout
+        textarea.style.height = "";
       } else {
         textarea.style.height = "auto";
         textarea.style.height = `${textarea.scrollHeight}px`;

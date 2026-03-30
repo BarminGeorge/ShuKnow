@@ -23,29 +23,20 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   const fileIdRef = useRef(file.id);
   const onUpdateRef = useRef(onUpdateContent);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Keep refs fresh
   localContentRef.current = localContent;
   fileIdRef.current = file.id;
   onUpdateRef.current = onUpdateContent;
-
-  // Sync content when file changes (e.g. external update)
   useEffect(() => {
     setLocalContent(file.content || "");
   }, [file.id, file.content]);
-
-  // Cleanup on unmount: flush pending debounce and save
   useEffect(() => {
     return () => {
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
       }
-      // Always save on unmount to prevent data loss on tab switch
       onUpdateRef.current(fileIdRef.current, localContentRef.current);
     };
   }, []);
-
-  // Save on page unload
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -54,8 +45,6 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
-
-  // Auto-focus textarea when entering edit mode
   useEffect(() => {
     if (isEditing && textareaRef.current) {
       textareaRef.current.focus();
@@ -72,14 +61,12 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   };
 
   const handleBlur = useCallback(() => {
-    // Immediate save on focus loss
     if (debounceRef.current) clearTimeout(debounceRef.current);
     onUpdateContent(file.id, localContent);
   }, [file.id, localContent, onUpdateContent]);
 
   const toggleMode = () => {
     if (isEditing) {
-      // Save before switching to preview
       if (debounceRef.current) clearTimeout(debounceRef.current);
       onUpdateContent(file.id, localContent);
     }

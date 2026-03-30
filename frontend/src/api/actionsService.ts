@@ -1,11 +1,4 @@
-/**
- * Actions API service
- * Handles AI action history and rollback
- */
-
 import { apiRequest } from "./client";
-
-// ── Types ─────────────────────────────────────
 
 export interface ActionDto {
   id: string;
@@ -37,7 +30,7 @@ export interface RollbackItemDto {
 export interface RollbackResultDto {
   actionId: string;
   restoredItems: RollbackItemDto[];
-  fullyReverted: boolean;
+  isFullyReverted: boolean;
 }
 
 export interface PagedActionResult {
@@ -48,12 +41,7 @@ export interface PagedActionResult {
   hasNextPage: boolean;
 }
 
-// ── API Functions ─────────────────────────────
-
-/**
- * List AI-generated actions (paginated)
- */
-export async function listActions(
+export async function fetchActions(
   page: number = 1,
   pageSize: number = 20
 ): Promise<PagedActionResult> {
@@ -63,25 +51,16 @@ export async function listActions(
   return apiRequest<PagedActionResult>(`/api/actions?${params}`);
 }
 
-/**
- * Get detailed view of an action
- */
-export async function getAction(actionId: string): Promise<ActionDetailDto> {
+export async function fetchActionById(actionId: string): Promise<ActionDetailDto> {
   return apiRequest<ActionDetailDto>(`/api/actions/${actionId}`);
 }
 
-/**
- * Rollback a specific action by ID
- */
 export async function rollbackAction(actionId: string): Promise<RollbackResultDto> {
   return apiRequest<RollbackResultDto>(`/api/actions/${actionId}/rollback`, {
     method: "POST",
   });
 }
 
-/**
- * Rollback the most recent eligible action
- */
 export async function rollbackLastAction(): Promise<RollbackResultDto> {
   return apiRequest<RollbackResultDto>("/api/actions/rollback-last", {
     method: "POST",
