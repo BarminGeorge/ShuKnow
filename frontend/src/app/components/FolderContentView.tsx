@@ -1229,9 +1229,35 @@ export function FolderContentView({
     }),
   });
 
+  // Handler for files dragged from chat
+  const handleChatFileDrop = (e: React.DragEvent) => {
+    const jsonData = e.dataTransfer.getData('application/json');
+    if (jsonData) {
+      try {
+        const chatFile = JSON.parse(jsonData);
+        if (chatFile.type === 'chat-file') {
+          console.log('Dropped chat file:', chatFile);
+          // TODO: Handle chat file drop - move file to this folder
+          // For now just show a toast
+        }
+      } catch {
+        // Not a chat file, ignore
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    // Allow drop for chat files
+    if (e.dataTransfer.types.includes('application/json')) {
+      e.preventDefault();
+    }
+  };
+
   return (
     <div 
       ref={fileDropRef}
+      onDragOver={handleDragOver}
+      onDrop={handleChatFileDrop}
       className={`h-full flex flex-col bg-[#121212] transition-colors ${
                   isFileOver ? "bg-indigo-500/5" : ""      }`}
     >

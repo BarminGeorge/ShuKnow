@@ -162,10 +162,15 @@ export default function Workspace() {
   }, [viewMode]);
 
   const handleSendMessage = (content: string, attachments?: Attachment[]) => {
+    // Don't send if no content and no attachments
+    if (!content.trim() && (!attachments || attachments.length === 0)) {
+      return;
+    }
+    
     const userMessage: Message = {
       id: Date.now().toString(),
       type: "user",
-      content,
+      content: content.trim(), // Store trimmed content (may be empty if only files)
       attachments,
       timestamp: new Date(),
       status: "sending",
@@ -520,9 +525,12 @@ export default function Workspace() {
                             console.log("Open folder:", folderId);
                           }}
                           onUndo={(messageId) => {
-                            // TODO: Implement undo
-                            console.log("Undo:", messageId);
-                            setMessages((prev) => prev.filter((m) => m.id !== messageId));
+                            // Set cancelled = true instead of removing message
+                            setMessages((prev) => 
+                              prev.map((m) => 
+                                m.id === messageId ? { ...m, cancelled: true } : m
+                              )
+                            );
                           }}
                           onRetry={(messageId) => {
                             // TODO: Implement retry

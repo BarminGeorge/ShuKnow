@@ -1,4 +1,5 @@
-import { Undo2, Paperclip, Sparkles, Loader2, CheckCircle2, XCircle, FolderOpen, FileText, Image as ImageIcon } from "lucide-react";
+import { Undo2, Paperclip, Sparkles, Loader2, CheckCircle2, XCircle, FolderOpen, FileText, Image as ImageIcon, GripVertical } from "lucide-react";
+import { useState } from "react";
 
 export interface Attachment {
   id: string;
@@ -22,6 +23,7 @@ export interface Message {
   content: string;
   timestamp: Date;
   status?: "sending" | "processing" | "success" | "error";
+  cancelled?: boolean;
   attachments?: Attachment[];
   replyTo?: string;
   result?: FileResult[];
@@ -46,12 +48,73 @@ function formatTime(date: Date): string {
   return date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 }
 
-function getFileIcon(filename: string) {
+function isImageFile(filename: string): boolean {
   const ext = filename.split('.').pop()?.toLowerCase();
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '')) {
-    return <ImageIcon size={14} className="text-indigo-400" />;
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '');
+}
+
+function getFileIcon(filename: string) {
+  if (isImageFile(filename)) {
+    return <ImageIcon size={14} className="text-gray-400" />;
   }
   return <FileText size={14} className="text-gray-400" />;
+}
+
+// Draggable attachment component
+function DraggableAttachment({ attachment }: { attachment: Attachment }) {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragStart = (e: React.DragEvent) => {
+    setIsDragging(true);
+    
+    // Set drag data
+    e.dataTransfer.setData('text/plain', attachment.name);
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      type: 'chat-file',
+      id: attachment.id,
+      name: attachment.name,
+      fileType: attachment.type,
+      url: attachment.url,
+    }));
+    
+    // Set drag image
+    const dragImage = e.currentTarget.cloneNode(true) as HTMLElement;
+    dragImage.style.opacity = '0.8';
+    dragImage.style.transform = 'scale(1.02)';
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    setTimeout(() => document.body.removeChild(dragImage), 0);
+    
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+  };
+
+  return (
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      className={`flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-3 py-2 max-w-full cursor-grab active:cursor-grabbing transition-all hover:bg-indigo-500/15 hover:border-indigo-500/30 ${isDragging ? 'opacity-50 scale-95' : ''}`}
+    >
+      <GripVertical size={12} className="text-gray-500 flex-shrink-0" />
+      {isImageFile(attachment.name) && attachment.url ? (
+        <img 
+          src={attachment.url} 
+          alt={attachment.name}
+          className="w-10 h-10 object-cover rounded-lg flex-shrink-0"
+        />
+      ) : (
+        getFileIcon(attachment.name)
+      )}
+      <span className="text-sm text-gray-200 truncate">{attachment.name}</span>
+      {attachment.size && (
+        <span className="text-xs text-gray-500">{formatFileSize(attachment.size)}</span>
+      )}
+    </div>
+  );
 }
 
 export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelectFolder }: ChatMessagesProps) {
@@ -72,22 +135,15 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                 {message.attachments && message.attachments.length > 0 && (
                   <div className="flex flex-col items-end gap-1.5 mb-2">
                     {message.attachments.map((attachment) => (
-                      <div
-                        key={attachment.id}
-                        className="flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-3 py-2 max-w-full"
-                      >
-                        {getFileIcon(attachment.name)}
-                        <span className="text-sm text-gray-200 truncate">{attachment.name}</span>
-                        {attachment.size && (
-                          <span className="text-xs text-gray-500">{formatFileSize(attachment.size)}</span>
-                        )}
-                      </div>
+                      <DraggableAttachment key={attachment.id} attachment={attachment} />
                     ))}
                   </div>
                 )}
-                <div className="bg-indigo-500/15 border border-indigo-500/20 rounded-2xl px-4 py-3">
-                  <p className="text-sm text-gray-200 break-words whitespace-pre-wrap">{message.content}</p>
-                </div>
+                {message.content && (
+                  <div className="bg-indigo-500/15 border border-indigo-500/20 rounded-2xl px-4 py-3">
+                    <p className="text-sm text-gray-200 break-words whitespace-pre-wrap">{message.content}</p>
+                  </div>
+                )}
                 <div className="flex justify-end mt-1">
                   <span className="text-xs text-gray-500">{formatTime(message.timestamp)}</span>
                 </div>
@@ -144,27 +200,34 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                           </div>
                         ))}
                         
-                        {/* Action buttons */}
-                        <div className="flex gap-2 mt-3 pt-3 border-t border-white/10">
-                          {message.result[0]?.folderId && onOpenFolder && (
-                            <button 
-                              onClick={() => onOpenFolder(message.result![0].folderId!)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 transition-colors text-xs"
-                            >
-                              <FolderOpen size={12} />
-                              <span>Открыть папку</span>
-                            </button>
-                          )}
-                          {onUndo && (
-                            <button 
-                              onClick={() => onUndo(message.id)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors text-xs"
-                            >
-                              <Undo2 size={12} />
-                              <span>Отменить</span>
-                            </button>
-                          )}
-                        </div>
+                        {/* Action buttons or Cancelled state */}
+                        {message.cancelled ? (
+                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/10 text-gray-500 text-xs">
+                            <XCircle size={12} />
+                            <span>Отменено</span>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 mt-3 pt-3 border-t border-white/10">
+                            {message.result[0]?.folderId && onOpenFolder && (
+                              <button 
+                                onClick={() => onOpenFolder(message.result![0].folderId!)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 transition-colors text-xs"
+                              >
+                                <FolderOpen size={12} />
+                                <span>Открыть папку</span>
+                              </button>
+                            )}
+                            {onUndo && (
+                              <button 
+                                onClick={() => onUndo(message.id)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors text-xs"
+                              >
+                                <Undo2 size={12} />
+                                <span>Отменить</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                     
