@@ -124,7 +124,6 @@ function UserMessage({
   message: Message;
   onResend?: (messageId: string) => void;
 }) {
-  const [isHovered, setIsHovered] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -138,33 +137,7 @@ function UserMessage({
   };
 
   return (
-    <div 
-      className="relative inline-block"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Hover actions - top right corner */}
-      {isHovered && message.content && (
-        <div className="absolute -top-2 -right-2 flex gap-1 z-10">
-          <button
-            onClick={handleCopy}
-            className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors shadow-sm"
-            title="Копировать"
-          >
-            {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-          </button>
-          {onResend && (
-            <button
-              onClick={() => onResend(message.id)}
-              className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors shadow-sm"
-              title="Отправить повторно"
-            >
-              <RefreshCw size={14} />
-            </button>
-          )}
-        </div>
-      )}
-      
+    <div className="group relative inline-block">
       {/* Attachments - horizontal scrollable strip */}
       {message.attachments && message.attachments.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-2 mb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -182,6 +155,30 @@ function UserMessage({
           </ReactMarkdown>
         </div>
       )}
+      
+      {/* Action buttons - bottom right, invisible by default, reserved space */}
+      <div className="flex justify-end gap-2 min-h-[28px] mt-1">
+        <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          {message.content && (
+            <button
+              onClick={handleCopy}
+              className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors"
+              title="Копировать"
+            >
+              {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
+            </button>
+          )}
+          {onResend && (
+            <button
+              onClick={() => onResend(message.id)}
+              className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors"
+              title="Отправить повторно"
+            >
+              <RefreshCw size={16} />
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
