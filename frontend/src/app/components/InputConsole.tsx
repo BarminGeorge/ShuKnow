@@ -200,7 +200,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
 
         {/* Input container - ChatGPT style */}
         <div
-          className={`flex items-end gap-2 px-4 py-3 rounded-2xl bg-secondary transition-colors ${
+          className={`flex items-center gap-2 px-4 py-3 rounded-2xl bg-secondary transition-colors ${
             isDragging ? "ring-2 ring-indigo-500/50 bg-indigo-500/5" : ""
           }`}
           onDragEnter={handleDragEnter}
