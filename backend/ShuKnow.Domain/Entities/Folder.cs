@@ -1,7 +1,8 @@
 using ShuKnow.Domain.Interfaces;
 
 namespace ShuKnow.Domain.Entities;
-public class Folder : IEntity<Guid>
+
+public class Folder : IEntity<Guid>, IOrderedItem
 {
     public Guid Id { get; private set; }
 
@@ -9,7 +10,8 @@ public class Folder : IEntity<Guid>
     public Guid? ParentFolderId { get; private set; }
     public string Name { get; private set; } = string.Empty;
     public string Description { get; private set; } = string.Empty;
-    public int SortOrder { get; private set; }
+    public int SortOrder { get; set; }
+    public string? Emoji { get; private set; }
 
     protected Folder()
     {
@@ -21,7 +23,8 @@ public class Folder : IEntity<Guid>
         string name,
         string description,
         Guid? parentFolderId = null,
-        int sortOrder = 0)
+        int sortOrder = 0,
+        string? emoji = null)
     {
         Id = folderId;
         UserId = userId;
@@ -29,5 +32,6 @@ public class Folder : IEntity<Guid>
         Name = name;
         Description = description;
         SortOrder = sortOrder;
+        Emoji = emoji;
     }
 }

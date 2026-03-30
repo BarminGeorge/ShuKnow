@@ -13,6 +13,10 @@ public class UpdateAiSettingsRequestValidator : AbstractValidator<UpdateAiSettin
 
         RuleFor(x => x.ApiKey)
             .NotEmpty().WithMessage("ApiKey is required");
+
+        RuleFor(x => x.Provider)
+            .IsInEnum().WithMessage("Invalid provider value")
+            .When(x => x.Provider is not null);
     }
 
     private static bool BeAValidUrl(string url)

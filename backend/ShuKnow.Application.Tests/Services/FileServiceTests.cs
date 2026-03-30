@@ -4,6 +4,7 @@ using AwesomeAssertions;
 using NSubstitute;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Services;
+using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Repositories;
 using File = ShuKnow.Domain.Entities.File;
 
@@ -360,6 +361,148 @@ public class FileServiceTests
         await unitOfWork.Received(1).SaveChangesAsync();
     }
 
+    [Test]
+    public async Task ReorderAsync_WhenFileDoesNotExist_ShouldReturnNotFound()
+    {
+        var fileId = Guid.NewGuid();
+
+        var result = await sut.ReorderAsync(fileId, 0);
+
+        result.Status.Should().Be(ResultStatus.NotFound);
+        await unitOfWork.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task ReorderAsync_WhenPositionIsNegative_ShouldReturnInvalid()
+    {
+        var folderId = Guid.NewGuid();
+        var file = CreateFile(folderId: folderId, sortOrder: 0);
+        ReturnsExistingFileForUpdate(file);
+        fileRepository.GetByFolderAsync(file.FolderId).Returns(Success<IReadOnlyList<File>>([file]));
+
+        var result = await sut.ReorderAsync(file.Id, -1);
+
+        result.Status.Should().Be(ResultStatus.Invalid);
+        await unitOfWork.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task ReorderAsync_WhenPositionExceedsSiblingCount_ShouldReturnInvalid()
+    {
+        var folderId = Guid.NewGuid();
+        var file = CreateFile(folderId: folderId, sortOrder: 0);
+        ReturnsExistingFileForUpdate(file);
+        fileRepository.GetByFolderAsync(file.FolderId).Returns(Success<IReadOnlyList<File>>([file]));
+
+        var result = await sut.ReorderAsync(file.Id, 1);
+
+        result.Status.Should().Be(ResultStatus.Invalid);
+        await unitOfWork.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task ReorderAsync_WhenRequestIsValid_ShouldReorderSiblingsAndSaveChanges()
+    {
+        var folderId = Guid.NewGuid();
+        var fileA = CreateFile(folderId: folderId, name: "a.txt", sortOrder: 0);
+        var fileB = CreateFile(folderId: folderId, name: "b.txt", sortOrder: 1);
+        var fileC = CreateFile(folderId: folderId, name: "c.txt", sortOrder: 2);
+        var subfolder = CreateFolder(parentFolderId: folderId, sortOrder: 3);
+
+        ReturnsExistingFileForUpdate(fileC);
+        fileRepository.GetByFolderAsync(folderId).Returns(Success<IReadOnlyList<File>>([fileA, fileB, fileC]));
+        folderRepository.GetChildrenAsync(folderId, currentUserId)
+            .Returns(Success<IReadOnlyList<Folder>>([subfolder]));
+
+        var result = await sut.ReorderAsync(fileC.Id, 0);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        fileC.SortOrder.Should().Be(0);
+        fileA.SortOrder.Should().Be(1);
+        fileB.SortOrder.Should().Be(2);
+        subfolder.SortOrder.Should().Be(3);
+        await unitOfWork.Received(1).SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task ReorderAsync_WhenMovingToLastPosition_ShouldSetCorrectSortOrders()
+    {
+        var folderId = Guid.NewGuid();
+        var fileA = CreateFile(folderId: folderId, name: "a.txt", sortOrder: 0);
+        var fileB = CreateFile(folderId: folderId, name: "b.txt", sortOrder: 1);
+        var subfolder = CreateFolder(parentFolderId: folderId, sortOrder: 2);
+
+        ReturnsExistingFileForUpdate(fileA);
+        fileRepository.GetByFolderAsync(folderId).Returns(Success<IReadOnlyList<File>>([fileA, fileB]));
+        folderRepository.GetChildrenAsync(folderId, currentUserId)
+            .Returns(Success<IReadOnlyList<Folder>>([subfolder]));
+
+        var result = await sut.ReorderAsync(fileA.Id, 2);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        fileB.SortOrder.Should().Be(0);
+        subfolder.SortOrder.Should().Be(1);
+        fileA.SortOrder.Should().Be(2);
+        await unitOfWork.Received(1).SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task UpdateTextContentAsync_WhenFileDoesNotExist_ShouldReturnNotFound()
+    {
+        var fileId = Guid.NewGuid();
+
+        var result = await sut.UpdateTextContentAsync(fileId, "new content");
+
+        result.Status.Should().Be(ResultStatus.NotFound);
+        await blobStorageService.DidNotReceive()
+            .ReplaceAsync(Arg.Any<Stream>(), Arg.Any<File>(), Arg.Any<CancellationToken>());
+        await unitOfWork.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task UpdateTextContentAsync_WhenFileIsNotText_ShouldReturnInvalid()
+    {
+        var file = CreateFile(contentType: "application/pdf");
+        ReturnsExistingFileForUpdate(file);
+
+        var result = await sut.UpdateTextContentAsync(file.Id, "new content");
+
+        result.Status.Should().Be(ResultStatus.Invalid);
+        await blobStorageService.DidNotReceive()
+            .ReplaceAsync(Arg.Any<Stream>(), Arg.Any<File>(), Arg.Any<CancellationToken>());
+        await unitOfWork.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task UpdateTextContentAsync_WhenRequestIsValid_ShouldReplaceContentAndUpdateSize()
+    {
+        var existingFile = CreateFile(contentType: "text/plain", sizeBytes: 5, version: 1);
+        const string newContent = "updated text content";
+        var expectedBytes = Encoding.UTF8.GetBytes(newContent);
+        byte[]? uploadedBytes = null;
+
+        ReturnsExistingFileForUpdate(existingFile);
+        blobStorageService
+            .ReplaceAsync(Arg.Do<Stream>(stream =>
+            {
+                using var copy = new MemoryStream();
+                stream.CopyTo(copy);
+                uploadedBytes = copy.ToArray();
+                stream.Position = 0;
+            }), existingFile, Arg.Any<CancellationToken>())
+            .Returns(Success());
+
+        var result = await sut.UpdateTextContentAsync(existingFile.Id, newContent);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().BeSameAs(existingFile);
+        existingFile.ContentType.Should().Be("text/plain");
+        existingFile.SizeBytes.Should().Be(expectedBytes.Length);
+        existingFile.Version.Should().Be(2);
+        uploadedBytes.Should().Equal(expectedBytes);
+        await unitOfWork.Received(1).SaveChangesAsync();
+    }
+
     private void ConfigureDefaults()
     {
         unitOfWork.SaveChangesAsync().Returns(Success());
@@ -371,6 +514,7 @@ public class FileServiceTests
         fileRepository.DeleteByFolderAsync(Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
         fileRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<File>());
         fileRepository.GetByIdForUpdateAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<File>());
+        fileRepository.GetByFolderAsync(Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
         blobStorageService.SaveAsync(Arg.Any<Stream>(), Arg.Any<File>(), Arg.Any<CancellationToken>())
             .Returns(Success());
         blobStorageService.ReplaceAsync(Arg.Any<Stream>(), Arg.Any<File>(), Arg.Any<CancellationToken>())
@@ -381,6 +525,8 @@ public class FileServiceTests
         blobStorageService
             .GetRangeAsync(Arg.Any<Guid>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
             .Returns(_ => Success<Stream>(new MemoryStream()));
+        folderRepository.GetChildrenAsync(Arg.Any<Guid>(), Arg.Any<Guid>())
+            .Returns(Success<IReadOnlyList<Folder>>([]));
     }
 
     private void ReturnsFolderExists(Guid folderId, bool exists = true)
@@ -424,7 +570,8 @@ public class FileServiceTests
         string contentType = "text/plain",
         long sizeBytes = 128,
         int version = 1,
-        string? checksumSha256 = null)
+        string? checksumSha256 = null,
+        int sortOrder = 0)
     {
         return new File(
             fileId ?? Guid.NewGuid(),
@@ -434,7 +581,22 @@ public class FileServiceTests
             contentType,
             sizeBytes,
             version,
-            checksumSha256);
+            checksumSha256,
+            sortOrder);
+    }
+
+    private static Folder CreateFolder(
+        Guid? folderId = null,
+        Guid? parentFolderId = null,
+        int sortOrder = 0)
+    {
+        return new Folder(
+            folderId ?? Guid.NewGuid(),
+            Guid.NewGuid(),
+            "folder",
+            "description",
+            parentFolderId,
+            sortOrder);
     }
 
     private static MemoryStream CreateStream(string content)

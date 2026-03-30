@@ -15,6 +15,12 @@ public static class ResultExtensions
         return await result.BindAsync(_ => unitOfWork.SaveChangesAsync());
     }
 
+    public static async Task<Result> BindAsync<TSource>(
+        this Task<Result<TSource>> resultTask, Func<TSource, Result> bindFunc)
+    {
+        return await resultTask.BindAsync(source => Task.FromResult(bindFunc(source)));
+    }
+
     public static async Task<Result<TSource>> ActAsync<TSource, TDestination>(
         this Task<Result<TSource>> result, Func<TSource, Task<Result<TDestination>>> actFunc)
     {
@@ -37,7 +43,20 @@ public static class ResultExtensions
         });
     }
     
-    public static async Task<Result<TSource>> ActAsync<TSource>(
+    public static async Task<Result<TSource>> Act<TSource, TDestination>(
+        this Task<Result<TSource>> result, Func<TSource, Result<TDestination>> actFunc)
+    {
+        return await result.BindAsync(source => actFunc(source).Map(_ => source));
+    }
+
+    public static async Task<Result<TSource>> Act<TSource>(
+        this Task<Result<TSource>> result, Func<TSource, Result> actFunc)
+    {
+        return await result.BindAsync(source => actFunc(source).Map(() => source));
+    }
+
+    
+    public static async Task<Result<TSource>> Act<TSource>(
         this Task<Result<TSource>> result, Action<TSource> actFunc)
     {
         return await result.MapAsync(source =>

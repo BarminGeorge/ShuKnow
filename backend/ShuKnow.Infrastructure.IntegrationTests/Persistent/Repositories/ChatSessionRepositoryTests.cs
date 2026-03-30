@@ -117,7 +117,7 @@ public class ChatSessionRepositoryTests : BaseRepositoryTests
 
     private async Task<User> SeedUserAsync(Guid? userId = null)
     {
-        var user = new User(userId ?? Guid.NewGuid());
+        var user = new User(userId ?? Guid.NewGuid(), "testuser");
 
         await using var seedContext = CreateDbContext();
         seedContext.Users.Add(user);

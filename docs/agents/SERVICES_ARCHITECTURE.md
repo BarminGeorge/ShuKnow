@@ -58,7 +58,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ### 1.4 IFolderService
 
-**Purpose.** Manages the complete lifecycle of the virtual folder hierarchy. Enforces all folder-level invariants: name uniqueness within a parent scope, cycle prevention on move, protection of the system `Inbox` folder, and auto-creation of `Inbox` on first use.
+**Purpose.** Manages the complete lifecycle of the virtual folder hierarchy. Enforces all folder-level invariants: name uniqueness within a parent scope and cycle prevention on move.
 
 **Methods**
 
@@ -69,12 +69,11 @@ These are the primary units of business logic. Each service is defined as an int
 | `ListAsync(parentId?)` → `List<Folder>` | Flat list of folders at a given level (root when `parentId` is null). Lightweight alternative to the full tree. |
 | `GetByIdAsync(folderId)` → `Folder` | Single folder with metadata and a `path` breadcrumb array from root to this node. |
 | `GetChildrenAsync(folderId)` → `List<Folder>` | Direct child folders. Supports lazy-loading of expanded tree nodes. |
-| `CreateAsync(folder)` → `Folder` | Creates a folder entity. Validates name uniqueness among siblings. Triggers `EnsureInboxExistsAsync` if this is the user's first folder. |
+| `CreateAsync(folder)` → `Folder` | Creates a folder entity. Validates name uniqueness among siblings. |
 | `UpdateAsync(folderId, folder)` → `Folder` | Updates folder mutable metadata (name/description). Validates name uniqueness among siblings. |
-| `DeleteAsync(folderId, recursive)` | Deletes a folder. If `recursive=false` and the folder has children or files, rejects with 409. The Inbox folder is never deletable. |
+| `DeleteAsync(folderId, recursive)` | Deletes a folder. If `recursive=false` and the folder has children or files, rejects with 409. |
 | `MoveAsync(folderId, newParentId?)` → `Folder` | Moves a folder to a new parent (or root). Validates no cycle is created (a folder cannot become its own descendant) and name uniqueness in the target scope. |
 | `ReorderAsync(folderId, position)` | Sets the `SortOrder` of the folder to the given 0-based position and re-indexes all siblings. |
-| `EnsureInboxExistsAsync()` → `Folder` | Internal: creates the `Inbox` folder if the user has no folders yet. Called by `CreateAsync` and by the AI orchestration flow. |
 
 **Dependencies**
 
@@ -88,7 +87,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ### 1.5 IFileService
 
-**Purpose.** Manages file metadata CRUD, binary upload/download/replace, and file movement between folders. Validates name uniqueness within a folder, enforces size limits, and delegates binary storage to a blob abstraction.
+**Purpose.** Manages file metadata CRUD, binary upload/download/replace, text content updates, reordering, and file movement between folders. Files carry a `SortOrder` that shares the same ordering space as sibling folders, enabling mixed drag-and-drop interleaving. Validates name uniqueness within a folder, enforces size limits, and delegates binary storage to a blob abstraction.
 
 **Methods**
 
@@ -102,6 +101,8 @@ These are the primary units of business logic. Each service is defined as an int
 | `GetContentAsync(fileId, rangeStart?, rangeEnd?)` → `(Stream Content, string ContentType, long SizeBytes)` | Streams the binary content. Returns content type and supports HTTP Range for partial downloads. |
 | `ReplaceContentAsync(fileId, stream, contentType)` → `File` | Replaces the binary blob in place. Metadata (name, description) unchanged; `sizeBytes` and `contentType` updated. |
 | `MoveAsync(fileId, targetFolderId)` → `File` | Changes the file's `FolderId`. Validates name uniqueness in the target folder. |
+| `ReorderAsync(fileId, position)` | Sets the `SortOrder` of the file to the given 0-based position and re-indexes all siblings (both files and folders) within the parent folder. |
+| `UpdateTextContentAsync(fileId, text)` → `File` | Replaces the content of a text-based file from a plain string. Updates `sizeBytes`; leaves other metadata unchanged. Used by the `PATCH /api/files/{fileId}/content` endpoint. |
 | `DeleteByFolderAsync(folderId)` | Deletes all files in a folder. Used by recursive folder deletion. |
 
 **Dependencies**
@@ -165,14 +166,14 @@ These are the primary units of business logic. Each service is defined as an int
 
 ### 1.8 ISettingsService
 
-**Purpose.** Manages per-user AI/LLM provider configuration (base URL and API key). Provides a connectivity test so users get fast feedback before their first real AI request.
+**Purpose.** Manages per-user AI/LLM provider configuration (base URL, API key, provider as `AiProvider` enum, and model ID). Provides a connectivity test so users get fast feedback before their first real AI request.
 
 **Methods**
 
 | Method | Description |
 |---|---|
-| `GetAsync()` → `UserAiSettings?` | Returns current config. |
-| `UpdateAsync(settings)` → `UserAiSettings` | Saves/overwrites base URL and API key. Encrypts the API key before persistence. |
+| `GetAsync()` → `UserAiSettings?` | Returns current config including `Provider` and `ModelId`. |
+| `UpdateAsync(settings)` → `UserAiSettings` | Saves/overwrites base URL, API key, provider, and model ID. Encrypts the API key before persistence. |
 | `TestConnectionAsync()` → `(bool Success, int? LatencyMs, string? ErrorMessage)` | Decrypts the stored API key, sends a minimal probe request to the configured LLM endpoint, and returns test outcome fields. Returns validation failure if settings are not yet configured. |
 
 **Dependencies**
@@ -406,7 +407,7 @@ These interfaces are defined in `ShuKnow.Application` and implemented in `ShuKno
 | `UpdateAsync(folder)` | Update an existing folder. |
 | `DeleteAsync(folderId)` | Delete a single folder. |
 | `DeleteSubtreeAsync(folderId)` | Delete a folder and all descendants recursively. |
-| `CountByUserAsync(userId)` → `int` | Used to determine if Inbox auto-creation is needed. |
+| `CountByUserAsync(userId)` → `int` | Returns the total number of folders owned by the user. |
 
 ---
 

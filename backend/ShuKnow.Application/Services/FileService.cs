@@ -1,6 +1,9 @@
+using System.Text;
 using Ardalis.Result;
 using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.Domain.Entities;
+using ShuKnow.Domain.Interfaces;
 using ShuKnow.Domain.Repositories;
 using File = ShuKnow.Domain.Entities.File;
 
@@ -42,7 +45,7 @@ public class FileService(
     {
         return await fileRepository.GetByIdForUpdateAsync(file.Id, CurrentUserId)
             .ActAsync(existingFile => EnsureFileNameUnique(file.Name, existingFile.FolderId, existingFile.Id))
-            .ActAsync(existingFile => existingFile.UpdateMetadata(file.Name, file.Description))
+            .Act(existingFile => existingFile.UpdateMetadata(file.Name, file.Description))
             .SaveChangesAsync(unitOfWork);
     }
 
@@ -68,19 +71,15 @@ public class FileService(
     public async Task<Result<File>> ReplaceContentAsync(
         Guid fileId, Stream content, string contentType, CancellationToken ct = default)
     {
-        var existingFileResult = await fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId);
-        if (!existingFileResult.IsSuccess)
-            return existingFileResult;
-
-        var existingFile = existingFileResult.Value;
-
-        await using var bufferedContent = await BufferContentAsync(content, ct);
-
-        existingFile.ReplaceContent(contentType, bufferedContent.Length);
-
-        return await blobStorageService.ReplaceAsync(bufferedContent, existingFile, ct)
-            .SaveChangesAsync(unitOfWork)
-            .MapAsync(() => existingFile);
+        return await fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId)
+            .BindAsync(async existingFile =>
+            {
+                await using var bufferedContent = await BufferContentAsync(content, ct);
+                existingFile.ReplaceContent(contentType, bufferedContent.Length);
+                return await blobStorageService.ReplaceAsync(bufferedContent, existingFile, ct)
+                    .MapAsync(() => existingFile);
+            })
+            .SaveChangesAsync(unitOfWork);
     }
 
     public async Task<Result<File>> MoveAsync(Guid fileId, Guid targetFolderId, CancellationToken ct = default)
@@ -88,7 +87,7 @@ public class FileService(
         return await EnsureFolderExistsAsync(targetFolderId)
             .BindAsync(_ => fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId))
             .ActAsync(existingFile => EnsureFileNameUnique(existingFile.Name, targetFolderId, existingFile.Id))
-            .ActAsync(existingFile => existingFile.MoveTo(targetFolderId))
+            .Act(existingFile => existingFile.MoveTo(targetFolderId))
             .SaveChangesAsync(unitOfWork);
     }
 
@@ -100,22 +99,47 @@ public class FileService(
             .SaveChangesAsync(unitOfWork);
     }
 
+    public async Task<Result> ReorderAsync(Guid fileId, int position, CancellationToken ct = default)
+    {
+        return await fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId)
+            .BindAsync(file => fileRepository.GetByFolderAsync(file.FolderId)
+                .BindAsync(files => folderRepository.GetChildrenAsync(file.FolderId, CurrentUserId)
+                    .BindAsync(folders => ApplyReorder(file, files, folders, position))))
+            .SaveChangesAsync(unitOfWork);
+    }
+
+    public async Task<Result<File>> UpdateTextContentAsync(
+        Guid fileId, string content, CancellationToken ct = default)
+    {
+        return await fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId)
+            .Act(EnsureTextContentType)
+            .BindAsync(async file =>
+            {
+                await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
+                file.ReplaceContent(file.ContentType, stream.Length);
+                return await blobStorageService.ReplaceAsync(stream, file, ct)
+                    .MapAsync(() => file);
+            })
+            .SaveChangesAsync(unitOfWork);
+    }
+
+    private static Result EnsureTextContentType(File file)
+    {
+        return file.ContentType.StartsWith("text/")
+            ? Result.Success()
+            : Result.Invalid(new ValidationError("File is not a text-based file."));
+    }
+
     private async Task<Result> EnsureFileNameUnique(string name, Guid folderId, Guid fileId)
     {
-        var existsResult = await fileRepository.ExistsByNameInFolderAsync(name, folderId, CurrentUserId, fileId);
-        if (!existsResult.IsSuccess)
-            return existsResult.Map();
-        
-        return existsResult.Value ? Result.Conflict() : Result.Success();
+        return await fileRepository.ExistsByNameInFolderAsync(name, folderId, CurrentUserId, fileId)
+            .BindAsync(exists => exists ? Result.Conflict() : Result.Success());
     }
 
     private async Task<Result> EnsureFolderExistsAsync(Guid folderId)
     {
-        var existsResult = await folderRepository.ExistsByIdAsync(folderId, CurrentUserId);
-        if (!existsResult.IsSuccess)
-            return existsResult.Map();
-
-        return existsResult.Value ? Result.Success() : Result.NotFound();
+        return await folderRepository.ExistsByIdAsync(folderId, CurrentUserId)
+            .BindAsync(exists => exists ? Result.Success() : Result.NotFound());
     }
 
     private async Task<Result<Stream>> GetStreamAsync(
@@ -148,5 +172,34 @@ public class FileService(
         await content.CopyToAsync(bufferedContent, ct);
         bufferedContent.Position = 0;
         return bufferedContent;
+    }
+
+    private static Result ApplyReorder(
+        File file, IReadOnlyList<File> files, IReadOnlyList<Folder> folders, int position)
+    {
+        var siblings = BuildSortedSiblingList(files, folders);
+
+        if (position < 0 || position >= siblings.Count)
+            return Result.Invalid(new ValidationError("Position is out of range."));
+
+        siblings.Remove(file);
+        siblings.Insert(position, file);
+        ApplySortOrder(siblings);
+
+        return Result.Success();
+    }
+
+    private static List<IOrderedItem> BuildSortedSiblingList(IReadOnlyList<File> files, IReadOnlyList<Folder> folders)
+    {
+        return files.Cast<IOrderedItem>()
+            .Concat(folders)
+            .OrderBy(item => item.SortOrder)
+            .ToList();
+    }
+
+    private static void ApplySortOrder<T>(List<T> items) where T : class, IOrderedItem
+    {
+        for (var i = 0; i < items.Count; i++)
+            items[i].SortOrder = i;
     }
 }
