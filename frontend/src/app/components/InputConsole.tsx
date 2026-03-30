@@ -180,51 +180,9 @@ export function InputConsole({ onSend }: InputConsoleProps) {
           className="hidden"
         />
 
-        {/* Attachments preview - horizontal scrollable list */}
-        {attachments.length > 0 && (
-          <div className="flex gap-2 mb-3 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {attachments.map((attachment) => (
-              <div
-                key={attachment.id}
-                className="flex-shrink-0 w-[200px] flex items-center gap-2 bg-[#1a1a1a] border border-white/10 rounded-xl px-2 py-1.5 group hover:border-white/20 transition-colors"
-              >
-                {/* Preview - image or file icon */}
-                <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-white/5 flex items-center justify-center">
-                  {isImageFile(attachment.name) && attachment.url ? (
-                    <img 
-                      src={attachment.url} 
-                      alt={attachment.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <FileText size={18} className="text-gray-500" />
-                  )}
-                </div>
-                
-                {/* File info */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-200 truncate">{attachment.name}</p>
-                  {attachment.size && (
-                    <p className="text-xs text-gray-500">{formatFileSize(attachment.size)}</p>
-                  )}
-                </div>
-                
-                {/* Remove button */}
-                <button
-                  onClick={() => removeAttachment(attachment.id)}
-                  className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 text-gray-500 hover:text-white transition-colors"
-                  title="Удалить"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Input container with drag-and-drop */}
+        {/* Combined input container with drag-and-drop and attachments */}
         <div
-          className={`flex items-end bg-[#1a1a1a] rounded-2xl border transition-colors shadow-lg pl-3 pr-2 py-2 ${
+          className={`bg-[#1a1a1a] rounded-2xl border transition-colors shadow-lg ${
             isDragging
               ? "border-indigo-500/50 bg-indigo-500/5"
               : "border-white/10 focus-within:border-white/20"
@@ -234,35 +192,80 @@ export function InputConsole({ onSend }: InputConsoleProps) {
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          {/* Left Button - Attachment */}
-          <button
-            onClick={handlePaperclipClick}
-            className="flex-shrink-0 flex items-center justify-center w-9 h-9 mb-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-            title="Прикрепить файлы"
-          >
-            <Paperclip size={20} />
-          </button>
+          {/* Attachments preview - horizontal scrollable list */}
+          {attachments.length > 0 && (
+            <div className="flex gap-2 p-3 pb-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              {attachments.map((attachment) => (
+                <div
+                  key={attachment.id}
+                  className="flex-shrink-0 w-[180px] flex items-center gap-2 bg-[#0a0a0a] border border-white/10 rounded-xl px-2 py-1.5 group hover:border-white/20 transition-colors"
+                >
+                  {/* Preview - image or file icon */}
+                  <div className="w-9 h-9 flex-shrink-0 rounded-lg overflow-hidden bg-white/5 flex items-center justify-center">
+                    {isImageFile(attachment.name) && attachment.url ? (
+                      <img 
+                        src={attachment.url} 
+                        alt={attachment.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <FileText size={16} className="text-gray-500" />
+                    )}
+                  </div>
+                  
+                  {/* File info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-200 truncate">{attachment.name}</p>
+                    {attachment.size && (
+                      <p className="text-xs text-gray-500">{formatFileSize(attachment.size)}</p>
+                    )}
+                  </div>
+                  
+                  {/* Remove button */}
+                  <button
+                    onClick={() => removeAttachment(attachment.id)}
+                    className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 text-gray-500 hover:text-white transition-colors"
+                    title="Удалить"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
-          {/* Text Input */}
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={isDragging ? "Отпустите файлы здесь..." : "Введите текст, скиньте изображения или файлы..."}
-            className="flex-1 max-h-[200px] min-h-[44px] bg-transparent text-gray-200 placeholder:text-gray-400 resize-none outline-none px-3 py-2.5 text-[15px] leading-relaxed overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-            rows={1}
-          />
+          {/* Input row */}
+          <div className="flex items-end pl-3 pr-2 py-2">
+            {/* Left Button - Attachment */}
+            <button
+              onClick={handlePaperclipClick}
+              className="flex-shrink-0 flex items-center justify-center w-9 h-9 mb-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+              title="Прикрепить файлы"
+            >
+              <Paperclip size={20} />
+            </button>
 
-          {/* Right Button - Send */}
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() && attachments.length === 0}
-            className="flex-shrink-0 flex items-center justify-center w-9 h-9 mb-1.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all disabled:opacity-30 disabled:hover:bg-white/10 disabled:cursor-not-allowed"
-            title="Отправить"
-          >
-            <ArrowUp size={18} />
-          </button>
+            {/* Text Input */}
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={isDragging ? "Отпустите файлы здесь..." : "Введите текст, скиньте изображения или файлы..."}
+              className="flex-1 max-h-[200px] min-h-[44px] bg-transparent text-gray-200 placeholder:text-gray-400 resize-none outline-none px-3 py-2.5 text-[15px] leading-relaxed overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              rows={1}
+            />
+
+            {/* Right Button - Send */}
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() && attachments.length === 0}
+              className="flex-shrink-0 flex items-center justify-center w-9 h-9 mb-1.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all disabled:opacity-30 disabled:hover:bg-white/10 disabled:cursor-not-allowed"
+              title="Отправить"
+            >
+              <ArrowUp size={18} />
+            </button>
+          </div>
         </div>
 
         <p className="text-xs text-center mt-3 text-gray-500">
