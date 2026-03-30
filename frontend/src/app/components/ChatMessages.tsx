@@ -137,10 +137,10 @@ function UserMessage({
   };
 
   return (
-    <div className="group relative inline-block">
+    <div className="group relative inline-block max-w-full overflow-hidden">
       {/* Attachments - horizontal scrollable strip */}
       {message.attachments && message.attachments.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-2 max-w-full [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {message.attachments.map((attachment) => (
             <DraggableAttachment key={attachment.id} attachment={attachment} />
           ))}
@@ -149,7 +149,7 @@ function UserMessage({
       
       {/* Message text with Markdown rendering */}
       {message.content && (
-        <div className="text-base text-foreground break-all leading-7 prose prose-invert prose-base max-w-none">
+        <div className="text-base text-foreground break-words leading-7 prose prose-invert prose-base max-w-full overflow-wrap-anywhere">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {message.content}
           </ReactMarkdown>
@@ -162,7 +162,7 @@ function UserMessage({
           {message.content && (
             <button
               onClick={handleCopy}
-              className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1.5 rounded-lg bg-secondary hover:bg-indigo-500/10 text-muted-foreground hover:text-indigo-400 transition-colors"
               title="Копировать"
             >
               {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
@@ -171,7 +171,7 @@ function UserMessage({
           {onResend && (
             <button
               onClick={() => onResend(message.id)}
-              className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1.5 rounded-lg bg-secondary hover:bg-indigo-500/10 text-muted-foreground hover:text-indigo-400 transition-colors"
               title="Отправить повторно"
             >
               <RefreshCw size={16} />
@@ -204,14 +204,14 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                 // Agent message - ChatGPT style with avatar
                 <>
                   {/* Agent avatar */}
-                  <div className="w-8 h-8 rounded-full bg-foreground flex items-center justify-center flex-shrink-0">
-                    <Sparkles size={16} className="text-background" />
+                  <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center flex-shrink-0">
+                    <Sparkles size={16} className="text-white" />
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     {/* Processing state */}
                     {message.status === "processing" && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
+                      <div className="flex items-center gap-2 text-indigo-400">
                         <Loader2 size={16} className="animate-spin" />
                         <span className="text-sm">Обрабатываю...</span>
                       </div>
@@ -221,7 +221,7 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                     {message.status === "success" && message.result && (
                       <div className="space-y-4">
                         <div className="flex items-center gap-2">
-                          <CheckCircle2 size={18} className="text-emerald-500" />
+                          <CheckCircle2 size={18} className="text-indigo-400" />
                           <span className="text-sm font-medium">Сохранено</span>
                         </div>
                         
@@ -233,7 +233,7 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                             return acc;
                           }, {} as Record<string, typeof message.result>)
                         ).map(([folder, files]) => (
-                          <div key={folder} className="pl-5 border-l-2 border-border">
+                          <div key={folder} className="pl-5 border-l-2 border-indigo-500/30">
                             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                               <FolderOpen size={14} />
                               <span>{folder}</span>
@@ -260,7 +260,7 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                             {message.result[0]?.folderId && onOpenFolder && (
                               <button 
                                 onClick={() => onOpenFolder(message.result![0].folderId!)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors text-sm"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 transition-colors text-sm"
                               >
                                 <FolderOpen size={14} />
                                 <span>Открыть папку</span>
@@ -305,7 +305,7 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                           {onSelectFolder && (
                             <button 
                               onClick={() => onSelectFolder(message.id)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors text-sm"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 transition-colors text-sm"
                             >
                               <FolderOpen size={14} />
                               <span>Выбрать папку</span>
@@ -314,7 +314,7 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
                           {onRetry && (
                             <button 
                               onClick={() => onRetry(message.id)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors text-sm"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-indigo-500/10 text-muted-foreground hover:text-indigo-400 transition-colors text-sm"
                             >
                               <Undo2 size={14} />
                               <span>Повторить</span>

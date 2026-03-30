@@ -168,7 +168,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
 
         {/* Attachments preview - horizontal scrollable strip */}
         {attachments.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-2 mb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div className="flex gap-2 overflow-x-auto pb-2 mb-2 max-w-full [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {attachments.map((attachment) => (
               <div
                 key={attachment.id}
@@ -201,7 +201,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
         {/* Input container - ChatGPT style */}
         <div
           className={`flex items-end gap-2 px-4 py-3 rounded-2xl bg-secondary transition-colors ${
-            isDragging ? "ring-2 ring-foreground/20" : ""
+            isDragging ? "ring-2 ring-indigo-500/50 bg-indigo-500/5" : ""
           }`}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
@@ -229,7 +229,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
           <button
             onClick={handleSend}
             disabled={!input.trim() && attachments.length === 0}
-            className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-foreground text-background hover:bg-foreground/90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
             title="Отправить"
           >
             <ArrowUp size={18} />
