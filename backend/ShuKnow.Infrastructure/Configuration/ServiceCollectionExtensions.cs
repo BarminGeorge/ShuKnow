@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using ShuKnow.Application.Common;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Domain.Repositories;
 using ShuKnow.Infrastructure.Interfaces;
@@ -21,6 +22,8 @@ public static class ServiceCollectionExtensions
                 .UseNpgsql(connectionString, builder => builder.EnableRetryOnFailure())
                 .UseSnakeCaseNamingConvention();
         });
+        
+        services.Configure<EncryptionOptions>(o => o.Key = configuration.GetEncryptionOptions().Key);
 
         services.AddServices();
         services.AddRepositories();
@@ -48,5 +51,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IActionRepository, ActionRepository>();
         services.AddScoped<IAttachmentRepository, AttachmentRepository>();
         services.AddScoped<ISettingsRepository, SettingsRepository>();
+    }
+    
+    private static EncryptionOptions GetEncryptionOptions(this IConfiguration configuration)
+    {
+        var section = configuration.GetSection(EncryptionOptions.SectionName);
+        var options = section.Get<EncryptionOptions>() ?? new EncryptionOptions();
+        return options.Validate();
     }
 }
