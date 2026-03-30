@@ -1,6 +1,6 @@
 using Ardalis.Result;
-using ShuKnow.Application.Models;
 using ShuKnow.Domain.Entities;
+using ShuKnow.Domain.VO;
 
 namespace ShuKnow.Application.Interfaces;
 
