@@ -34,7 +34,7 @@ export function EditFileModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div className="bg-[#1a1a1a] border border-white/20 rounded-2xl w-full max-w-md mx-4 shadow-2xl">
+      <div className="bg-[#141414] border border-white/10 rounded-2xl w-full max-w-md mx-4 shadow-2xl">
         {/* Header with Editable Name */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10">
           <input
@@ -43,8 +43,7 @@ export function EditFileModal({
             onChange={(e) => setName(e.target.value.slice(0, 50))}
             placeholder="Название файла"
             maxLength={50}
-            className="flex-1 text-lg font-semibold px-3 py-2 bg-transparent text-white placeholder:text-gray-500 outline-none border-b border-transparent focus:border-blue-500/50 transition-colors"
-          />
+                          className="flex-1 text-lg font-semibold px-3 py-2 bg-transparent text-white placeholder:text-gray-500 outline-none border-b border-transparent focus:border-indigo-500/50 transition-colors"          />
           <span className="text-xs text-gray-500 flex-shrink-0">{name.length}/50</span>
           <button
             onClick={onClose}
@@ -65,7 +64,7 @@ export function EditFileModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Опишите, как ИИ должен работать с этим файлом..."
-              className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-blue-500/50 transition-colors"
+              className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-indigo-500/50 transition-colors"
               rows={6}
             />
             <p className="text-xs text-gray-500 mt-2">
@@ -85,8 +84,7 @@ export function EditFileModal({
           <button
             onClick={handleSave}
             disabled={!name.trim()}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm"
-          >
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm"          >
             Сохранить
           </button>
         </div>

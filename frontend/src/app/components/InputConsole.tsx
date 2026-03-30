@@ -1,11 +1,22 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Paperclip, ArrowUp, X, Loader2 } from "lucide-react";
+import { Paperclip, ArrowUp, X, FileText, Image as ImageIcon, Loader2 } from "lucide-react";
 import type { Attachment } from "./ChatMessages";
 import { createAttachmentFromFile, applyServerIds } from "./ChatMessages";
 import { chatService } from "../../api";
 
 interface InputConsoleProps {
   onSend?: (text: string, attachments?: Attachment[]) => void;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isImageFile(filename: string): boolean {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '');
 }
 
 export function InputConsole({ onSend }: InputConsoleProps) {
@@ -15,6 +26,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
   const [isUploading, setIsUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef(0);
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const fileArray = Array.from(files);
@@ -72,16 +84,21 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     setInput("");
     setAttachments([]);
   };
+
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
+    dragCounterRef.current++;
+    if (dragCounterRef.current === 1) {
+      setIsDragging(true);
+    }
   }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
       setIsDragging(false);
     }
   }, []);
@@ -89,12 +106,43 @@ export function InputConsole({ onSend }: InputConsoleProps) {
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-  }, []);
+    if (!isDragging) {
+      setIsDragging(true);
+    }
+  }, [isDragging]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    dragCounterRef.current = 0;
     setIsDragging(false);
+    
+    const jsonData = e.dataTransfer.getData('application/json');
+    if (jsonData) {
+      try {
+        const chatFileData = JSON.parse(jsonData);
+        if (chatFileData.type === 'chat-file') {
+          const newAttachment: Attachment = {
+            localId: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+            name: chatFileData.name || chatFileData.file?.name || 'unknown',
+            url: chatFileData.url,
+            sizeBytes: chatFileData.file?.size,
+            contentType: chatFileData.fileType || chatFileData.file?.type,
+          };
+          
+          setAttachments((prev) => {
+            const existing = new Set(prev.map((a) => `${a.name}-${a.sizeBytes}`));
+            if (!existing.has(`${newAttachment.name}-${newAttachment.sizeBytes}`)) {
+              return [...prev, newAttachment];
+            }
+            return prev;
+          });
+          return;
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
     
     const files = e.dataTransfer.files;
     if (files.length > 0) {
@@ -110,9 +158,6 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     e.target.value = "";
   };
 
-  const handlePaperclipClick = () => {
-    fileInputRef.current?.click();
-  };
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
@@ -133,9 +178,8 @@ export function InputConsole({ onSend }: InputConsoleProps) {
   };
 
   return (
-    <div className="bg-[#121212] px-4 md:px-6 pb-6 pt-2">
-      <div className="max-w-3xl mx-auto">
-        {/* Hidden file input */}
+    <div className="bg-background px-4 pb-4 pt-2">
+      <div className="max-w-7xl mx-auto px-9">
         <input
           ref={fileInputRef}
           type="file"
@@ -144,21 +188,31 @@ export function InputConsole({ onSend }: InputConsoleProps) {
           className="hidden"
         />
 
-        {/* Attachments preview */}
+        {/* Attachments preview - horizontal scrollable strip */}
         {attachments.length > 0 && (
-          <div className="flex flex-col items-end gap-1.5 mb-3">
+          <div className="flex gap-2 overflow-x-auto pb-2 mb-2 max-w-full [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {attachments.map((attachment) => (
               <div
                 key={attachment.localId}
-                className="flex items-center gap-2 bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 max-w-[80%] group"
+                className="flex-shrink-0 w-[200px] flex items-center gap-3 px-3 py-2.5 rounded-xl bg-secondary group hover:bg-secondary/80 transition-colors"
               >
-                <Paperclip size={14} className="text-gray-400 flex-shrink-0" />
-                <span className="text-sm text-gray-300 truncate">{attachment.name}</span>
+                <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                  {isImageFile(attachment.name) && attachment.url ? (
+                    <img src={attachment.url} alt={attachment.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <FileText size={20} className="text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground truncate">{attachment.name}</p>
+                  {attachment.sizeBytes && (
+                    <p className="text-xs text-muted-foreground">{formatFileSize(attachment.sizeBytes)}</p>
+                  )}
+                </div>
                 <button
                   onClick={() => removeAttachment(attachment.localId)}
-                  className="flex-shrink-0 p-0.5 rounded hover:bg-white/10 text-gray-400 hover:text-red-400 transition-colors"
-                  title="Удалить"
                   disabled={isUploading}
+                  className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                 >
                   <X size={14} />
                 </button>
@@ -167,52 +221,45 @@ export function InputConsole({ onSend }: InputConsoleProps) {
           </div>
         )}
 
-        {/* Input container with drag-and-drop */}
+        {/* Input container - ChatGPT style */}
         <div
-          className={`flex items-end bg-[#2f2f2f] rounded-[24px] border transition-colors shadow-lg pl-3 pr-2 py-2 ${
-            isDragging
-              ? "border-blue-500/50 bg-blue-500/5"
-              : "border-white/5 focus-within:border-white/10"
+          className={`flex items-center gap-2 px-4 py-3 rounded-2xl transition-colors ${
+            isDragging 
+              ? "ring-2 ring-indigo-500 bg-black" 
+              : "bg-secondary"
           }`}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          {/* Left Button - Attachment */}
           <button
-            onClick={handlePaperclipClick}
-            className="flex-shrink-0 flex items-center justify-center w-9 h-9 mb-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             title="Прикрепить файлы"
           >
-            <Paperclip size={20} />
+            <Paperclip size={18} />
           </button>
 
-          {/* Text Input */}
           <textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isDragging ? "Отпустите файлы здесь..." : "Введите текст, скиньте изображения или файлы..."}
-            className="flex-1 max-h-[200px] min-h-[44px] bg-transparent text-gray-200 placeholder:text-gray-400 resize-none outline-none px-3 py-2.5 text-[15px] leading-relaxed overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            placeholder={isDragging ? "Отпустите файлы здесь..." : "Спросите ShuKnow..."}
+            className="flex-1 max-h-[200px] min-h-[24px] bg-transparent text-foreground placeholder:text-muted-foreground resize-none outline-none text-[15px] leading-relaxed overflow-y-auto"
             rows={1}
           />
 
-          {/* Right Button - Send */}
           <button
             onClick={handleSend}
             disabled={isUploading || (!input.trim() && attachments.length === 0)}
-            className="flex-shrink-0 flex items-center justify-center w-9 h-9 mb-1.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all disabled:opacity-30 disabled:hover:bg-white/10 disabled:cursor-not-allowed"
+            className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
             title={isUploading ? "Загрузка файлов..." : "Отправить"}
           >
             {isUploading ? <Loader2 size={18} className="animate-spin" /> : <ArrowUp size={18} />}
           </button>
         </div>
-
-        <p className="text-xs text-center mt-3 text-gray-500">
-          Enter — отправить, Shift + Enter — новая строка. ИИ отсортирует всё сам.
-        </p>
       </div>
     </div>
   );

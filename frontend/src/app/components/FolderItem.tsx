@@ -167,14 +167,14 @@ export function FolderItem({
       <div className="relative">
         {/* Drop indicator - Before */}
         {isOver && dropZone === "before" && (
-          <div className="absolute top-0 left-3 right-3 h-0.5 bg-blue-500 rounded-full z-10" />
+          <div className="absolute top-0 left-3 right-3 h-0.5 bg-indigo-500 rounded-full z-10" />
         )}
 
         <div
           ref={ref}
           className={`group relative flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors select-none ${
             isDragging ? "opacity-50" : ""
-          } ${dropZone === "inside" && isOver ? "bg-blue-500/20 border border-blue-500/50 rounded-lg" : ""}`}
+          } ${dropZone === "inside" && isOver ? "bg-indigo-500/20 border border-indigo-500/50 rounded-lg" : ""}`}
           style={{ paddingLeft: `${depth * 16 + 12}px` }}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => {
@@ -205,7 +205,7 @@ export function FolderItem({
           {isHovered && !isDraggingState && (
             <div className="flex items-center gap-1 ml-auto">
               <button
-                className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-blue-400 transition-colors"
+                className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-indigo-400 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   onEditFolder(folder, path);
@@ -215,7 +215,7 @@ export function FolderItem({
                 <Edit3 size={14} />
               </button>
               <button
-                className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-green-400 transition-colors"
+                className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-indigo-400 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   onAddSubfolder(path);
@@ -225,7 +225,7 @@ export function FolderItem({
                 <Plus size={14} />
               </button>
               <button
-                className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-red-500 transition-colors"
+                className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-indigo-400 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDeleteFolder(path);
@@ -240,7 +240,7 @@ export function FolderItem({
 
         {/* Drop indicator - After */}
         {isOver && dropZone === "after" && (
-          <div className="absolute bottom-0 left-3 right-3 h-0.5 bg-blue-500 rounded-full z-10" />
+          <div className="absolute bottom-0 left-3 right-3 h-0.5 bg-indigo-500 rounded-full z-10" />
         )}
       </div>
 

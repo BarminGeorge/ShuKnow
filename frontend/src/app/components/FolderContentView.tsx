@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
-import { ChevronRight, MoreVertical, FileText, ArrowLeft, Plus, Folder as FolderIcon, Image as ImageIcon, Smile, Upload, File as FileIcon, Loader2 } from "lucide-react";
+import { ChevronRight, MoreVertical, FileText, ArrowLeft, Plus, Folder as FolderIcon, Image as ImageIcon, Smile, Upload, File as FileIcon, Paperclip } from "lucide-react";
 import { useDrag, useDrop, useDragLayer } from "react-dnd";
 import { NativeTypes } from "react-dnd-html5-backend";
 import { getEmptyImage } from "react-dnd-html5-backend";
@@ -33,11 +33,84 @@ interface FolderContentViewProps {
   onCreateFile: (file: FileItem, openAfterCreate?: boolean) => void;
   onDeleteFile: (fileId: string) => void;
   onUpdateFile: (fileId: string, updates: Partial<FileItem>) => void;
-  isLoadingFiles?: boolean;
 }
 
 const GRID_ITEM_TYPE = "GRID_ITEM";
+
+// 放置意图类型：重新排序 vs 嵌套到文件夹内
 type DropIntent = "reorder" | "nest" | null;
+
+// Helper: Remove file extension from name
+function getFileNameWithoutExtension(filename: string): string {
+  return filename.replace(/\.[^.]+$/, '');
+}
+
+// Helper: Get file extension for badge
+function getFileExtension(filename: string): string {
+  const ext = filename.split('.').pop()?.toUpperCase() || "";
+  return ext.length > 4 ? ext.slice(0, 4) : ext;
+}
+
+// Helper: Format relative date (short format, no prefix)
+function formatRelativeDate(dateString: string | undefined): string | null {
+  if (!dateString) return null;
+  
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffTime = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) return "сегодня";
+  if (diffDays === 1) return "вчера";
+  if (diffDays < 7) return `${diffDays} ${diffDays === 1 ? "день" : diffDays < 5 ? "дня" : "дней"} назад`;
+  
+  // Format as date
+  const months = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+  return `${date.getDate()} ${months[date.getMonth()]}`;
+}
+
+// Helper: Pluralize items count
+function pluralizeItems(count: number): string {
+  if (count === 1) return "1 элемент";
+  if (count < 5) return `${count} элемента`;
+  return `${count} элементов`;
+}
+
+// Helper: Russian pluralization for nouns
+function pluralizeRussian(count: number, one: string, few: string, many: string): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  
+  if (mod100 >= 11 && mod100 <= 19) return `${count} ${many}`;
+  if (mod10 === 1) return `${count} ${one}`;
+  if (mod10 >= 2 && mod10 <= 4) return `${count} ${few}`;
+  return `${count} ${many}`;
+}
+
+// Helper: Format folder stats for card subtitle (omits zero counts)
+function formatFolderStats(subfolderCount: number, fileCount: number, photoCount: number): string {
+  const total = subfolderCount + fileCount + photoCount;
+  if (total === 0) return "Пусто";
+  
+  const parts: string[] = [];
+  if (subfolderCount > 0) parts.push(pluralizeRussian(subfolderCount, "папка", "папки", "папок"));
+  if (fileCount > 0) parts.push(pluralizeRussian(fileCount, "файл", "файла", "файлов"));
+  if (photoCount > 0) parts.push(`${photoCount} фото`);
+  
+  return parts.join(" · ");
+}
+
+// Helper: Format folder stats for header (omits zero counts, comma-separated)
+function formatFolderStatsHeader(subfolderCount: number, fileCount: number, photoCount: number): string {
+  const parts: string[] = [];
+  if (subfolderCount > 0) parts.push(pluralizeRussian(subfolderCount, "папка", "папки", "папок"));
+  if (fileCount > 0) parts.push(pluralizeRussian(fileCount, "файл", "файла", "файлов"));
+  if (photoCount > 0) parts.push(`${photoCount} фото`);
+  
+  return parts.join(", ");
+}
+
+// 计算放置意图的辅助函数
 function calculateDropIntent(
   hoverClientX: number,
   hoverClientY: number,
@@ -47,8 +120,15 @@ function calculateDropIntent(
   draggedId: string,
   targetId: string
 ): DropIntent {
+  // 不能拖到自己身上
   if (draggedId === targetId) return null;
+  
+  // 文件只能触发重新排序意图（文件不能接受嵌套）
   if (targetType === "file") return "reorder";
+  
+  // 文件夹：根据位置判断意图
+  // 中心区域（中间60%宽度和高度）= 嵌套意图
+  // 边缘区域（左右各20%宽度，或上下各20%高度）= 重新排序意图
   const centerXStart = width * 0.2;
   const centerXEnd = width * 0.8;
   const centerYStart = height * 0.2;
@@ -58,28 +138,42 @@ function calculateDropIntent(
   const isInCenterY = hoverClientY >= centerYStart && hoverClientY <= centerYEnd;
   
   if (isInCenterX && isInCenterY) {
-    return "nest"; 
+    return "nest"; // 中心区域：嵌套意图
   }
   
-  return "reorder"; 
+  return "reorder"; // 边缘区域：重新排序意图
 }
+
+// 自定义 Drag Layer：在拖拽时显示自定义的拖拽预览
 function CustomDragLayer() {
-  const { isDragging, item, currentOffset } = useDragLayer((monitor) => ({
+  const { isDragging, item, currentOffset, itemType } = useDragLayer((monitor) => ({
     isDragging: monitor.isDragging(),
     item: monitor.getItem(),
     currentOffset: monitor.getClientOffset(),
+    itemType: monitor.getItemType(),
   }));
 
-  if (!isDragging || !currentOffset || !item) return null;
+  // Не показываем preview для нативных файлов из ОС (NativeTypes.FILE)
+  // и для случаев, когда нет валидного элемента
+  if (!isDragging || !currentOffset || !item || itemType !== GRID_ITEM_TYPE) return null;
 
   const isFolder = item.origType === "folder";
+  const isPhoto = item.fileType === "photo" && item.contentUrl;
+
+  // Use captured dimensions or fall back to defaults
+  const cardWidth = item.sourceWidth || 280;
+  const cardHeight = item.sourceHeight || 180;
+
+  // Get display name without extension
+  const displayName = item.name ? getFileNameWithoutExtension(item.name) : "Перемещение...";
+  const fileExtension = getFileExtension(item.name || "");
 
   return (
     <div
       style={{
         position: "fixed",
         pointerEvents: "none",
-        zIndex: 9999,
+        zIndex: 10000,
         left: 0,
         top: 0,
         width: "100%",
@@ -89,30 +183,93 @@ function CustomDragLayer() {
       <div
         style={{
           position: "absolute",
-          left: currentOffset.x - 70,
-          top: currentOffset.y - 50,
+          left: currentOffset.x - cardWidth / 2,
+          top: currentOffset.y - cardHeight / 2,
+          transform: "rotate(-4deg) scale(1.03)",
+          opacity: 1,
+          pointerEvents: "none",
         }}
-        className="animate-drag-pickup"
       >
-        <div className={`
-          w-[140px] h-[100px] rounded-xl flex flex-col items-center justify-center
-          bg-[#1e1e1e]/95 backdrop-blur-md
-          border-2 ${isFolder ? 'border-blue-500/50' : 'border-purple-500/50'}
-          shadow-2xl shadow-black/60
-          transform rotate-[2deg] scale-95
-        `}>
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 ${
-            isFolder ? 'bg-blue-500/20' : 'bg-purple-500/20'
-          }`}>
-            {isFolder 
-              ? <FolderIcon size={22} className="text-blue-400" /> 
-              : <FileText size={22} className="text-purple-400" />
-            }
+        {/* Photo Card Preview */}
+        {isPhoto ? (
+          <div
+            className="rounded-2xl overflow-hidden relative cursor-pointer shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
+            style={{ width: cardWidth, height: cardHeight, borderRadius: '20px', overflow: 'hidden' }}
+          >
+            <img
+              src={item.contentUrl}
+              alt={item.name}
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ borderRadius: '0' }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+            {/* Format badge - top left */}
+            <span className="absolute top-6 left-7 text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-white/85">
+              {fileExtension}
+            </span>
+            {/* Content at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 px-7 py-6 min-w-0">
+              <p className="text-[18px] font-medium text-white whitespace-nowrap overflow-hidden text-ellipsis">
+                {displayName}
+              </p>
+              {item.relativeDate && (
+                <p className="text-[13px] text-white/60 mt-1 font-normal">
+                  {item.relativeDate}
+                </p>
+              )}
+            </div>
           </div>
-          <span className="text-[11px] text-gray-300 truncate max-w-[120px] px-2 font-medium">
-            {item.name || "Перемещение..."}
-          </span>
-        </div>
+        ) : isFolder ? (
+          /* Folder Card Preview */
+          <div
+            className="rounded-2xl overflow-hidden cursor-pointer bg-[#1e1e2e] border border-[rgba(99,102,241,0.2)] shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
+            style={{ width: cardWidth, height: cardHeight }}
+          >
+            <div className="h-full px-7 py-6 flex flex-col justify-between">
+              {/* Top: Emoji */}
+              <div className="flex items-start justify-between">
+                <span className="text-[40px] leading-none">
+                  {item.emoji || "📁"}
+                </span>
+              </div>
+              {/* Bottom: Name and Meta */}
+              <div className="min-w-0">
+                <p className="text-[18px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis">
+                  {displayName}
+                </p>
+                <p className="text-[13px] text-[rgba(255,255,255,0.60)] mt-1 font-normal">
+                  {item.metaText || "Пусто"}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* File Card Preview */
+          <div
+            className="rounded-2xl overflow-hidden cursor-pointer bg-[#1e1e2e] border border-[rgba(99,102,241,0.2)] shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
+            style={{ width: cardWidth, height: cardHeight }}
+          >
+            <div className="h-full px-7 py-6 flex flex-col justify-between">
+              {/* Top: Type badge */}
+              <div className="flex items-start justify-between">
+                <span className="text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-[rgba(129,140,248,0.15)] text-[#818cf8]">
+                  {fileExtension}
+                </span>
+              </div>
+              {/* Bottom: Name and Date */}
+              <div className="min-w-0">
+                <p className="text-[18px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis">
+                  {displayName}
+                </p>
+                {item.relativeDate && (
+                  <p className="text-[13px] text-[rgba(255,255,255,0.60)] mt-1 font-normal">
+                    {item.relativeDate}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -131,7 +288,12 @@ interface DraggableGridItemProps {
   editingFileId: string | null;
   onFileNameChange: (fileId: string, newName: string) => void;
   onEditingComplete: () => void;
+  // 新增：父文件夹的子文件夹ID列表，用于验证
   currentFolderSubfolderIds?: string[];
+  // All files for counting folder stats
+  allFiles: FileItem[];
+  // Context menu state for hiding the button
+  openContextMenuId: string | null;
 }
 
 function DraggableGridItem({
@@ -148,38 +310,93 @@ function DraggableGridItem({
   onFileNameChange,
   onEditingComplete,
   currentFolderSubfolderIds = [],
+  allFiles,
+  openContextMenuId,
 }: DraggableGridItemProps) {
   const ref = useRef<HTMLDivElement>(null);
+  // "刚刚放下"状态 — 用于 landing 动画
   const [justDropped, setJustDropped] = useState(false);
+  // 当前放置意图状态
   const [dropIntent, setDropIntent] = useState<DropIntent>(null);
+  // 用于追踪上一次的意图，避免频繁状态更新
   const lastIntentRef = useRef<DropIntent>(null);
+  // Throttle: prevent moveItem from firing more than once per 150ms
   const lastMoveTimeRef = useRef<number>(0);
-  const itemName = item.type === "folder" 
-    ? (item.data as Folder).name 
+
+  // 获取元素名称用于 CustomDragLayer
+  const itemName = item.type === "folder"
+    ? (item.data as Folder).name
     : (item.data as FileItem).name;
+
+  // Получаем contentUrl и fileType для превью фото
+  const fileData = item.type === "file" ? (item.data as FileItem) : null;
+  const contentUrl = fileData?.contentUrl;
+  const fileType = fileData?.type;
+  
+  // Get additional data for drag preview
+  const folderData = item.type === "folder" ? (item.data as Folder) : null;
+  const emoji = folderData?.emoji;
+  const relativeDate = fileData ? formatRelativeDate(fileData.createdAt || fileData.updatedAt) : null;
+  
+  // Calculate metaText for folder preview
+  const getMetaText = () => {
+    if (item.type !== "folder") return null;
+    const folder = folderData!;
+    const subfolderCount = folder.subfolders?.length || 0;
+    const folderFiles = allFiles.filter((f) => f.folderId === folder.id);
+    const fileCount = folderFiles.filter(f => f.type !== "photo").length;
+    const photoCount = folderFiles.filter(f => f.type === "photo").length;
+    return formatFolderStats(subfolderCount, fileCount, photoCount);
+  };
+  const metaText = getMetaText();
 
   const [{ isDragging }, drag, dragPreview] = useDrag({
     type: GRID_ITEM_TYPE,
-    item: () => ({ 
-      index, 
-      id: item.id, 
-      origType: item.type,
-      name: itemName, 
-    }),
+    item: () => {
+      const rect = ref.current?.getBoundingClientRect();
+      return {
+        index,
+        id: item.id,
+        origType: item.type,
+        name: itemName,
+        contentUrl,
+        fileType,
+        emoji,
+        relativeDate,
+        metaText,
+        sourceWidth: rect?.width ?? 280,
+        sourceHeight: rect?.height ?? 180,
+      };
+    },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
     end: (_item, _monitor) => {
+      // 启动 landing 动画
       setJustDropped(true);
       setDropIntent(null);
       lastIntentRef.current = null;
       onDragEnd();
+
+      // 动画结束后清除状态
       setTimeout(() => setJustDropped(false), 400);
     },
   });
+
+  // 抑制浏览器默认的 drag preview（防止 snap-back 动画）
   useEffect(() => {
     dragPreview(getEmptyImage(), { captureDraggingState: true });
   }, [dragPreview]);
+
+  // Ensure pointer events are restored after drag ends
+  useEffect(() => {
+    if (!isDragging) {
+      // Force cleanup any lingering drag state
+      document.body.style.cursor = '';
+    }
+  }, [isDragging]);
+
+  // 辅助函数：检查 candidateId 是否是 ancestorFolder 的后代
   const isDescendantOf = (ancestorFolder: Folder, candidateId: string): boolean => {
     if (!ancestorFolder.subfolders) return false;
     for (const sub of ancestorFolder.subfolders) {
@@ -188,19 +405,32 @@ function DraggableGridItem({
     }
     return false;
   };
+
+  // 验证是否可以嵌套到目标文件夹（用于视觉反馈）
   const canNestIntoFolder = (draggedItem: { id: string; origType: GridItemType }): boolean => {
+    // 必须是文件夹才能接受嵌套
     if (item.type !== "folder") return false;
+    // 不能拖到自己身上
     if (draggedItem.id === item.id) return false;
     
     const targetFolder = item.data as Folder;
+    
+    // 如果拖动的是文件夹，需要进行额外的验证
     if (draggedItem.origType === "folder") {
+      // 防止循环引用：目标文件夹不能是被拖动文件夹的后代
+      // 注意：这里检查的是目标文件夹是否是被拖动文件夹的后代
+      // 但由于我们无法访问被拖动文件夹的完整数据，我们只能检查基本情况
       if (isDescendantOf(targetFolder, draggedItem.id)) {
-        return false; 
+        return false; // 目标文件夹已经在被拖动文件夹内部（不会发生，因为被拖动的是祖先）
       }
+      
+      // 检查目标文件夹是否已经包含被拖动的文件夹
       if (targetFolder.subfolders?.some(f => f.id === draggedItem.id)) {
-        return false; 
+        return false; // 已经是目标文件夹的子文件夹
       }
     }
+    
+    // 文件的验证在 drop 时进行
     return true;
   };
 
@@ -220,6 +450,8 @@ function DraggableGridItem({
       const height = hoverBoundingRect.bottom - hoverBoundingRect.top;
       const hoverClientX = clientOffset.x - hoverBoundingRect.left;
       const hoverClientY = clientOffset.y - hoverBoundingRect.top;
+
+      // 计算当前放置意图
       let intent = calculateDropIntent(
         hoverClientX,
         hoverClientY,
@@ -229,23 +461,37 @@ function DraggableGridItem({
         draggedItem.id,
         item.id
       );
+
+      // 如果是嵌套意图，验证是否真的可以嵌套
       if (intent === "nest") {
+        // 创建一个临时对象用于验证
         const draggedItemForValidation = { id: draggedItem.id, origType: draggedItem.origType };
         if (!canNestIntoFolder(draggedItemForValidation)) {
+          // 如果不能嵌套，回退到重新排序意图（仅对文件有效）
           intent = item.type === "folder" ? "reorder" : null;
         }
       }
+
+      // 只在意图变化时更新状态（避免频繁重渲染）
       if (intent !== lastIntentRef.current) {
         setDropIntent(intent);
         lastIntentRef.current = intent;
       }
+
+      // 嵌套意图：不触发排序，只更新视觉状态
       if (intent === "nest") {
         return;
       }
+
+      // 重新排序意图：执行排序逻辑 (throttled)
       if (intent === "reorder" && dragIndex !== hoverIndex) {
         const hoverMiddleX = width / 2;
+
+        // 判断是否应该移动
         if (dragIndex < hoverIndex && hoverClientX < hoverMiddleX) return;
         if (dragIndex > hoverIndex && hoverClientX > hoverMiddleX) return;
+
+        // Throttle: only allow move every 150ms to prevent flicker
         const now = Date.now();
         if (now - lastMoveTimeRef.current < 150) return;
         lastMoveTimeRef.current = now;
@@ -255,14 +501,18 @@ function DraggableGridItem({
       }
     },
     drop: (draggedItem: { index: number; id: string; origType: GridItemType }, monitor) => {
+      // 如果是嵌套意图，执行嵌套操作
       if (dropIntent === "nest" && canNestIntoFolder(draggedItem)) {
         onMoveItemToFolder(draggedItem.id, item.id, draggedItem.origType);
         return { movedIntoFolder: true };
       }
+      // 否则执行重新排序（已在hover中完成，这里只需清理状态）
       setDropIntent(null);
       lastIntentRef.current = null;
     },
     canDrop: (draggedItem) => {
+      // 文件总是可以拖放到其他位置进行排序
+      // 文件夹的特殊验证在 canNestIntoFolder 中处理
       return draggedItem.id !== item.id;
     },
     collect: (monitor) => ({
@@ -270,6 +520,8 @@ function DraggableGridItem({
       canDrop: monitor.canDrop(),
     }),
   });
+
+  // 当离开目标区域时重置意图状态
   useEffect(() => {
     if (!isOver) {
       setDropIntent(null);
@@ -278,131 +530,164 @@ function DraggableGridItem({
   }, [isOver]);
 
   drag(drop(ref));
+
+  // Handle click to open file
   const handleFileClick = (fileId: string) => {
+    // Ignore clicks if item was being dragged
     if (isDragging) return;
     onFileDoubleClick(fileId);
   };
 
   if (item.type === "folder") {
     const folder = item.data as Folder;
+    
+    // Count all items in folder for meta info
+    const subfolderCount = folder.subfolders?.length || 0;
+    const folderFiles = allFiles.filter((f) => f.folderId === folder.id);
+    const fileCount = folderFiles.filter(f => f.type !== "photo").length;
+    const photoCount = folderFiles.filter(f => f.type === "photo").length;
+    const metaText = formatFolderStats(subfolderCount, fileCount, photoCount);
+
+    // 根据 dropIntent 决定视觉样式
     const getDropZoneStyles = () => {
-      if (!isOver || !canDrop) return "border-white/10";
+      if (!isOver || !canDrop) return "";
       
       if (dropIntent === "nest") {
-        return "border-green-500 ring-2 ring-green-500/40 scale-[1.03] shadow-[0_0_20px_rgba(34,197,94,0.3)]";
+        return "ring-2 ring-indigo-500/40 scale-[1.02] shadow-[0_0_20px_rgba(99,102,241,0.3)]";
       }
       
       if (dropIntent === "reorder") {
-        return "border-blue-500 ring-1 ring-blue-500/30";
+        return "ring-1 ring-indigo-500/30";
       }
       
-      return "border-white/10";
+      return "";
     };
+
+    // 动画类：根据状态返回不同的动画效果
     const getItemAnimationClass = () => {
       if (isDragging) return "opacity-0 scale-95 transition-opacity duration-150";
-      if (justDropped) return "animate-drop-land"; 
-      return "opacity-100 scale-100 transition-all duration-200 ease-out";
+      if (justDropped) return "animate-drop-land"; // landing 动画
+      return "opacity-100 transition-all duration-200 ease-out";
     };
 
     return (
       <div
         ref={ref}
         data-grid-item-id={item.id}
-        className={`group relative bg-[#1a1a1a] border rounded-xl overflow-hidden hover:border-blue-400/50 cursor-pointer ${getItemAnimationClass()} ${getDropZoneStyles()}`}
+        className={`
+          group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
+          ${getItemAnimationClass()} ${getDropZoneStyles()}
+          bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)]
+          hover:from-[rgba(99,102,241,0.12)] hover:to-[rgba(99,102,241,0.06)]
+          hover:border hover:border-[rgba(99,102,241,0.15)]
+          hover:-translate-y-[1px]
+          border border-transparent
+        `}
         onClick={() => onFolderClick(folder)}
       >
-        <div className="aspect-[4/3] flex flex-col items-center justify-center p-4 bg-gradient-to-br from-blue-500/10 to-purple-500/10 pointer-events-none">
-          <div className="w-20 h-20 rounded-lg bg-blue-500/20 flex items-center justify-center mb-3">
-            <FolderIcon size={40} className="text-blue-400" />
+        {/* Content - Single unified block */}
+        <div className="h-full px-7 py-6 flex flex-col justify-between">
+          {/* Top: Emoji */}
+          <div className="flex items-start justify-between">
+            <span className="text-[40px] leading-none">
+              {folder.emoji || "📁"}
+            </span>
+            {/* Context menu button - always visible when menu is open */}
+            <button
+              className={`w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center transition-opacity ${openContextMenuId === item.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onFolderContextMenu(folder.id, e);
+              }}
+            >
+              <MoreVertical size={14} className="text-white/60" strokeWidth={1.5} />
+            </button>
           </div>
-          <div className="w-full text-center">
-            {folder.emoji && (
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <span className="text-2xl">{folder.emoji}</span>
-              </div>
-            )}
-            <p className="text-sm text-gray-200 font-medium line-clamp-2">{folder.name}</p>
+          
+          {/* Bottom: Name and Meta */}
+          <div className="min-w-0">
+            <p className="text-[18px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis">
+              {folder.name}
+            </p>
+            <p className="text-[13px] text-[rgba(255,255,255,0.60)] mt-1 font-normal">
+              {metaText}
+            </p>
           </div>
         </div>
+        
+        {/* 嵌套意图指示器：显示一个半透明的覆盖层提示 */}
         {dropIntent === "nest" && (
-          <div className="absolute inset-0 bg-green-500/10 pointer-events-none rounded-xl" />
+          <div className="absolute inset-0 bg-indigo-500/10 pointer-events-none rounded-2xl" />
         )}
-        <button
-          className="absolute top-2 right-2 w-8 h-8 rounded-lg bg-black/50 backdrop-blur-sm hover:bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-20"
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            onFolderContextMenu(folder.id, e);
-          }}
-        >
-          <MoreVertical size={16} className="text-white" />
-        </button>
       </div>
     );
   } else {
     const file = item.data as FileItem;
-    const formattedDate = new Date(file.createdAt).toLocaleDateString("ru-RU", { 
-      day: "numeric", 
-      month: "short" 
-    }).replace(".", "");
+
+    // 文件只支持重新排序意图
     const getFileDropStyles = () => {
-      if (!isOver || !canDrop) return "border-white/10";
-      if (dropIntent === "reorder") return "border-blue-500 ring-1 ring-blue-500/30";
-      return "border-white/10";
-    };
-    const getItemAnimationClass = () => {
-      if (isDragging) return "opacity-0 scale-95 transition-opacity duration-150";
-      if (justDropped) return "animate-drop-land"; 
-      return "opacity-100 scale-100 transition-all duration-200 ease-out";
+      if (!isOver || !canDrop) return "";
+      if (dropIntent === "reorder") return "ring-1 ring-indigo-500/30";
+      return "";
     };
 
-    return (
-      <div
-        ref={ref}
-        data-grid-item-id={item.id}
-        className={`group relative bg-[#1a1a1a] border rounded-xl overflow-hidden hover:border-white/30 cursor-pointer ${getItemAnimationClass()} ${getFileDropStyles()}`}
-        onClick={() => handleFileClick(file.id)}
-        title="Нажмите для открытия"
-      >
-        {file.type === "photo" && file.contentUrl ? (
-          <div className="relative aspect-[4/3] overflow-hidden">
-            <img
-              src={file.contentUrl}
-              alt={file.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-3">
-              {editingFileId === file.id ? (
-                <input
-                  type="text"
-                  value={file.name}
-                  onChange={(e) => onFileNameChange(file.id, e.target.value)}
-                  onBlur={onEditingComplete}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === "Escape") onEditingComplete();
-                  }}
-                  className="w-full text-sm text-white font-medium bg-black/50 px-2 py-1 rounded outline-none border border-blue-500"
-                  autoFocus
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <p className="text-sm text-white font-medium truncate">{file.name}</p>
-              )}
-              <p className="text-xs text-gray-300 mt-1">{formattedDate}</p>
-            </div>
-          </div>
-        ) : (
-          <div className="aspect-[4/3] flex flex-col items-center justify-center p-4">
-            <div className="w-16 h-16 rounded-lg bg-white/5 flex items-center justify-center mb-3">
-              {file.type === "photo" ? (
-                <ImageIcon size={32} className="text-purple-400" />
-              ) : file.type === "pdf" ? (
-                <FileIcon size={32} className="text-red-400" />
-              ) : (
-                <FileText size={32} className="text-blue-400" />
-              )}
-            </div>
+    // 动画类：根据状态返回不同的动画效果
+    const getItemAnimationClass = () => {
+      if (isDragging) return "opacity-0 scale-95 transition-opacity duration-150";
+      if (justDropped) return "animate-drop-land"; // landing 动画
+      return "opacity-100 transition-all duration-200 ease-out";
+    };
+
+    // Get display name without extension
+    const displayName = getFileNameWithoutExtension(file.name);
+    const fileExtension = getFileExtension(file.name);
+
+    // Get file type badge info - INDIGO for all text files
+    const getTypeBadge = () => {
+      if (file.type === "pdf") {
+        return { label: "PDF", bgColor: "bg-[rgba(129,140,248,0.15)]", textColor: "text-[#818cf8]" };
+      }
+      // All other files (text, photos shown in card, etc) - indigo
+      return { label: fileExtension, bgColor: "bg-[rgba(129,140,248,0.15)]", textColor: "text-[#818cf8]" };
+    };
+
+    const typeBadge = getTypeBadge();
+
+    // Get relative date for meta info
+    const relativeDate = formatRelativeDate(file.createdAt || file.updatedAt);
+
+    // Photo card - special design with thumbnail and overlay
+    if (file.type === "photo" && file.contentUrl) {
+      return (
+        <div
+          ref={ref}
+          data-grid-item-id={item.id}
+          className={`
+            group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
+            ${getItemAnimationClass()} ${getFileDropStyles()}
+            hover:scale-[1.02] hover:ring-1 hover:ring-white/10
+          `}
+          onClick={() => handleFileClick(file.id)}
+          title="Нажмите для открытия"
+        >
+          {/* Thumbnail fills entire card */}
+          <img
+            src={file.contentUrl}
+            alt={file.name}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          
+          {/* Bottom gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+          
+          {/* Format badge - top left */}
+          <span className="absolute top-6 left-7 text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-white/85">
+            {fileExtension}
+          </span>
+          
+          {/* Content at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 px-7 py-6 min-w-0">
             {editingFileId === file.id ? (
               <input
                 type="text"
@@ -412,27 +697,109 @@ function DraggableGridItem({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === "Escape") onEditingComplete();
                 }}
-                className="w-full text-sm text-white font-medium bg-[#0d0d0d] px-2 py-1 rounded outline-none border border-blue-500 text-center mb-2"
+                                  className="w-full text-[18px] text-white font-medium bg-black/50 px-2 py-1 rounded outline-none border border-indigo-500"                autoFocus
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <>
+                <p className="text-[18px] font-medium text-white whitespace-nowrap overflow-hidden text-ellipsis">
+                  {displayName}
+                </p>
+                {relativeDate && (
+                  <p className="text-[13px] text-white/60 mt-1 font-normal">
+                    {relativeDate}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Context menu button - always visible when menu is open */}
+          <button
+            aria-label="More options"
+            className={`absolute top-6 right-7 w-6 h-6 rounded-md bg-black/50 backdrop-blur-sm hover:bg-black/70 flex items-center justify-center transition-opacity z-10 ${openContextMenuId === item.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onFileContextMenu(file.id, e);
+            }}
+          >
+            <MoreVertical size={14} className="text-white/70" strokeWidth={1.5} />
+          </button>
+        </div>
+      );
+    }
+
+    // Regular file card - with badge and date meta
+    return (
+      <div
+        ref={ref}
+        data-grid-item-id={item.id}
+        className={`
+          group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
+          ${getItemAnimationClass()} ${getFileDropStyles()}
+          bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)]
+          hover:from-[rgba(99,102,241,0.12)] hover:to-[rgba(99,102,241,0.06)]
+          hover:border hover:border-[rgba(99,102,241,0.15)]
+          hover:-translate-y-[1px]
+          border border-transparent
+        `}
+        onClick={() => handleFileClick(file.id)}
+        title="Нажмите для открытия"
+      >
+        {/* Content - Single unified block */}
+        <div className="h-full px-7 py-6 flex flex-col justify-between">
+          {/* Top: Type badge and menu */}
+          <div className="flex items-start justify-between">
+            <span className={`
+              text-[12px] font-semibold uppercase tracking-wide
+              px-3 py-1 rounded-lg
+              ${typeBadge.bgColor} ${typeBadge.textColor}
+            `}>
+              {typeBadge.label}
+            </span>
+            {/* Context menu button - always visible when menu is open */}
+            <button
+              className={`w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center transition-opacity ${openContextMenuId === item.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onFileContextMenu(file.id, e);
+              }}
+            >
+              <MoreVertical size={14} className="text-white/60" strokeWidth={1.5} />
+            </button>
+          </div>
+          
+          {/* Bottom: Name and Date */}
+          <div className="min-w-0">
+            {editingFileId === file.id ? (
+              <input
+                type="text"
+                value={file.name}
+                onChange={(e) => onFileNameChange(file.id, e.target.value)}
+                onBlur={onEditingComplete}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === "Escape") onEditingComplete();
+                }}
+                className="w-full text-[18px] text-white font-medium bg-black/30 px-2 py-1 rounded outline-none border border-indigo-500"
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
-              <p className="text-sm text-gray-200 font-medium text-center line-clamp-2 mb-2">{file.name}</p>
+              <>
+                <p className="text-[18px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis">
+                  {displayName}
+                </p>
+                {relativeDate && (
+                  <p className="text-[13px] text-[rgba(255,255,255,0.60)] mt-1 font-normal">
+                    {relativeDate}
+                  </p>
+                )}
+              </>
             )}
-            <p className="text-xs text-gray-400">{formattedDate}</p>
           </div>
-        )}
-
-        <button
-          className="absolute top-2 right-2 w-8 h-8 rounded-lg bg-black/50 backdrop-blur-sm hover:bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            onFileContextMenu(file.id, e);
-          }}
-        >
-          <MoreVertical size={16} className="text-white" />
-        </button>
+        </div>
       </div>
     );
   }
@@ -450,14 +817,14 @@ export function FolderContentView({
   onCreateFile,
   onDeleteFile,
   onUpdateFile,
-  isLoadingFiles = false,
 }: FolderContentViewProps) {
   const [title, setTitle] = useState(folder.name);
   const [emoji, setEmoji] = useState(folder.emoji || "");
-  const [description, setDescription] = useState(folder.description || "");
+  const [aiPrompt, setAiPrompt] = useState(folder.prompt || "");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [gridItems, setGridItems] = useState<GridItem[]>([]);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   
@@ -465,12 +832,31 @@ export function FolderContentView({
   const [editFolderModal, setEditFolderModal] = useState<{ isOpen: boolean; folder: Folder | null; }>({ isOpen: false, folder: null });
   const [fileContextMenu, setFileContextMenu] = useState<{ isOpen: boolean; fileId: string; position: { x: number; y: number }; }>({ isOpen: false, fileId: "", position: { x: 0, y: 0 } });
   const [folderContextMenu, setFolderContextMenu] = useState<{ isOpen: boolean; folderId: string; position: { x: number; y: number }; }>({ isOpen: false, folderId: "", position: { x: 0, y: 0 } });
+
+  // Refs for state management without re-renders
   const orderRef = useRef<string[]>([]);
   const updateRef = useRef(onUpdateFolder);
   const hasOrderChangedRef = useRef(false);
+
+  // Keep fresh update function
   useEffect(() => {
     updateRef.current = onUpdateFolder;
   }, [onUpdateFolder]);
+
+  // Global dragend cleanup to ensure pointer events are restored
+  useEffect(() => {
+    const handleDragEnd = () => {
+      // Ensure cursor is restored after drag
+      document.body.style.cursor = '';
+      // Remove any lingering drag-related styles
+      document.body.classList.remove('dragging');
+    };
+
+    document.addEventListener('dragend', handleDragEnd);
+    return () => document.removeEventListener('dragend', handleDragEnd);
+  }, []);
+
+  // Silently update order ref on grid changes
   useEffect(() => {
     const newOrder = gridItems.map((item) => item.id);
     const hasChanged = JSON.stringify(newOrder) !== JSON.stringify(orderRef.current);
@@ -479,23 +865,33 @@ export function FolderContentView({
       hasOrderChangedRef.current = true;
     }
   }, [gridItems]);
+
+  // Sync metadata (if changed externally)
   useEffect(() => {
     setTitle(folder.name);
     setEmoji(folder.emoji || "");
-    setDescription(folder.description || "");
-  }, [folder.name, folder.emoji, folder.description]);
+    setAiPrompt(folder.prompt || "");
+  }, [folder.name, folder.emoji, folder.prompt]);
+
+  // Rebuild grid only on folder change
   useEffect(() => {
     const folderFiles = files.filter((f) => f.folderId === folder.id);
     const items: GridItem[] = [];
     let order = 0;
+
+    // Add subfolders first
     if (folder.subfolders) {
       folder.subfolders.forEach((subfolder) => {
         items.push({ id: subfolder.id, type: "folder", data: subfolder, order: order++ });
       });
     }
+
+    // Add files
     folderFiles.forEach((file) => {
       items.push({ id: file.id, type: "file", data: file, order: order++ });
     });
+
+    // Apply custom order if exists
     if (folder.customOrder && folder.customOrder.length > 0) {
       const orderedItems: GridItem[] = [];
       const itemsMap = new Map(items.map((item) => [item.id, item]));
@@ -507,6 +903,8 @@ export function FolderContentView({
           itemsMap.delete(id);
         }
       });
+      
+      // Add remaining items (new files/folders not in customOrder)
       itemsMap.forEach((item) => orderedItems.push(item));
       setGridItems(orderedItems);
     } else {
@@ -516,14 +914,12 @@ export function FolderContentView({
 
   const handleFileContextMenu = (fileId: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    const rect = event.currentTarget.getBoundingClientRect();
-    setFileContextMenu({ isOpen: true, fileId, position: { x: rect.right - 180, y: rect.bottom + 5 } });
+    setFileContextMenu({ isOpen: true, fileId, position: { x: event.clientX + 4, y: event.clientY + 4 } });
   };
 
   const handleFolderContextMenu = (folderId: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    const rect = event.currentTarget.getBoundingClientRect();
-    setFolderContextMenu({ isOpen: true, folderId, position: { x: rect.right - 180, y: rect.bottom + 5 } });
+    setFolderContextMenu({ isOpen: true, folderId, position: { x: event.clientX + 4, y: event.clientY + 4 } });
   };
 
   const handleEditFile = () => {
@@ -532,9 +928,9 @@ export function FolderContentView({
     setFileContextMenu({ ...fileContextMenu, isOpen: false });
   };
 
-  const handleSaveFileEdit = (name: string, description: string) => {
+  const handleSaveFileEdit = (name: string, prompt: string) => {
     if (!editFileModal.file) return;
-    onUpdateFile(editFileModal.file.id, { name, description });
+    onUpdateFile(editFileModal.file.id, { name, prompt });
     setEditFileModal({ isOpen: false, file: null });
   };
 
@@ -545,16 +941,45 @@ export function FolderContentView({
     setFileContextMenu({ ...fileContextMenu, isOpen: false });
   };
 
+  const handleDownloadFile = () => {
+    const file = files.find((f) => f.id === fileContextMenu.fileId);
+    if (!file) return;
+
+    if (file.type === "photo" && file.contentUrl) {
+      // Download photo
+      const link = document.createElement("a");
+      link.href = file.contentUrl;
+      link.download = file.name;
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (file.content) {
+      // Download text file
+      const blob = new Blob([file.content], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    setFileContextMenu({ ...fileContextMenu, isOpen: false });
+  };
+
   const handleEditFolder = () => {
     const targetFolder = folder.subfolders?.find((f) => f.id === folderContextMenu.folderId);
     if (targetFolder) setEditFolderModal({ isOpen: true, folder: targetFolder });
     setFolderContextMenu({ ...folderContextMenu, isOpen: false });
   };
 
-  const handleSaveFolderEdit = (name: string, emoji: string, description: string) => {
+  const handleSaveFolderEdit = (name: string, emoji: string, prompt: string) => {
     if (!editFolderModal.folder) return;
     const updatedSubfolders = folder.subfolders?.map((f) =>
-      f.id === editFolderModal.folder!.id ? { ...f, name, emoji, description } : f
+      f.id === editFolderModal.folder!.id ? { ...f, name, emoji, prompt } : f
     );
     onUpdateFolder({ subfolders: updatedSubfolders });
     setEditFolderModal({ isOpen: false, folder: null });
@@ -564,6 +989,8 @@ export function FolderContentView({
     if (confirm("Вы уверены, что хотите удалить эту папку и все её содержимое?")) {
       const updatedSubfolders = folder.subfolders?.filter((f) => f.id !== folderContextMenu.folderId);
       onUpdateFolder({ subfolders: updatedSubfolders });
+      
+      // Also delete all files in this subfolder
       const filesToDelete = files.filter((f) => f.folderId === folderContextMenu.folderId);
       filesToDelete.forEach((file) => onDeleteFile(file.id));
     }
@@ -577,24 +1004,27 @@ export function FolderContentView({
     setIsCreateFileModalOpen(true);
   };
 
-  const handleCreateFileFromModal = (name: string, description: string) => {
+  const handleCreateFileFromModal = (name: string, prompt: string) => {
     const newFile: FileItem = {
       id: Date.now().toString(),
       name,
       type: "text",
       folderId: folder.id,
       content: "",
-      description: description || undefined,
+      prompt: prompt || undefined,
       createdAt: new Date().toISOString(),
     };
     onCreateFile(newFile);
   };
+
+  // Handle dropped files from OS file explorer
   const handleDroppedFiles = useCallback((files: File[]) => {
     files.forEach((file, index) => {
       const isImage = file.type.startsWith("image/");
       const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
       
       if (isImage) {
+        // Create object URL for image preview
         const contentUrl = URL.createObjectURL(file);
         const newFile: FileItem = {
           id: `${Date.now()}-${index}`,
@@ -602,23 +1032,23 @@ export function FolderContentView({
           type: "photo",
           folderId: folder.id,
           contentUrl,
-          contentType: file.type,
           createdAt: new Date().toISOString(),
         };
-        onCreateFile(newFile, false);
+        onCreateFile(newFile, false); // Don't open after drop
       } else if (isPdf) {
-        const contentUrl = URL.createObjectURL(file);
+        // Create object URL for PDF viewing
+        const pdfUrl = URL.createObjectURL(file);
         const newFile: FileItem = {
           id: `${Date.now()}-${index}`,
           name: file.name,
           type: "pdf",
           folderId: folder.id,
-          contentUrl,
-          contentType: "application/pdf",
+          pdfUrl,
           createdAt: new Date().toISOString(),
         };
-        onCreateFile(newFile, false);
+        onCreateFile(newFile, false); // Don't open after drop
       } else {
+        // For text files, try to read content
         const reader = new FileReader();
         reader.onload = (e) => {
           const content = e.target?.result as string || "";
@@ -628,34 +1058,33 @@ export function FolderContentView({
             type: "text",
             folderId: folder.id,
             content,
-            contentType: file.type || "text/plain",
             createdAt: new Date().toISOString(),
           };
-          onCreateFile(newFile, false);
+          onCreateFile(newFile, false); // Don't open after drop
         };
         reader.onerror = () => {
+          // If reading fails, create empty text file
           const newFile: FileItem = {
             id: `${Date.now()}-${index}`,
             name: file.name,
             type: "text",
             folderId: folder.id,
             content: "",
-            contentType: "text/plain",
             createdAt: new Date().toISOString(),
           };
-          onCreateFile(newFile, false);
+          onCreateFile(newFile, false); // Don't open after drop
         };
         reader.readAsText(file);
       }
     });
   }, [folder.id, onCreateFile]);
 
-  const handleCreateFolderFromModal = (name: string, emoji: string, description: string) => {
+  const handleCreateFolderFromModal = (name: string, emoji: string, prompt: string) => {
     const newFolder: Folder = {
       id: Date.now().toString(),
       name,
       emoji,
-      description,
+      prompt,
     };
     onUpdateFolder({
       subfolders: [...(folder.subfolders || []), newFolder]
@@ -670,6 +1099,8 @@ export function FolderContentView({
   const gridRef = useRef<HTMLDivElement>(null);
   const prevRectsRef = useRef<Map<string, DOMRect>>(new Map());
   const isAnimatingRef = useRef(false);
+
+  // Capture positions of all grid children before a state update
   const captureGridPositions = useCallback(() => {
     if (!gridRef.current) return;
     const rects = new Map<string, DOMRect>();
@@ -679,6 +1110,8 @@ export function FolderContentView({
     });
     prevRectsRef.current = rects;
   }, []);
+
+  // After DOM update, animate elements from old position to new position
   useLayoutEffect(() => {
     if (!gridRef.current || prevRectsRef.current.size === 0 || isAnimatingRef.current) return;
     isAnimatingRef.current = true;
@@ -707,16 +1140,25 @@ export function FolderContentView({
       isAnimatingRef.current = false;
       return;
     }
+
+    // Step 1 (Invert): instantly move elements to their old positions
     animations.forEach(({ el, dx, dy }) => {
       el.style.transition = 'none';
       el.style.transform = `translate(${dx}px, ${dy}px)`;
       el.style.willChange = 'transform';
     });
+
+    // Force a reflow so the browser registers the "old" position
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     gridRef.current.offsetHeight;
+
+    // Step 2 (Play): animate to the new (natural) position
     animations.forEach(({ el }) => {
       el.style.transition = 'transform 250ms cubic-bezier(0.2, 0, 0.2, 1)';
       el.style.transform = '';
     });
+
+    // Cleanup after animation finishes
     const timeout = setTimeout(() => {
       animations.forEach(({ el }) => {
         el.style.transition = '';
@@ -733,6 +1175,8 @@ export function FolderContentView({
       isAnimatingRef.current = false;
     };
   }, [gridItems]);
+
+  // Wrapper: capture positions, then update state
   const moveGridItemWithFlip = useCallback((dragIndex: number, hoverIndex: number) => {
     captureGridPositions();
     setGridItems((prev) => {
@@ -744,6 +1188,7 @@ export function FolderContentView({
   }, [captureGridPositions]);
 
   const handleDragEnd = () => {
+    // Save custom order only after drag operation
     if (hasOrderChangedRef.current && orderRef.current.length > 0) {
       onUpdateFolder({ customOrder: orderRef.current });
       hasOrderChangedRef.current = false;
@@ -762,13 +1207,16 @@ export function FolderContentView({
     if (title !== folder.name) onUpdateFolder({ name: title });
   };
 
-  const handleDescriptionBlur = () => {
-    if (description !== folder.description) onUpdateFolder({ description });
+  const handlePromptBlur = () => {
+    if (aiPrompt !== folder.prompt) onUpdateFolder({ prompt: aiPrompt });
   };
 
   const folderFiles = files.filter((f) => f.folderId === folder.id);
   const subfolderCount = folder.subfolders?.length || 0;
-  const fileCount = folderFiles.length;
+  const fileCount = folderFiles.filter(f => f.type !== "photo").length;
+  const photoCount = folderFiles.filter(f => f.type === "photo").length;
+
+  // Drop zone for files from OS
   const [{ isFileOver }, fileDropRef] = useDrop({
     accept: [NativeTypes.FILE],
     drop: (item: { files: File[] }) => {
@@ -781,12 +1229,37 @@ export function FolderContentView({
     }),
   });
 
+  // Handler for files dragged from chat
+  const handleChatFileDrop = (e: React.DragEvent) => {
+    const jsonData = e.dataTransfer.getData('application/json');
+    if (jsonData) {
+      try {
+        const chatFile = JSON.parse(jsonData);
+        if (chatFile.type === 'chat-file') {
+          console.log('Dropped chat file:', chatFile);
+          // TODO: Handle chat file drop - move file to this folder
+          // For now just show a toast
+        }
+      } catch {
+        // Not a chat file, ignore
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    // Allow drop for chat files
+    if (e.dataTransfer.types.includes('application/json')) {
+      e.preventDefault();
+    }
+  };
+
   return (
     <div 
       ref={fileDropRef}
+      onDragOver={handleDragOver}
+      onDrop={handleChatFileDrop}
       className={`h-full flex flex-col bg-[#121212] transition-colors ${
-        isFileOver ? "bg-blue-500/5" : ""
-      }`}
+                  isFileOver ? "bg-indigo-500/5" : ""      }`}
     >
       {/* Header Section */}
       <div className="border-b border-white/10 px-8 py-6">
@@ -841,7 +1314,7 @@ export function FolderContentView({
               onBlur={handleTitleBlur}
               onKeyDown={(e) => { if (e.key === "Enter") handleTitleBlur(); }}
               maxLength={50}
-              className="text-3xl font-semibold bg-transparent text-white border-b-2 border-blue-500 outline-none"
+              className="text-3xl font-semibold bg-transparent text-white border-b-2 border-indigo-500 outline-none"
               autoFocus
             />
           ) : (
@@ -854,41 +1327,68 @@ export function FolderContentView({
                 {title}
               </h1>
               <p className="text-sm text-gray-400 mt-1">
-                {subfolderCount > 0 && `${subfolderCount} ${subfolderCount === 1 ? "папка" : "папок"}`}
-                {subfolderCount > 0 && fileCount > 0 && " • "}
-                {fileCount > 0 && `${fileCount} ${fileCount === 1 ? "файл" : "файлов"}`}
+                {formatFolderStatsHeader(subfolderCount, fileCount, photoCount)}
               </p>
             </div>
           )}
 
           <div className="ml-auto flex items-center gap-2">
+            {gridItems.length > 0 && (
+              <>
+                <button
+                  onClick={() => setIsCreateFolderModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
+                  title="Создать папку"
+                >
+                  <FolderIcon size={16} />
+                  Создать папку
+                </button>
+                <button
+                  onClick={handleCreateFile}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg transition-colors text-sm border border-indigo-500/20"
+                  title="Создать файл"
+                >
+                  <Plus size={16} />
+                  Создать файл
+                </button>
+              </>
+            )}
             <button
-              onClick={() => setIsCreateFolderModalOpen(true)}
+              onClick={() => fileInputRef.current?.click()}
               className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
-              title="Создать папку"
+              title="Прикрепить файл"
             >
-              <FolderIcon size={16} />
-              Создать папку
-            </button>
-            <button
-              onClick={handleCreateFile}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
-              title="Создать файл"
-            >
-              <Plus size={16} />
-              Создать файл
+              <Paperclip size={16} />
+              Прикрепить файл
             </button>
           </div>
         </div>
 
-        {/* Description Field */}
+        {/* Hidden file input for attaching files */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*,.pdf,.txt,.md,.json,.js,.ts,.tsx,.jsx,.html,.css"
+          className="hidden"
+          onChange={(e) => {
+            const files = Array.from(e.target.files || []);
+            if (files.length > 0) {
+              handleDroppedFiles(files);
+            }
+            // Reset input so the same file can be selected again
+            e.target.value = "";
+          }}
+        />
+
+        {/* AI Prompt Field */}
         <div>
           <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            onBlur={handleDescriptionBlur}
-            placeholder="Описание папки: что должно попадать в эту папку..."
-            className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/20 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-purple-500/50 transition-colors"
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
+            onBlur={handlePromptBlur}
+            placeholder="Инструкция для ИИ: что должно попадать в эту папку..."
+            className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-indigo-500/50 transition-colors"
             rows={2}
           />
         </div>
@@ -898,17 +1398,18 @@ export function FolderContentView({
       <div className="flex-1 overflow-y-auto px-8 py-6 relative">
         {/* Drop overlay when dragging files */}
         {isFileOver && gridItems.length > 0 && (
-          <div className="absolute inset-0 bg-blue-500/5 border-2 border-dashed border-blue-500/50 rounded-xl z-10 flex items-center justify-center pointer-events-none">
-            <div className="bg-[#1a1a1a] px-6 py-4 rounded-xl border border-blue-500/30">
+          <div className="absolute inset-0 bg-indigo-500/5 border-2 border-dashed border-indigo-500/50 rounded-xl z-10 flex items-center justify-center pointer-events-none">
+            <div className="bg-[#141414] px-6 py-4 rounded-xl border border-indigo-500/30">
               <div className="flex items-center gap-3">
-                <Upload size={24} className="text-blue-400" />
-                <span className="text-blue-300 text-lg">Отпустите файлы для загрузки</span>
+                <Upload size={24} className="text-indigo-400" />
+                <span className="text-indigo-300 text-lg">Отпустите файлы для загрузки</span>
               </div>
             </div>
           </div>
         )}
+        {/* 自定义拖拽预览层 */}
         <CustomDragLayer />
-        <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div ref={gridRef} className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
           {gridItems.map((item, index) => (
             <DraggableGridItem
               key={item.id}
@@ -941,28 +1442,25 @@ export function FolderContentView({
               editingFileId={editingFileId}
               onFileNameChange={handleFileNameChange}
               onEditingComplete={() => setEditingFileId(null)}
+              allFiles={files}
+              openContextMenuId={
+                fileContextMenu.isOpen ? fileContextMenu.fileId :
+                folderContextMenu.isOpen ? folderContextMenu.folderId : null
+              }
             />
           ))}
         </div>
 
-        {/* Loading State */}
-        {isLoadingFiles && gridItems.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <Loader2 size={40} className="text-blue-400 animate-spin mb-4" />
-            <p className="text-gray-400 text-lg">Загрузка файлов...</p>
-          </div>
-        )}
-
         {/* Empty State */}
-        {!isLoadingFiles && gridItems.length === 0 && (
+        {gridItems.length === 0 && (
           <div className={`flex flex-col items-center justify-center h-full text-center ${
-            isFileOver ? "ring-2 ring-blue-500/50 ring-inset rounded-xl" : ""
+            isFileOver ? "ring-2 ring-indigo-500/50 ring-inset rounded-xl" : ""
           }`}>
             <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-4 transition-colors ${
-              isFileOver ? "bg-blue-500/10" : "bg-white/5"
+              isFileOver ? "bg-indigo-500/10" : "bg-white/5"
             }`}>
               {isFileOver ? (
-                <Upload size={40} className="text-blue-400" />
+                <Upload size={40} className="text-indigo-400" />
               ) : (
                 <span className="text-5xl">{emoji}</span>
               )}
@@ -984,10 +1482,10 @@ export function FolderContentView({
                 </button>
                 <button
                   onClick={handleCreateFile}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg transition-colors text-sm border border-indigo-500/20"
                 >
                   <Plus size={16} />
-                  Создать первый файл
+                  Создать файл
                 </button>
               </div>
             )}
@@ -1000,7 +1498,9 @@ export function FolderContentView({
         onClose={() => setFileContextMenu({ ...fileContextMenu, isOpen: false })}
         onEdit={handleEditFile}
         onDelete={handleDeleteFile}
+        onDownload={handleDownloadFile}
         position={fileContextMenu.position}
+        isPhoto={files.find(f => f.id === fileContextMenu.fileId)?.type === "photo"}
       />
       <FolderContextMenu
         isOpen={folderContextMenu.isOpen}
@@ -1013,7 +1513,7 @@ export function FolderContentView({
         isOpen={editFileModal.isOpen}
         onClose={() => setEditFileModal({ isOpen: false, file: null })}
         fileName={editFileModal.file?.name || ""}
-        currentDescription={editFileModal.file?.description || ""}
+        currentPrompt={editFileModal.file?.prompt || ""}
         onSave={handleSaveFileEdit}
       />
       <EditFolderModal
@@ -1021,7 +1521,7 @@ export function FolderContentView({
         onClose={() => setEditFolderModal({ isOpen: false, folder: null })}
         folderName={editFolderModal.folder?.name || ""}
         folderEmoji={editFolderModal.folder?.emoji || ""}
-        currentDescription={editFolderModal.folder?.description || ""}
+        currentPrompt={editFolderModal.folder?.prompt || ""}
         onSave={handleSaveFolderEdit}
       />
       <CreateFileModal

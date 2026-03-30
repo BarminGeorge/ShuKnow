@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Undo2, Paperclip, Loader2, Check, AlertCircle } from "lucide-react";
+import { Undo2, Sparkles, Loader2, CheckCircle2, XCircle, FolderOpen, FileText, Image as ImageIcon, GripVertical, Copy, RefreshCw, Check } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { AttachmentDto } from "../../api/chatService";
-import { actionsService } from "../../api";
 
 export interface Attachment {
   /** Local ID for React keys (generated client-side) */
@@ -49,166 +50,343 @@ export function applyServerIds(
   }));
 }
 
-/** Message role matching backend enum */
-export type MessageRole = "User" | "Ai";
+export interface FileResult {
+  name: string;
+  folder: string;
+  folderId?: string;
+  action: "created" | "sorted";
+}
 
 export interface Message {
   id: string;
-  /** Role: User or Ai (matches backend ChatMessageDto) */
-  role: MessageRole;
+  type: "user" | "agent";
   content: string;
+  timestamp: Date;
+  status?: "sending" | "processing" | "success" | "error";
+  cancelled?: boolean;
   attachments?: Attachment[];
-  /** Action ID for undo (from AI completion via OnProcessingCompleted) */
-  actionId?: string;
-  /** Summary of what the AI did (for display) */
-  actionSummary?: string;
-  /** Whether this action can be rolled back */
-  canRollback?: boolean;
-}
-
-/** Legacy type alias for backward compatibility */
-export type LegacyMessageType = "user" | "system";
-
-/** Convert legacy type to new role */
-export function legacyTypeToRole(type: LegacyMessageType): MessageRole {
-  return type === "user" ? "User" : "Ai";
-}
-
-/** Convert role to legacy type for existing code */
-export function roleToLegacyType(role: MessageRole): LegacyMessageType {
-  return role === "User" ? "user" : "system";
+  replyTo?: string;
+  result?: FileResult[];
+  errorMessage?: string;
 }
 
 interface ChatMessagesProps {
   messages: Message[];
-  /** Called when an action is successfully rolled back */
-  onActionRolledBack?: (actionId: string) => void;
+  onOpenFolder?: (folderId: string) => void;
+  onUndo?: (messageId: string) => void;
+  onRetry?: (messageId: string) => void;
+  onSelectFolder?: (messageId: string) => void;
+  onResend?: (messageId: string) => void;
 }
 
-export function ChatMessages({ messages, onActionRolledBack }: ChatMessagesProps) {
-  const [rollingBackActionId, setRollingBackActionId] = useState<string | null>(null);
-  const [rollbackError, setRollbackError] = useState<string | null>(null);
-  const [rolledBackActions, setRolledBackActions] = useState<Set<string>>(new Set());
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
-  const handleUndo = async (actionId: string) => {
-    if (!actionId || rollingBackActionId) return;
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+}
+
+function isImageFile(filename: string): boolean {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '');
+}
+
+function getFileIcon(filename: string) {
+  if (isImageFile(filename)) {
+    return <ImageIcon size={14} className="text-muted-foreground" />;
+  }
+  return <FileText size={14} className="text-muted-foreground" />;
+}
+
+// Draggable attachment component - horizontal strip style
+function DraggableAttachment({ attachment }: { attachment: Attachment }) {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragStart = (e: React.DragEvent) => {
+    setIsDragging(true);
     
-    setRollingBackActionId(actionId);
-    setRollbackError(null);
+    e.dataTransfer.setData('text/plain', attachment.name);
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      type: 'chat-file',
+      id: attachment.localId,
+      name: attachment.name,
+      fileType: attachment.contentType,
+      url: attachment.url,
+      file: attachment.file ? {
+        name: attachment.file.name,
+        size: attachment.file.size,
+        type: attachment.file.type,
+      } : null,
+    }));
     
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+  };
+
+  return (
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      className={`flex-shrink-0 w-[220px] flex items-center gap-3 px-3 py-2.5 rounded-xl bg-secondary cursor-grab active:cursor-grabbing transition-all hover:bg-secondary/80 ${isDragging ? 'opacity-50' : ''}`}
+    >
+      <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+        {isImageFile(attachment.name) && attachment.url ? (
+          <img src={attachment.url} alt={attachment.name} className="w-full h-full object-cover" />
+        ) : (
+          <FileText size={20} className="text-muted-foreground" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-foreground truncate">{attachment.name}</p>
+        {attachment.sizeBytes && (
+          <p className="text-xs text-muted-foreground">{formatFileSize(attachment.sizeBytes)}</p>
+        )}
+      </div>
+      <GripVertical size={14} className="text-muted-foreground flex-shrink-0 opacity-40" />
+    </div>
+  );
+}
+
+// User message component with hover actions
+function UserMessage({ 
+  message, 
+  onResend 
+}: { 
+  message: Message;
+  onResend?: (messageId: string) => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
     try {
-      const result = await actionsService.rollbackAction(actionId);
-      
-      if (result.isFullyReverted) {
-        setRolledBackActions((prev) => new Set(prev).add(actionId));
-        onActionRolledBack?.(actionId);
-      } else {
-        setRollbackError("Частичный откат: некоторые изменения не удалось отменить");
-      }
-    } catch (error) {
-      console.error("Rollback failed:", error);
-      setRollbackError("Не удалось отменить действие");
-    } finally {
-      setRollingBackActionId(null);
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
     }
   };
 
+  return (
+    <div className="group relative inline-block max-w-full overflow-hidden">
+      {/* Attachments - horizontal scrollable strip */}
+      {message.attachments && message.attachments.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-2 max-w-full [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          {message.attachments.map((attachment) => (
+            <DraggableAttachment key={attachment.localId} attachment={attachment} />
+          ))}
+        </div>
+      )}
+      
+      {/* Message text with Markdown rendering */}
+      {message.content && (
+        <div className="text-base text-foreground break-words leading-7 prose prose-invert prose-base max-w-full overflow-wrap-anywhere">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {message.content}
+          </ReactMarkdown>
+        </div>
+      )}
+      
+      {/* Action buttons - bottom right, invisible by default, reserved space */}
+      <div className="flex justify-end gap-2 min-h-[28px] mt-1">
+        <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          {message.content && (
+            <button
+              onClick={handleCopy}
+              className="p-1.5 rounded-lg bg-secondary hover:bg-indigo-500/10 text-muted-foreground hover:text-indigo-400 transition-colors"
+              title="Копировать"
+            >
+              {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
+            </button>
+          )}
+          {onResend && (
+            <button
+              onClick={() => onResend(message.id)}
+              className="p-1.5 rounded-lg bg-secondary hover:bg-indigo-500/10 text-muted-foreground hover:text-indigo-400 transition-colors"
+              title="Отправить повторно"
+            >
+              <RefreshCw size={16} />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelectFolder, onResend }: ChatMessagesProps) {
   if (messages.length === 0) return null;
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-6">
-      <div className="max-w-3xl mx-auto space-y-4 pb-4">
-        {messages.map((message) => {
-          const isUser = message.role === "User";
-          const hasAction = message.actionId && message.canRollback !== false;
-          const isRolledBack = message.actionId && rolledBackActions.has(message.actionId);
-          const isRollingBack = message.actionId === rollingBackActionId;
-          
-          return (
-            <div
-              key={message.id}
-              className={`flex ${isUser ? "justify-end" : "justify-start"}`}
-            >
-              {isUser ? (
-                <div className="max-w-[70%]">
-                  {/* Attachments displayed above message */}
-                  {message.attachments && message.attachments.length > 0 && (
-                    <div className="flex flex-col items-end gap-1 mb-2">
-                      {message.attachments.map((attachment) => (
-                        <div
-                          key={attachment.localId}
-                          className="flex items-center gap-2 bg-[#D1D5DB] rounded-lg px-3 py-1.5 max-w-full"
-                        >
-                          <Paperclip size={14} className="text-gray-600 flex-shrink-0" />
-                          <span className="text-sm text-gray-700 truncate">{attachment.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="bg-[#E5E7EB] rounded-xl px-4 py-3">
-                    <p className="text-sm text-gray-900 break-words whitespace-pre-wrap">{message.content}</p>
-                  </div>
+    <div className="flex-1 overflow-y-auto bg-background">
+      <div className="max-w-7xl mx-auto px-9">
+        {messages.map((message, index) => (
+          <div
+            key={message.id}
+            className={`px-4 py-6 ${message.type === "agent" ? "bg-muted/30" : ""} ${index === 0 ? "pt-8" : ""}`}
+          >
+            <div className={`flex gap-4 ${message.type === "user" ? "justify-end" : ""}`}>
+              {message.type === "user" ? (
+                // User message - with markdown and hover actions
+                <div className="max-w-[85%]">
+                  <UserMessage message={message} onResend={onResend} />
                 </div>
               ) : (
-                <div className="max-w-[70%]">
-                  <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-3">
-                    <p className="text-sm text-gray-200 break-words whitespace-pre-wrap">{message.content}</p>
-                    
-                    {/* Action summary if available */}
-                    {message.actionSummary && (
-                      <p className="text-xs text-gray-400 mt-2 italic">{message.actionSummary}</p>
+                // Agent message - ChatGPT style with avatar
+                <>
+                  {/* Agent avatar */}
+                  <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center flex-shrink-0">
+                    <Sparkles size={16} className="text-white" />
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    {/* Processing state */}
+                    {message.status === "processing" && (
+                      <div className="flex items-center gap-2 text-indigo-400">
+                        <Loader2 size={16} className="animate-spin" />
+                        <span className="text-sm">Обрабатываю...</span>
+                      </div>
                     )}
                     
-                    {/* Undo button - only show for messages with actionId */}
-                    {hasAction && !isRolledBack && (
-                      <button
-                        onClick={() => handleUndo(message.actionId!)}
-                        disabled={isRollingBack}
-                        className="flex items-center gap-2 px-3 py-1.5 mt-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-blue-400 transition-all text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isRollingBack ? (
-                          <>
-                            <Loader2 size={14} className="animate-spin" />
-                            <span>Отмена...</span>
-                          </>
+                    {/* Success state */}
+                    {message.status === "success" && message.result && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 size={18} className="text-indigo-400" />
+                          <span className="text-sm font-medium">Сохранено</span>
+                        </div>
+                        
+                        {/* File results grouped by folder */}
+                        {Object.entries(
+                          message.result.reduce((acc, file) => {
+                            if (!acc[file.folder]) acc[file.folder] = [];
+                            acc[file.folder].push(file);
+                            return acc;
+                          }, {} as Record<string, typeof message.result>)
+                        ).map(([folder, files]) => (
+                          <div key={folder} className="pl-5 border-l-2 border-indigo-500/30">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                              <FolderOpen size={14} />
+                              <span>{folder}</span>
+                            </div>
+                            <div className="space-y-1">
+                              {files.map((file, idx) => (
+                                <div key={idx} className="flex items-center gap-2 text-sm text-foreground">
+                                  {getFileIcon(file.name)}
+                                  <span className="truncate">{file.name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {/* Action buttons or Cancelled state */}
+                        {message.cancelled ? (
+                          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                            <XCircle size={14} />
+                            <span>Отменено</span>
+                          </div>
                         ) : (
-                          <>
+                          <div className="flex gap-2 pt-2">
+                            {message.result[0]?.folderId && onOpenFolder && (
+                              <button 
+                                onClick={() => onOpenFolder(message.result![0].folderId!)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 transition-colors text-sm"
+                              >
+                                <FolderOpen size={14} />
+                                <span>Открыть папку</span>
+                              </button>
+                            )}
+                            {onUndo && (
+                              <button 
+                                onClick={() => onUndo(message.id)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors text-sm"
+                              >
+                                <Undo2 size={14} />
+                                <span>Отменить</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Error state */}
+                    {message.status === "error" && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <XCircle size={18} className="text-rose-500" />
+                          <span className="text-sm text-foreground">{message.errorMessage || "Ошибка обработки"}</span>
+                        </div>
+                        
+                        {/* Show files that failed */}
+                        {message.attachments && message.attachments.length > 0 && (
+                          <div className="space-y-1 pl-5 border-l-2 border-rose-500/30">
+                            {message.attachments.map((file) => (
+                              <div key={file.id} className="flex items-center gap-2 text-sm text-muted-foreground">
+                                {getFileIcon(file.name)}
+                                <span className="truncate">{file.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Action buttons */}
+                        <div className="flex gap-2">
+                          {onSelectFolder && (
+                            <button 
+                              onClick={() => onSelectFolder(message.id)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 transition-colors text-sm"
+                            >
+                              <FolderOpen size={14} />
+                              <span>Выбрать папку</span>
+                            </button>
+                          )}
+                          {onRetry && (
+                            <button 
+                              onClick={() => onRetry(message.id)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-indigo-500/10 text-muted-foreground hover:text-indigo-400 transition-colors text-sm"
+                            >
+                              <Undo2 size={14} />
+                              <span>Повторить</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Default/simple message (no status or legacy) */}
+                    {!message.status && (
+                      <div>
+                        <div className="text-base text-foreground break-all leading-7 prose prose-invert prose-base max-w-none">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                        {onUndo && (
+                          <button 
+                            onClick={() => onUndo(message.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors text-sm mt-3"
+                          >
                             <Undo2 size={14} />
                             <span>Отменить</span>
-                          </>
+                          </button>
                         )}
-                      </button>
-                    )}
-                    
-                    {/* Rolled back indicator */}
-                    {isRolledBack && (
-                      <div className="flex items-center gap-2 mt-3 text-xs text-green-400">
-                        <Check size={14} />
-                        <span>Отменено</span>
                       </div>
                     )}
                   </div>
-                </div>
+                </>
               )}
             </div>
-          );
-        })}
-        
-        {/* Rollback error toast */}
-        {rollbackError && (
-          <div className="flex justify-center">
-            <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
-              <AlertCircle size={16} />
-              <span>{rollbackError}</span>
-              <button
-                onClick={() => setRollbackError(null)}
-                className="ml-2 hover:text-red-300"
-              >
-                ✕
-              </button>
-            </div>
           </div>
-        )}
+        ))}
       </div>
     </div>
   );

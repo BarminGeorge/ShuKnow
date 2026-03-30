@@ -53,11 +53,11 @@ export function CreatePhotoModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div className="bg-[#1a1a1a] border border-white/20 rounded-2xl w-full max-w-md mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#141414] border border-white/10 rounded-2xl w-full max-w-md mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10">
-          <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
-            <ImageIcon size={16} className="text-purple-400" />
+          <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+            <ImageIcon size={16} className="text-indigo-400" />
           </div>
           <h2 className="text-lg font-semibold text-white flex-1">Загрузить фото</h2>
           <button
@@ -94,7 +94,7 @@ export function CreatePhotoModal({
                       setPreviewUrl("");
                       if (fileInputRef.current) fileInputRef.current.value = "";
                     }}
-                    className="w-full px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm rounded transition-colors"
+                    className="w-full px-3 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-sm rounded transition-colors"
                   >
                     Удалить фото
                   </button>
@@ -133,7 +133,7 @@ export function CreatePhotoModal({
                 onKeyDown={handleKeyDown}
                 placeholder="Название фото"
                 maxLength={50}
-                className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 outline-none focus:border-blue-500/50 transition-colors pr-14"
+                className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 outline-none focus:border-indigo-500/50 transition-colors pr-14"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">
                 {name.length}/50
@@ -151,7 +151,7 @@ export function CreatePhotoModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Опишите, как ИИ должен работать с этим фото..."
-              className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-blue-500/50 transition-colors"
+              className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-indigo-500/50 transition-colors"
               rows={3}
             />
           </div>
@@ -168,8 +168,7 @@ export function CreatePhotoModal({
           <button
             onClick={handleCreate}
             disabled={!name.trim() || !imageUrl}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm"
-          >
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm"          >
             Загрузить
           </button>
         </div>

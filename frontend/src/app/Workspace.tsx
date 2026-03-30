@@ -79,22 +79,24 @@ function mapApiFileToLocalFile(apiFile: ApiFileItem): FileItem {
   };
 }
 
+// ── Initial data (mock mode only) ──────────────────────────────────────────────────────────────
+
 const MOCK_INITIAL_FOLDERS: Folder[] = [
   {
     id: "1",
     name: "Идеи",
     emoji: "💡",
-    description: "Все идеи, заметки о новых концепциях и креативные мысли",
+    prompt: "Все идеи, заметки о новых концепциях и креативные мысли",
     subfolders: [
-      { id: "1-1", name: "Бизнес",  emoji: "💼", description: "Бизнес-идеи и предложения" },
-      { id: "1-2", name: "Личное",  emoji: "✨", description: "Личные идеи и планы" },
+      { id: "1-1", name: "Бизнес",  emoji: "💼", prompt: "Бизнес-идеи и предложения" },
+      { id: "1-2", name: "Личное",  emoji: "✨", prompt: "Личные идеи и планы" },
     ],
   },
   {
     id: "2",
     name: "Дизайн",
     emoji: "🎨",
-    description: "Визуальные материалы, скриншоты дизайна и референсы",
+    prompt: "Визуальные материалы, скриншоты дизайна и референсы",
     subfolders: [
       { id: "2-1", name: "UI-вдохновение",    emoji: "🖼️" },
       { id: "2-2", name: "Цветовые палитры",  emoji: "🌈" },
@@ -105,19 +107,19 @@ const MOCK_INITIAL_FOLDERS: Folder[] = [
     id: "3",
     name: "Проекты",
     emoji: "🚀",
-    description: "Все файлы, связанные с проектами",
+    prompt: "Все файлы, связанные с проектами",
     subfolders: [
       { id: "3-1", name: "Активные", emoji: "⚡" },
       { id: "3-2", name: "Архив",    emoji: "📦" },
     ],
   },
-  { id: "4", name: "Исследования",   emoji: "📚", description: "Исследовательские материалы и аналитика" },
-  { id: "5", name: "Заметки встреч", emoji: "📋", description: "Записи с встреч, протоколы и заметки" },
+  { id: "4", name: "Исследования",   emoji: "📚", prompt: "Исследовательские материалы и аналитика" },
+  { id: "5", name: "Заметки встреч", emoji: "📋", prompt: "Записи с встреч, протоколы и заметки" },
   {
     id: "6",
     name: "Ресурсы",
     emoji: "🔗",
-    description: "Полезные ресурсы, ссылки и материалы",
+    prompt: "Полезные ресурсы, ссылки и материалы",
     subfolders: [
       { id: "6-1", name: "Статьи", emoji: "📰" },
       { id: "6-2", name: "Видео",  emoji: "🎥" },
@@ -171,12 +173,14 @@ const MOCK_INITIAL_FILES: FileItem[] = [
   },
 ];
 
-type WorkspaceViewMode = "chat" | "folder" | "editor";
+// ── App ───────────────────────────────────────────────────────────────────────
 
-const RANDOM_CHAT_TITLES = [
+type ViewMode = "chat" | "folder" | "editor";
+
+const CHAT_TITLES = [
   "Сохраним что-нибудь?",
   "ShuKnow?",
-  "Пoсохраняемся?",
+  "Посохраняемся?",
   "Что хотите сохранить сегодня?",
   "Опять ты..",
   "Снова что-то нашёл?",
@@ -186,143 +190,132 @@ const RANDOM_CHAT_TITLES = [
 ];
 
 export default function Workspace() {
-  const [viewMode, setViewMode]                   = useState<WorkspaceViewMode>("chat");
+  const [viewMode, setViewMode]                   = useState<ViewMode>("chat");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
-  const sidebarPanelReference = useRef<ImperativePanelHandle>(null);
+  const sidebarRef = useRef<ImperativePanelHandle>(null);
   const [selectedFolderPath, setSelectedFolderPath] = useState<string[] | null>(null);
-  const [selectedFolderId, setSelectedFolderId]   = useState<string | null>(null);
-  const [folders, setFolders]                     = useState<Folder[]>(MOCK_INITIAL_FOLDERS);
-  const [files, setFiles]                         = useState<FileItem[]>(MOCK_INITIAL_FILES);
-  const [folderFilesCache, setFolderFilesCache]   = useState<Map<string, FileItem[]>>(new Map());
+  const [folders, setFolders]                     = useState<Folder[]>(IS_MOCK_MODE_ENABLED ? MOCK_INITIAL_FOLDERS : []);
+  const [files, setFiles]                         = useState<FileItem[]>(IS_MOCK_MODE_ENABLED ? MOCK_INITIAL_FILES : []);
   const [messages, setMessages]                   = useState<Message[]>([]);
-  const [currentChatTitle, setCurrentChatTitle]   = useState<string>(RANDOM_CHAT_TITLES[0]);
-  
-  const [isLoadingFolders, setIsLoadingFolders]   = useState(false);
-  const [isLoadingFiles, setIsLoadingFiles]       = useState(false);
-  const [loadError, setLoadError]                 = useState<string | null>(null);
+  const [currentTitle, setCurrentTitle]           = useState<string>(CHAT_TITLES[0]);
+  const [isLoadingFolders, setIsLoadingFolders]   = useState(!IS_MOCK_MODE_ENABLED);
 
+  // Load folders from API
   useEffect(() => {
-    if (IS_MOCK_MODE_ENABLED) {
-      return;
-    }
+    if (IS_MOCK_MODE_ENABLED) return;
     
-    let mounted = true;
-    
-    async function loadFoldersFromApi() {
-      setIsLoadingFolders(true);
-      setLoadError(null);
-      
+    const loadFolders = async () => {
       try {
-        const apiFolders = await folderService.fetchFolderTree();
-        if (isMounted) {
-          setFolders(apiFolders.map(mapApiFolderToLocalFolder));
-        }
-      } catch (fetchError) {
-        if (isMounted) {
-          setLoadError("Не удалось загрузить папки. Используются локальные данные.");
-        }
+        const apiTree = await folderService.fetchFolderTree();
+        const localFolders = apiTree.map(mapApiFolderToLocalFolder);
+        setFolders(localFolders);
+      } catch (error) {
+        console.error("Failed to load folders:", error);
       } finally {
-        if (isMounted) {
-          setIsLoadingFolders(false);
-        }
+        setIsLoadingFolders(false);
       }
-    }
-    
-    loadFoldersFromApi();
-    
-    return () => {
-      isMounted = false;
     };
+    
+    loadFolders();
   }, []);
 
-  useEffect(() => {
-    if (IS_MOCK_MODE_ENABLED) {
-      return;
-    }
-    
-    if (!selectedFolderId) return;
-    
-    if (folderFilesCache.has(selectedFolderId)) return;
-    
-    let isMounted = true;
-    
-    async function loadFilesFromApi() {
-      setIsLoadingFiles(true);
-      
-      try {
-        const result = await fileService.fetchFolderFilesAsMapped(selectedFolderId!, 1, 100);
-        if (isMounted) {
-          const mappedFiles = result.items.map(mapApiFileToLocalFile);
-          setFolderFilesCache(previousCache => new Map(previousCache).set(selectedFolderId!, mappedFiles));
-          setFiles(previousFiles => {
-            const filesNotInCurrentFolder = previousFiles.filter(file => file.folderId !== selectedFolderId);
-            return [...filesNotInCurrentFolder, ...mappedFiles];
-          });
-        }
-      } catch {
-      } finally {
-        if (isMounted) {
-          setIsLoadingFiles(false);
-        }
-      }
-    }
-    
-    loadFilesFromApi();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedFolderId, folderFilesCache]);
-
+  // Randomize title when entering chat view
   useEffect(() => {
     if (viewMode === "chat") {
-      const randomIndex = Math.floor(Math.random() * RANDOM_CHAT_TITLES.length);
-      setCurrentChatTitle(RANDOM_CHAT_TITLES[randomIndex]);
+      const randomIndex = Math.floor(Math.random() * CHAT_TITLES.length);
+      setCurrentTitle(CHAT_TITLES[randomIndex]);
     }
   }, [viewMode]);
 
   const handleSendMessage = (content: string, attachments?: Attachment[]) => {
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      role: "User",
-      content,
-      attachments,
-    };
-    setMessages((previousMessages) => [...previousMessages, newMessage]);
+    // Don't send if no content and no attachments
+    if (!content.trim() && (!attachments || attachments.length === 0)) {
+      return;
+    }
     
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      type: "user",
+      content: content.trim(), // Store trimmed content (may be empty if only files)
+      attachments,
+      timestamp: new Date(),
+      status: "sending",
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    
+    // Simulate processing -> success/error
+    const agentMessageId = (Date.now() + 1).toString();
+    
+    // Show processing state
     setTimeout(() => {
-      setMessages((previousMessages) => [
-        ...previousMessages,
+      setMessages((prev) => [
+        ...prev,
         {
-          id: (Date.now() + 1).toString(),
-          role: "Ai",
-          content: "✅ Ваш запрос обрабатывается...",
-          actionId: `mock-action-${Date.now()}`,
-          actionSummary: "Создан 1 файл в папке Идеи",
-          canRollback: true,
+          id: agentMessageId,
+          type: "agent",
+          content: "",
+          timestamp: new Date(),
+          status: "processing",
+          attachments,
         },
       ]);
-    }, 1000);
+    }, 500);
+    
+    // Simulate AI response (success or error randomly for demo)
+    setTimeout(() => {
+      setMessages((prev) => 
+        prev.map((msg) => {
+          if (msg.id === agentMessageId) {
+            // Demo: 80% success, 20% error
+            if (Math.random() > 0.2) {
+              return {
+                ...msg,
+                status: "success" as const,
+                timestamp: new Date(),
+                result: attachments?.map((a) => ({
+                  name: a.name,
+                  folder: "📁 Учёба / Матан",
+                  folderId: "demo-folder-id",
+                  action: "sorted" as const,
+                })) || [{ name: "заметка.txt", folder: "📁 Заметки", folderId: "notes-folder", action: "created" as const }],
+              };
+            } else {
+              return {
+                ...msg,
+                status: "error" as const,
+                timestamp: new Date(),
+                errorMessage: "Не удалось определить папку",
+              };
+            }
+          }
+          return msg;
+        })
+      );
+    }, 2000);
   };
 
+  // Tab state (replaces floating windows)
   const [openTabIds, setOpenTabIds]   = useState<string[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
+  // ── Tab management ──────────────────────────────────────────────────────────
+
   const handleOpenTab = (fileId: string) => {
-    setOpenTabIds((previousTabIds) => (previousTabIds.includes(fileId) ? previousTabIds : [...previousTabIds, fileId]));
+    setOpenTabIds((prev) => (prev.includes(fileId) ? prev : [...prev, fileId]));
     setActiveTabId(fileId);
     setViewMode("editor");
   };
 
   const handleCloseTab = (fileId: string) => {
-    setOpenTabIds((previousTabIds) => {
-      const remainingTabIds = previousTabIds.filter((tabId) => tabId !== fileId);
+    setOpenTabIds((prev) => {
+      const next = prev.filter((id) => id !== fileId);
 
+      // If we closed the active tab, pick an adjacent one
       if (activeTabId === fileId) {
-        const closedTabIndex = previousTabIds.indexOf(fileId);
-        const newActiveTabId = remainingTabIds[closedTabIndex] ?? remainingTabIds[closedTabIndex - 1] ?? null;
-        setActiveTabId(newActiveTabId);
-        if (newActiveTabId === null) {
+        const idx = prev.indexOf(fileId);
+        const newActive = next[idx] ?? next[idx - 1] ?? null;
+        setActiveTabId(newActive);
+        if (newActive === null) {
           if (selectedFolderPath) {
             setViewMode("folder");
           } else {
@@ -331,7 +324,7 @@ export default function Workspace() {
         }
       }
 
-      return remainingTabIds;
+      return next;
     });
   };
 
@@ -340,21 +333,24 @@ export default function Workspace() {
     setViewMode("editor");
   };
 
+  // ── File management ─────────────────────────────────────────────────────────
+
   const handleUpdateFileContent = (fileId: string, content: string) => {
-    setFiles((previousFiles) =>
-      previousFiles.map((file) => (file.id === fileId ? { ...file, content } : file))
+    setFiles((prev) =>
+      prev.map((f) => (f.id === fileId ? { ...f, content } : f))
     );
   };
 
-  const handleCreateFile = (file: FileItem, shouldOpenAfterCreate: boolean = true) => {
-    setFiles((previousFiles) => [...previousFiles, file]);
-    if (shouldOpenAfterCreate) {
+  const handleCreateFile = (file: FileItem, openAfterCreate: boolean = true) => {
+    setFiles((prev) => [...prev, file]);
+    if (openAfterCreate) {
+      // Small delay so the file is in state before opening the tab
       setTimeout(() => handleOpenTab(file.id), 50);
     }
   };
 
   const handleDeleteFile = (fileId: string) => {
-    setFiles((previousFiles) => previousFiles.filter((file) => file.id !== fileId));
+    setFiles((prev) => prev.filter((f) => f.id !== fileId));
     handleCloseTab(fileId);
   };
 
@@ -364,43 +360,41 @@ export default function Workspace() {
     );
   };
 
-// ── Folder navigation ───────────────────────────────────────────────────────
+  // ── Folder navigation ───────────────────────────────────────────────────────
 
-  const findFolderByPath = (path: string[]): Folder | null => {
-    let currentFolderList: Folder[] = folders;
-    for (let pathIndex = 0; pathIndex < path.length; pathIndex++) {
-      const folderIndex = parseInt(path[pathIndex]);
-      if (!currentFolderList[folderIndex]) return null;
-      if (pathIndex === path.length - 1) return currentFolderList[folderIndex];
-      if (!currentFolderList[folderIndex].subfolders) return null;
-      currentFolderList = currentFolderList[folderIndex].subfolders!;
+  const getFolderByPath = (path: string[]): Folder | null => {
+    let current: Folder[] = folders;
+    for (let i = 0; i < path.length; i++) {
+      const idx = parseInt(path[i]);
+      if (!current[idx]) return null;
+      if (i === path.length - 1) return current[idx];
+      if (!current[idx].subfolders) return null;
+      current = current[idx].subfolders!;
     }
     return null;
   };
 
-  const buildBreadcrumbNames = (path: string[]): string[] => {
-    const breadcrumbNames: string[] = [];
-    let currentFolderList: Folder[] = folders;
-    for (let pathIndex = 0; pathIndex < path.length; pathIndex++) {
-      const folderIndex = parseInt(path[pathIndex]);
-      if (currentFolderList[folderIndex]) {
-        breadcrumbNames.push(currentFolderList[folderIndex].name);
-        if (currentFolderList[folderIndex].subfolders) currentFolderList = currentFolderList[folderIndex].subfolders!;
+  const buildBreadcrumbs = (path: string[]): string[] => {
+    const crumbs: string[] = [];
+    let current: Folder[] = folders;
+    for (let i = 0; i < path.length; i++) {
+      const idx = parseInt(path[i]);
+      if (current[idx]) {
+        crumbs.push(current[idx].name);
+        if (current[idx].subfolders) current = current[idx].subfolders!;
       }
     }
-    return breadcrumbNames;
+    return crumbs;
   };
 
-  const handleFolderClick = (folder: Folder, path: string[]) => {
+  const handleFolderClick = (_folder: Folder, path: string[]) => {
     setSelectedFolderPath(path);
-    setSelectedFolderId(folder.id);
     setViewMode("folder");
   };
 
   const handleGoToChat = () => {
     setViewMode("chat");
     setSelectedFolderPath(null);
-    setSelectedFolderId(null);
   };
 
   const handleNavigateBack = () => {
@@ -412,68 +406,65 @@ export default function Workspace() {
       }
     } else if (viewMode === "folder") {
       if (selectedFolderPath && selectedFolderPath.length > 1) {
-        const newPath = selectedFolderPath.slice(0, -1);
-        setSelectedFolderPath(newPath);
-        const parentFolder = findFolderByPath(newPath);
-        setSelectedFolderId(parentFolder?.id || null);
+        setSelectedFolderPath((prev) => prev ? prev.slice(0, -1) : null);
       } else {
         setViewMode("chat");
         setSelectedFolderPath(null);
-        setSelectedFolderId(null);
       }
     }
   };
 
-  const handleNavigateToSubfolder = (subfolder: Folder, subfolderIndex: number) => {
+  const handleNavigateToSubfolder = (_subfolder: Folder, subfolderIndex: number) => {
     if (!selectedFolderPath) return;
     setSelectedFolderPath([...selectedFolderPath, subfolderIndex.toString()]);
-    setSelectedFolderId(subfolder.id);
   };
 
   const handleUpdateFolder = (path: string[], updates: Partial<Folder>) => {
-    setFolders((previousFolders) => {
-      const clonedFolders = JSON.parse(JSON.stringify(previousFolders)) as Folder[];
-      let currentFolderList: Folder[] = clonedFolders;
+    setFolders((prevFolders) => {
+      const newFolders = JSON.parse(JSON.stringify(prevFolders)) as Folder[];
+      let current: Folder[] = newFolders;
 
-      for (let pathIndex = 0; pathIndex < path.length - 1; pathIndex++) {
-        const folderIndex = parseInt(path[pathIndex]);
-        if (!currentFolderList[folderIndex].subfolders) return previousFolders;
-        currentFolderList = currentFolderList[folderIndex].subfolders!;
+      for (let i = 0; i < path.length - 1; i++) {
+        const idx = parseInt(path[i]);
+        if (!current[idx].subfolders) return prevFolders;
+        current = current[idx].subfolders!;
       }
 
-      const targetFolderIndex = parseInt(path[path.length - 1]);
-      if (updates.name        !== undefined) currentFolderList[targetFolderIndex].name        = updates.name;
-      if (updates.emoji       !== undefined) currentFolderList[targetFolderIndex].emoji       = updates.emoji;
-      if (updates.description !== undefined) currentFolderList[targetFolderIndex].description = updates.description;
-      if (updates.customOrder !== undefined) currentFolderList[targetFolderIndex].customOrder = updates.customOrder;
-      if (updates.subfolders  !== undefined) currentFolderList[targetFolderIndex].subfolders  = updates.subfolders;
+      const fi = parseInt(path[path.length - 1]);
+      if (updates.name       !== undefined) current[fi].name       = updates.name;
+      if (updates.emoji      !== undefined) current[fi].emoji      = updates.emoji;
+      if (updates.prompt     !== undefined) current[fi].prompt     = updates.prompt;
+      if (updates.customOrder !== undefined) current[fi].customOrder = updates.customOrder;
+      if (updates.subfolders !== undefined) current[fi].subfolders = updates.subfolders;
 
-      return clonedFolders;
+      return newFolders;
     });
   };
 
-  const handleBreadcrumbClick = (breadcrumbIndex: number) => {
+  const handleBreadcrumbClick = (index: number) => {
     if (!selectedFolderPath) return;
-    setSelectedFolderPath(selectedFolderPath.slice(0, breadcrumbIndex + 1));
+    setSelectedFolderPath(selectedFolderPath.slice(0, index + 1));
   };
 
-  const selectedFolder      = selectedFolderPath ? findFolderByPath(selectedFolderPath) : null;
-  const selectedBreadcrumbs = selectedFolderPath ? buildBreadcrumbNames(selectedFolderPath) : [];
+  const selectedFolder      = selectedFolderPath ? getFolderByPath(selectedFolderPath) : null;
+  const selectedBreadcrumbs = selectedFolderPath ? buildBreadcrumbs(selectedFolderPath) : [];
+
+  // ── Navigate to folder by file's folderId ──────────────────────────────────
 
   const findFolderPathById = useCallback((folderId: string): string[] | null => {
-    const searchFolders = (folderList: Folder[], currentPath: string[]): string[] | null => {
-      for (let folderIndex = 0; folderIndex < folderList.length; folderIndex++) {
-        const folder = folderList[folderIndex];
-        const pathToFolder = [...currentPath, folderIndex.toString()];
-        if (folder.id === folderId) return pathToFolder;
-        if (folder.subfolders) {
-          const foundPath = searchFolders(folder.subfolders, pathToFolder);
-          if (foundPath) return foundPath;
+    const search = (list: Folder[], path: string[]): string[] | null => {
+      for (let i = 0; i < list.length; i++) {
+        const f = list[i];
+        const currentPath = [...path, i.toString()];
+        if (f.id === folderId) return currentPath;
+        if (f.subfolders) {
+          const found = search(f.subfolders, currentPath);
+          if (found) return found;
         }
       }
       return null;
     };
-    return searchFolders(folders, []);
+    return search(folders, []);
   }, [folders]);
 
   const handleNavigateToFolder = useCallback((folderId: string) => {
@@ -484,16 +475,18 @@ export default function Workspace() {
     }
   }, [findFolderPathById]);
 
+  // ── Computed tab data ──────────────────────────────────────────────────────
+
   const openTabs = openTabIds
-    .map((tabId) => files.find((file) => file.id === tabId))
+    .map((id) => files.find((f) => f.id === id))
     .filter(Boolean) as FileItem[];
 
   const activeFile = activeTabId
-    ? files.find((file) => file.id === activeTabId) ?? null
+    ? files.find((f) => f.id === activeTabId) ?? null
     : null;
 
   const handleToggleSidebar = () => {
-    const panel = sidebarPanelReference.current;
+    const panel = sidebarRef.current;
     if (panel) {
       if (panel.isCollapsed()) {
         panel.expand();
@@ -503,12 +496,15 @@ export default function Workspace() {
     }
   };
 
+  // ── Render ──────────────────────────────────────────────────────────────────
+
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="h-screen w-screen bg-[#121212] text-white overflow-hidden">
+      <div className="h-screen w-screen bg-[#0a0a0a] text-white overflow-hidden">
         <PanelGroup direction="horizontal">
+          {/* ── Sidebar ─────────────────────────────────────────────── */}
           <Panel 
-            ref={sidebarPanelReference}
+            ref={sidebarRef}
             defaultSize={25} 
             minSize={15} 
             maxSize={45}
@@ -528,11 +524,13 @@ export default function Workspace() {
             />
           </Panel>
 
-          <PanelResizeHandle className="w-[1px] bg-white/10 hover:bg-blue-500/50 transition-colors cursor-col-resize" />
+          <PanelResizeHandle className="w-[1px] bg-white/10 hover:bg-indigo-500/50 transition-colors cursor-col-resize" />
 
+          {/* ── Main workspace ──────────────────────────────────────── */}
           <Panel minSize={50}>
             <div className="h-full flex flex-col relative">
 
+              {/* ── Global Tab Bar ────────────────────────────────────── */}
               <TabBar
                 tabs={openTabs}
                 activeTabId={activeTabId}
@@ -543,6 +541,7 @@ export default function Workspace() {
                 onNavigateToFolder={handleNavigateToFolder}
               />
 
+              {/* ── Content area ──────────────────────────────────────── */}
               <div className="flex-1 overflow-hidden">
                 {viewMode === "editor" ? (
                   <TabsWorkspace
@@ -566,7 +565,6 @@ export default function Workspace() {
                       onCreateFile={handleCreateFile}
                       onDeleteFile={handleDeleteFile}
                       onUpdateFile={handleUpdateFile}
-                      isLoadingFiles={isLoadingFiles}
                     />
                   ) : null
 
@@ -575,10 +573,10 @@ export default function Workspace() {
                     {messages.length === 0 ? (
                       <div className="flex-1 flex flex-col items-center justify-center pb-20">
                         <div className="flex items-center gap-3 mb-6">
-                          <div className="w-8 h-8 flex items-center justify-center text-blue-400">
+                          <div className="w-8 h-8 flex items-center justify-center text-indigo-400">
                             <Sparkles size={24} />
                           </div>
-                          <h2 className="text-2xl font-semibold text-white text-center">{currentChatTitle}</h2>
+                          <h2 className="text-2xl font-semibold text-white text-center">{currentTitle}</h2>
                         </div>
                         <div className="w-full max-w-3xl">
                           <InputConsole onSend={handleSendMessage} />
@@ -586,7 +584,36 @@ export default function Workspace() {
                       </div>
                     ) : (
                       <>
-                        <ChatMessages messages={messages} />
+                        <ChatMessages 
+                          messages={messages} 
+                          onOpenFolder={(folderId) => {
+                            // TODO: Navigate to folder
+                            console.log("Open folder:", folderId);
+                          }}
+                          onUndo={(messageId) => {
+                            // Set cancelled = true instead of removing message
+                            setMessages((prev) => 
+                              prev.map((m) => 
+                                m.id === messageId ? { ...m, cancelled: true } : m
+                              )
+                            );
+                          }}
+                          onRetry={(messageId) => {
+                            // TODO: Implement retry
+                            console.log("Retry:", messageId);
+                          }}
+                          onSelectFolder={(messageId) => {
+                            // TODO: Show folder picker
+                            console.log("Select folder for:", messageId);
+                          }}
+                          onResend={(messageId) => {
+                            // Find the message and resend it
+                            const message = messages.find(m => m.id === messageId);
+                            if (message) {
+                              handleSendMessage(message.content, message.attachments);
+                            }
+                          }}
+                        />
                         <InputConsole onSend={handleSendMessage} />
                       </>
                     )}

@@ -1,11 +1,14 @@
-import { Trash2, FileEdit } from "lucide-react";
+import { Trash2, FileEdit, Download } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 interface FileContextMenuProps {
   isOpen: boolean;
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onDownload: () => void;
   position: { x: number; y: number };
+  isPhoto?: boolean;
 }
 
 export function FileContextMenu({
@@ -13,8 +16,37 @@ export function FileContextMenu({
   onClose,
   onEdit,
   onDelete,
+  onDownload,
   position,
+  isPhoto = false,
 }: FileContextMenuProps) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [adjustedPosition, setAdjustedPosition] = useState(position);
+
+  useEffect(() => {
+    if (isOpen && menuRef.current) {
+      const menu = menuRef.current;
+      const menuWidth = menu.offsetWidth;
+      const menuHeight = menu.offsetHeight;
+      const padding = 8;
+
+      let x = position.x;
+      let y = position.y;
+
+      // Adjust horizontal position
+      if (x + menuWidth + padding > window.innerWidth) {
+        x = window.innerWidth - menuWidth - padding;
+      }
+
+      // Adjust vertical position
+      if (y + menuHeight + padding > window.innerHeight) {
+        y = window.innerHeight - menuHeight - padding;
+      }
+
+      setAdjustedPosition({ x, y });
+    }
+  }, [isOpen, position]);
+
   if (!isOpen) return null;
 
   return (
@@ -24,31 +56,47 @@ export function FileContextMenu({
 
       {/* Menu */}
       <div
-        className="fixed z-50 bg-[#161b22] border border-white/20 rounded-xl shadow-2xl py-2 min-w-[180px]"
+        ref={menuRef}
+        className="fixed z-50 bg-[#1a1a1a]/95 backdrop-blur-sm border border-white/[0.08] rounded-xl shadow-lg py-1 min-w-[160px] overflow-hidden"
         style={{
-          top: `${position.y}px`,
-          left: `${position.x}px`,
+          top: `${adjustedPosition.y}px`,
+          left: `${adjustedPosition.x}px`,
         }}
       >
+        {!isPhoto && (
+          <>
+            <button
+              onClick={() => {
+                onEdit();
+                onClose();
+              }}
+              className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5 transition-colors flex items-center gap-2.5"
+            >
+              <FileEdit size={14} className="text-gray-500" />
+              Редактировать
+            </button>
+            <div className="h-px bg-white/[0.06] mx-2" />
+          </>
+        )}
         <button
           onClick={() => {
-            onEdit();
+            onDownload();
             onClose();
           }}
-          className="w-full px-4 py-2 text-left text-sm text-gray-200 hover:bg-white/10 transition-colors flex items-center gap-3"
+          className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5 transition-colors flex items-center gap-2.5"
         >
-          <FileEdit size={14} className="text-gray-400" />
-          Редактировать
+          <Download size={14} className="text-gray-500" />
+          Скачать
         </button>
-        <div className="h-px bg-white/10 my-1" />
+        <div className="h-px bg-white/[0.06] mx-2" />
         <button
           onClick={() => {
             onDelete();
             onClose();
           }}
-          className="w-full px-4 py-2 text-left text-sm text-gray-200 hover:bg-red-500/20 hover:text-red-400 transition-colors flex items-center gap-3"
+          className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-indigo-500/10 hover:text-indigo-400 transition-colors flex items-center gap-2.5"
         >
-          <Trash2 size={14} className="text-gray-400" />
+          <Trash2 size={14} className="text-gray-500" />
           Удалить
         </button>
       </div>

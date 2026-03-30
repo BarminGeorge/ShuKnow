@@ -56,8 +56,7 @@ function ImagePlaceholder({
   if (failed) {
     return (
       <div
-        className={`${aspectClass} rounded-xl bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-cyan-500/10 border border-white/5 flex items-center justify-center ${className}`}
-      >
+                    className={`${aspectClass} rounded-xl bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border border-white/5 flex items-center justify-center ${className}`}      >
         <span className="text-sm text-gray-500 px-4 text-center">{alt}</span>
       </div>
     );
@@ -94,7 +93,7 @@ function FeatureSlide({
     <div className={`flex flex-col ${reverse ? "md:flex-row-reverse" : "md:flex-row"} items-center gap-10 md:gap-16`}>
       {/* Text */}
       <div className="flex-1 max-w-md">
-        <div className="w-11 h-11 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center text-blue-400 mb-5">
+        <div className="w-11 h-11 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center text-indigo-400 mb-5">
           {icon}
         </div>
         <h3 className="text-2xl font-bold text-white mb-3">{title}</h3>
@@ -105,7 +104,7 @@ function FeatureSlide({
         <ImagePlaceholder
           src={imageSrc}
           alt={imageAlt}
-          className="w-full shadow-2xl shadow-blue-500/5"
+          className="w-full shadow-2xl shadow-indigo-500/5"
           aspectClass="aspect-[3/2]"
         />
       </div>
@@ -141,7 +140,7 @@ export default function LandingPage() {
         <div className="w-full px-4 sm:px-6 h-16 flex items-center">
           {/* Logo — pinned left */}
           <Link to="/" className="flex items-center gap-2 shrink-0">
-            <Sparkles className="text-blue-400" size={22} />
+            <Sparkles className="text-indigo-400" size={22} />
             <span className="text-lg font-bold">ShuKnow</span>
           </Link>
 
@@ -199,7 +198,7 @@ export default function LandingPage() {
             </h1>
 
             <p className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-14">
-              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-violet-500 via-purple-400 to-indigo-500 bg-clip-text text-transparent">
                 сохраняй без рутины
               </span>
             </p>
@@ -210,7 +209,7 @@ export default function LandingPage() {
             </p>
 
             <div className="flex items-center justify-center">
-              <Button asChild className="bg-blue-600 hover:bg-blue-500 text-white px-12 py-6 text-lg rounded-full">
+              <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white px-12 py-6 text-lg rounded-full">
                 <Link to={ctaPath}>
                   Начать сейчас
                 </Link>
@@ -289,7 +288,7 @@ export default function LandingPage() {
           <FadeInSection>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300">
-                <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-4">
                   <BookOpen size={20} />
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Учёба и конспекты</h3>
@@ -297,7 +296,7 @@ export default function LandingPage() {
               </div>
 
               <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300">
-                <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-4">
                   <Lightbulb size={20} />
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Сбор идей и ресёрч</h3>
@@ -305,7 +304,7 @@ export default function LandingPage() {
               </div>
 
               <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300">
-                <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-4">
                   <Layers size={20} />
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Организация проектов</h3>
@@ -313,7 +312,7 @@ export default function LandingPage() {
               </div>
 
               <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300">
-                <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-4">
                   <FileText size={20} />
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Личная база знаний</h3>
@@ -334,7 +333,7 @@ export default function LandingPage() {
             Перестаньте тратить время на ручную сортировку. Позвольте ИИ
             организовать вашу информацию.
           </p>
-          <Button asChild className="bg-blue-600 hover:bg-blue-500 text-white px-12 py-6 text-lg rounded-full">
+          <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white px-12 py-6 text-lg rounded-full">
             <Link to={ctaPath}>
               {ctaText}
             </Link>
