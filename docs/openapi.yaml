@@ -1418,7 +1418,8 @@ components:
             - OpenAI
             - OpenRouter
             - Gemini
-          description: LLM provider identifier.
+            - Anthropic
+          description: LLM provider identifier. Serialized as lowercase, parsed case-insensitively.
           example: OpenAI
         modelId:
           type: string
@@ -1447,7 +1448,8 @@ components:
             - OpenAI
             - OpenRouter
             - Gemini
-          description: LLM provider identifier.
+            - Anthropic
+          description: LLM provider identifier. Serialized as lowercase, parsed case-insensitively.
           example: OpenAI
         modelId:
           type: string

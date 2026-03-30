@@ -56,7 +56,7 @@ public class FoldersController : ControllerBase
     }
 
     [HttpDelete("{folderId}")]
-    public async Task<ActionResult> DeleteFolder(Guid folderId)
+    public async Task<ActionResult> DeleteFolder(Guid folderId, [FromQuery] bool recursive = false)
     {
         // TODO: implement
         return NoContent();

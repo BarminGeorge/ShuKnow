@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
-import { X, Eye, EyeOff, ArrowLeft, Loader2, CheckCircle2, XCircle } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
-import { settingsService } from "../../api";
-import type { AiSettingsDto, AiProvider } from "../../api/types";
+import {useEffect, useState} from "react";
+import {ArrowLeft, CheckCircle2, Eye, EyeOff, Loader2, X, XCircle} from "lucide-react";
+import {useAuth} from "../contexts/AuthContext";
+import {settingsService} from "../../api";
+import type {AiProvider, AiSettingsDto} from "../../api/types";
+
 const AI_PROVIDERS: { value: AiProvider; label: string; baseUrlHint: string }[] = [
   { value: "openai", label: "OpenAI", baseUrlHint: "https://api.openai.com/v1" },
   { value: "openrouter", label: "OpenRouter", baseUrlHint: "https://openrouter.ai/api/v1" },
+  { value: "gemini", label: "Gemini", baseUrlHint: "https://generativelanguage.googleapis.com/v1beta" },
   { value: "anthropic", label: "Anthropic", baseUrlHint: "https://api.anthropic.com/v1" },
-  { value: "custom", label: "Custom", baseUrlHint: "" },
 ];
 
 interface SettingsModalProps {
@@ -269,7 +270,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   type="text"
                   value={modelId}
                   onChange={(e) => setModelId(e.target.value)}
-                  placeholder={provider === "openai" ? "gpt-4o" : provider === "anthropic" ? "claude-3-5-sonnet-20241022" : ""}
+                  placeholder={provider === "openai" ? "gpt-4o" : provider === "anthropic" ? "claude-3-5-sonnet-20241022" : provider === "gemini" ? "gemini-2.0-flash" : ""}
                   className="w-full px-3 py-2 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50"
                 />
                 <p className="text-xs text-gray-500 mt-1">

@@ -267,7 +267,7 @@ The full DTO schemas live in [openapi.yaml](../openapi.yaml). This section highl
 
 **FileDto** includes `sortOrder` (int) that shares the same ordering space as sibling folders, enabling mixed drag-and-drop reordering of files and folders within a parent. It also includes `createdAt` (DateTimeOffset) for display and sorting by creation time.
 
-**AiSettingsDto** includes `provider` (AiProvider enum: OpenAI, OpenRouter, Gemini) and `modelId` (string?) alongside the existing base URL and API key, allowing users to select specific LLM providers and models.
+**AiSettingsDto** includes `provider` (AiProvider enum: OpenAI, OpenRouter, Gemini, Anthropic) and `modelId` (string?) alongside the existing base URL and API key, allowing users to select specific LLM providers and models. Backend serializes enum values as lowercase and parses case-insensitively.
 
 **`PATCH /api/files/{fileId}/content`** — A lightweight JSON-body endpoint for updating text content of text-based files. Unlike the multipart binary `PUT` on `/api/files/{fileId}/content`, this accepts a JSON payload with the new text, avoiding multipart overhead for simple edits.
 

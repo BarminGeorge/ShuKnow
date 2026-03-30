@@ -124,7 +124,7 @@ export function mapFileDtoToFileItem(dto: FileDto): FileItem {
   };
 }
 
-export type AiProvider = "openai" | "openrouter" | "anthropic" | "custom";
+export type AiProvider = "unknown" | "openai" | "openrouter" | "gemini" | "anthropic";
 
 export interface AiSettingsDto {
   baseUrl: string;
