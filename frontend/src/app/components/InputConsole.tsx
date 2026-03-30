@@ -166,28 +166,30 @@ export function InputConsole({ onSend }: InputConsoleProps) {
           className="hidden"
         />
 
-        {/* Attachments preview */}
+        {/* Attachments preview - horizontal scrollable strip */}
         {attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-2 px-1">
+          <div className="flex gap-2 overflow-x-auto pb-2 mb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {attachments.map((attachment) => (
               <div
                 key={attachment.id}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary group"
+                className="flex-shrink-0 w-[200px] flex items-center gap-3 px-3 py-2.5 rounded-xl bg-secondary group hover:bg-secondary/80 transition-colors"
               >
-                <div className="w-6 h-6 flex-shrink-0 rounded overflow-hidden bg-muted flex items-center justify-center">
+                <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
                   {isImageFile(attachment.name) && attachment.url ? (
                     <img src={attachment.url} alt={attachment.name} className="w-full h-full object-cover" />
                   ) : (
-                    <FileText size={14} className="text-muted-foreground" />
+                    <FileText size={20} className="text-muted-foreground" />
                   )}
                 </div>
-                <span className="text-sm text-foreground max-w-[150px] truncate">{attachment.name}</span>
-                {attachment.size && (
-                  <span className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</span>
-                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground truncate">{attachment.name}</p>
+                  {attachment.size && (
+                    <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                  )}
+                </div>
                 <button
                   onClick={() => removeAttachment(attachment.id)}
-                  className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <X size={14} />
                 </button>

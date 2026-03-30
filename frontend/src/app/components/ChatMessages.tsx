@@ -60,7 +60,7 @@ function getFileIcon(filename: string) {
   return <FileText size={14} className="text-muted-foreground" />;
 }
 
-// Draggable attachment component - ChatGPT style minimal
+// Draggable attachment component - horizontal strip style
 function DraggableAttachment({ attachment }: { attachment: Attachment }) {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -93,13 +93,13 @@ function DraggableAttachment({ attachment }: { attachment: Attachment }) {
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary/70 cursor-grab active:cursor-grabbing transition-all ${isDragging ? 'opacity-50' : ''}`}
+      className={`flex-shrink-0 w-[220px] flex items-center gap-3 px-3 py-2.5 rounded-xl bg-secondary cursor-grab active:cursor-grabbing transition-all hover:bg-secondary/80 ${isDragging ? 'opacity-50' : ''}`}
     >
-      <div className="w-8 h-8 flex-shrink-0 rounded-md overflow-hidden bg-muted flex items-center justify-center">
+      <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
         {isImageFile(attachment.name) && attachment.url ? (
           <img src={attachment.url} alt={attachment.name} className="w-full h-full object-cover" />
         ) : (
-          <FileText size={16} className="text-muted-foreground" />
+          <FileText size={20} className="text-muted-foreground" />
         )}
       </div>
       <div className="flex-1 min-w-0">
@@ -108,7 +108,7 @@ function DraggableAttachment({ attachment }: { attachment: Attachment }) {
           <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
         )}
       </div>
-      <GripVertical size={12} className="text-muted-foreground flex-shrink-0 opacity-50" />
+      <GripVertical size={14} className="text-muted-foreground flex-shrink-0 opacity-40" />
     </div>
   );
 }
@@ -128,9 +128,9 @@ export function ChatMessages({ messages, onOpenFolder, onUndo, onRetry, onSelect
               {message.type === "user" ? (
                 // User message - ChatGPT style: clean, no bubble
                 <div className="max-w-[85%]">
-                  {/* Attachments */}
+                  {/* Attachments - horizontal scrollable strip */}
                   {message.attachments && message.attachments.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-3">
+                    <div className="flex gap-2 overflow-x-auto pb-2 mb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                       {message.attachments.map((attachment) => (
                         <DraggableAttachment key={attachment.id} attachment={attachment} />
                       ))}
