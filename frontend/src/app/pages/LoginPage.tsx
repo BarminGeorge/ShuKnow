@@ -60,10 +60,12 @@ export default function LoginPage() {
                 <Label htmlFor="login" className="text-gray-300">Логин</Label>
                 <Input
                   id="login"
+                  name="username"
                   type="text"
                   placeholder="Ваш логин"
                   value={loginValue}
                   onChange={(e) => setLoginValue(e.target.value)}
+                  autoComplete="username"
                   className="bg-[#1a1a1a] border-white/10 text-white placeholder:text-gray-500"
                 />
               </div>
@@ -73,10 +75,12 @@ export default function LoginPage() {
                 <div className="relative">
                   <Input
                     id="password"
+                    name="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
                     className="bg-[#1a1a1a] border-white/10 text-white placeholder:text-gray-500 pr-10"
                   />
                   <button

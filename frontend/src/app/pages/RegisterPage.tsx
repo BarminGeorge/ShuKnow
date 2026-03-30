@@ -69,26 +69,30 @@ export default function RegisterPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="login" className="text-gray-300">Логин</Label>
+                <Label htmlFor="register-login" className="text-gray-300">Логин</Label>
                 <Input
-                  id="login"
+                  id="register-login"
+                  name="username"
                   type="text"
                   placeholder="Ваш логин"
                   value={loginValue}
                   onChange={(e) => setLoginValue(e.target.value)}
+                  autoComplete="username"
                   className="bg-[#1a1a1a] border-white/10 text-white placeholder:text-gray-500"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-300">Пароль</Label>
+                <Label htmlFor="register-password" className="text-gray-300">Пароль</Label>
                 <div className="relative">
                   <Input
-                    id="password"
+                    id="register-password"
+                    name="new-password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Минимум 8 символов"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="new-password"
                     className="bg-[#1a1a1a] border-white/10 text-white placeholder:text-gray-500 pr-10"
                   />
                   <button
@@ -102,14 +106,16 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-gray-300">Подтвердите пароль</Label>
+                <Label htmlFor="register-confirmPassword" className="text-gray-300">Подтвердите пароль</Label>
                 <div className="relative">
                   <Input
-                    id="confirmPassword"
+                    id="register-confirmPassword"
+                    name="confirm-password"
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="Повторите пароль"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    autoComplete="new-password"
                     className="bg-[#1a1a1a] border-white/10 text-white placeholder:text-gray-500 pr-10"
                   />
                   <button

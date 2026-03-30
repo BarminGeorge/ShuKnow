@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Eye, EyeOff, ArrowLeft, ChevronDown } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -7,13 +7,33 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
+// Default base URLs for each provider
+const PROVIDER_URLS: Record<string, string> = {
+  OpenAI: "https://api.openai.com/v1",
+  OpenRouter: "https://openrouter.ai/api/v1",
+  Gemini: "https://generativelanguage.googleapis.com/v1beta",
+};
+
+const PROVIDER_MODELS: Record<string, string> = {
+  OpenAI: "gpt-4o",
+  OpenRouter: "openai/gpt-4o",
+  Gemini: "gemini-pro",
+};
+
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [apiKey, setApiKey] = useState("");
   const [provider, setProvider] = useState("OpenAI");
+  const [baseUrl, setBaseUrl] = useState(PROVIDER_URLS["OpenAI"]);
   const [modelId, setModelId] = useState("gpt-4o");
   const [isEditingKey, setIsEditingKey] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const { user } = useAuth();
+
+  // Update base URL and model when provider changes
+  useEffect(() => {
+    setBaseUrl(PROVIDER_URLS[provider] || "");
+    setModelId(PROVIDER_MODELS[provider] || "");
+  }, [provider]);
 
   if (!isOpen) return null;
 
@@ -108,12 +128,28 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </div>
               </div>
               <div>
+                <label className="text-xs text-gray-400 block mb-1">Base URL</label>
+                <input
+                  type="url"
+                  value={baseUrl}
+                  onChange={(e) => setBaseUrl(e.target.value)}
+                  placeholder="https://api.openai.com/v1"
+                  autoComplete="off"
+                  data-form-type="other"
+                  data-lpignore="true"
+                  className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50"
+                />
+              </div>
+              <div>
                 <label className="text-xs text-gray-400 block mb-1">ID Модели</label>
                 <input
                   type="text"
                   value={modelId}
                   onChange={(e) => setModelId(e.target.value)}
                   placeholder="Например: gpt-4o"
+                  autoComplete="off"
+                  data-form-type="other"
+                  data-lpignore="true"
                   className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50"
                 />
               </div>
@@ -125,10 +161,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder="Введите ваш API ключ"
+                    autoComplete="new-password"
+                    data-form-type="other"
+                    data-lpignore="true"
                     className="w-full pl-3 pr-10 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50"
                   />
                   {apiKey && (
                     <button 
+                      type="button"
                       onClick={() => setShowKey(!showKey)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
                     >
@@ -139,6 +179,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               </div>
               <div className="flex justify-end pt-4">
                 <button
+                  type="button"
                   onClick={() => setIsEditingKey(false)}
                   className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm font-medium"
                 >
