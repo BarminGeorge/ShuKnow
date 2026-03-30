@@ -172,9 +172,9 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Method | Description |
 |---|---|
-| `GetAsync()` → `UserAiSettings?` | Returns current config including `Provider` and `ModelId`. |
-| `UpdateAsync(settings)` → `UserAiSettings` | Saves/overwrites base URL, API key, provider, and model ID. Encrypts the API key before persistence. |
-| `TestConnectionAsync()` → `(bool Success, int? LatencyMs, string? ErrorMessage)` | Decrypts the stored API key, sends a minimal probe request to the configured LLM endpoint, and returns test outcome fields. Returns validation failure if settings are not yet configured. |
+| `GetAsync()` → `UserAiSettings?` | Returns current config. |
+| `UpdateAsync(input)` → `UserAiSettings` | Accepts `UpdateAiSettingsInput`. Encrypts the API key before persistence. |
+| `TestConnectionAsync()` → `(bool Success, int? LatencyMs, string? ErrorMessage)` | Sends a minimal probe request to the configured LLM endpoint, and returns test outcome fields. Returns validation failure if settings are not yet configured. |
 
 **Dependencies**
 

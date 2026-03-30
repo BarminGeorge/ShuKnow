@@ -172,9 +172,9 @@
 
 | Метод | Описание |
 |---|---|
-| `GetAsync()` → `UserAiSettings?` | Возвращает текущую конфигурацию, включая `Provider` и `ModelId`. |
-| `UpdateAsync(settings)` → `UserAiSettings` | Сохраняет или перезаписывает base URL, API key, провайдер и ID модели. Шифрует API key перед сохранением. |
-| `TestConnectionAsync()` → `(bool Success, int? LatencyMs, string? ErrorMessage)` | Расшифровывает сохранённый API key, отправляет минимальный probe-запрос к настроенному LLM endpoint и возвращает результат теста. Возвращает ошибку валидации, если настройки ещё не заданы. |
+| `GetAsync()` → `UserAiSettings?` | Возвращает текущую конфигурацию. |
+| `UpdateAsync(input)` → `UserAiSettings` | Принимает `UpdateAiSettingsInput`. Шифрует API key перед сохранением. |
+| `TestConnectionAsync()` → `(bool Success, int? LatencyMs, string? ErrorMessage)` | Отправляет минимальный probe-запрос к настроенному LLM endpoint и возвращает результат теста. Возвращает ошибку валидации, если настройки ещё не заданы. |
 
 **Зависимости**
 

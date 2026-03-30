@@ -1,5 +1,6 @@
 using Ardalis.Result;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.Application.Models;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Repositories;
 
@@ -17,7 +18,7 @@ internal class SettingsService(
         throw new NotImplementedException();
     }
 
-    public Task<Result<UserAiSettings>> UpdateAsync(UserAiSettings settings, CancellationToken ct = default)
+    public Task<Result<UserAiSettings>> UpdateAsync(UpdateAiSettingsInput input, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
