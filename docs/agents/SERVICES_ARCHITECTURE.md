@@ -166,24 +166,25 @@ These are the primary units of business logic. Each service is defined as an int
 
 ### 1.8 ISettingsService
 
-**Purpose.** Manages per-user AI/LLM provider configuration (base URL, API key, provider as `AiProvider` enum, and model ID). Provides a connectivity test so users get fast feedback before their first real AI request.
+**Purpose.** Manages per-user AI/LLM provider configuration (base URL, API key, provider as `AiProvider` enum, and model ID). Supports partial updates — any field can be omitted to keep its current value. Provides a connectivity test so users get fast feedback before their first real AI request.
 
 **Methods**
 
 | Method | Description |
 |---|---|
-| `GetAsync()` → `UserAiSettings?` | Returns current config. |
-| `UpdateAsync(input)` → `UserAiSettings` | Accepts `UpdateAiSettingsInput`. Encrypts the API key before persistence. |
-| `TestConnectionAsync()` → `(bool Success, int? LatencyMs, string? ErrorMessage)` | Sends a minimal probe request to the configured LLM endpoint, and returns test outcome fields. Returns validation failure if settings are not yet configured. |
+| `GetAsync()` → `UserAiSettings?` | Returns current config (read-only). Returns `null` when no settings have been configured yet. |
+| `UpdateAsync(input)` → `UserAiSettings` | Accepts `UpdateAiSettingsInput` (all fields nullable for partial updates). Loads the existing tracked entity via `GetByUserForUpdateAsync` (or creates a new one if none exists). Encrypts the API key when provided. Delegates mutation to the domain method `UserAiSettings.UpdateSettings`, which clears any previous test results. |
+| `TestConnectionAsync()` → `(bool Success, int? LatencyMs, string? ErrorMessage)` | Sends a minimal probe request to the configured LLM endpoint via `IAIService`, persists the updated test results via `UpsertAsync`, and returns the test outcome. Returns `NotFound` if settings are not yet configured. |
 
 **Dependencies**
 
 | Dependency | Why |
 |---|---|
-| `ISettingsRepository` | Persistence for `UserSettings`. |
-| `IEncryptionService` | Encrypt and decrypt API key strings used by settings storage, connection tests, and AI requests. |
+| `ISettingsRepository` | Persistence for `UserAiSettings`. Uses `GetByUserForUpdateAsync` for tracked reads during updates. |
+| `IEncryptionService` | Encrypt API key strings before storage. Decryption is handled by `IAIService`. |
 | `IAIService` | Send the probe request during `TestConnectionAsync`. |
 | `ICurrentUserService` | Ownership scoping. |
+| `IUnitOfWork` | Persist changes after update or connection test. |
 
 ---
 
@@ -202,12 +203,12 @@ These are the primary units of business logic. Each service is defined as an int
 1. **Session resolution.** Load or create the active chat session via `IChatService`.
 2. **User message persistence.** Save the user's message and link attachments via `IChatService`.
 3. **Emit `OnProcessingStarted`.** Generate an `operationId` (GUID) that correlates all subsequent events in this run.
-4. **Settings retrieval.** Load the user's AI config via `ISettingsService` and decrypt the stored API key string before use. Fail with `LLM_CONNECTION_FAILED` if not configured.
+4. **Settings retrieval.** Load the user's AI config via `ISettingsService`. Fail with `LLM_CONNECTION_FAILED` if not configured.
 5. **Prompt construction.** Delegate to `IPromptPreparationService.PrepareAsync()`, which internally:
    - Loads the user's folder tree (via `IFolderService.GetFolderTreeForPromptAsync()`) to give the AI awareness of existing categories.
    - Resolves attachment content (via `IAttachmentService`) to provide the material being classified.
    - Assembles the final prompt text (via `IPromptBuilder`).
-6. **LLM streaming call.** Call `IAIService.StreamCompletionAsync()` with the prompt and the user's settings containing the decrypted API key string. For each token chunk received, emit `OnMessageChunk`. Accumulate the full response text.
+6. **LLM streaming call.** Call `IAIService.StreamCompletionAsync()` with the prompt and the user's settings. `IAIService` decrypts the API key internally. For each token chunk received, emit `OnMessageChunk`. Accumulate the full response text.
 7. **Classification parsing.** Pass the full response to `IClassificationParser` to extract structured decisions (file name → target folder, is-new-folder flag). Emit `OnClassificationResult`.
 8. **Action record creation.** Create an action record via `IActionTrackingService.BeginActionAsync()` to begin recording mutations.
 9. **Decision execution loop.** For each classification decision:
@@ -227,7 +228,7 @@ These are the primary units of business logic. Each service is defined as an int
 |---|---|
 | `IChatService` | Session resolution, message persistence. |
 | `IPromptPreparationService` | Consolidates prompt construction: folder tree loading, attachment resolution, and prompt assembly. |
-| `ISettingsService` | Load user LLM settings and decrypt the stored API key string. |
+| `ISettingsService` | Load user LLM settings. |
 | `IFolderService` | Create folders during decision execution. |
 | `IFileService` | Create/move files during decision execution. |
 | `IAIService` | Stream LLM completion. |
@@ -464,8 +465,9 @@ These interfaces are defined in `ShuKnow.Application` and implemented in `ShuKno
 
 | Method | Description |
 |---|---|
-| `GetByUserAsync(userId)` → `UserSettings?` | Load settings for a user. |
-| `UpsertAsync(settings)` | Insert or update settings. |
+| `GetByUserAsync(userId)` → `UserAiSettings?` | Load settings for a user (read-only, no change tracking). |
+| `GetByUserForUpdateAsync(userId)` → `UserAiSettings?` | Load settings for a user with change tracking enabled, so mutations are detected by `SaveChangesAsync`. |
+| `UpsertAsync(settings)` | Insert or update settings (used by `TestConnectionAsync` to persist test results for untracked entities). |
 
 ---
 
@@ -485,18 +487,19 @@ These interfaces are defined in `ShuKnow.Application` and implemented in `ShuKno
 
 ### 2.9 IAIService
 
-**Purpose.** Low-level communication with the LLM provider. This is an infrastructure adapter that knows how to make HTTP requests to OpenAI-compatible APIs.
+**Purpose.** Low-level communication with the LLM provider. This is an infrastructure adapter that knows how to make HTTP requests to OpenAI-compatible APIs. Responsible for decrypting API keys from `UserAiSettings` before making outbound calls.
 
 | Method | Description |
 |---|---|
-| `StreamCompletionAsync(prompt, baseUrl, apiKey, cancellationToken)` → `IAsyncEnumerable<string>` | Sends a completion request and yields token chunks as they arrive from the SSE stream. |
-| `TestConnectionAsync(baseUrl, apiKey)` → `(bool success, int? latencyMs, string? error)` | Sends a minimal request (e.g., list models) to verify connectivity and credentials. |
+| `StreamCompletionAsync(prompt, settings, cancellationToken)` → `IAsyncEnumerable<string>` | Sends a completion request using the provided `UserAiSettings` and yields token chunks as they arrive from the SSE stream. |
+| `TestConnectionAsync(settings, cancellationToken)` → `Result<UserAiSettings>` | Sends a minimal request (e.g., list models) to verify connectivity and credentials. Returns an updated `UserAiSettings` with `LastTestSuccess`, `LastTestLatencyMs`, and `LastTestError` populated. |
 
 **Dependencies**
 
 | Dependency | Why |
 |---|---|
 | `IHttpClientFactory` | Create HTTP clients for LLM API calls. |
+| `IEncryptionService` | Decrypt the stored API key before making outbound LLM requests. |
 
 ---
 

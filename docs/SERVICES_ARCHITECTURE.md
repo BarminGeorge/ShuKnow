@@ -166,24 +166,25 @@
 
 ### 1.8 ISettingsService
 
-**Назначение.** Управляет пользовательской конфигурацией AI/LLM-провайдера (base URL, API key, провайдер как enum `AiProvider` и ID модели). Предоставляет проверку соединения.
+**Назначение.** Управляет пользовательской конфигурацией AI/LLM-провайдера (base URL, API key, провайдер как enum `AiProvider` и ID модели). Поддерживает частичное обновление — любое поле может быть опущено, чтобы сохранить текущее значение. Предоставляет проверку соединения.
 
 **Методы**
 
 | Метод | Описание |
 |---|---|
-| `GetAsync()` → `UserAiSettings?` | Возвращает текущую конфигурацию. |
-| `UpdateAsync(input)` → `UserAiSettings` | Принимает `UpdateAiSettingsInput`. Шифрует API key перед сохранением. |
-| `TestConnectionAsync()` → `(bool Success, int? LatencyMs, string? ErrorMessage)` | Отправляет минимальный probe-запрос к настроенному LLM endpoint и возвращает результат теста. Возвращает ошибку валидации, если настройки ещё не заданы. |
+| `GetAsync()` → `UserAiSettings?` | Возвращает текущую конфигурацию (только для чтения). Возвращает `null`, если настройки ещё не были заданы. |
+| `UpdateAsync(input)` → `UserAiSettings` | Принимает `UpdateAiSettingsInput` (все поля nullable для частичного обновления). Загружает существующую tracked-сущность через `GetByUserForUpdateAsync` (или создаёт новую, если настроек ещё нет). Шифрует API key, если он указан. Делегирует мутацию в доменный метод `UserAiSettings.UpdateSettings`, который сбрасывает предыдущие результаты тестов. |
+| `TestConnectionAsync()` → `(bool Success, int? LatencyMs, string? ErrorMessage)` | Отправляет минимальный probe-запрос к настроенному LLM endpoint через `IAIService`, сохраняет обновлённые результаты теста через `UpsertAsync` и возвращает итог. Возвращает `NotFound`, если настройки ещё не заданы. |
 
 **Зависимости**
 
 | Зависимость | Зачем нужна |
 |---|---|
-| `ISettingsRepository` | Хранение `UserSettings`. |
-| `IEncryptionService` | Шифрование и расшифровка строк API key, используемых при хранении настроек, проверке соединения и AI-запросах. |
+| `ISettingsRepository` | Хранение `UserAiSettings`. Использует `GetByUserForUpdateAsync` для tracked-чтений при обновлении. |
+| `IEncryptionService` | Шифрование строк API key перед сохранением. Расшифровка выполняется в `IAIService`. |
 | `IAIService` | Отправка probe-запроса при `TestConnectionAsync`. |
 | `ICurrentUserService` | Ограничение по владельцу. |
+| `IUnitOfWork` | Сохранение изменений после обновления или проверки соединения. |
 
 ---
 
@@ -202,12 +203,12 @@
 1. **Разрешение сессии.** Загружает или создаёт активную chat-сессию через `IChatService`.
 2. **Сохранение пользовательского сообщения.** Сохраняет сущность сообщения пользователя и привязывает вложения по ID через `IChatService`.
 3. **Отправка `OnProcessingStarted`.** Генерирует `operationId` (GUID), который связывает все последующие события этого запуска.
-4. **Получение настроек.** Загружает и расшифровывает AI-конфигурацию пользователя через `ISettingsService`. Если она не настроена, завершается ошибкой `LLM_CONNECTION_FAILED`.
+4. **Получение настроек.** Загружает AI-конфигурацию пользователя через `ISettingsService`. Если она не настроена, завершается ошибкой `LLM_CONNECTION_FAILED`.
 5. **Построение prompt.** Делегирует в `IPromptPreparationService.PrepareAsync()`, который внутри:
    - Загружает дерево папок пользователя (через `IFolderService.GetFolderTreeForPromptAsync()`), чтобы AI видел существующие категории.
    - Разрешает содержимое вложений по ID (через `IAttachmentService`), чтобы предоставить материал для классификации.
    - Собирает финальный текст промпта (через `IPromptBuilder`).
-6. **Потоковый вызов LLM.** Вызывает `IAIService.StreamCompletionAsync()` с prompt и пользовательскими настройками, содержащими расшифрованную строку API key. Для каждого полученного token chunk отправляет `OnMessageChunk`. Полный текст ответа накапливается.
+6. **Потоковый вызов LLM.** Вызывает `IAIService.StreamCompletionAsync()` с prompt и пользовательскими настройками. `IAIService` расшифровывает API key самостоятельно. Для каждого полученного token chunk отправляет `OnMessageChunk`. Полный текст ответа накапливается.
 7. **Парсинг классификации.** Передаёт полный ответ в `IClassificationParser`, чтобы извлечь структурированные решения (имя файла → целевая папка, флаг создания новой папки). Отправляет `OnClassificationResult`.
 8. **Создание записи действия.** Создаёт запись действия через `IActionTrackingService.BeginActionAsync()`, чтобы начать записывать мутации.
 9. **Цикл исполнения решений.** Для каждого решения классификации:
@@ -227,7 +228,7 @@
 |---|---|
 | `IChatService` | Разрешение сессии, сохранение сообщений. |
 | `IPromptPreparationService` | Консолидирует построение промпта: загрузку дерева папок, разрешение вложений и сборку промпта. |
-| `ISettingsService` | Загрузка пользовательских LLM-настроек и расшифровка сохранённой строки API key. |
+| `ISettingsService` | Загрузка пользовательских LLM-настроек. |
 | `IFolderService` | Создание папок во время исполнения решений. |
 | `IFileService` | Создание и перемещение файлов во время исполнения решений. |
 | `IAIService` | Потоковое получение ответа от LLM. |
@@ -464,8 +465,9 @@
 
 | Метод | Описание |
 |---|---|
-| `GetByUserAsync(userId)` → `UserSettings?` | Загружает настройки пользователя. |
-| `UpsertAsync(settings)` | Выполняет insert или update настроек. |
+| `GetByUserAsync(userId)` → `UserSettings?` | Загружает настройки пользователя (только для чтения, без отслеживания изменений). |
+| `GetByUserForUpdateAsync(userId)` → `UserSettings?` | Загружает настройки пользователя с отслеживанием изменений, чтобы мутации были обнаружены при `SaveChangesAsync`. |
+| `UpsertAsync(settings)` | Выполняет insert или update настроек (используется `TestConnectionAsync` для сохранения результатов теста для неотслеживаемых сущностей). |
 
 ---
 
@@ -485,18 +487,19 @@
 
 ### 2.9 IAIService
 
-**Назначение.** Низкоуровневое взаимодействие с LLM-провайдером. Это инфраструктурный адаптер, который умеет выполнять HTTP-запросы к OpenAI-совместимым API.
+**Назначение.** Низкоуровневое взаимодействие с LLM-провайдером. Это инфраструктурный адаптер, который умеет выполнять HTTP-запросы к OpenAI-совместимым API. Отвечает за расшифровку API-ключей из `UserAiSettings` перед отправкой запросов.
 
 | Метод | Описание |
 |---|---|
-| `StreamCompletionAsync(prompt, baseUrl, apiKey, cancellationToken)` → `IAsyncEnumerable<string>` | Отправляет completion-запрос и по мере поступления SSE-потока отдаёт чанки токенов. |
-| `TestConnectionAsync(baseUrl, apiKey)` → `(bool success, int? latencyMs, string? error)` | Отправляет минимальный запрос (например, список моделей), чтобы проверить соединение и валидность учётных данных. |
+| `StreamCompletionAsync(prompt, settings, cancellationToken)` → `IAsyncEnumerable<string>` | Отправляет completion-запрос с использованием переданных `UserAiSettings` и по мере поступления SSE-потока отдаёт чанки токенов. |
+| `TestConnectionAsync(settings, cancellationToken)` → `Result<UserAiSettings>` | Отправляет минимальный запрос (например, список моделей), чтобы проверить соединение и валидность учётных данных. Возвращает обновлённый `UserAiSettings` с заполненными полями `LastTestSuccess`, `LastTestLatencyMs` и `LastTestError`. |
 
 **Зависимости**
 
 | Зависимость | Зачем нужна |
 |---|---|
 | `IHttpClientFactory` | Создание HTTP-клиентов для вызовов LLM API. |
+| `IEncryptionService` | Расшифровка сохранённого API key перед отправкой запросов к LLM. |
 
 ---
 
