@@ -159,41 +159,31 @@ public class S3BlobStorageProvider(
         }
     }
 
-    public async Task<Result<IReadOnlyList<Guid>>> ListAsync(CancellationToken ct = default)
+    public async Task<Result<IReadOnlyList<(Guid BlobId, DateTimeOffset CreatedAt)>>> ListWithTimestampsAsync(
+        CancellationToken ct = default)
     {
         try
         {
-            var blobs = new List<Guid>();
-            var request = new ListObjectsV2Request
+            var blobs = new List<(Guid BlobId, DateTimeOffset CreatedAt)>();
+
+            await PaginateObjectsAsync(ct, obj =>
             {
-                BucketName = bucketName,
-                Prefix = string.IsNullOrEmpty(prefix) ? null : prefix + "/"
-            };
+                if (!TryParseBlobId(obj.Key, out var blobId)) 
+                    return;
+                
+                var createdAt = obj.LastModified.HasValue
+                    ? new DateTimeOffset(obj.LastModified.Value, TimeSpan.Zero)
+                    : DateTimeOffset.UtcNow;
+                blobs.Add((blobId, createdAt));
+            });
 
-            while (true)
-            {
-                var response = await s3Client.ListObjectsV2Async(request, ct);
-
-                foreach (var obj in response.S3Objects ?? [])
-                {
-                    var key = obj.Key;
-                    var fileName = key.Contains('/') ? key[(key.LastIndexOf('/') + 1)..] : key;
-                    if (Guid.TryParse(fileName, out var blobId))
-                        blobs.Add(blobId);
-                }
-
-                if (response.IsTruncated != true)
-                    break;
-
-                request.ContinuationToken = response.NextContinuationToken;
-            }
-            
-            return Result.Success<IReadOnlyList<Guid>>(blobs);
+            return Result.Success<IReadOnlyList<(Guid BlobId, DateTimeOffset CreatedAt)>>(blobs);
         }
         catch (AmazonS3Exception ex)
         {
-            logger.LogError(ex, "Failed to list blobs in S3");
-            return Result<IReadOnlyList<Guid>>.Error($"Failed to list blobs in S3: {ex.Message}");
+            logger.LogError(ex, "Failed to list blobs with timestamps in S3");
+            return Result<IReadOnlyList<(Guid BlobId, DateTimeOffset CreatedAt)>>.Error(
+                $"Failed to list blobs in S3: {ex.Message}");
         }
     }
 
@@ -201,5 +191,33 @@ public class S3BlobStorageProvider(
     {
         var id = blobId.ToString("N");
         return string.IsNullOrEmpty(prefix) ? id : $"{prefix}/{id}";
+    }
+
+    private async Task PaginateObjectsAsync(CancellationToken ct, Action<S3Object> onObject)
+    {
+        var request = new ListObjectsV2Request
+        {
+            BucketName = bucketName,
+            Prefix = string.IsNullOrEmpty(prefix) ? null : prefix + "/"
+        };
+
+        while (true)
+        {
+            var response = await s3Client.ListObjectsV2Async(request, ct);
+
+            foreach (var obj in response.S3Objects ?? [])
+                onObject(obj);
+
+            if (response.IsTruncated != true)
+                break;
+
+            request.ContinuationToken = response.NextContinuationToken;
+        }
+    }
+
+    private static bool TryParseBlobId(string key, out Guid blobId)
+    {
+        var fileName = key.Contains('/') ? key[(key.LastIndexOf('/') + 1)..] : key;
+        return Guid.TryParse(fileName, out blobId);
     }
 }

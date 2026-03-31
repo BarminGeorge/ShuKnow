@@ -56,4 +56,9 @@ public class FileRepository : IFileRepository
     {
         throw new NotImplementedException();
     }
+
+    public Task<Result<IReadOnlySet<Guid>>> GetAllBlobIdsAsync()
+    {
+        throw new NotImplementedException();
+    }
 }

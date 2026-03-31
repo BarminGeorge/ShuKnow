@@ -105,22 +105,23 @@ public class FileSystemBlobStorageProvider(
         return Task.FromResult(Result.Success(File.Exists(filePath)));
     }
 
-    public Task<Result<IReadOnlyList<Guid>>> ListAsync(CancellationToken ct = default)
+    public Task<Result<IReadOnlyList<(Guid BlobId, DateTimeOffset CreatedAt)>>> ListWithTimestampsAsync(
+        CancellationToken ct = default)
     {
-        var blobs = new List<Guid>();
+        var blobs = new List<(Guid BlobId, DateTimeOffset CreatedAt)>();
 
         if (!Directory.Exists(basePath))
-            return Task.FromResult(Result.Success<IReadOnlyList<Guid>>(blobs));
+            return Task.FromResult(
+                Result.Success<IReadOnlyList<(Guid BlobId, DateTimeOffset CreatedAt)>>(blobs));
 
-        foreach (var shardDir in Directory.EnumerateDirectories(basePath))
-        foreach (var file in Directory.EnumerateFiles(shardDir))
+        foreach (var (blobId, filePath) in EnumerateBlobs())
         {
-            var fileName = Path.GetFileName(file);
-            if (Guid.TryParse(fileName, out var blobId))
-                blobs.Add(blobId);
+            var createdAt = new DateTimeOffset(File.GetCreationTimeUtc(filePath), TimeSpan.Zero);
+            blobs.Add((blobId, createdAt));
         }
 
-        return Task.FromResult(Result.Success<IReadOnlyList<Guid>>(blobs));
+        return Task.FromResult(
+            Result.Success<IReadOnlyList<(Guid BlobId, DateTimeOffset CreatedAt)>>(blobs));
     }
 
     public string GetBlobPath(Guid blobId)
@@ -128,6 +129,17 @@ public class FileSystemBlobStorageProvider(
         var id = blobId.ToString("N");
         var shard = id[..2];
         return Path.Combine(basePath, shard, id);
+    }
+
+    private IEnumerable<(Guid BlobId, string FilePath)> EnumerateBlobs()
+    {
+        foreach (var shardDir in Directory.EnumerateDirectories(basePath))
+        foreach (var filePath in Directory.EnumerateFiles(shardDir))
+        {
+            var fileName = Path.GetFileName(filePath);
+            if (Guid.TryParse(fileName, out var blobId))
+                yield return (blobId, filePath);
+        }
     }
 
     private void TryDeleteEmptyShardDirectory(Guid blobId)

@@ -24,9 +24,16 @@ public static class ServiceCollectionExtensions
         });
         
         services.Configure<EncryptionOptions>(o => o.Key = configuration.GetEncryptionOptions().Key);
+        services.Configure<OrphanCleanupOptions>(o =>
+        {
+            var cleanup = configuration.GetOrphanCleanupOptions();
+            o.IntervalHours = cleanup.IntervalHours;
+            o.GracePeriodMinutes = cleanup.GracePeriodMinutes;
+        });
 
         services.AddServices();
         services.AddRepositories();
+        services.AddHostedService<BlobOrphanCleanupService>();
     }
 
     private static void AddServices(this IServiceCollection services)
@@ -37,6 +44,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUnitOfWork, PostgresUnitOfWork>();
         services.AddScoped<IAiService, AiService>();
         services.AddScoped<IBlobStorageService, BlobStorageService>();
+        services.AddScoped<IBlobOrphanCleanupRunner, BlobOrphanCleanupRunner>();
         services.AddScoped<IEncryptionService, EncryptionService>();
     }
 
@@ -58,5 +66,11 @@ public static class ServiceCollectionExtensions
         var section = configuration.GetSection(EncryptionOptions.SectionName);
         var options = section.Get<EncryptionOptions>() ?? new EncryptionOptions();
         return options.Validate();
+    }
+
+    private static OrphanCleanupOptions GetOrphanCleanupOptions(this IConfiguration configuration)
+    {
+        var section = configuration.GetSection(OrphanCleanupOptions.SectionName);
+        return section.Get<OrphanCleanupOptions>() ?? new OrphanCleanupOptions();
     }
 }

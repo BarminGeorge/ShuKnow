@@ -218,7 +218,7 @@ public class S3BlobStorageProviderTests
     }
 
     [Test]
-    public async Task ListAsync_ShouldReturnAllBlobIds()
+    public async Task ListWithTimestampsAsync_ShouldReturnAllBlobIdsWithTimestamps()
     {
         var blobId1 = Guid.NewGuid();
         var blobId2 = Guid.NewGuid();
@@ -227,18 +227,20 @@ public class S3BlobStorageProviderTests
         await sut.SaveAsync(s1, blobId1);
         await sut.SaveAsync(s2, blobId2);
 
-        var result = await sut.ListAsync();
+        var result = await sut.ListWithTimestampsAsync();
 
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().HaveCount(2);
-        result.Value.Should().Contain(blobId1);
-        result.Value.Should().Contain(blobId2);
+        result.Value.Select(b => b.BlobId).Should().Contain(blobId1);
+        result.Value.Select(b => b.BlobId).Should().Contain(blobId2);
+        result.Value.Should().AllSatisfy(b =>
+            b.CreatedAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(10)));
     }
 
     [Test]
-    public async Task ListAsync_WhenEmpty_ShouldReturnEmptyList()
+    public async Task ListWithTimestampsAsync_WhenEmpty_ShouldReturnEmptyList()
     {
-        var result = await sut.ListAsync();
+        var result = await sut.ListWithTimestampsAsync();
 
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().BeEmpty();

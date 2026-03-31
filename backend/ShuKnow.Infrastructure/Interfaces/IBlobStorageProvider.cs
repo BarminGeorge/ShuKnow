@@ -16,5 +16,6 @@ public interface IBlobStorageProvider
 
     Task<Result<bool>> ExistsAsync(Guid blobId, CancellationToken ct = default);
 
-    Task<Result<IReadOnlyList<Guid>>> ListAsync(CancellationToken ct = default);
+    Task<Result<IReadOnlyList<(Guid BlobId, DateTimeOffset CreatedAt)>>> ListWithTimestampsAsync(
+        CancellationToken ct = default);
 }

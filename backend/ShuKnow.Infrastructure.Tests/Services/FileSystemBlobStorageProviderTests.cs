@@ -227,7 +227,7 @@ public class FileSystemBlobStorageProviderTests
     }
 
     [Test]
-    public async Task ListAsync_ShouldReturnAllBlobIds()
+    public async Task ListWithTimestampsAsync_ShouldReturnAllBlobIdsWithTimestamps()
     {
         var blobId1 = Guid.NewGuid();
         var blobId2 = Guid.NewGuid();
@@ -236,31 +236,33 @@ public class FileSystemBlobStorageProviderTests
         await sut.SaveAsync(s1, blobId1);
         await sut.SaveAsync(s2, blobId2);
 
-        var result = await sut.ListAsync();
+        var result = await sut.ListWithTimestampsAsync();
 
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().HaveCount(2);
-        result.Value.Should().Contain(blobId1);
-        result.Value.Should().Contain(blobId2);
+        result.Value.Select(b => b.BlobId).Should().Contain(blobId1);
+        result.Value.Select(b => b.BlobId).Should().Contain(blobId2);
+        result.Value.Should().AllSatisfy(b =>
+            b.CreatedAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(5)));
     }
 
     [Test]
-    public async Task ListAsync_WhenEmpty_ShouldReturnEmptyList()
+    public async Task ListWithTimestampsAsync_WhenEmpty_ShouldReturnEmptyList()
     {
-        var result = await sut.ListAsync();
+        var result = await sut.ListWithTimestampsAsync();
 
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().BeEmpty();
     }
 
     [Test]
-    public async Task ListAsync_WhenBasePathDoesNotExist_ShouldReturnEmptyList()
+    public async Task ListWithTimestampsAsync_WhenBasePathDoesNotExist_ShouldReturnEmptyList()
     {
         var nonExistentDir = Path.Combine(Path.GetTempPath(), $"nonexistent-{Guid.NewGuid():N}");
         var logger = Substitute.For<ILogger<FileSystemBlobStorageProvider>>();
         var provider = new FileSystemBlobStorageProvider(nonExistentDir, logger);
 
-        var result = await provider.ListAsync();
+        var result = await provider.ListWithTimestampsAsync();
 
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().BeEmpty();

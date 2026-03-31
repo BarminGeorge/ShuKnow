@@ -30,4 +30,9 @@ public class AttachmentRepository : IAttachmentRepository
     {
         throw new NotImplementedException();
     }
+
+    public Task<Result<IReadOnlySet<Guid>>> GetAllBlobIdsAsync()
+    {
+        throw new NotImplementedException();
+    }
 }
