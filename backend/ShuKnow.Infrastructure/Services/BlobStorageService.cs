@@ -4,7 +4,7 @@ using File = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.Infrastructure.Services;
 
-internal class BlobStorageService : IBlobStorageService
+public class BlobStorageService : IBlobStorageService
 {
     public Task<Result> SaveAsync(Stream content, File file, CancellationToken ct = default)
     {
