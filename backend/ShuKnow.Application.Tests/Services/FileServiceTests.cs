@@ -1,6 +1,7 @@
 using System.Text;
 using Ardalis.Result;
 using AwesomeAssertions;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Services;
@@ -17,6 +18,7 @@ public class FileServiceTests
     private IBlobStorageService blobStorageService = null!;
     private ICurrentUserService currentUserService = null!;
     private IUnitOfWork unitOfWork = null!;
+    private ILogger<FileService> logger = null!;
     private Guid currentUserId;
     private FileService sut = null!;
 
@@ -28,6 +30,7 @@ public class FileServiceTests
         blobStorageService = Substitute.For<IBlobStorageService>();
         currentUserService = Substitute.For<ICurrentUserService>();
         unitOfWork = Substitute.For<IUnitOfWork>();
+        logger = Substitute.For<ILogger<FileService>>();
         currentUserId = Guid.NewGuid();
 
         currentUserService.UserId.Returns(currentUserId);
@@ -38,7 +41,8 @@ public class FileServiceTests
             folderRepository,
             blobStorageService,
             currentUserService,
-            unitOfWork);
+            unitOfWork,
+            logger);
     }
 
     [Test]
@@ -109,14 +113,15 @@ public class FileServiceTests
         ReturnsFolderExists(file.FolderId);
         ReturnsFileNameAvailable(file.Name, file.FolderId, file.Id);
         fileRepository.AddAsync(file).Returns(Success());
-        blobStorageService.SaveAsync(content, file, Arg.Any<CancellationToken>()).Returns(Success());
+        blobStorageService.SaveAsync(content, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(Success());
 
         var result = await sut.UploadAsync(file, content);
 
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().BeSameAs(file);
+        file.BlobId.Should().NotBe(Guid.Empty);
         await fileRepository.Received(1).AddAsync(file);
-        await blobStorageService.Received(1).SaveAsync(content, file, Arg.Any<CancellationToken>());
+        await blobStorageService.Received(1).SaveAsync(content, file.BlobId, Arg.Any<CancellationToken>());
         await unitOfWork.Received(1).SaveChangesAsync();
     }
 
@@ -165,18 +170,17 @@ public class FileServiceTests
     }
 
     [Test]
-    public async Task DeleteAsync_WhenFileExists_ShouldDeleteMetadataAndBlob()
+    public async Task DeleteAsync_WhenFileExists_ShouldDeleteMetadataAndCommit()
     {
         var file = CreateFile();
+        file.BlobId = Guid.NewGuid();
         ReturnsExistingFile(file);
         fileRepository.DeleteAsync(file.Id).Returns(Success());
-        blobStorageService.DeleteAsync(file.Id, Arg.Any<CancellationToken>()).Returns(Success());
 
         var result = await sut.DeleteAsync(file.Id);
 
         result.Status.Should().Be(ResultStatus.Ok);
         await fileRepository.Received(1).DeleteAsync(file.Id);
-        await blobStorageService.Received(1).DeleteAsync(file.Id, Arg.Any<CancellationToken>());
         await unitOfWork.Received(1).SaveChangesAsync();
     }
 
@@ -184,9 +188,10 @@ public class FileServiceTests
     public async Task GetContentAsync_WhenNoRangeIsRequested_ShouldReturnFullContent()
     {
         var file = CreateFile(sizeBytes: 12, contentType: "text/plain");
+        file.BlobId = Guid.NewGuid();
         using var stream = CreateStream("full content");
         ReturnsExistingFile(file);
-        blobStorageService.GetAsync(file.Id, Arg.Any<CancellationToken>()).Returns(Success<Stream>(stream));
+        blobStorageService.GetAsync(file.BlobId, Arg.Any<CancellationToken>()).Returns(Success<Stream>(stream));
 
         var result = await sut.GetContentAsync(file.Id);
 
@@ -194,7 +199,7 @@ public class FileServiceTests
         result.Value.Content.Should().BeSameAs(stream);
         result.Value.ContentType.Should().Be(file.ContentType);
         result.Value.SizeBytes.Should().Be(file.SizeBytes);
-        await blobStorageService.Received(1).GetAsync(file.Id, Arg.Any<CancellationToken>());
+        await blobStorageService.Received(1).GetAsync(file.BlobId, Arg.Any<CancellationToken>());
         await blobStorageService.DidNotReceive()
             .GetRangeAsync(Arg.Any<Guid>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>());
     }
@@ -203,11 +208,12 @@ public class FileServiceTests
     public async Task GetContentAsync_WhenPartialRangeIsRequested_ShouldRequestBlobRange()
     {
         var file = CreateFile(sizeBytes: 512, contentType: "application/pdf");
+        file.BlobId = Guid.NewGuid();
         using var stream = CreateStream("range");
         const long rangeStart = 128;
 
         ReturnsExistingFile(file);
-        blobStorageService.GetRangeAsync(file.Id, rangeStart, file.SizeBytes, Arg.Any<CancellationToken>())
+        blobStorageService.GetRangeAsync(file.BlobId, rangeStart, file.SizeBytes, Arg.Any<CancellationToken>())
             .Returns(Success<Stream>(stream));
 
         var result = await sut.GetContentAsync(file.Id, rangeStart);
@@ -215,7 +221,7 @@ public class FileServiceTests
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Content.Should().BeSameAs(stream);
         await blobStorageService.Received(1)
-            .GetRangeAsync(file.Id, rangeStart, file.SizeBytes, Arg.Any<CancellationToken>());
+            .GetRangeAsync(file.BlobId, rangeStart, file.SizeBytes, Arg.Any<CancellationToken>());
         await blobStorageService.DidNotReceive().GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 
@@ -230,14 +236,16 @@ public class FileServiceTests
 
         result.Status.Should().Be(ResultStatus.NotFound);
         await blobStorageService.DidNotReceive()
-            .ReplaceAsync(Arg.Any<Stream>(), Arg.Any<File>(), Arg.Any<CancellationToken>());
+            .SaveAsync(Arg.Any<Stream>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
         await unitOfWork.DidNotReceive().SaveChangesAsync();
     }
 
     [Test]
-    public async Task ReplaceContentAsync_WhenRequestIsValid_ShouldReplaceBlobAndUpdateFileMetadata()
+    public async Task ReplaceContentAsync_WhenRequestIsValid_ShouldSaveNewBlobAndUpdateFileMetadata()
     {
         var existingFile = CreateFile(contentType: "text/plain", sizeBytes: 3, version: 2);
+        var originalBlobId = Guid.NewGuid();
+        existingFile.BlobId = originalBlobId;
         using var content = CreateStream("updated payload");
         var expectedBytes = "updated payload"u8.ToArray();
         byte[]? uploadedBytes = null;
@@ -245,14 +253,14 @@ public class FileServiceTests
 
         ReturnsExistingFileForUpdate(existingFile);
         blobStorageService
-            .ReplaceAsync(Arg.Do<Stream>(stream =>
+            .SaveAsync(Arg.Do<Stream>(stream =>
             {
                 uploadedPosition = stream.Position;
                 using var copy = new MemoryStream();
                 stream.CopyTo(copy);
                 uploadedBytes = copy.ToArray();
                 stream.Position = 0;
-            }), existingFile, Arg.Any<CancellationToken>())
+            }), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Success());
 
         var result = await sut.ReplaceContentAsync(existingFile.Id, content, "application/json");
@@ -262,6 +270,8 @@ public class FileServiceTests
         existingFile.ContentType.Should().Be("application/json");
         existingFile.SizeBytes.Should().Be(expectedBytes.Length);
         existingFile.Version.Should().Be(3);
+        existingFile.BlobId.Should().NotBe(originalBlobId);
+        existingFile.BlobId.Should().NotBe(Guid.Empty);
         uploadedPosition.Should().Be(0);
         uploadedBytes.Should().Equal(expectedBytes);
         await unitOfWork.Received(1).SaveChangesAsync();
@@ -320,24 +330,22 @@ public class FileServiceTests
     }
 
     [Test]
-    public async Task DeleteByFolderAsync_WhenBlobDeletionFails_ShouldReturnFailureWithoutSavingChanges()
+    public async Task DeleteByFolderAsync_WhenFolderHasFiles_ShouldDeleteRecordsAndCommit()
     {
         var folderId = Guid.NewGuid();
         var firstFile = CreateFile(folderId: folderId);
+        firstFile.BlobId = Guid.NewGuid();
         var secondFile = CreateFile(folderId: folderId);
+        secondFile.BlobId = Guid.NewGuid();
 
         ReturnsFolderExists(folderId);
         fileRepository.DeleteByFolderAsync(folderId)
             .Returns(Success<IReadOnlyList<File>>([firstFile, secondFile]));
-        blobStorageService.DeleteAsync(firstFile.Id, Arg.Any<CancellationToken>()).Returns(Success());
-        blobStorageService.DeleteAsync(secondFile.Id, Arg.Any<CancellationToken>()).Returns(Conflict());
 
         var result = await sut.DeleteByFolderAsync(folderId);
 
-        result.Status.Should().Be(ResultStatus.Conflict);
-        await blobStorageService.Received(1).DeleteAsync(firstFile.Id, Arg.Any<CancellationToken>());
-        await blobStorageService.Received(1).DeleteAsync(secondFile.Id, Arg.Any<CancellationToken>());
-        await unitOfWork.DidNotReceive().SaveChangesAsync();
+        result.Status.Should().Be(ResultStatus.Ok);
+        await unitOfWork.Received(1).SaveChangesAsync();
     }
 
     [Test]
@@ -345,19 +353,17 @@ public class FileServiceTests
     {
         var folderId = Guid.NewGuid();
         var firstFile = CreateFile(folderId: folderId);
+        firstFile.BlobId = Guid.NewGuid();
         var secondFile = CreateFile(folderId: folderId);
+        secondFile.BlobId = Guid.NewGuid();
 
         ReturnsFolderExists(folderId);
         fileRepository.DeleteByFolderAsync(folderId)
             .Returns(Success<IReadOnlyList<File>>([firstFile, secondFile]));
-        blobStorageService.DeleteAsync(firstFile.Id, Arg.Any<CancellationToken>()).Returns(Success());
-        blobStorageService.DeleteAsync(secondFile.Id, Arg.Any<CancellationToken>()).Returns(Success());
 
         var result = await sut.DeleteByFolderAsync(folderId);
 
         result.Status.Should().Be(ResultStatus.Ok);
-        await blobStorageService.Received(1).DeleteAsync(firstFile.Id, Arg.Any<CancellationToken>());
-        await blobStorageService.Received(1).DeleteAsync(secondFile.Id, Arg.Any<CancellationToken>());
         await unitOfWork.Received(1).SaveChangesAsync();
     }
 
@@ -455,7 +461,7 @@ public class FileServiceTests
 
         result.Status.Should().Be(ResultStatus.NotFound);
         await blobStorageService.DidNotReceive()
-            .ReplaceAsync(Arg.Any<Stream>(), Arg.Any<File>(), Arg.Any<CancellationToken>());
+            .SaveAsync(Arg.Any<Stream>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
         await unitOfWork.DidNotReceive().SaveChangesAsync();
     }
 
@@ -469,27 +475,29 @@ public class FileServiceTests
 
         result.Status.Should().Be(ResultStatus.Invalid);
         await blobStorageService.DidNotReceive()
-            .ReplaceAsync(Arg.Any<Stream>(), Arg.Any<File>(), Arg.Any<CancellationToken>());
+            .SaveAsync(Arg.Any<Stream>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
         await unitOfWork.DidNotReceive().SaveChangesAsync();
     }
 
     [Test]
-    public async Task UpdateTextContentAsync_WhenRequestIsValid_ShouldReplaceContentAndUpdateSize()
+    public async Task UpdateTextContentAsync_WhenRequestIsValid_ShouldSaveNewBlobAndUpdateSize()
     {
         var existingFile = CreateFile(contentType: "text/plain", sizeBytes: 5, version: 1);
+        var originalBlobId = Guid.NewGuid();
+        existingFile.BlobId = originalBlobId;
         const string newContent = "updated text content";
         var expectedBytes = Encoding.UTF8.GetBytes(newContent);
         byte[]? uploadedBytes = null;
 
         ReturnsExistingFileForUpdate(existingFile);
         blobStorageService
-            .ReplaceAsync(Arg.Do<Stream>(stream =>
+            .SaveAsync(Arg.Do<Stream>(stream =>
             {
                 using var copy = new MemoryStream();
                 stream.CopyTo(copy);
                 uploadedBytes = copy.ToArray();
                 stream.Position = 0;
-            }), existingFile, Arg.Any<CancellationToken>())
+            }), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Success());
 
         var result = await sut.UpdateTextContentAsync(existingFile.Id, newContent);
@@ -499,6 +507,8 @@ public class FileServiceTests
         existingFile.ContentType.Should().Be("text/plain");
         existingFile.SizeBytes.Should().Be(expectedBytes.Length);
         existingFile.Version.Should().Be(2);
+        existingFile.BlobId.Should().NotBe(originalBlobId);
+        existingFile.BlobId.Should().NotBe(Guid.Empty);
         uploadedBytes.Should().Equal(expectedBytes);
         await unitOfWork.Received(1).SaveChangesAsync();
     }
@@ -515,9 +525,7 @@ public class FileServiceTests
         fileRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<File>());
         fileRepository.GetByIdForUpdateAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<File>());
         fileRepository.GetByFolderAsync(Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
-        blobStorageService.SaveAsync(Arg.Any<Stream>(), Arg.Any<File>(), Arg.Any<CancellationToken>())
-            .Returns(Success());
-        blobStorageService.ReplaceAsync(Arg.Any<Stream>(), Arg.Any<File>(), Arg.Any<CancellationToken>())
+        blobStorageService.SaveAsync(Arg.Any<Stream>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Success());
         blobStorageService.DeleteAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(Success());
         blobStorageService.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
@@ -558,7 +566,7 @@ public class FileServiceTests
     {
         await fileRepository.DidNotReceive().AddAsync(Arg.Any<File>());
         await blobStorageService.DidNotReceive()
-            .SaveAsync(Arg.Any<Stream>(), Arg.Any<File>(), Arg.Any<CancellationToken>());
+            .SaveAsync(Arg.Any<Stream>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
         await unitOfWork.DidNotReceive().SaveChangesAsync();
     }
 

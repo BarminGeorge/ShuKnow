@@ -1,5 +1,6 @@
 using Ardalis.Result;
 using AwesomeAssertions;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Services;
@@ -14,6 +15,7 @@ public class AttachmentServiceTests
     private IBlobStorageService blobStorageService = null!;
     private ICurrentUserService currentUserService = null!;
     private IUnitOfWork unitOfWork = null!;
+    private ILogger<AttachmentService> logger = null!;
     private Guid currentUserId;
     private AttachmentService sut = null!;
 
@@ -24,12 +26,18 @@ public class AttachmentServiceTests
         blobStorageService = Substitute.For<IBlobStorageService>();
         currentUserService = Substitute.For<ICurrentUserService>();
         unitOfWork = Substitute.For<IUnitOfWork>();
+        logger = Substitute.For<ILogger<AttachmentService>>();
         currentUserId = Guid.NewGuid();
 
         currentUserService.UserId.Returns(currentUserId);
         unitOfWork.SaveChangesAsync().Returns(Task.FromResult(Result.Success()));
+        blobStorageService.SaveAsync(Arg.Any<Stream>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Success());
+        blobStorageService.DeleteAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Success());
 
-        sut = new AttachmentService(attachmentRepository, blobStorageService, currentUserService, unitOfWork);
+        sut = new AttachmentService(
+            attachmentRepository, blobStorageService, currentUserService, unitOfWork, logger);
     }
 
     [Test]
@@ -56,8 +64,6 @@ public class AttachmentServiceTests
         var contents = new[] { stream1, stream2 };
 
         attachmentRepository.AddRangeAsync(attachments).Returns(Success());
-        blobStorageService.SaveAsync(stream1, first.Id, Arg.Any<CancellationToken>()).Returns(Success());
-        blobStorageService.SaveAsync(stream2, second.Id, Arg.Any<CancellationToken>()).Returns(Success());
 
         var result = await sut.UploadAsync(attachments, contents);
 
@@ -65,9 +71,11 @@ public class AttachmentServiceTests
         result.Value.Should().HaveCount(2);
         result.Value.Should().Contain(first);
         result.Value.Should().Contain(second);
+        first.BlobId.Should().NotBe(Guid.Empty);
+        second.BlobId.Should().NotBe(Guid.Empty);
         await attachmentRepository.Received(1).AddRangeAsync(attachments);
-        await blobStorageService.Received(1).SaveAsync(stream1, first.Id, Arg.Any<CancellationToken>());
-        await blobStorageService.Received(1).SaveAsync(stream2, second.Id, Arg.Any<CancellationToken>());
+        await blobStorageService.Received(1).SaveAsync(stream1, first.BlobId, Arg.Any<CancellationToken>());
+        await blobStorageService.Received(1).SaveAsync(stream2, second.BlobId, Arg.Any<CancellationToken>());
         await unitOfWork.Received(1).SaveChangesAsync();
     }
 
@@ -83,8 +91,6 @@ public class AttachmentServiceTests
         var result = await sut.UploadAsync([attachment], [stream]);
 
         result.Status.Should().Be(ResultStatus.Error);
-        await blobStorageService.DidNotReceive()
-            .SaveAsync(Arg.Any<Stream>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
         await unitOfWork.DidNotReceive().SaveChangesAsync();
     }
 
@@ -94,14 +100,14 @@ public class AttachmentServiceTests
         var attachment = CreateAttachment();
         using var stream = new MemoryStream([1]);
 
-        attachmentRepository.AddRangeAsync(Arg.Any<IReadOnlyCollection<ChatAttachment>>())
-            .Returns(Success());
-        blobStorageService.SaveAsync(stream, attachment.Id, Arg.Any<CancellationToken>())
+        blobStorageService.SaveAsync(Arg.Any<Stream>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Error("storage error")));
 
         var result = await sut.UploadAsync([attachment], [stream]);
 
         result.Status.Should().Be(ResultStatus.Error);
+        await attachmentRepository.DidNotReceive()
+            .AddRangeAsync(Arg.Any<IReadOnlyCollection<ChatAttachment>>());
         await unitOfWork.DidNotReceive().SaveChangesAsync();
     }
 
@@ -177,24 +183,22 @@ public class AttachmentServiceTests
     }
 
     [Test]
-    public async Task PurgeExpiredAsync_WhenExpiredExist_ShouldDeleteBlobsAndRecordsThenSave()
+    public async Task PurgeExpiredAsync_WhenExpiredExist_ShouldDeleteRecordsThenSave()
     {
         var expired1 = CreateAttachment();
+        expired1.BlobId = Guid.NewGuid();
         var expired2 = CreateAttachment();
+        expired2.BlobId = Guid.NewGuid();
         IReadOnlyList<ChatAttachment> expired = [expired1, expired2];
 
         attachmentRepository.GetExpiredUnconsumedAsync(Arg.Any<DateTimeOffset>())
             .Returns(Task.FromResult(Result.Success(expired)));
-        blobStorageService.DeleteAsync(expired1.Id, Arg.Any<CancellationToken>()).Returns(Success());
-        blobStorageService.DeleteAsync(expired2.Id, Arg.Any<CancellationToken>()).Returns(Success());
         attachmentRepository.DeleteRangeAsync(Arg.Any<IReadOnlyCollection<Guid>>()).Returns(Success());
 
         var result = await sut.PurgeExpiredAsync();
 
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().HaveCount(2);
-        await blobStorageService.Received(1).DeleteAsync(expired1.Id, Arg.Any<CancellationToken>());
-        await blobStorageService.Received(1).DeleteAsync(expired2.Id, Arg.Any<CancellationToken>());
         await attachmentRepository.Received(1).DeleteRangeAsync(
             Arg.Is<IReadOnlyCollection<Guid>>(ids =>
                 ids.Contains(expired1.Id) && ids.Contains(expired2.Id)));
@@ -202,20 +206,20 @@ public class AttachmentServiceTests
     }
 
     [Test]
-    public async Task PurgeExpiredAsync_WhenBlobDeleteFails_ShouldReturnFailureWithoutSaving()
+    public async Task PurgeExpiredAsync_WhenDeleteRangeFails_ShouldReturnFailureWithoutSaving()
     {
         var expired = CreateAttachment();
+        expired.BlobId = Guid.NewGuid();
         IReadOnlyList<ChatAttachment> expiredList = [expired];
 
         attachmentRepository.GetExpiredUnconsumedAsync(Arg.Any<DateTimeOffset>())
             .Returns(Task.FromResult(Result.Success(expiredList)));
-        blobStorageService.DeleteAsync(expired.Id, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Error("storage error")));
+        attachmentRepository.DeleteRangeAsync(Arg.Any<IReadOnlyCollection<Guid>>())
+            .Returns(Task.FromResult(Result.Error("db error")));
 
         var result = await sut.PurgeExpiredAsync();
 
         result.Status.Should().Be(ResultStatus.Error);
-        await attachmentRepository.DidNotReceive().DeleteRangeAsync(Arg.Any<IReadOnlyCollection<Guid>>());
         await unitOfWork.DidNotReceive().SaveChangesAsync();
     }
 

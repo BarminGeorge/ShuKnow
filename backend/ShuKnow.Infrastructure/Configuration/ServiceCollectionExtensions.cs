@@ -34,7 +34,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IJwtService, JwtService>();
-        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IUnitOfWork, PostgresUnitOfWork>();
         services.AddScoped<IAiService, AiService>();
         services.AddScoped<IBlobStorageService, BlobStorageService>();
         services.AddScoped<IEncryptionService, EncryptionService>();

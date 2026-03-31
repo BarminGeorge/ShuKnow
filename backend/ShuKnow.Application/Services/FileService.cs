@@ -1,5 +1,6 @@
 using System.Text;
 using Ardalis.Result;
+using Microsoft.Extensions.Logging;
 using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Domain.Entities;
@@ -14,7 +15,8 @@ public class FileService(
     IFolderRepository folderRepository,
     IBlobStorageService blobStorageService,
     ICurrentUserService currentUserService,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    ILogger<FileService> logger)
     : IFileService
 {
     private Guid CurrentUserId => currentUserService.UserId;
@@ -33,10 +35,12 @@ public class FileService(
     public async Task<Result<File>> UploadAsync(
         File file, Stream content, CancellationToken ct = default)
     {
+        file.BlobId = Guid.NewGuid();
+
         return await EnsureFolderExistsAsync(file.FolderId)
             .BindAsync(_ => EnsureFileNameUnique(file.Name, file.FolderId, file.Id))
+            .BindAsync(_ => blobStorageService.SaveAsync(content, file.BlobId, ct))
             .BindAsync(_ => fileRepository.AddAsync(file))
-            .BindAsync(_ => blobStorageService.SaveAsync(content, file, ct))
             .SaveChangesAsync(unitOfWork)
             .MapAsync(() => file);
     }
@@ -52,20 +56,21 @@ public class FileService(
     public async Task<Result> DeleteAsync(Guid fileId, CancellationToken ct = default)
     {
         return await fileRepository.GetByIdAsync(fileId, CurrentUserId)
-            .BindAsync(file => fileRepository.DeleteAsync(file.Id)
-                .BindAsync(_ => blobStorageService.DeleteAsync(file.Id, ct))
-                .SaveChangesAsync(unitOfWork));
+            .ActAsync(file => fileRepository.DeleteAsync(file.Id))
+            .SaveChangesAsync(unitOfWork)
+            .BindAsync(file =>
+            {
+                _ = DeleteBlobSilently(file.BlobId);
+                return Result.Success();
+            });
     }
 
     public async Task<Result<(Stream Content, string ContentType, long SizeBytes)>> GetContentAsync(
         Guid fileId, long? rangeStart = null, long? rangeEnd = null, CancellationToken ct = default)
     {
         return await fileRepository.GetByIdAsync(fileId, CurrentUserId)
-            .BindAsync(file =>
-            {
-                return GetStreamAsync(file, rangeStart, rangeEnd, ct)
-                    .MapAsync(stream => (stream, file.ContentType, file.SizeBytes));
-            });
+            .BindAsync(file => GetStreamAsync(file, rangeStart, rangeEnd, ct)
+                .MapAsync(stream => (stream, file.ContentType, file.SizeBytes)));
     }
 
     public async Task<Result<File>> ReplaceContentAsync(
@@ -75,11 +80,15 @@ public class FileService(
             .BindAsync(async existingFile =>
             {
                 await using var bufferedContent = await BufferContentAsync(content, ct);
+                var oldBlobId = existingFile.BlobId;
+                existingFile.BlobId = Guid.NewGuid();
                 existingFile.ReplaceContent(contentType, bufferedContent.Length);
-                return await blobStorageService.ReplaceAsync(bufferedContent, existingFile, ct)
-                    .MapAsync(() => existingFile);
+                return await blobStorageService.SaveAsync(bufferedContent, existingFile.BlobId, ct)
+                    .MapAsync(() => (File: existingFile, OldBlobId: oldBlobId));
             })
-            .SaveChangesAsync(unitOfWork);
+            .SaveChangesAsync(unitOfWork)
+            .Act(pair => _ = DeleteBlobSilently(pair.OldBlobId))
+            .Map(pair => pair.File);
     }
 
     public async Task<Result<File>> MoveAsync(Guid fileId, Guid targetFolderId, CancellationToken ct = default)
@@ -95,8 +104,12 @@ public class FileService(
     {
         return await EnsureFolderExistsAsync(folderId)
             .BindAsync(_ => fileRepository.DeleteByFolderAsync(folderId))
-            .BindAsync(files => DeleteBlobsAsync(files, ct))
-            .SaveChangesAsync(unitOfWork);
+            .SaveChangesAsync(unitOfWork)
+            .BindAsync(files =>
+            {
+                DeleteBlobsInBackground(files.Select(f => f.BlobId).ToList());
+                return Result.Success();
+            });
     }
 
     public async Task<Result> ReorderAsync(Guid fileId, int position, CancellationToken ct = default)
@@ -116,11 +129,15 @@ public class FileService(
             .BindAsync(async file =>
             {
                 await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
+                var oldBlobId = file.BlobId;
+                file.BlobId = Guid.NewGuid();
                 file.ReplaceContent(file.ContentType, stream.Length);
-                return await blobStorageService.ReplaceAsync(stream, file, ct)
-                    .MapAsync(() => file);
+                return await blobStorageService.SaveAsync(stream, file.BlobId, ct)
+                    .MapAsync(() => (File: file, OldBlobId: oldBlobId));
             })
-            .SaveChangesAsync(unitOfWork);
+            .SaveChangesAsync(unitOfWork)
+            .Act(pair => _ = DeleteBlobSilently(pair.OldBlobId))
+            .Map(pair => pair.File);
     }
 
     private static Result EnsureTextContentType(File file)
@@ -146,24 +163,34 @@ public class FileService(
         File file, long? rangeStart = null, long? rangeEnd = null, CancellationToken ct = default)
     {
         if (rangeStart is null && rangeEnd is null)
-            return await blobStorageService.GetAsync(file.Id, ct);
+            return await blobStorageService.GetAsync(file.BlobId, ct);
 
         var start = rangeStart ?? 0;
         var end = rangeEnd ?? file.SizeBytes;
 
-        return await blobStorageService.GetRangeAsync(file.Id, start, end, ct);
+        return await blobStorageService.GetRangeAsync(file.BlobId, start, end, ct);
     }
 
-    private async Task<Result> DeleteBlobsAsync(IReadOnlyList<File> files, CancellationToken ct)
+    private void DeleteBlobsInBackground(IReadOnlyList<Guid> blobIds)
     {
-        foreach (var file in files)
-        {
-            var result = await blobStorageService.DeleteAsync(file.Id, ct);
-            if (!result.IsSuccess)
-                return result;
-        }
+        foreach (var blobId in blobIds)
+            _ = DeleteBlobSilently(blobId);
+    }
 
-        return Result.Success();
+    private async Task DeleteBlobSilently(Guid blobId)
+    {
+        try
+        {
+            var result = await blobStorageService.DeleteAsync(blobId);
+            if (!result.IsSuccess)
+                logger.LogWarning(
+                    "Best-effort blob cleanup failed for {BlobId}: {Errors}",
+                    blobId, string.Join(", ", result.Errors));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Best-effort blob cleanup failed for {BlobId}", blobId);
+        }
     }
 
     private static async Task<MemoryStream> BufferContentAsync(Stream content, CancellationToken ct)
