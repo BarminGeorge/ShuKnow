@@ -29,7 +29,7 @@ public class AttachmentService(
         return await attachmentRepository.AddRangeAsync(attachments)
             .BindAsync(_ => SaveBlobsAsync(attachments, contents, ct))
             .SaveChangesAsync(unitOfWork)
-            .MapAsync(() => (IReadOnlyList<ChatAttachment>)attachments.ToList().AsReadOnly());
+            .MapAsync(() => (IReadOnlyList<ChatAttachment>)attachments.ToList());
     }
 
     public async Task<Result<IReadOnlyList<ChatAttachment>>> GetByIdsAsync(
