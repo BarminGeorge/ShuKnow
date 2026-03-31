@@ -172,15 +172,15 @@
 
 | Метод | Описание |
 |---|---|
-| `GetAsync()` → `UserAiSettings?` | Возвращает текущую конфигурацию (только для чтения). Возвращает `null`, если настройки ещё не были заданы. |
-| `UpdateAsync(input)` → `UserAiSettings` | Принимает `UpdateAiSettingsInput` (все поля nullable для частичного обновления). Загружает существующую tracked-сущность через `GetByUserForUpdateAsync` (или создаёт новую, если настроек ещё нет). Шифрует API key, если он указан. Делегирует мутацию в доменный метод `UserAiSettings.UpdateSettings`, который сбрасывает предыдущие результаты тестов. |
+| `GetOrCreateAsync()` → `UserAiSettings` | Возвращает текущую конфигурацию пользователя. Если настройки ещё не были заданы, создаёт запись с значениями по умолчанию и сохраняет её. Операция идемпотентна. |
+| `UpdateAsync(input)` → `UserAiSettings` | Принимает `UpdateAiSettingsInput` (все поля nullable для частичного обновления). Получает существующие настройки через `GetOrCreateAsync` (или создаёт новые, если настроек ещё нет). Шифрует API key, если он указан. Делегирует мутацию в доменный метод `UserAiSettings.UpdateSettings`, который сбрасывает предыдущие результаты тестов. Явно вызывает `UpsertAsync` для сохранения изменений. |
 | `TestConnectionAsync()` → `(bool Success, int? LatencyMs, string? ErrorMessage)` | Отправляет минимальный probe-запрос к настроенному LLM endpoint через `IAIService`, сохраняет обновлённые результаты теста через `UpsertAsync` и возвращает итог. Возвращает `NotFound`, если настройки ещё не заданы. |
 
 **Зависимости**
 
 | Зависимость | Зачем нужна |
 |---|---|
-| `ISettingsRepository` | Хранение `UserAiSettings`. Использует `GetByUserForUpdateAsync` для tracked-чтений при обновлении. |
+| `ISettingsRepository` | Хранение `UserAiSettings`. Все операции используют явный `UpsertAsync` для сохранения изменений. |
 | `IEncryptionService` | Шифрование строк API key перед сохранением. Расшифровка выполняется в `IAIService`. |
 | `IAIService` | Отправка probe-запроса при `TestConnectionAsync`. |
 | `ICurrentUserService` | Ограничение по владельцу. |
@@ -465,9 +465,8 @@
 
 | Метод | Описание |
 |---|---|
-| `GetByUserAsync(userId)` → `UserSettings?` | Загружает настройки пользователя (только для чтения, без отслеживания изменений). |
-| `GetByUserForUpdateAsync(userId)` → `UserSettings?` | Загружает настройки пользователя с отслеживанием изменений, чтобы мутации были обнаружены при `SaveChangesAsync`. |
-| `UpsertAsync(settings)` | Выполняет insert или update настроек (используется `TestConnectionAsync` для сохранения результатов теста для неотслеживаемых сущностей). |
+| `GetByUserAsync(userId, noTracking?)` → `UserAiSettings?` | Загружает настройки пользователя. По умолчанию без отслеживания изменений (`noTracking = true`). |
+| `UpsertAsync(settings)` → `UserAiSettings` | Выполняет insert или update настроек. Возвращает переданную сущность для цепочки вызовов. |
 
 ---
 

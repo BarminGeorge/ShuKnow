@@ -83,4 +83,10 @@ public static class ResultExtensions
     {
         return result.Bind(source => actFunc(source).Map(_ => source));
     }
+
+    public static async Task<Result<TSource>> Act<TSource, TDestination>(
+        this Task<Result<TSource>> result, Func<TSource, Result<TDestination>> actFunc)
+    {
+        return await result.BindAsync(source => actFunc(source).Map(_ => source));
+    }
 }

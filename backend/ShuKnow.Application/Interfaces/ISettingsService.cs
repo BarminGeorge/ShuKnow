@@ -6,7 +6,7 @@ namespace ShuKnow.Application.Interfaces;
 
 public interface ISettingsService
 {
-    Task<Result<UserAiSettings?>> GetAsync(CancellationToken ct = default);
+    Task<Result<UserAiSettings>> GetOrCreateAsync(CancellationToken ct = default);
     
     Task<Result<UserAiSettings>> UpdateAsync(UpdateAiSettingsInput input, CancellationToken ct = default);
     

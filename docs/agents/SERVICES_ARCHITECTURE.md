@@ -172,15 +172,15 @@ These are the primary units of business logic. Each service is defined as an int
 
 | Method | Description |
 |---|---|
-| `GetAsync()` → `UserAiSettings?` | Returns current config (read-only). Returns `null` when no settings have been configured yet. |
-| `UpdateAsync(input)` → `UserAiSettings` | Accepts `UpdateAiSettingsInput` (all fields nullable for partial updates). Loads the existing tracked entity via `GetByUserForUpdateAsync` (or creates a new one if none exists). Encrypts the API key when provided. Delegates mutation to the domain method `UserAiSettings.UpdateSettings`, which clears any previous test results. |
+| `GetOrCreateAsync()` → `UserAiSettings` | Returns current user config. Creates and persists a default settings record if none exists yet. Idempotent. |
+| `UpdateAsync(input)` → `UserAiSettings` | Accepts `UpdateAiSettingsInput` (all fields nullable for partial updates). Retrieves existing settings via `GetOrCreateAsync` (or creates new ones if none exist). Encrypts the API key when provided. Delegates mutation to the domain method `UserAiSettings.UpdateSettings`, which clears any previous test results. Explicitly calls `UpsertAsync` to persist changes. |
 | `TestConnectionAsync()` → `(bool Success, int? LatencyMs, string? ErrorMessage)` | Sends a minimal probe request to the configured LLM endpoint via `IAIService`, persists the updated test results via `UpsertAsync`, and returns the test outcome. Returns `NotFound` if settings are not yet configured. |
 
 **Dependencies**
 
 | Dependency | Why |
 |---|---|
-| `ISettingsRepository` | Persistence for `UserAiSettings`. Uses `GetByUserForUpdateAsync` for tracked reads during updates. |
+| `ISettingsRepository` | Persistence for `UserAiSettings`. All operations use explicit `UpsertAsync` calls to persist changes. |
 | `IEncryptionService` | Encrypt API key strings before storage. Decryption is handled by `IAIService`. |
 | `IAIService` | Send the probe request during `TestConnectionAsync`. |
 | `ICurrentUserService` | Ownership scoping. |
@@ -465,9 +465,8 @@ These interfaces are defined in `ShuKnow.Application` and implemented in `ShuKno
 
 | Method | Description |
 |---|---|
-| `GetByUserAsync(userId)` → `UserAiSettings?` | Load settings for a user (read-only, no change tracking). |
-| `GetByUserForUpdateAsync(userId)` → `UserAiSettings?` | Load settings for a user with change tracking enabled, so mutations are detected by `SaveChangesAsync`. |
-| `UpsertAsync(settings)` | Insert or update settings (used by `TestConnectionAsync` to persist test results for untracked entities). |
+| `GetByUserAsync(userId, noTracking?)` → `UserAiSettings?` | Load settings for a user. Defaults to no change tracking (`noTracking = true`). |
+| `UpsertAsync(settings)` → `UserAiSettings` | Insert or update settings. Returns the passed entity for pipeline chaining. |
 
 ---
 

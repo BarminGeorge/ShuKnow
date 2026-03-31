@@ -41,37 +41,39 @@ public class SettingsServiceTests
             unitOfWork);
     }
 
-    #region GetAsync
+    #region GetOrCreateAsync
 
     [Test]
-    public async Task GetAsync_WhenSettingsExist_ShouldReturnSettings()
+    public async Task GetOrCreateAsync_WhenSettingsExist_ShouldReturnSettings()
     {
         var settings = CreateSettings();
         settingsRepository.GetByUserAsync(currentUserId).Returns(Success(settings));
 
-        var result = await sut.GetAsync();
+        var result = await sut.GetOrCreateAsync();
 
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().BeSameAs(settings);
     }
 
     [Test]
-    public async Task GetAsync_WhenSettingsNotFound_ShouldReturnSuccessWithNull()
+    public async Task GetOrCreateAsync_WhenSettingsNotFound_ShouldCreateAndPersistNewSettings()
     {
         settingsRepository.GetByUserAsync(currentUserId).Returns(NotFound<UserAiSettings>());
 
-        var result = await sut.GetAsync();
+        var result = await sut.GetOrCreateAsync();
 
         result.Status.Should().Be(ResultStatus.Ok);
-        result.Value.Should().BeNull();
+        result.Value.UserId.Should().Be(currentUserId);
+        await settingsRepository.Received(1).UpsertAsync(Arg.Any<UserAiSettings>());
+        await unitOfWork.Received(1).SaveChangesAsync();
     }
 
     [Test]
-    public async Task GetAsync_WhenRepositoryReturnsError_ShouldPropagateError()
+    public async Task GetOrCreateAsync_WhenRepositoryReturnsError_ShouldPropagateError()
     {
         settingsRepository.GetByUserAsync(currentUserId).Returns(Error<UserAiSettings>());
 
-        var result = await sut.GetAsync();
+        var result = await sut.GetOrCreateAsync();
 
         result.Status.Should().Be(ResultStatus.Error);
     }
@@ -84,7 +86,7 @@ public class SettingsServiceTests
     public async Task UpdateAsync_WhenExistingSettingsFound_ShouldMutateAndSave()
     {
         var existing = CreateSettings();
-        settingsRepository.GetByUserForUpdateAsync(currentUserId).Returns(Success(existing));
+        settingsRepository.GetByUserAsync(currentUserId).Returns(Success(existing));
 
         var input = new UpdateAiSettingsInput("https://new-api.com/v1", "sk-new-key", AiProvider.Anthropic, "claude-3");
         encryptionService.Encrypt("sk-new-key").Returns(Result.Success("new-encrypted"));
@@ -97,6 +99,7 @@ public class SettingsServiceTests
         existing.ApiKeyEncrypted.Should().Be("new-encrypted");
         existing.Provider.Should().Be(AiProvider.Anthropic);
         existing.ModelId.Should().Be("claude-3");
+        await settingsRepository.Received(1).UpsertAsync(existing);
         await unitOfWork.Received(1).SaveChangesAsync();
     }
 
@@ -114,14 +117,15 @@ public class SettingsServiceTests
         result.Value.ApiKeyEncrypted.Should().Be("encrypted-key");
         result.Value.Provider.Should().Be(AiProvider.OpenAI);
         result.Value.ModelId.Should().Be("gpt-4o");
-        await unitOfWork.Received(1).SaveChangesAsync();
+        await settingsRepository.Received(2).UpsertAsync(Arg.Any<UserAiSettings>());
+        await unitOfWork.Received(2).SaveChangesAsync();
     }
 
     [Test]
     public async Task UpdateAsync_WhenApiKeyIsNull_ShouldNotCallEncryptAndPreserveExistingKey()
     {
         var existing = CreateSettings();
-        settingsRepository.GetByUserForUpdateAsync(currentUserId).Returns(Success(existing));
+        settingsRepository.GetByUserAsync(currentUserId).Returns(Success(existing));
 
         var input = new UpdateAiSettingsInput("https://new-api.com/v1", null, AiProvider.OpenAI, "gpt-4o");
 
@@ -131,13 +135,14 @@ public class SettingsServiceTests
         existing.ApiKeyEncrypted.Should().Be("encrypted-key");
         existing.BaseUrl.Should().Be("https://new-api.com/v1");
         encryptionService.DidNotReceive().Encrypt(Arg.Any<string>());
+        await settingsRepository.Received(1).UpsertAsync(existing);
         await unitOfWork.Received(1).SaveChangesAsync();
     }
 
     [Test]
     public async Task UpdateAsync_WhenEncryptionFails_ShouldReturnErrorWithoutSaving()
     {
-        settingsRepository.GetByUserForUpdateAsync(currentUserId).Returns(Success(CreateSettings()));
+        settingsRepository.GetByUserAsync(currentUserId).Returns(Success(CreateSettings()));
 
         var input = new UpdateAiSettingsInput("https://api.com/v1", "sk-key", AiProvider.OpenAI, "gpt-4o");
         encryptionService.Encrypt("sk-key").Returns(Result<string>.Error("Encryption failed"));
@@ -152,7 +157,7 @@ public class SettingsServiceTests
     public async Task UpdateAsync_ShouldClearTestResults()
     {
         var existing = CreateSettings(lastTestSuccess: true, lastTestLatencyMs: 200, lastTestError: null);
-        settingsRepository.GetByUserForUpdateAsync(currentUserId).Returns(Success(existing));
+        settingsRepository.GetByUserAsync(currentUserId).Returns(Success(existing));
 
         var input = new UpdateAiSettingsInput("https://api.com/v1", null, null, null);
 
@@ -168,7 +173,7 @@ public class SettingsServiceTests
     public async Task UpdateAsync_WithPartialInput_ShouldOnlyUpdateProvidedFields()
     {
         var existing = CreateSettings();
-        settingsRepository.GetByUserForUpdateAsync(currentUserId).Returns(Success(existing));
+        settingsRepository.GetByUserAsync(currentUserId).Returns(Success(existing));
 
         var input = new UpdateAiSettingsInput(null, null, null, "gpt-4o-mini");
 
@@ -258,8 +263,8 @@ public class SettingsServiceTests
     {
         unitOfWork.SaveChangesAsync().Returns(SuccessResult());
         settingsRepository.GetByUserAsync(Arg.Any<Guid>()).Returns(NotFound<UserAiSettings>());
-        settingsRepository.GetByUserForUpdateAsync(Arg.Any<Guid>()).Returns(NotFound<UserAiSettings>());
-        settingsRepository.UpsertAsync(Arg.Any<UserAiSettings>()).Returns(SuccessResult());
+        settingsRepository.UpsertAsync(Arg.Any<UserAiSettings>())
+            .Returns(x => Success(x.Arg<UserAiSettings>()));
         encryptionService.Encrypt(Arg.Any<string>()).Returns(Result.Success("encrypted-default"));
     }
 

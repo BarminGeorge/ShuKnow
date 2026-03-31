@@ -15,28 +15,28 @@ internal class SettingsService(
     IUnitOfWork unitOfWork)
     : ISettingsService
 {
-    public async Task<Result<UserAiSettings?>> GetAsync(CancellationToken ct = default)
+    public async Task<Result<UserAiSettings>> GetOrCreateAsync(CancellationToken ct = default)
     {
         var result = await settingsRepository.GetByUserAsync(currentUserService.UserId);
-
-        return result.Status == ResultStatus.NotFound
-            ? Result.Success<UserAiSettings?>(null)
-            : result.Map(s => (UserAiSettings?)s);
+        if (!result.IsNotFound())
+            return result;
+        
+        var newSettings = new UserAiSettings(currentUserService.UserId);
+        
+        return await settingsRepository.UpsertAsync(newSettings)
+            .SaveChangesAsync(unitOfWork);
     }
 
     public async Task<Result<UserAiSettings>> UpdateAsync(UpdateAiSettingsInput input, CancellationToken ct = default)
     {
-        var existingResult = await settingsRepository.GetByUserForUpdateAsync(currentUserService.UserId);
-        if (existingResult.IsNotFound())
-            existingResult = Result.Success(new UserAiSettings(currentUserService.UserId));
-        
         var encryptResult = input.ApiKey is not null 
             ? encryptionService.Encrypt(input.ApiKey).Map(s => (string?)s)
             : Result.Success<string?>(null);
 
-        return await existingResult
+        return await GetOrCreateAsync(ct)
             .Act(existing => encryptResult
                 .Act(encrypted => existing.UpdateSettings(input.BaseUrl, encrypted, input.Provider, input.ModelId)))
+            .ActAsync(settingsRepository.UpsertAsync)
             .SaveChangesAsync(unitOfWork);
     }
 
