@@ -87,7 +87,7 @@ These are the primary units of business logic. Each service is defined as an int
 
 ### 1.5 IFileService
 
-**Purpose.** Manages file metadata CRUD, binary upload/download/replace, text content updates, reordering, and file movement between folders. Files carry a `SortOrder` that shares the same ordering space as sibling folders, enabling mixed drag-and-drop interleaving. Validates name uniqueness within a folder, enforces size limits, and delegates binary storage to a blob abstraction.
+**Purpose.** Manages file metadata CRUD, binary upload/download/replace, text content updates, reordering, and file movement between folders. Files carry a `SortOrder` that shares the same ordering space as sibling folders, enabling mixed drag-and-drop interleaving. Validates name uniqueness within a folder, enforces size limits, and delegates binary storage to a blob abstraction. Binary content is addressed by a separate `File.BlobId`, not by the entity ID, so replace/delete flows use orphan cleanup rather than in-place blob mutation.
 
 **Methods**
 
@@ -95,15 +95,15 @@ These are the primary units of business logic. Each service is defined as an int
 |---|---|
 | `GetByIdAsync(fileId)` → `File` | File metadata including owning folder name. |
 | `ListByFolderAsync(folderId, page, pageSize)` → `(List<File> Files, int TotalCount)` | Offset-paginated file listing within a folder. |
-| `UploadAsync(folderId, file, stream)` → `File` | Stores the binary via `IBlobStorageService`, then persists the provided file metadata entity. Validates name uniqueness and size limit. |
-| `UpdateMetadataAsync(fileId, file)` → `File` | Updates mutable file metadata (name/description). Validates name uniqueness within the file's current folder. |
-| `DeleteAsync(fileId)` | Deletes the metadata record and the binary blob. |
+| `UploadAsync(file, stream)` → `File` | Assigns a new `BlobId`, stores the binary via `IBlobStorageService`, then persists the file metadata entity. If DB commit fails, the blob is left orphaned for GC. |
+| `UpdateMetadataAsync(file)` → `File` | Updates mutable file metadata (name/description). Validates name uniqueness within the file's current folder. |
+| `DeleteAsync(fileId)` | Deletes the metadata record, commits that deletion, then enqueues best-effort blob cleanup through `IBlobDeletionQueue`. |
 | `GetContentAsync(fileId, rangeStart?, rangeEnd?)` → `(Stream Content, string ContentType, long SizeBytes)` | Streams the binary content. Returns content type and supports HTTP Range for partial downloads. |
-| `ReplaceContentAsync(fileId, stream, contentType)` → `File` | Replaces the binary blob in place. Metadata (name, description) unchanged; `sizeBytes` and `contentType` updated. |
+| `ReplaceContentAsync(fileId, stream, contentType)` → `File` | Saves the replacement content under a new `BlobId`, updates metadata after blob save succeeds, commits, then enqueues deletion of the old blob. This avoids in-place overwrite and keeps the old blob intact on upload failure. |
 | `MoveAsync(fileId, targetFolderId)` → `File` | Changes the file's `FolderId`. Validates name uniqueness in the target folder. |
 | `ReorderAsync(fileId, position)` | Sets the `SortOrder` of the file to the given 0-based position and re-indexes all siblings (both files and folders) within the parent folder. |
-| `UpdateTextContentAsync(fileId, text)` → `File` | Replaces the content of a text-based file from a plain string. Updates `sizeBytes`; leaves other metadata unchanged. Used by the `PATCH /api/files/{fileId}/content` endpoint. |
-| `DeleteByFolderAsync(folderId)` | Deletes all files in a folder. Used by recursive folder deletion. |
+| `UpdateTextContentAsync(fileId, text)` → `File` | Replaces the content of a text-based file by writing a new blob under a new `BlobId`, then updates `sizeBytes` and queues cleanup for the old blob. |
+| `DeleteByFolderAsync(folderId)` | Deletes all files in a folder. Used by recursive folder deletion; blob cleanup is queued after commit. |
 
 **Dependencies**
 
@@ -112,7 +112,9 @@ These are the primary units of business logic. Each service is defined as an int
 | `IFileRepository` | Metadata persistence. |
 | `IFolderRepository` | Validate target folder existence on upload and move. |
 | `IBlobStorageService` | Store and retrieve binary file content. |
+| `IBlobDeletionQueue` | Serialize best-effort post-commit blob deletes onto a hosted background worker. |
 | `ICurrentUserService` | Ownership scoping. |
+| `IUnitOfWork` | Persist file metadata changes after blob writes succeed. |
 
 ---
 
@@ -143,16 +145,16 @@ These are the primary units of business logic. Each service is defined as an int
 
 ### 1.7 IAttachmentService
 
-**Purpose.** Stages file uploads that will be referenced in a future `SendMessage` hub invocation. Attachments are a temporary holding area — they exist because SignalR's default 32 KB message limit makes it unsuitable for binary payloads, so files must arrive via REST before the chat message references them by ID.
+**Purpose.** Stages file uploads that will be referenced in a future `SendMessage` hub invocation. Attachments are a temporary holding area — they exist because SignalR's default 32 KB message limit makes it unsuitable for binary payloads, so files must arrive via REST before the chat message references them by ID. Each attachment gets its own `BlobId`, and uploads are passed as an ordered composite list of `(ChatAttachment Attachment, Stream Content)` pairs so metadata and content cannot drift apart.
 
 **Methods**
 
 | Method | Description |
 |---|---|
-| `UploadAsync(attachments, contents)` → `List<ChatAttachment>` | Persists pre-built attachment metadata with matching content streams. WebAPI maps multipart uploads into this contract. Returns IDs for later reference. |
-| `GetByIdsAsync(attachmentIds)` → `List<ChatAttachment>` | Retrieves attachment entities with their storage keys. Used by the orchestration service to build the AI prompt. Validates all IDs belong to the current user and are not yet consumed. |
+| `UploadAsync(uploads)` → `IReadOnlyList<ChatAttachment>` | Assigns `BlobId` values, stores each blob, then persists the attachment metadata collection. WebAPI maps multipart uploads into this ordered contract. |
+| `GetByIdsAsync(attachmentIds)` → `IReadOnlyList<ChatAttachment>` | Retrieves attachment entities with their `BlobId` values. Used by the orchestration service to build the AI prompt. Validates all IDs belong to the current user and are not yet consumed. |
 | `MarkConsumedAsync(attachmentIds)` | Marks attachments as consumed so they are no longer eligible for reuse or purging. Called after successful association with a chat message. |
-| `PurgeExpiredAsync()` | Deletes attachments older than 1 hour that were never consumed. Intended to be called by a background job or hosted service. |
+| `PurgeExpiredAsync()` → `IReadOnlyList<ChatAttachment>` | Deletes attachments older than 1 hour that were never consumed, then queues blob cleanup for the removed records. Intended to be called by a background job or hosted service. |
 
 **Dependencies**
 
@@ -160,6 +162,7 @@ These are the primary units of business logic. Each service is defined as an int
 |---|---|
 | `IAttachmentRepository` | Attachment metadata persistence. |
 | `IBlobStorageService` | Binary content storage. |
+| `IBlobDeletionQueue` | Queue best-effort blob deletion for expired attachments after DB commit. |
 | `ICurrentUserService` | Ownership validation. |
 | `IUnitOfWork` | Coordinated persistence (metadata + blob saves). |
 
@@ -425,6 +428,7 @@ These interfaces are defined in `ShuKnow.Application` and implemented in `ShuKno
 | `DeleteAsync(fileId)` | Delete a file entity. |
 | `DeleteByFolderAsync(folderId)` | Delete all files in a folder (for recursive folder delete). |
 | `GetByFolderAsync(folderId)` → `List<File>` | All files in a folder (for recursive folder delete — need storage keys to delete blobs). |
+| `GetExistingBlobIdsAsync(blobIds, cancellationToken)` → `IReadOnlySet<Guid>` | Returns which candidate blob IDs are still referenced by files. Used by orphan cleanup in batched, cancellation-aware scans. |
 
 ---
 
@@ -481,6 +485,7 @@ These interfaces are defined in `ShuKnow.Application` and implemented in `ShuKno
 | `MarkConsumedAsync(ids)` | Update status to consumed. |
 | `GetExpiredUnconsumedAsync(olderThan)` → `List<Attachment>` | For the purge job. |
 | `DeleteRangeAsync(ids)` | Delete attachment records. |
+| `GetExistingBlobIdsAsync(blobIds, cancellationToken)` → `IReadOnlySet<Guid>` | Returns which candidate blob IDs are still referenced by attachments. Used by orphan cleanup in batched, cancellation-aware scans. |
 
 ---
 
@@ -503,20 +508,29 @@ These interfaces are defined in `ShuKnow.Application` and implemented in `ShuKno
 
 ### 2.10 IBlobStorageService
 
-**Purpose.** Binary file storage abstraction. Decouples the application from the physical storage mechanism (local disk for MVP, cloud blob storage later).
+**Purpose.** Binary file storage abstraction. Decouples the application from the physical storage mechanism. The current implementation is blob-ID based, stateless, and delegates to an internal provider (`FileSystem` or `S3`) without staging or transactional coordination with the database.
 
 | Method | Description |
 |---|---|
-| `SaveAsync(content, file)` | Stores the binary content using metadata from the `File` entity. |
-| `SaveAsync(content, id)` | Stores binary content by a raw GUID (used for attachments and other non-`File` blobs). |
-| `GetAsync(fileId)` → `Stream` | Retrieves the full binary content by file ID. |
-| `GetRangeAsync(fileId, rangeStart, rangeEnd)` → `Stream` | Retrieves a byte range (for HTTP Range support). |
-| `DeleteAsync(fileId)` | Removes the binary content by file ID. |
-| `GetSizeAsync(fileId)` → `long` | Returns the stored content size (for Range/Content-Length). |
+| `SaveAsync(content, blobId)` | Stores binary content by blob ID. Used for both files and chat attachments. |
+| `GetAsync(blobId)` → `Stream` | Retrieves the full binary content by blob ID. |
+| `GetRangeAsync(blobId, rangeStart, rangeEnd)` → `Stream` | Retrieves a byte range by blob ID. Shared validation rejects negative or inverted ranges before provider calls. |
+| `DeleteAsync(blobId)` | Removes binary content by blob ID. Used for best-effort eager cleanup and by orphan cleanup workers. |
+| `GetSizeAsync(blobId)` → `long` | Returns the stored content size by blob ID (for Range/Content-Length). |
 
 ---
 
-### 2.11 IEncryptionService
+### 2.11 IBlobDeletionQueue
+
+**Purpose.** Queues post-commit blob deletions onto a single hosted background worker. This keeps best-effort cleanup off request scopes and avoids fire-and-forget work on scoped services.
+
+| Method | Description |
+|---|---|
+| `EnqueueDeleteAsync(blobId)` | Adds a blob ID to the bounded delete queue. The hosted worker performs the actual `IBlobStorageService.DeleteAsync` call. |
+
+---
+
+### 2.12 IEncryptionService
 
 **Purpose.** Encrypts and decrypts sensitive data at rest, specifically LLM API keys.
 
@@ -642,6 +656,7 @@ flowchart LR
         direction TB
         AIService["IAIService"]:::port
         BlobStorage["IBlobStorageService"]:::port
+        BlobDeletionQueue["IBlobDeletionQueue"]:::helper
         Encryption["IEncryptionService"]:::port
         JwtService["IJwtService"]:::port
         PasswordHasher["IPasswordHasher"]:::helper
@@ -652,7 +667,8 @@ flowchart LR
         direction TB
         DB[(PostgreSQL)]:::external
         LLM["LLM provider"]:::external
-        BlobStore["File system or cloud blob store"]:::external
+        BlobStore["File system or S3-compatible blob store"]:::external
+        HostedWorkers["Hosted background workers"]:::external
         KeyConfig["Keys, secrets, configuration"]:::external
         SignalR["SignalR hub context"]:::external
     end
@@ -669,8 +685,18 @@ flowchart LR
 
     AIService --> LLM
     BlobStorage --> BlobStore
+    BlobDeletionQueue --> HostedWorkers
+    HostedWorkers --> BlobStore
     Encryption --> KeyConfig
     JwtService --> KeyConfig
     PasswordHasher --> KeyConfig
     ChatNotificationPort --> SignalR
 ```
+
+### 3.3 Blob storage runtime notes
+
+- `File.BlobId` and `ChatAttachment.BlobId` are the durable storage keys. Replace and delete flows intentionally create orphans rather than mutating or coordinating blob state inside the DB transaction.
+- `IBlobStorageService`, `IBlobStorageProvider`, and `IAmazonS3` are registered as singleton-safe components. `PostgresUnitOfWork` remains scoped because it wraps `AppDbContext`.
+- Best-effort eager deletes run through `IBlobDeletionQueue`, a bounded single-reader background worker, instead of `_ = DeleteAsync(...)` fire-and-forget tasks.
+- `BlobOrphanCleanupService` runs one cleanup cycle immediately on startup and then on the configured interval. Cleanup batches candidate blobs, passes `CancellationToken` into repository lookups, and deletes only blobs older than the grace period that are no longer referenced.
+- When the provider is `S3`, startup also runs `S3BucketInitializationService`, which validates the configured bucket and creates it if it is missing.
