@@ -21,8 +21,6 @@ public class BlobOrphanCleanupService(
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            await Task.Delay(interval, stoppingToken);
-
             try
             {
                 var deleted = await RunCleanupAsync(stoppingToken);
@@ -33,6 +31,8 @@ public class BlobOrphanCleanupService(
             {
                 logger.LogError(ex, "Orphan cleanup cycle failed");
             }
+
+            await Task.Delay(interval, stoppingToken);
         }
     }
 

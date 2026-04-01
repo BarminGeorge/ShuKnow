@@ -6,6 +6,8 @@ namespace ShuKnow.Infrastructure.Services;
 
 public class BlobStorageService(IBlobStorageProvider provider) : IBlobStorageService
 {
+    private const string InvalidRangeMessage = "Byte range must be non-negative and end must be greater than start.";
+
     public Task<Result> SaveAsync(Stream content, Guid blobId, CancellationToken ct = default)
         => provider.SaveAsync(content, blobId, ct);
 
@@ -14,7 +16,12 @@ public class BlobStorageService(IBlobStorageProvider provider) : IBlobStorageSer
 
     public Task<Result<Stream>> GetRangeAsync(
         Guid blobId, long rangeStart, long rangeEnd, CancellationToken ct = default)
-        => provider.GetRangeAsync(blobId, rangeStart, rangeEnd, ct);
+    {
+        if (rangeStart < 0 || rangeEnd <= rangeStart)
+            return Task.FromResult(Result<Stream>.Invalid(new ValidationError(InvalidRangeMessage)));
+
+        return provider.GetRangeAsync(blobId, rangeStart, rangeEnd, ct);
+    }
 
     public Task<Result> DeleteAsync(Guid blobId, CancellationToken ct = default)
         => provider.DeleteAsync(blobId, ct);

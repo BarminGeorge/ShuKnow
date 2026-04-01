@@ -77,14 +77,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IUnitOfWork, PostgresUnitOfWork>();
         services.AddScoped<IAiService, AiService>();
-        services.AddScoped<IBlobStorageService, BlobStorageService>();
+        services.AddSingleton<IBlobStorageService, BlobStorageService>();
         services.AddScoped<IEncryptionService, EncryptionService>();
     }
 
     private static void AddBlobStorage(this IServiceCollection services, BlobStorageOptions blobStorageOptions,
         FileSystemBlobStorageOptions fileSystemOptions, S3BlobStorageOptions s3Options)
     {
-        services.AddScoped<IBlobStorageProvider>(serviceProvider =>
+        services.AddSingleton<IBlobStorageProvider>(serviceProvider =>
         {
             if (blobStorageOptions.UsesFileSystem)
             {
@@ -101,7 +101,7 @@ public static class ServiceCollectionExtensions
         });
         if (blobStorageOptions.UsesS3)
         {
-            services.AddScoped<IAmazonS3>(_ =>
+            services.AddSingleton<IAmazonS3>(_ =>
             {
                 var credentials = new BasicAWSCredentials(s3Options.AccessKey, s3Options.SecretKey);
                 var config = new AmazonS3Config

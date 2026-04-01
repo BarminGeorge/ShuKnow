@@ -15,5 +15,5 @@ public interface IAttachmentRepository
 
     Task<Result> DeleteRangeAsync(IReadOnlyCollection<Guid> ids);
 
-    Task<Result<IReadOnlySet<Guid>>> GetAllBlobIdsAsync();
+    Task<Result<IReadOnlySet<Guid>>> GetAllBlobIdsAsync(CancellationToken ct = default);
 }

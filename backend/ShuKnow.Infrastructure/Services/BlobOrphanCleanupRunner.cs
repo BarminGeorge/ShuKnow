@@ -26,7 +26,7 @@ public class BlobOrphanCleanupRunner(
         if (blobsResult.Value.Count == 0)
             return 0;
 
-        var referencedResult = await GetReferencedBlobIdsAsync();
+        var referencedResult = await GetReferencedBlobIdsAsync(ct);
         if (!referencedResult.IsSuccess)
             return 0;
 
@@ -36,10 +36,10 @@ public class BlobOrphanCleanupRunner(
         return await DeleteOrphansAsync(orphans, ct);
     }
 
-    private async Task<Result<HashSet<Guid>>> GetReferencedBlobIdsAsync()
+    private async Task<Result<HashSet<Guid>>> GetReferencedBlobIdsAsync(CancellationToken ct)
     {
-        var fileBlobIdsResult = await fileRepository.GetAllBlobIdsAsync();
-        var attachmentBlobIdsResult = await attachmentRepository.GetAllBlobIdsAsync();
+        var fileBlobIdsResult = await fileRepository.GetAllBlobIdsAsync(ct);
+        var attachmentBlobIdsResult = await attachmentRepository.GetAllBlobIdsAsync(ct);
 
         if (!fileBlobIdsResult.IsSuccess || !attachmentBlobIdsResult.IsSuccess)
         {

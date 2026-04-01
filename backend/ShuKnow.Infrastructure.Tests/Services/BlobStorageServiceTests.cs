@@ -99,6 +99,21 @@ public class BlobStorageServiceTests
         result.Status.Should().Be(ResultStatus.Invalid);
     }
 
+    [TestCase(-1, 10)]
+    [TestCase(10, 10)]
+    [TestCase(10, 5)]
+    public async Task GetRangeAsync_WhenRangeIsInvalid_ShouldReturnInvalidWithoutCallingProvider(
+        long rangeStart, long rangeEnd)
+    {
+        var blobId = Guid.NewGuid();
+
+        var result = await sut.GetRangeAsync(blobId, rangeStart, rangeEnd);
+
+        result.Status.Should().Be(ResultStatus.Invalid);
+        await provider.DidNotReceive()
+            .GetRangeAsync(Arg.Any<Guid>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>());
+    }
+
     [Test]
     public async Task DeleteAsync_ShouldDelegateToProvider()
     {

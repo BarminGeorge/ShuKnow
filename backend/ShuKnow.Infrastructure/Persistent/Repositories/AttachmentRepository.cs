@@ -31,7 +31,7 @@ public class AttachmentRepository : IAttachmentRepository
         throw new NotImplementedException();
     }
 
-    public Task<Result<IReadOnlySet<Guid>>> GetAllBlobIdsAsync()
+    public Task<Result<IReadOnlySet<Guid>>> GetAllBlobIdsAsync(CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }

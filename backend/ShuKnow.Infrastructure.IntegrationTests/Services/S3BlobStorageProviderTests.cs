@@ -147,6 +147,20 @@ public class S3BlobStorageProviderTests
         result.Status.Should().Be(ResultStatus.NotFound);
     }
 
+    [TestCase(-1, 10)]
+    [TestCase(10, 10)]
+    [TestCase(10, 5)]
+    public async Task GetRangeAsync_WhenRangeIsInvalid_ShouldReturnInvalid(long rangeStart, long rangeEnd)
+    {
+        var blobId = Guid.NewGuid();
+        using var input = new MemoryStream("0123456789"u8.ToArray());
+        await sut.SaveAsync(input, blobId);
+
+        var result = await new BlobStorageService(sut).GetRangeAsync(blobId, rangeStart, rangeEnd);
+
+        result.Status.Should().Be(ResultStatus.Invalid);
+    }
+
     [Test]
     public async Task DeleteAsync_WhenBlobExists_ShouldRemoveBlob()
     {

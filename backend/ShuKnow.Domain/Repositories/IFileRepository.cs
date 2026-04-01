@@ -29,5 +29,5 @@ public interface IFileRepository
 
     Task<Result<IReadOnlyList<File>>> GetByFolderAsync(Guid folderId);
 
-    Task<Result<IReadOnlySet<Guid>>> GetAllBlobIdsAsync();
+    Task<Result<IReadOnlySet<Guid>>> GetAllBlobIdsAsync(CancellationToken ct = default);
 }
