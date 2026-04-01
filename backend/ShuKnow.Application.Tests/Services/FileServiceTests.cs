@@ -1,7 +1,6 @@
 using System.Text;
 using Ardalis.Result;
 using AwesomeAssertions;
-using Microsoft.Extensions.Logging;
 using NSubstitute;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Services;
@@ -16,9 +15,9 @@ public class FileServiceTests
     private IFileRepository fileRepository = null!;
     private IFolderRepository folderRepository = null!;
     private IBlobStorageService blobStorageService = null!;
+    private IBlobDeletionQueue blobDeletionQueue = null!;
     private ICurrentUserService currentUserService = null!;
     private IUnitOfWork unitOfWork = null!;
-    private ILogger<FileService> logger = null!;
     private Guid currentUserId;
     private FileService sut = null!;
 
@@ -28,9 +27,9 @@ public class FileServiceTests
         fileRepository = Substitute.For<IFileRepository>();
         folderRepository = Substitute.For<IFolderRepository>();
         blobStorageService = Substitute.For<IBlobStorageService>();
+        blobDeletionQueue = Substitute.For<IBlobDeletionQueue>();
         currentUserService = Substitute.For<ICurrentUserService>();
         unitOfWork = Substitute.For<IUnitOfWork>();
-        logger = Substitute.For<ILogger<FileService>>();
         currentUserId = Guid.NewGuid();
 
         currentUserService.UserId.Returns(currentUserId);
@@ -40,9 +39,9 @@ public class FileServiceTests
             fileRepository,
             folderRepository,
             blobStorageService,
+            blobDeletionQueue,
             currentUserService,
-            unitOfWork,
-            logger);
+            unitOfWork);
     }
 
     [Test]
@@ -195,7 +194,7 @@ public class FileServiceTests
         var result = await sut.DeleteAsync(file.Id);
 
         result.Status.Should().Be(ResultStatus.Ok);
-        await blobStorageService.Received(1).DeleteAsync(file.BlobId, Arg.Any<CancellationToken>());
+        await blobDeletionQueue.Received(1).EnqueueDeleteAsync(file.BlobId);
     }
 
     [Test]
@@ -306,7 +305,49 @@ public class FileServiceTests
         var result = await sut.ReplaceContentAsync(existingFile.Id, content, "application/json");
 
         result.Status.Should().Be(ResultStatus.Ok);
-        await blobStorageService.Received(1).DeleteAsync(originalBlobId, Arg.Any<CancellationToken>());
+        await blobDeletionQueue.Received(1).EnqueueDeleteAsync(originalBlobId);
+    }
+
+    [Test]
+    public async Task ReplaceContentAsync_WhenBlobSaveFails_ShouldNotMutateTrackedFile()
+    {
+        var existingFile = CreateFile(contentType: "text/plain", sizeBytes: 3, version: 2);
+        var originalBlobId = Guid.NewGuid();
+        existingFile.BlobId = originalBlobId;
+        using var content = CreateStream("updated payload");
+
+        ReturnsExistingFileForUpdate(existingFile);
+        blobStorageService.SaveAsync(Arg.Any<Stream>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Error("storage error")));
+
+        var result = await sut.ReplaceContentAsync(existingFile.Id, content, "application/json");
+
+        result.Status.Should().Be(ResultStatus.Error);
+        existingFile.ContentType.Should().Be("text/plain");
+        existingFile.SizeBytes.Should().Be(3);
+        existingFile.Version.Should().Be(2);
+        existingFile.BlobId.Should().Be(originalBlobId);
+        await unitOfWork.DidNotReceive().SaveChangesAsync();
+        await blobDeletionQueue.DidNotReceive().EnqueueDeleteAsync(Arg.Any<Guid>());
+    }
+
+    [Test]
+    public async Task ReplaceContentAsync_WhenInputIsSeekable_ShouldUploadOriginalStreamWithoutBuffering()
+    {
+        var existingFile = CreateFile(contentType: "text/plain", sizeBytes: 3, version: 2);
+        existingFile.BlobId = Guid.NewGuid();
+        using var content = CreateStream("updated payload");
+        content.Position = 8;
+
+        ReturnsExistingFileForUpdate(existingFile);
+        blobStorageService.SaveAsync(Arg.Any<Stream>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Success());
+
+        var result = await sut.ReplaceContentAsync(existingFile.Id, content, "application/json");
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        existingFile.SizeBytes.Should().Be(content.Length - 8);
+        await blobStorageService.Received(1).SaveAsync(content, Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -397,8 +438,8 @@ public class FileServiceTests
 
         result.Status.Should().Be(ResultStatus.Ok);
         await unitOfWork.Received(1).SaveChangesAsync();
-        await blobStorageService.Received(1).DeleteAsync(firstFile.BlobId, Arg.Any<CancellationToken>());
-        await blobStorageService.Received(1).DeleteAsync(secondFile.BlobId, Arg.Any<CancellationToken>());
+        await blobDeletionQueue.Received(1).EnqueueDeleteAsync(firstFile.BlobId);
+        await blobDeletionQueue.Received(1).EnqueueDeleteAsync(secondFile.BlobId);
     }
 
     [Test]
@@ -561,7 +602,29 @@ public class FileServiceTests
         var result = await sut.UpdateTextContentAsync(existingFile.Id, "updated text content");
 
         result.Status.Should().Be(ResultStatus.Ok);
-        await blobStorageService.Received(1).DeleteAsync(originalBlobId, Arg.Any<CancellationToken>());
+        await blobDeletionQueue.Received(1).EnqueueDeleteAsync(originalBlobId);
+    }
+
+    [Test]
+    public async Task UpdateTextContentAsync_WhenBlobSaveFails_ShouldNotMutateTrackedFile()
+    {
+        var existingFile = CreateFile(contentType: "text/plain", sizeBytes: 5, version: 1);
+        var originalBlobId = Guid.NewGuid();
+        existingFile.BlobId = originalBlobId;
+
+        ReturnsExistingFileForUpdate(existingFile);
+        blobStorageService.SaveAsync(Arg.Any<Stream>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Error("storage error")));
+
+        var result = await sut.UpdateTextContentAsync(existingFile.Id, "updated text content");
+
+        result.Status.Should().Be(ResultStatus.Error);
+        existingFile.ContentType.Should().Be("text/plain");
+        existingFile.SizeBytes.Should().Be(5);
+        existingFile.Version.Should().Be(1);
+        existingFile.BlobId.Should().Be(originalBlobId);
+        await unitOfWork.DidNotReceive().SaveChangesAsync();
+        await blobDeletionQueue.DidNotReceive().EnqueueDeleteAsync(Arg.Any<Guid>());
     }
 
     private void ConfigureDefaults()
@@ -578,7 +641,7 @@ public class FileServiceTests
         fileRepository.GetByFolderAsync(Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
         blobStorageService.SaveAsync(Arg.Any<Stream>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Success());
-        blobStorageService.DeleteAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(Success());
+        blobDeletionQueue.EnqueueDeleteAsync(Arg.Any<Guid>()).Returns(ValueTask.CompletedTask);
         blobStorageService.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(_ => Success<Stream>(new MemoryStream()));
         blobStorageService

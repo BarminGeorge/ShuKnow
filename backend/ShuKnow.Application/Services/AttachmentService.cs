@@ -1,5 +1,4 @@
 using Ardalis.Result;
-using Microsoft.Extensions.Logging;
 using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Domain.Entities;
@@ -10,9 +9,9 @@ namespace ShuKnow.Application.Services;
 public class AttachmentService(
     IAttachmentRepository attachmentRepository,
     IBlobStorageService blobStorageService,
+    IBlobDeletionQueue blobDeletionQueue,
     ICurrentUserService currentUserService,
-    IUnitOfWork unitOfWork,
-    ILogger<AttachmentService> logger)
+    IUnitOfWork unitOfWork)
     : IAttachmentService
 {
     private static readonly TimeSpan ExpirationThreshold = TimeSpan.FromHours(1);
@@ -20,18 +19,15 @@ public class AttachmentService(
     private Guid CurrentUserId => currentUserService.UserId;
 
     public async Task<Result<IReadOnlyList<ChatAttachment>>> UploadAsync(
-        IReadOnlyCollection<ChatAttachment> attachments,
-        IReadOnlyCollection<Stream> contents,
+        IReadOnlyList<(ChatAttachment Attachment, Stream Content)> uploads,
         CancellationToken ct = default)
     {
-        if (attachments.Count != contents.Count)
-            return Result<IReadOnlyList<ChatAttachment>>.Invalid(
-                new ValidationError("Attachments and contents counts must match."));
+        var attachments = uploads.Select(upload => upload.Attachment).ToList();
 
         foreach (var attachment in attachments)
             attachment.BlobId = Guid.NewGuid();
 
-        return await SaveBlobsAsync(attachments, contents, ct)
+        return await SaveBlobsAsync(uploads, ct)
             .BindAsync(_ => attachmentRepository.AddRangeAsync(attachments))
             .SaveChangesAsync(unitOfWork)
             .MapAsync(() => (IReadOnlyList<ChatAttachment>)attachments.ToList());
@@ -65,17 +61,15 @@ public class AttachmentService(
                 return await attachmentRepository.DeleteRangeAsync(ids)
                     .SaveChangesAsync(unitOfWork)
                     .MapAsync(() => expired)
-                    .Act(list => DeleteBlobsInBackground(
-                        list.Select(a => a.BlobId).ToList()));
+                    .ActAsync(list => EnqueueDeletesAsync(list.Select(a => a.BlobId)));
             });
     }
 
     private async Task<Result> SaveBlobsAsync(
-        IReadOnlyCollection<ChatAttachment> attachments,
-        IReadOnlyCollection<Stream> contents,
+        IReadOnlyList<(ChatAttachment Attachment, Stream Content)> uploads,
         CancellationToken ct)
     {
-        foreach (var (attachment, content) in attachments.Zip(contents))
+        foreach (var (attachment, content) in uploads)
         {
             var result = await blobStorageService.SaveAsync(content, attachment.BlobId, ct);
             if (!result.IsSuccess)
@@ -85,25 +79,9 @@ public class AttachmentService(
         return Result.Success();
     }
 
-    private void DeleteBlobsInBackground(IReadOnlyList<Guid> blobIds)
+    private async Task EnqueueDeletesAsync(IEnumerable<Guid> blobIds)
     {
         foreach (var blobId in blobIds)
-            _ = DeleteBlobSilently(blobId);
-    }
-
-    private async Task DeleteBlobSilently(Guid blobId)
-    {
-        try
-        {
-            var result = await blobStorageService.DeleteAsync(blobId);
-            if (!result.IsSuccess)
-                logger.LogWarning(
-                    "Best-effort blob cleanup failed for {BlobId}: {Errors}",
-                    blobId, string.Join(", ", result.Errors));
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Best-effort blob cleanup failed for {BlobId}", blobId);
-        }
+            await blobDeletionQueue.EnqueueDeleteAsync(blobId);
     }
 }

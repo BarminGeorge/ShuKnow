@@ -6,8 +6,7 @@ namespace ShuKnow.Application.Interfaces;
 public interface IAttachmentService
 {
     Task<Result<IReadOnlyList<ChatAttachment>>> UploadAsync(
-        IReadOnlyCollection<ChatAttachment> attachments,
-        IReadOnlyCollection<Stream> contents,
+        IReadOnlyList<(ChatAttachment Attachment, Stream Content)> uploads,
         CancellationToken ct = default);
     
     Task<Result<IReadOnlyList<ChatAttachment>>> GetByIdsAsync(

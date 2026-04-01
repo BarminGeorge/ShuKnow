@@ -78,6 +78,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUnitOfWork, PostgresUnitOfWork>();
         services.AddScoped<IAiService, AiService>();
         services.AddSingleton<IBlobStorageService, BlobStorageService>();
+        services.AddSingleton<BlobDeletionQueue>();
+        services.AddSingleton<IBlobDeletionQueue>(serviceProvider =>
+            serviceProvider.GetRequiredService<BlobDeletionQueue>());
+        services.AddHostedService(serviceProvider =>
+            serviceProvider.GetRequiredService<BlobDeletionQueue>());
         services.AddScoped<IEncryptionService, EncryptionService>();
     }
 
