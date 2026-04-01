@@ -117,6 +117,8 @@ public static class ServiceCollectionExtensions
 
                 return new AmazonS3Client(credentials, config);
             });
+
+            services.AddHostedService<S3BucketInitializationService>();
         }
 
         services.AddScoped<IBlobOrphanCleanupRunner, BlobOrphanCleanupRunner>();

@@ -64,7 +64,6 @@ public class BoundedReadStream(Stream inner, long length) : Stream
 
     public override async ValueTask DisposeAsync()
     {
-        await inner.DisposeAsync();
-        GC.SuppressFinalize(this);
+        await base.DisposeAsync();
     }
 }
