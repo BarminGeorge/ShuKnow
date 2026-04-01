@@ -17,8 +17,9 @@ public class S3BlobStorageProviderTests
     private const string BucketName = "test-bucket";
     private const string Prefix = "blobs";
     private const int S3Port = 9000;
+    private const int ConsolePort = 9001;
 
-    private IContainer? minioContainer;
+    private IContainer? rustFsContainer;
     private IAmazonS3? s3Client;
     private S3BlobStorageProvider sut = null!;
     private string? setupError;
@@ -28,36 +29,32 @@ public class S3BlobStorageProviderTests
     {
         try
         {
-            TestContext.Progress.WriteLine("[S3Test] OneTimeSetUp starting...");
-            minioContainer = new ContainerBuilder("minio/minio:latest")
+            rustFsContainer = new ContainerBuilder("rustfs/rustfs:latest")
                 .WithPortBinding(S3Port, true)
-                .WithEnvironment("MINIO_ROOT_USER", "minioadmin")
-                .WithEnvironment("MINIO_ROOT_PASSWORD", "minioadmin")
-                .WithCommand("server", "/data")
+                .WithPortBinding(ConsolePort, true)
+                .WithEnvironment("RUSTFS_ADDRESS", ":9000")
+                .WithEnvironment("RUSTFS_ACCESS_KEY", "rustfsadmin")
+                .WithEnvironment("RUSTFS_SECRET_KEY", "rustfsadmin")
+                .WithEnvironment("RUSTFS_CONSOLE_ENABLE", "true")
+                .WithCommand("/data")
                 .WithWaitStrategy(Wait.ForUnixContainer()
-                    .UntilHttpRequestIsSucceeded(r => r
-                        .ForPort((ushort)S3Port)
-                        .ForPath("/minio/health/live")))
+                    .UntilInternalTcpPortIsAvailable(S3Port))
                 .Build();
+            
+            await rustFsContainer.StartAsync();
 
-            TestContext.Progress.WriteLine("[S3Test] Container built, starting...");
-            await minioContainer.StartAsync();
-            TestContext.Progress.WriteLine("[S3Test] Container started");
-
-            var port = minioContainer.GetMappedPublicPort(S3Port);
-            var serviceUrl = $"http://{minioContainer.Hostname}:{port}";
-            TestContext.Progress.WriteLine($"[S3Test] MinIO at {serviceUrl}");
+            var port = rustFsContainer.GetMappedPublicPort(S3Port);
+            var serviceUrl = $"http://{rustFsContainer.Hostname}:{port}";
 
             var config = new AmazonS3Config
             {
                 ServiceURL = serviceUrl,
                 ForcePathStyle = true
             };
-            var credentials = new BasicAWSCredentials("minioadmin", "minioadmin");
+            var credentials = new BasicAWSCredentials("rustfsadmin", "rustfsadmin");
             s3Client = new AmazonS3Client(credentials, config);
 
             await s3Client.PutBucketAsync(BucketName);
-            TestContext.Progress.WriteLine("[S3Test] Bucket created, setup complete");
         }
         catch (Exception ex)
         {
@@ -82,8 +79,8 @@ public class S3BlobStorageProviderTests
     public async Task OneTimeTearDown()
     {
         s3Client?.Dispose();
-        if (minioContainer is not null)
-            await minioContainer.DisposeAsync();
+        if (rustFsContainer is not null)
+            await rustFsContainer.DisposeAsync();
     }
 
     [Test]
