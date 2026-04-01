@@ -161,6 +161,7 @@
 | `IAttachmentRepository` | Хранение и чтение метаданных вложений. |
 | `IBlobStorageService` | Хранение бинарного содержимого. |
 | `ICurrentUserService` | Проверка владельца. |
+| `IUnitOfWork` | Координация сохранения (метаданные + blob). |
 
 ---
 
@@ -507,6 +508,7 @@
 | Метод | Описание |
 |---|---|
 | `SaveAsync(content, file)` | Сохраняет бинарное содержимое, используя метаданные из сущности `File`. |
+| `SaveAsync(content, id)` | Сохраняет бинарное содержимое по GUID (используется для вложений и других blob-ов, не привязанных к `File`). |
 | `GetAsync(fileId)` → `Stream` | Получает всё бинарное содержимое по ID файла. |
 | `GetRangeAsync(fileId, rangeStart, rangeEnd)` → `Stream` | Получает диапазон байтов (для поддержки HTTP Range). |
 | `DeleteAsync(fileId)` | Удаляет бинарное содержимое по ID файла. |
