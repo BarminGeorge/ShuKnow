@@ -236,23 +236,21 @@ public class FileSystemBlobStorageProviderTests
         await sut.SaveAsync(s1, blobId1);
         await sut.SaveAsync(s2, blobId2);
 
-        var result = await sut.ListWithTimestampsAsync();
+        var result = await CollectAsync(sut.StreamWithTimestampsAsync());
 
-        result.Status.Should().Be(ResultStatus.Ok);
-        result.Value.Should().HaveCount(2);
-        result.Value.Select(b => b.BlobId).Should().Contain(blobId1);
-        result.Value.Select(b => b.BlobId).Should().Contain(blobId2);
-        result.Value.Should().AllSatisfy(b =>
+        result.Should().HaveCount(2);
+        result.Select(b => b.BlobId).Should().Contain(blobId1);
+        result.Select(b => b.BlobId).Should().Contain(blobId2);
+        result.Should().AllSatisfy(b =>
             b.CreatedAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(5)));
     }
 
     [Test]
     public async Task ListWithTimestampsAsync_WhenEmpty_ShouldReturnEmptyList()
     {
-        var result = await sut.ListWithTimestampsAsync();
+        var result = await CollectAsync(sut.StreamWithTimestampsAsync());
 
-        result.Status.Should().Be(ResultStatus.Ok);
-        result.Value.Should().BeEmpty();
+        result.Should().BeEmpty();
     }
 
     [Test]
@@ -262,10 +260,9 @@ public class FileSystemBlobStorageProviderTests
         var logger = Substitute.For<ILogger<FileSystemBlobStorageProvider>>();
         var provider = new FileSystemBlobStorageProvider(nonExistentDir, logger);
 
-        var result = await provider.ListWithTimestampsAsync();
+        var result = await CollectAsync(provider.StreamWithTimestampsAsync());
 
-        result.Status.Should().Be(ResultStatus.Ok);
-        result.Value.Should().BeEmpty();
+        result.Should().BeEmpty();
     }
 
     [Test]
@@ -296,5 +293,15 @@ public class FileSystemBlobStorageProviderTests
         result.Status.Should().Be(ResultStatus.Ok);
         var sizeResult = await sut.GetSizeAsync(blobId);
         sizeResult.Value.Should().Be(0);
+    }
+
+    private static async Task<List<(Guid BlobId, DateTimeOffset CreatedAt)>> CollectAsync(
+        IAsyncEnumerable<(Guid BlobId, DateTimeOffset CreatedAt)> blobs)
+    {
+        var result = new List<(Guid BlobId, DateTimeOffset CreatedAt)>();
+        await foreach (var blob in blobs)
+            result.Add(blob);
+
+        return result;
     }
 }

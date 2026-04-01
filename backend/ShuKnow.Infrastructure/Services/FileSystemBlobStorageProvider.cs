@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+using System.Threading.Channels;
 using Ardalis.Result;
 using Microsoft.Extensions.Logging;
 using ShuKnow.Infrastructure.Interfaces;
@@ -105,23 +107,43 @@ public class FileSystemBlobStorageProvider(
         return Task.FromResult(Result.Success(File.Exists(filePath)));
     }
 
-    public Task<Result<IReadOnlyList<(Guid BlobId, DateTimeOffset CreatedAt)>>> ListWithTimestampsAsync(
-        CancellationToken ct = default)
+    public async IAsyncEnumerable<(Guid BlobId, DateTimeOffset CreatedAt)> StreamWithTimestampsAsync(
+        [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var blobs = new List<(Guid BlobId, DateTimeOffset CreatedAt)>();
-
         if (!Directory.Exists(basePath))
-            return Task.FromResult(
-                Result.Success<IReadOnlyList<(Guid BlobId, DateTimeOffset CreatedAt)>>(blobs));
+            yield break;
 
-        foreach (var (blobId, filePath) in EnumerateBlobs())
+        var channel = Channel.CreateBounded<(Guid BlobId, DateTimeOffset CreatedAt)>(
+            new BoundedChannelOptions(256)
+            {
+                SingleReader = true,
+                SingleWriter = true
+            });
+
+        var producer = Task.Run(() =>
         {
-            var createdAt = new DateTimeOffset(File.GetCreationTimeUtc(filePath), TimeSpan.Zero);
-            blobs.Add((blobId, createdAt));
-        }
+            try
+            {
+                foreach (var (blobId, filePath) in EnumerateBlobs())
+                {
+                    ct.ThrowIfCancellationRequested();
 
-        return Task.FromResult(
-            Result.Success<IReadOnlyList<(Guid BlobId, DateTimeOffset CreatedAt)>>(blobs));
+                    var createdAt = new DateTimeOffset(File.GetCreationTimeUtc(filePath), TimeSpan.Zero);
+                    channel.Writer.WriteAsync((blobId, createdAt), ct).AsTask().GetAwaiter().GetResult();
+                }
+
+                channel.Writer.TryComplete();
+            }
+            catch (Exception ex)
+            {
+                channel.Writer.TryComplete(ex);
+            }
+        }, ct);
+
+        await foreach (var blob in channel.Reader.ReadAllAsync(ct))
+            yield return blob;
+
+        await producer;
     }
 
     public string GetBlobPath(Guid blobId)

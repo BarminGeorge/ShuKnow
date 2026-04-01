@@ -1,4 +1,5 @@
 using System.Net;
+using System.Runtime.CompilerServices;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Ardalis.Result;
@@ -159,41 +160,8 @@ public class S3BlobStorageProvider(
         }
     }
 
-    public async Task<Result<IReadOnlyList<(Guid BlobId, DateTimeOffset CreatedAt)>>> ListWithTimestampsAsync(
-        CancellationToken ct = default)
-    {
-        try
-        {
-            var blobs = new List<(Guid BlobId, DateTimeOffset CreatedAt)>();
-
-            await PaginateObjectsAsync(ct, obj =>
-            {
-                if (!TryParseBlobId(obj.Key, out var blobId)) 
-                    return;
-                
-                var createdAt = obj.LastModified.HasValue
-                    ? new DateTimeOffset(obj.LastModified.Value, TimeSpan.Zero)
-                    : DateTimeOffset.UtcNow;
-                blobs.Add((blobId, createdAt));
-            });
-
-            return Result.Success<IReadOnlyList<(Guid BlobId, DateTimeOffset CreatedAt)>>(blobs);
-        }
-        catch (AmazonS3Exception ex)
-        {
-            logger.LogError(ex, "Failed to list blobs with timestamps in S3");
-            return Result<IReadOnlyList<(Guid BlobId, DateTimeOffset CreatedAt)>>.Error(
-                $"Failed to list blobs in S3: {ex.Message}");
-        }
-    }
-
-    public string GetObjectKey(Guid blobId)
-    {
-        var id = blobId.ToString("N");
-        return string.IsNullOrEmpty(prefix) ? id : $"{prefix}/{id}";
-    }
-
-    private async Task PaginateObjectsAsync(CancellationToken ct, Action<S3Object> onObject)
+    public async IAsyncEnumerable<(Guid BlobId, DateTimeOffset CreatedAt)> StreamWithTimestampsAsync(
+        [EnumeratorCancellation] CancellationToken ct = default)
     {
         var request = new ListObjectsV2Request
         {
@@ -206,13 +174,27 @@ public class S3BlobStorageProvider(
             var response = await s3Client.ListObjectsV2Async(request, ct);
 
             foreach (var obj in response.S3Objects ?? [])
-                onObject(obj);
+            {
+                if (!TryParseBlobId(obj.Key, out var blobId))
+                    continue;
+
+                var createdAt = obj.LastModified.HasValue
+                    ? new DateTimeOffset(obj.LastModified.Value, TimeSpan.Zero)
+                    : DateTimeOffset.UtcNow;
+                yield return (blobId, createdAt);
+            }
 
             if (response.IsTruncated != true)
-                break;
+                yield break;
 
             request.ContinuationToken = response.NextContinuationToken;
         }
+    }
+
+    public string GetObjectKey(Guid blobId)
+    {
+        var id = blobId.ToString("N");
+        return string.IsNullOrEmpty(prefix) ? id : $"{prefix}/{id}";
     }
 
     private static bool TryParseBlobId(string key, out Guid blobId)

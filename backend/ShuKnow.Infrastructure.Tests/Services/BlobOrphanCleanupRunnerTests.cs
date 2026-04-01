@@ -43,8 +43,8 @@ public class BlobOrphanCleanupRunnerTests
     [Test]
     public async Task RunCleanupAsync_WhenNoBlobsExist_ShouldReturnZeroAndNotDelete()
     {
-        provider.ListWithTimestampsAsync(Arg.Any<CancellationToken>())
-            .Returns(SuccessTimestamps([]));
+        provider.StreamWithTimestampsAsync(Arg.Any<CancellationToken>())
+            .Returns(StreamTimestamps([]));
 
         var deleted = await sut.RunCleanupAsync(CancellationToken.None);
 
@@ -59,11 +59,15 @@ public class BlobOrphanCleanupRunnerTests
         var blobId2 = Guid.NewGuid();
         var oldTimestamp = DateTimeOffset.UtcNow.AddHours(-2);
 
-        provider.ListWithTimestampsAsync(Arg.Any<CancellationToken>())
-            .Returns(SuccessTimestamps([(blobId1, oldTimestamp), (blobId2, oldTimestamp)]));
-        fileRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
+        provider.StreamWithTimestampsAsync(Arg.Any<CancellationToken>())
+            .Returns(StreamTimestamps([(blobId1, oldTimestamp), (blobId2, oldTimestamp)]));
+        fileRepository.GetExistingBlobIdsAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Contains(blobId1) && ids.Contains(blobId2)),
+                Arg.Any<CancellationToken>())
             .Returns(SuccessBlobIds(blobId1));
-        attachmentRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
+        attachmentRepository.GetExistingBlobIdsAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Contains(blobId1) && ids.Contains(blobId2)),
+                Arg.Any<CancellationToken>())
             .Returns(SuccessBlobIds(blobId2));
 
         var deleted = await sut.RunCleanupAsync(CancellationToken.None);
@@ -79,11 +83,13 @@ public class BlobOrphanCleanupRunnerTests
         var orphanId = Guid.NewGuid();
         var oldTimestamp = DateTimeOffset.UtcNow.AddHours(-2);
 
-        provider.ListWithTimestampsAsync(Arg.Any<CancellationToken>())
-            .Returns(SuccessTimestamps([(referencedId, oldTimestamp), (orphanId, oldTimestamp)]));
-        fileRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
-            .Returns(SuccessBlobIds(referencedId));
-        attachmentRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
+        provider.StreamWithTimestampsAsync(Arg.Any<CancellationToken>())
+            .Returns(StreamTimestamps([(referencedId, oldTimestamp), (orphanId, oldTimestamp)]));
+        fileRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(call => SuccessBlobIds(call.ArgAt<IReadOnlyCollection<Guid>>(0).Contains(referencedId)
+                ? [referencedId]
+                : []));
+        attachmentRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(SuccessBlobIds());
         provider.DeleteAsync(orphanId, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success()));
@@ -101,17 +107,17 @@ public class BlobOrphanCleanupRunnerTests
         var orphanId = Guid.NewGuid();
         var recentTimestamp = DateTimeOffset.UtcNow.AddMinutes(-30);
 
-        provider.ListWithTimestampsAsync(Arg.Any<CancellationToken>())
-            .Returns(SuccessTimestamps([(orphanId, recentTimestamp)]));
-        fileRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
-            .Returns(SuccessBlobIds());
-        attachmentRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
-            .Returns(SuccessBlobIds());
+        provider.StreamWithTimestampsAsync(Arg.Any<CancellationToken>())
+            .Returns(StreamTimestamps([(orphanId, recentTimestamp)]));
 
         var deleted = await sut.RunCleanupAsync(CancellationToken.None);
 
         deleted.Should().Be(0);
         await provider.DidNotReceive().DeleteAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await fileRepository.DidNotReceive()
+            .GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+        await attachmentRepository.DidNotReceive()
+            .GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -124,16 +130,18 @@ public class BlobOrphanCleanupRunnerTests
         var oldTimestamp = DateTimeOffset.UtcNow.AddHours(-3);
         var recentTimestamp = DateTimeOffset.UtcNow.AddMinutes(-10);
 
-        provider.ListWithTimestampsAsync(Arg.Any<CancellationToken>())
-            .Returns(SuccessTimestamps([
+        provider.StreamWithTimestampsAsync(Arg.Any<CancellationToken>())
+            .Returns(StreamTimestamps([
                 (orphan1, oldTimestamp),
                 (orphan2, oldTimestamp),
                 (recentOrphan, recentTimestamp),
                 (referencedId, oldTimestamp)
             ]));
-        fileRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
-            .Returns(SuccessBlobIds(referencedId));
-        attachmentRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
+        fileRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(call => SuccessBlobIds(call.ArgAt<IReadOnlyCollection<Guid>>(0).Contains(referencedId)
+                ? [referencedId]
+                : []));
+        attachmentRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(SuccessBlobIds());
         provider.DeleteAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success()));
@@ -150,15 +158,16 @@ public class BlobOrphanCleanupRunnerTests
     [Test]
     public async Task RunCleanupAsync_WhenListBlobsFails_ShouldReturnZeroAndNotQueryDb()
     {
-        provider.ListWithTimestampsAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(
-                Result<IReadOnlyList<(Guid BlobId, DateTimeOffset CreatedAt)>>.Error("storage error")));
+        provider.StreamWithTimestampsAsync(Arg.Any<CancellationToken>())
+            .Returns(_ => ThrowOnEnumeration<(Guid BlobId, DateTimeOffset CreatedAt)>(new InvalidOperationException("storage error")));
 
         var deleted = await sut.RunCleanupAsync(CancellationToken.None);
 
         deleted.Should().Be(0);
-        await fileRepository.DidNotReceive().GetAllBlobIdsAsync(Arg.Any<CancellationToken>());
-        await attachmentRepository.DidNotReceive().GetAllBlobIdsAsync(Arg.Any<CancellationToken>());
+        await fileRepository.DidNotReceive()
+            .GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+        await attachmentRepository.DidNotReceive()
+            .GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -167,11 +176,11 @@ public class BlobOrphanCleanupRunnerTests
         var orphanId = Guid.NewGuid();
         var oldTimestamp = DateTimeOffset.UtcNow.AddHours(-2);
 
-        provider.ListWithTimestampsAsync(Arg.Any<CancellationToken>())
-            .Returns(SuccessTimestamps([(orphanId, oldTimestamp)]));
-        fileRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
+        provider.StreamWithTimestampsAsync(Arg.Any<CancellationToken>())
+            .Returns(StreamTimestamps([(orphanId, oldTimestamp)]));
+        fileRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result<IReadOnlySet<Guid>>.Error("db error")));
-        attachmentRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
+        attachmentRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(SuccessBlobIds());
 
         var deleted = await sut.RunCleanupAsync(CancellationToken.None);
@@ -186,11 +195,11 @@ public class BlobOrphanCleanupRunnerTests
         var orphanId = Guid.NewGuid();
         var oldTimestamp = DateTimeOffset.UtcNow.AddHours(-2);
 
-        provider.ListWithTimestampsAsync(Arg.Any<CancellationToken>())
-            .Returns(SuccessTimestamps([(orphanId, oldTimestamp)]));
-        fileRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
+        provider.StreamWithTimestampsAsync(Arg.Any<CancellationToken>())
+            .Returns(StreamTimestamps([(orphanId, oldTimestamp)]));
+        fileRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(SuccessBlobIds());
-        attachmentRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
+        attachmentRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result<IReadOnlySet<Guid>>.Error("db error")));
 
         var deleted = await sut.RunCleanupAsync(CancellationToken.None);
@@ -206,11 +215,11 @@ public class BlobOrphanCleanupRunnerTests
         var orphan2 = Guid.NewGuid();
         var oldTimestamp = DateTimeOffset.UtcNow.AddHours(-2);
 
-        provider.ListWithTimestampsAsync(Arg.Any<CancellationToken>())
-            .Returns(SuccessTimestamps([(orphan1, oldTimestamp), (orphan2, oldTimestamp)]));
-        fileRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
+        provider.StreamWithTimestampsAsync(Arg.Any<CancellationToken>())
+            .Returns(StreamTimestamps([(orphan1, oldTimestamp), (orphan2, oldTimestamp)]));
+        fileRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(SuccessBlobIds());
-        attachmentRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
+        attachmentRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(SuccessBlobIds());
         provider.DeleteAsync(orphan1, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Error("delete failed")));
@@ -230,11 +239,11 @@ public class BlobOrphanCleanupRunnerTests
         var sharedBlobId = Guid.NewGuid();
         var oldTimestamp = DateTimeOffset.UtcNow.AddHours(-2);
 
-        provider.ListWithTimestampsAsync(Arg.Any<CancellationToken>())
-            .Returns(SuccessTimestamps([(sharedBlobId, oldTimestamp)]));
-        fileRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
+        provider.StreamWithTimestampsAsync(Arg.Any<CancellationToken>())
+            .Returns(StreamTimestamps([(sharedBlobId, oldTimestamp)]));
+        fileRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(SuccessBlobIds(sharedBlobId));
-        attachmentRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
+        attachmentRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(SuccessBlobIds(sharedBlobId));
 
         var deleted = await sut.RunCleanupAsync(CancellationToken.None);
@@ -261,11 +270,11 @@ public class BlobOrphanCleanupRunnerTests
         var orphanId = Guid.NewGuid();
         var timestamp = DateTimeOffset.UtcNow.AddMinutes(-90);
 
-        provider.ListWithTimestampsAsync(Arg.Any<CancellationToken>())
-            .Returns(SuccessTimestamps([(orphanId, timestamp)]));
-        fileRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
+        provider.StreamWithTimestampsAsync(Arg.Any<CancellationToken>())
+            .Returns(StreamTimestamps([(orphanId, timestamp)]));
+        fileRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(SuccessBlobIds());
-        attachmentRepository.GetAllBlobIdsAsync(Arg.Any<CancellationToken>())
+        attachmentRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(SuccessBlobIds());
 
         var deleted = await customSut.RunCleanupAsync(CancellationToken.None);
@@ -282,11 +291,11 @@ public class BlobOrphanCleanupRunnerTests
         var orphanId = Guid.NewGuid();
         var oldTimestamp = DateTimeOffset.UtcNow.AddHours(-2);
 
-        provider.ListWithTimestampsAsync(token)
-            .Returns(SuccessTimestamps([(orphanId, oldTimestamp)]));
-        fileRepository.GetAllBlobIdsAsync(token)
+        provider.StreamWithTimestampsAsync(token)
+            .Returns(StreamTimestamps([(orphanId, oldTimestamp)]));
+        fileRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), token)
             .Returns(SuccessBlobIds());
-        attachmentRepository.GetAllBlobIdsAsync(token)
+        attachmentRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), token)
             .Returns(SuccessBlobIds());
         provider.DeleteAsync(orphanId, token)
             .Returns(Task.FromResult(Result.Success()));
@@ -294,20 +303,62 @@ public class BlobOrphanCleanupRunnerTests
         var deleted = await sut.RunCleanupAsync(token);
 
         deleted.Should().Be(1);
-        await fileRepository.Received(1).GetAllBlobIdsAsync(token);
-        await attachmentRepository.Received(1).GetAllBlobIdsAsync(token);
+        await fileRepository.Received(1)
+            .GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), token);
+        await attachmentRepository.Received(1)
+            .GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), token);
     }
 
-    private static Task<Result<IReadOnlyList<(Guid BlobId, DateTimeOffset CreatedAt)>>> SuccessTimestamps(
-        List<(Guid BlobId, DateTimeOffset CreatedAt)> blobs)
+    [Test]
+    public async Task RunCleanupAsync_WhenCandidateCountExceedsBatchSize_ShouldQueryDatabaseInBatches()
     {
-        return Task.FromResult(
-            Result.Success<IReadOnlyList<(Guid BlobId, DateTimeOffset CreatedAt)>>(blobs));
+        var oldTimestamp = DateTimeOffset.UtcNow.AddHours(-2);
+        var orphanIds = Enumerable.Range(0, 300)
+            .Select(_ => Guid.NewGuid())
+            .ToArray();
+        var observedBatchSizes = new List<int>();
+
+        provider.StreamWithTimestampsAsync(Arg.Any<CancellationToken>())
+            .Returns(StreamTimestamps(orphanIds.Select(id => (id, oldTimestamp)).ToList()));
+        fileRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                observedBatchSizes.Add(call.ArgAt<IReadOnlyCollection<Guid>>(0).Count);
+                return SuccessBlobIds();
+            });
+        attachmentRepository.GetExistingBlobIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(SuccessBlobIds());
+        provider.DeleteAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+
+        var deleted = await sut.RunCleanupAsync(CancellationToken.None);
+
+        deleted.Should().Be(orphanIds.Length);
+        observedBatchSizes.Should().Equal(256, 44);
     }
 
     private static Task<Result<IReadOnlySet<Guid>>> SuccessBlobIds(params Guid[] ids)
     {
         IReadOnlySet<Guid> set = new HashSet<Guid>(ids);
         return Task.FromResult(Result.Success(set));
+    }
+
+    private static async IAsyncEnumerable<(Guid BlobId, DateTimeOffset CreatedAt)> StreamTimestamps(
+        List<(Guid BlobId, DateTimeOffset CreatedAt)> blobs)
+    {
+        foreach (var blob in blobs)
+        {
+            yield return blob;
+            await Task.Yield();
+        }
+    }
+
+    private static async IAsyncEnumerable<T> ThrowOnEnumeration<T>(Exception ex)
+    {
+        if (Environment.TickCount == int.MinValue)
+            yield return default!;
+
+        await Task.Yield();
+        throw ex;
     }
 }

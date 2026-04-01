@@ -238,23 +238,21 @@ public class S3BlobStorageProviderTests
         await sut.SaveAsync(s1, blobId1);
         await sut.SaveAsync(s2, blobId2);
 
-        var result = await sut.ListWithTimestampsAsync();
+        var result = await CollectAsync(sut.StreamWithTimestampsAsync());
 
-        result.Status.Should().Be(ResultStatus.Ok);
-        result.Value.Should().HaveCount(2);
-        result.Value.Select(b => b.BlobId).Should().Contain(blobId1);
-        result.Value.Select(b => b.BlobId).Should().Contain(blobId2);
-        result.Value.Should().AllSatisfy(b =>
+        result.Should().HaveCount(2);
+        result.Select(b => b.BlobId).Should().Contain(blobId1);
+        result.Select(b => b.BlobId).Should().Contain(blobId2);
+        result.Should().AllSatisfy(b =>
             b.CreatedAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(10)));
     }
 
     [Test]
     public async Task ListWithTimestampsAsync_WhenEmpty_ShouldReturnEmptyList()
     {
-        var result = await sut.ListWithTimestampsAsync();
+        var result = await CollectAsync(sut.StreamWithTimestampsAsync());
 
-        result.Status.Should().Be(ResultStatus.Ok);
-        result.Value.Should().BeEmpty();
+        result.Should().BeEmpty();
     }
 
     [Test]
@@ -296,5 +294,15 @@ public class S3BlobStorageProviderTests
         {
             await s3Client.DeleteObjectAsync(BucketName, obj.Key);
         }
+    }
+
+    private static async Task<List<(Guid BlobId, DateTimeOffset CreatedAt)>> CollectAsync(
+        IAsyncEnumerable<(Guid BlobId, DateTimeOffset CreatedAt)> blobs)
+    {
+        var result = new List<(Guid BlobId, DateTimeOffset CreatedAt)>();
+        await foreach (var blob in blobs)
+            result.Add(blob);
+
+        return result;
     }
 }
