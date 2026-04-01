@@ -203,6 +203,8 @@ public class AttachmentServiceTests
             Arg.Is<IReadOnlyCollection<Guid>>(ids =>
                 ids.Contains(expired1.Id) && ids.Contains(expired2.Id)));
         await unitOfWork.Received(1).SaveChangesAsync();
+        await blobStorageService.Received(1).DeleteAsync(expired1.BlobId, Arg.Any<CancellationToken>());
+        await blobStorageService.Received(1).DeleteAsync(expired2.BlobId, Arg.Any<CancellationToken>());
     }
 
     [Test]
