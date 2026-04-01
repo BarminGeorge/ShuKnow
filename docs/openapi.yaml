@@ -859,8 +859,10 @@ paths:
       tags: [Settings]
       summary: Set or update LLM provider configuration
       description: |
-        Configures the base URL and API key for the LLM provider. The API key
-        is stored encrypted at rest.
+        Configures the base URL and API key for the LLM provider. Supports
+        partial updates — only the provided fields are changed, omitted fields
+        keep their current values. The API key is stored encrypted at rest.
+        Updating any field clears previous connection test results.
       requestBody:
         required: true
         content:
@@ -1401,15 +1403,17 @@ components:
 
     UpdateAiSettingsRequest:
       type: object
-      required: [baseUrl, apiKey]
       properties:
         baseUrl:
           type: string
           format: uri
+          nullable: true
+          description: LLM provider base URL. Omit to keep the current value.
           example: https://api.openai.com/v1
         apiKey:
           type: string
-          description: LLM provider API key. Stored encrypted at rest.
+          nullable: true
+          description: LLM provider API key. Stored encrypted at rest. Omit to keep the current value.
           example: sk-proj-abc123...
         provider:
           type: string

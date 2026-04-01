@@ -16,7 +16,7 @@ public class SettingsRepository(AppDbContext context) : ISettingsRepository
         return settings is null ? Result.NotFound() : Result.Success(settings);
     }
 
-    public async Task<Result> UpsertAsync(UserAiSettings settings)
+    public async Task<Result<UserAiSettings>> UpsertAsync(UserAiSettings settings)
     {
         var exists = await context.UserAiSettings.AnyAsync(s => s.UserId == settings.UserId);
 
@@ -25,6 +25,6 @@ public class SettingsRepository(AppDbContext context) : ISettingsRepository
         else
             context.UserAiSettings.Add(settings);
 
-        return Result.Success();
+        return Result.Success(settings);
     }
 }

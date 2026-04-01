@@ -7,6 +7,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="ShuKnow.Application.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
       <PackageReference Include="Ardalis.Result" Version="10.1.0" />
       <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
     </ItemGroup>
