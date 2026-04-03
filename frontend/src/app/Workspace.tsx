@@ -453,10 +453,6 @@ export default function Workspace() {
             onExpand={() => setIsSidebarCollapsed(false)}
           >
             <Sidebar
-              folders={folders}
-              setFolders={setFolders}
-              onFolderClick={handleFolderClick}
-              onUpdateFolder={handleUpdateFolder}
               onLogoClick={handleGoToChat}
               onToggleSidebar={handleToggleSidebar}
               isCollapsed={isSidebarCollapsed}
