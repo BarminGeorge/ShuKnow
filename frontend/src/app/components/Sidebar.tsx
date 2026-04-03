@@ -9,7 +9,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router";
 import { folderService, ApiError } from "../../api";
 import { toast } from "sonner";
-import type { Folder } from "../Workspace";
+import type { Folder } from "../../api/types";
 
 const IS_MOCK_MODE_ENABLED = import.meta.env.VITE_USE_MOCK_AUTH === "true";
 

@@ -13,44 +13,17 @@ import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { Toaster } from "sonner";
 import { folderService, fileService } from "../api";
-import type { Folder as ApiFolder, FileItem as ApiFileItem } from "../api/types";
+import type { Folder, FileItem, Folder as ApiFolder, FileItem as ApiFileItem } from "../api/types";
 
 const IS_MOCK_MODE_ENABLED = import.meta.env.VITE_USE_MOCK_AUTH === "true";
 
-export interface Folder {
-  id: string;
-  name: string;
-  emoji?: string;
-  description?: string;
-  subfolders?: Folder[];
-  customOrder?: string[];
-  fileCount?: number;
-  sortOrder?: number;
-}
-
-export interface FileItem {
-  id: string;
-  name: string;
-  type: "text" | "photo" | "pdf" | "other";
-  folderId: string;
-  content?: string;
-  contentUrl?: string;
-  description?: string;
-  contentType?: string;
-  sizeBytes?: number;
-  createdAt: string;
-}
-
 function mapApiFolderToLocalFolder(apiFolder: ApiFolder): Folder {
   return {
-    id: apiFolder.id,
-    name: apiFolder.name,
-    description: apiFolder.description,
-    sortOrder: apiFolder.sortOrder,
-    fileCount: apiFolder.fileCount,
+    ...apiFolder,
     emoji: undefined,
-    subfolders: apiFolder.subfolders?.map(mapApiFolderToLocalFolder),
+    prompt: undefined,
     customOrder: undefined,
+    subfolders: apiFolder.subfolders?.map(mapApiFolderToLocalFolder) || [],
   };
 }
 
@@ -67,14 +40,8 @@ function mapApiFileToLocalFile(apiFile: ApiFileItem): FileItem {
   }
   
   return {
-    id: apiFile.id,
-    name: apiFile.name,
-    folderId: apiFile.folderId,
-    description: apiFile.description,
-    contentType: apiFile.contentType,
-    sizeBytes: apiFile.sizeBytes,
+    ...apiFile,
     type,
-    contentUrl: apiFile.contentUrl,
     createdAt: new Date().toISOString(),
   };
 }

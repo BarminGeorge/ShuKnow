@@ -73,6 +73,10 @@ export interface Folder {
   sortOrder: number;
   fileCount: number;
   subfolders: Folder[];
+  // UI-специфичные поля (опциональные):
+  emoji?: string;
+  prompt?: string;
+  customOrder?: string[];
 }
 
 export interface FileItem {
@@ -84,6 +88,9 @@ export interface FileItem {
   sizeBytes: number;
   content?: string;
   contentUrl?: string;
+  // UI-специфичные поля:
+  type?: "text" | "photo" | "pdf" | "other";
+  createdAt?: string;
 }
 
 export type FileDisplayType = "text" | "photo" | "pdf" | "other";
