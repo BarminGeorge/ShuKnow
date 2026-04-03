@@ -14,6 +14,11 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 import { Toaster } from "sonner";
 import { folderService, fileService } from "../api";
 import type { Folder, FileItem, Folder as ApiFolder, FileItem as ApiFileItem } from "../api/types";
+import { useFolders } from "./hooks/useFolders";
+import { useFiles } from "./hooks/useFiles";
+import { useTabs } from "./hooks/useTabs";
+import { useWorkspaceView } from "./hooks/useWorkspaceView";
+import { useChat } from "./hooks/useChat";
 
 const IS_MOCK_MODE_ENABLED = import.meta.env.VITE_USE_MOCK_AUTH === "true";
 
@@ -157,31 +162,23 @@ const CHAT_TITLES = [
 ];
 
 export default function Workspace() {
-  const [viewMode, setViewMode]                   = useState<ViewMode>("chat");
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  // Jotai hooks
+  const { viewMode, setViewMode, isSidebarCollapsed, setIsSidebarCollapsed, selectedFolderPath, setSelectedFolderPath } = useWorkspaceView();
+  const { folders, setFolders, isLoading: isLoadingFolders, loadFolders } = useFolders();
+  const { files, setFiles } = useFiles();
+  const { messages, setMessages, currentTitle, setCurrentTitle } = useChat();
+  const { openTabs, activeTab, activeTabId, openTab, closeTab, switchTab } = useTabs();
+  
   const sidebarRef = useRef<ImperativePanelHandle>(null);
-  const [selectedFolderPath, setSelectedFolderPath] = useState<string[] | null>(null);
-  const [folders, setFolders]                     = useState<Folder[]>(IS_MOCK_MODE_ENABLED ? MOCK_INITIAL_FOLDERS : []);
-  const [files, setFiles]                         = useState<FileItem[]>(IS_MOCK_MODE_ENABLED ? MOCK_INITIAL_FILES : []);
-  const [messages, setMessages]                   = useState<Message[]>([]);
-  const [currentTitle, setCurrentTitle]           = useState<string>(CHAT_TITLES[0]);
-  const [isLoadingFolders, setIsLoadingFolders]   = useState(!IS_MOCK_MODE_ENABLED);
 
   // Load folders from API
   useEffect(() => {
-    if (IS_MOCK_MODE_ENABLED) return;
-    
-    const loadFolders = async () => {
-      try {
-        const apiTree = await folderService.fetchFolderTree();
-        const localFolders = apiTree.map(mapApiFolderToLocalFolder);
-        setFolders(localFolders);
-      } catch (error) {
-        console.error("Failed to load folders:", error);
-      } finally {
-        setIsLoadingFolders(false);
-      }
-    };
+    if (IS_MOCK_MODE_ENABLED) {
+      // Set mock data
+      setFolders(MOCK_INITIAL_FOLDERS);
+      setFiles(MOCK_INITIAL_FILES);
+      return;
+    }
     
     loadFolders();
   }, []);
@@ -192,7 +189,7 @@ export default function Workspace() {
       const randomIndex = Math.floor(Math.random() * CHAT_TITLES.length);
       setCurrentTitle(CHAT_TITLES[randomIndex]);
     }
-  }, [viewMode]);
+  }, [viewMode, setCurrentTitle]);
 
   const handleSendMessage = (content: string, attachments?: Attachment[]) => {
     // Don't send if no content and no attachments
@@ -261,43 +258,18 @@ export default function Workspace() {
     }, 2000);
   };
 
-  // Tab state (replaces floating windows)
-  const [openTabIds, setOpenTabIds]   = useState<string[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
-
   // ── Tab management ──────────────────────────────────────────────────────────
 
   const handleOpenTab = (fileId: string) => {
-    setOpenTabIds((prev) => (prev.includes(fileId) ? prev : [...prev, fileId]));
-    setActiveTabId(fileId);
-    setViewMode("editor");
+    openTab(fileId);
   };
 
   const handleCloseTab = (fileId: string) => {
-    setOpenTabIds((prev) => {
-      const next = prev.filter((id) => id !== fileId);
-
-      // If we closed the active tab, pick an adjacent one
-      if (activeTabId === fileId) {
-        const idx = prev.indexOf(fileId);
-        const newActive = next[idx] ?? next[idx - 1] ?? null;
-        setActiveTabId(newActive);
-        if (newActive === null) {
-          if (selectedFolderPath) {
-            setViewMode("folder");
-          } else {
-            setViewMode("chat");
-          }
-        }
-      }
-
-      return next;
-    });
+    closeTab(fileId);
   };
 
   const handleSwitchTab = (fileId: string) => {
-    setActiveTabId(fileId);
-    setViewMode("editor");
+    switchTab(fileId);
   };
 
   // ── File management ─────────────────────────────────────────────────────────
@@ -512,7 +484,7 @@ export default function Workspace() {
               <div className="flex-1 overflow-hidden">
                 {viewMode === "editor" ? (
                   <TabsWorkspace
-                    activeFile={activeFile}
+                    activeFile={activeTab}
                     onUpdateFileContent={handleUpdateFileContent}
                   />
 
