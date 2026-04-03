@@ -7,7 +7,10 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import Workspace from "./Workspace";
 
+console.log('[App] Component loaded');
+
 export default function App() {
+  console.log('[App] Rendering...');
   return (
     <Provider>
       <AuthProvider>

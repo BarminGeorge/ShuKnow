@@ -181,7 +181,7 @@ export default function Workspace() {
     }
     
     loadFolders();
-  }, []);
+  }, [loadFolders, setFolders, setFiles]);
 
   // Randomize title when entering chat view
   useEffect(() => {
