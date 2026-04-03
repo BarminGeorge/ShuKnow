@@ -46,16 +46,6 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
     setSelectedFolderPath(path);
     setViewMode('folder');
   };
-  const [deleteFolderState, setDeleteFolderState] = useState<{
-    isOpen: boolean;
-    folder: Folder | null;
-    path: string[];
-  }>({ isOpen: false, folder: null, path: [] });
-
-  const handleFolderClick = (folder: Folder, path: string[]) => {
-    setSelectedFolderPath(path);
-    setViewMode('folder');
-  };
 
   const findFolderByPath = (path: string[]): Folder | null => {
     if (path.length === 0) return null;
