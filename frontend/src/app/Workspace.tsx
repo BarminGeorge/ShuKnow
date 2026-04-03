@@ -414,16 +414,6 @@ export default function Workspace() {
     }
   }, [findFolderPathById]);
 
-  // ── Computed tab data ──────────────────────────────────────────────────────
-
-  const openTabs = openTabIds
-    .map((id) => files.find((f) => f.id === id))
-    .filter(Boolean) as FileItem[];
-
-  const activeFile = activeTabId
-    ? files.find((f) => f.id === activeTabId) ?? null
-    : null;
-
   const handleToggleSidebar = () => {
     const panel = sidebarRef.current;
     if (panel) {
