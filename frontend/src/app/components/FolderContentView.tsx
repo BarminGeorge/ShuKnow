@@ -11,6 +11,12 @@ import { CreateFileModal } from "./CreateFileModal";
 import { CreateFolderModal } from "./CreateFolderModal";
 import { EmojiPicker } from "./EmojiPicker";
 import type { Folder, FileItem } from "../../api/types";
+import { useWorkspaceView } from "../hooks/useWorkspaceView";
+import { useFiles } from "../hooks/useFiles";
+import { useFolders } from "../hooks/useFolders";
+import { useTabs } from "../hooks/useTabs";
+import { useAtomValue } from "jotai";
+import { filesInCurrentFolderAtom } from "../store";
 
 type GridItemType = "folder" | "file";
 
@@ -22,17 +28,9 @@ interface GridItem {
 }
 
 interface FolderContentViewProps {
-  folder: Folder;
-  breadcrumbs: string[];
   onBack: () => void;
-  onUpdateFolder: (updates: Partial<Folder>) => void;
   onNavigateToSubfolder: (subfolder: Folder, subfolderIndex: number) => void;
   onBreadcrumbClick: (index: number) => void;
-  files: FileItem[];
-  onOpenFile: (fileId: string) => void;
-  onCreateFile: (file: FileItem, openAfterCreate?: boolean) => void;
-  onDeleteFile: (fileId: string) => void;
-  onUpdateFile: (fileId: string, updates: Partial<FileItem>) => void;
 }
 
 const GRID_ITEM_TYPE = "GRID_ITEM";
@@ -806,18 +804,24 @@ function DraggableGridItem({
 }
 
 export function FolderContentView({
-  folder,
-  breadcrumbs,
   onBack,
-  onUpdateFolder,
   onNavigateToSubfolder,
   onBreadcrumbClick,
-  files,
-  onOpenFile,
-  onCreateFile,
-  onDeleteFile,
-  onUpdateFile,
 }: FolderContentViewProps) {
+  // Jotai hooks
+  const { currentFolder, breadcrumbs } = useWorkspaceView();
+  const { updateFolder } = useFolders();
+  const { createFile, updateFile, deleteFile } = useFiles();
+  const { openTab } = useTabs();
+  const files = useAtomValue(filesInCurrentFolderAtom);
+  
+  // Early return if no folder selected
+  if (!currentFolder) {
+    return null;
+  }
+  
+  const folder = currentFolder;
+  
   const [title, setTitle] = useState(folder.name);
   const [emoji, setEmoji] = useState(folder.emoji || "");
   const [aiPrompt, setAiPrompt] = useState(folder.prompt || "");
@@ -835,13 +839,14 @@ export function FolderContentView({
 
   // Refs for state management without re-renders
   const orderRef = useRef<string[]>([]);
-  const updateRef = useRef(onUpdateFolder);
   const hasOrderChangedRef = useRef(false);
 
-  // Keep fresh update function
-  useEffect(() => {
-    updateRef.current = onUpdateFolder;
-  }, [onUpdateFolder]);
+  // Handler for updating folder
+  const handleUpdateFolder = useCallback((updates: Partial<Folder>) => {
+    // TODO: Need to get current folder path from somewhere
+    // For now, just update the folder directly
+    updateFolder([], updates);
+  }, [updateFolder]);
 
   // Global dragend cleanup to ensure pointer events are restored
   useEffect(() => {
@@ -930,13 +935,13 @@ export function FolderContentView({
 
   const handleSaveFileEdit = (name: string, prompt: string) => {
     if (!editFileModal.file) return;
-    onUpdateFile(editFileModal.file.id, { name, prompt });
+    updateFile(editFileModal.file.id, { name, prompt });
     setEditFileModal({ isOpen: false, file: null });
   };
 
   const handleDeleteFile = () => {
     if (confirm("Вы уверены, что хотите удалить этот файл?")) {
-      onDeleteFile(fileContextMenu.fileId);
+      deleteFile(fileContextMenu.fileId);
     }
     setFileContextMenu({ ...fileContextMenu, isOpen: false });
   };
@@ -981,18 +986,18 @@ export function FolderContentView({
     const updatedSubfolders = folder.subfolders?.map((f) =>
       f.id === editFolderModal.folder!.id ? { ...f, name, emoji, prompt } : f
     );
-    onUpdateFolder({ subfolders: updatedSubfolders });
+    handleUpdateFolder({ subfolders: updatedSubfolders });
     setEditFolderModal({ isOpen: false, folder: null });
   };
 
   const handleDeleteFolder = () => {
     if (confirm("Вы уверены, что хотите удалить эту папку и все её содержимое?")) {
       const updatedSubfolders = folder.subfolders?.filter((f) => f.id !== folderContextMenu.folderId);
-      onUpdateFolder({ subfolders: updatedSubfolders });
+      handleUpdateFolder({ subfolders: updatedSubfolders });
       
       // Also delete all files in this subfolder
       const filesToDelete = files.filter((f) => f.folderId === folderContextMenu.folderId);
-      filesToDelete.forEach((file) => onDeleteFile(file.id));
+      filesToDelete.forEach((file) => deleteFile(file.id));
     }
     setFolderContextMenu({ ...folderContextMenu, isOpen: false });
   };
@@ -1014,7 +1019,7 @@ export function FolderContentView({
       prompt: prompt || undefined,
       createdAt: new Date().toISOString(),
     };
-    onCreateFile(newFile);
+    createFile(newFile);
   };
 
   // Handle dropped files from OS file explorer
@@ -1034,7 +1039,7 @@ export function FolderContentView({
           contentUrl,
           createdAt: new Date().toISOString(),
         };
-        onCreateFile(newFile, false); // Don't open after drop
+        createFile(newFile, false); // Don't open after drop
       } else if (isPdf) {
         // Create object URL for PDF viewing
         const pdfUrl = URL.createObjectURL(file);
@@ -1046,7 +1051,7 @@ export function FolderContentView({
           pdfUrl,
           createdAt: new Date().toISOString(),
         };
-        onCreateFile(newFile, false); // Don't open after drop
+        createFile(newFile, false); // Don't open after drop
       } else {
         // For text files, try to read content
         const reader = new FileReader();
@@ -1060,7 +1065,7 @@ export function FolderContentView({
             content,
             createdAt: new Date().toISOString(),
           };
-          onCreateFile(newFile, false); // Don't open after drop
+          createFile(newFile, false); // Don't open after drop
         };
         reader.onerror = () => {
           // If reading fails, create empty text file
@@ -1072,12 +1077,12 @@ export function FolderContentView({
             content: "",
             createdAt: new Date().toISOString(),
           };
-          onCreateFile(newFile, false); // Don't open after drop
+          createFile(newFile, false); // Don't open after drop
         };
         reader.readAsText(file);
       }
     });
-  }, [folder.id, onCreateFile]);
+  }, [folder.id, createFile]);
 
   const handleCreateFolderFromModal = (name: string, emoji: string, prompt: string) => {
     const newFolder: Folder = {
@@ -1086,13 +1091,13 @@ export function FolderContentView({
       emoji,
       prompt,
     };
-    onUpdateFolder({
+    handleUpdateFolder({
       subfolders: [...(folder.subfolders || []), newFolder]
     });
   };
 
   const handleFileNameChange = (fileId: string, newName: string) => {
-    onUpdateFile(fileId, { name: newName });
+    updateFile(fileId, { name: newName });
   };
 
   // === FLIP animation logic ===
@@ -1190,7 +1195,7 @@ export function FolderContentView({
   const handleDragEnd = () => {
     // Save custom order only after drag operation
     if (hasOrderChangedRef.current && orderRef.current.length > 0) {
-      onUpdateFolder({ customOrder: orderRef.current });
+      handleUpdateFolder({ customOrder: orderRef.current });
       hasOrderChangedRef.current = false;
     }
   };
@@ -1204,11 +1209,11 @@ export function FolderContentView({
 
   const handleTitleBlur = () => {
     setIsEditingTitle(false);
-    if (title !== folder.name) onUpdateFolder({ name: title });
+    if (title !== folder.name) handleUpdateFolder({ name: title });
   };
 
   const handlePromptBlur = () => {
-    if (aiPrompt !== folder.prompt) onUpdateFolder({ prompt: aiPrompt });
+    if (aiPrompt !== folder.prompt) handleUpdateFolder({ prompt: aiPrompt });
   };
 
   const folderFiles = files.filter((f) => f.folderId === folder.id);
@@ -1420,10 +1425,10 @@ export function FolderContentView({
               onFileContextMenu={handleFileContextMenu}
               onFolderContextMenu={handleFolderContextMenu}
               onFolderClick={handleFolderClick}
-              onFileDoubleClick={onOpenFile}
+              onFileDoubleClick={openTab}
               onMoveItemToFolder={(itemId, destFolderId, itemType) => {
                 if (itemType === "file") {
-                  onUpdateFile(itemId, { folderId: destFolderId });
+                  updateFile(itemId, { folderId: destFolderId });
                 } else if (itemType === "folder") {
                   const items = folder.subfolders || [];
                   const draggedFolder = items.find(f => f.id === itemId);
@@ -1434,7 +1439,7 @@ export function FolderContentView({
                       }
                       return f;
                     }).filter(f => f.id !== itemId);
-                    onUpdateFolder({ subfolders: newSubfolders });
+                    handleUpdateFolder({ subfolders: newSubfolders });
                   }
                 }
                 setGridItems((prev) => prev.filter(i => i.id !== itemId));
@@ -1539,12 +1544,12 @@ export function FolderContentView({
         onClose={() => setIsEmojiPickerOpen(false)}
         onSelect={(selectedEmoji) => {
           setEmoji(selectedEmoji);
-          onUpdateFolder({ emoji: selectedEmoji });
+          handleUpdateFolder({ emoji: selectedEmoji });
           setIsEmojiPickerOpen(false);
         }}
         onRemove={() => {
           setEmoji("");
-          onUpdateFolder({ emoji: "" });
+          handleUpdateFolder({ emoji: "" });
           setIsEmojiPickerOpen(false);
         }}
         hasEmoji={!!emoji}

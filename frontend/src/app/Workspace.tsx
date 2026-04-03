@@ -487,19 +487,9 @@ export default function Workspace() {
                 ) : viewMode === "folder" ? (
                   selectedFolder && selectedFolderPath ? (
                     <FolderContentView
-                      folder={selectedFolder}
-                      breadcrumbs={selectedBreadcrumbs}
                       onBack={handleNavigateBack}
-                      onUpdateFolder={(updates) =>
-                        handleUpdateFolder(selectedFolderPath, updates)
-                      }
                       onNavigateToSubfolder={handleNavigateToSubfolder}
                       onBreadcrumbClick={handleBreadcrumbClick}
-                      files={files}
-                      onOpenFile={handleOpenTab}
-                      onCreateFile={handleCreateFile}
-                      onDeleteFile={handleDeleteFile}
-                      onUpdateFile={handleUpdateFile}
                     />
                   ) : null
 
