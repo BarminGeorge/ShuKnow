@@ -103,5 +103,10 @@
     "overrides": {
       "vite": "6.3.5"
     }
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
   }
 }
