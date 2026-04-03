@@ -18,6 +18,10 @@ public class OrphanCleanupOptions
             throw new InvalidOperationException(
                 $"{SectionName}:GracePeriodMinutes must be positive, got {GracePeriodMinutes}");
 
+        if (GracePeriodMinutes > IntervalHours * 60)
+            throw new InvalidOperationException(
+                $"{SectionName}:GracePeriodMinutes must be less, than {SectionName}:IntervalHours hours, got {GracePeriodMinutes} minutes > {IntervalHours} hours");
+
         return this;
     }
 }
