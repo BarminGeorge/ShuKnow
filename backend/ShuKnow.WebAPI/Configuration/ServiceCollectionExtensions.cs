@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Saunter;
@@ -22,6 +23,7 @@ public static class ServiceCollectionExtensions
 {
     public static void AddWeb(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddWebOptions();
         services.AddExceptionHandler<GlobalExceptionHandler>();
         services.AddProblemDetails();
         
@@ -43,7 +45,7 @@ public static class ServiceCollectionExtensions
             };
         });
 
-        services.AddAuth(configuration);
+        services.AddAuth();
 
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<ICurrentConnectionService, CurrentConnectionService>();
@@ -58,33 +60,18 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IHubFilter, ValidationHubFilter>();
     }
 
-    private static void AddAuth(this IServiceCollection services, IConfiguration configuration)
+    private static void AddAuth(this IServiceCollection services)
     {
-        var jwtOptions = configuration.GetJwtOptions();
-        var authCookieOptions = configuration.GetAuthCookieOptions();
-
-        services.Configure<JwtOptions>(options =>
-        {
-            options.Key = jwtOptions.Key;
-            options.ExpiresInMinutes = jwtOptions.ExpiresInMinutes;
-            options.Issuer = jwtOptions.Issuer;
-            options.Audience = jwtOptions.Audience;
-        });
-
-        services.Configure<AuthCookieOptions>(options =>
-        {
-            options.Name = authCookieOptions.Name;
-            options.HttpOnly = authCookieOptions.HttpOnly;
-            options.Secure = authCookieOptions.Secure;
-            options.IsEssential = authCookieOptions.IsEssential;
-            options.SameSite = authCookieOptions.SameSite;
-            options.MaxAgeMinutes = authCookieOptions.MaxAgeMinutes;
-        });
-
         services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
+            .AddJwtBearer();
+
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<IOptions<JwtOptions>, IOptions<AuthCookieOptions>>((options, jwtOptionsAccessor, authCookieOptionsAccessor) =>
             {
+                var jwtOptions = jwtOptionsAccessor.Value;
+                var authCookieOptions = authCookieOptionsAccessor.Value;
+
                 options.MapInboundClaims = false;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -114,6 +101,19 @@ public static class ServiceCollectionExtensions
         services.AddAuthorization();
     }
 
+    private static void AddWebOptions(this IServiceCollection services)
+    {
+        services.AddOptions<JwtOptions>()
+            .BindConfiguration(JwtOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddOptions<AuthCookieOptions>()
+            .BindConfiguration(AuthCookieOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+    }
+
     private static void AddSwagger(this IServiceCollection services)
     {
         services.AddSwaggerGen(options =>
@@ -133,20 +133,5 @@ public static class ServiceCollectionExtensions
                 [new OpenApiSecuritySchemeReference("Bearer", document)] = []
             });
         });
-    }
-
-    private static JwtOptions GetJwtOptions(this IConfiguration configuration)
-    {
-        var jwtSection = configuration.GetSection(JwtOptions.SectionName);
-        var jwtOptions = jwtSection.Get<JwtOptions>() ?? new JwtOptions();
-        return jwtOptions.Validate();
-    }
-
-    private static AuthCookieOptions GetAuthCookieOptions(this IConfiguration configuration)
-    {
-        var authCookieSection = configuration.GetSection(AuthCookieOptions.SectionName);
-        var authCookieOptions = authCookieSection.Get<AuthCookieOptions>() ?? new AuthCookieOptions();
-
-        return authCookieOptions.Validate();
     }
 }

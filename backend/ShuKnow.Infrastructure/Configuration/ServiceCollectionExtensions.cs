@@ -1,9 +1,12 @@
+using System.ComponentModel.DataAnnotations;
 using Amazon.Runtime;
 using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using ShuKnow.Application.Common;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Domain.Repositories;
@@ -18,54 +21,22 @@ public static class ServiceCollectionExtensions
 {
     public static void AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var encryptionOptions = configuration.GetEncryptionOptions();
-        var blobStorageOptions = configuration.GetBlobStorageOptions();
-        var fileSystemOptions = configuration.GetOptionalFileSystemBlobStorageOptions();
-        var s3Options = configuration.GetOptionalS3BlobStorageOptions();
-        var orphanCleanupOptions = configuration.GetOrphanCleanupOptions().Validate();
+        services.AddInfrastructureOptions();
+        services.AddPostgres(configuration);
+        services.AddBlobStorage(configuration);
+        services.AddServices();
+        services.AddRepositories();
+        services.AddHostedService<BlobOrphanCleanupService>();
+    }
 
-        if (blobStorageOptions.UsesFileSystem)
-            fileSystemOptions.Validate();
-        else
-            s3Options.Validate();
-
+    private static void AddPostgres(this IServiceCollection services, IConfiguration configuration)
+    {
         services.AddDbContext<AppDbContext>((_, options) =>
         {
             var connectionString = configuration.GetConnectionString("Postgres");
             options
                 .UseNpgsql(connectionString, builder => builder.EnableRetryOnFailure())
                 .UseSnakeCaseNamingConvention();
-        });
-
-        services.ConfigureOptions(
-            encryptionOptions, blobStorageOptions, fileSystemOptions, s3Options, orphanCleanupOptions);
-
-        services.AddBlobStorage(blobStorageOptions, fileSystemOptions, s3Options);
-        services.AddServices();
-        services.AddRepositories();
-        services.AddHostedService<BlobOrphanCleanupService>();
-    }
-
-    private static void ConfigureOptions(this IServiceCollection services, EncryptionOptions encryptionOptions,
-        BlobStorageOptions blobStorageOptions, FileSystemBlobStorageOptions fileSystemOptions,
-        S3BlobStorageOptions s3Options, OrphanCleanupOptions orphanCleanupOptions)
-    {
-        services.Configure<EncryptionOptions>(o => o.Key = encryptionOptions.Key);
-        services.Configure<BlobStorageOptions>(o => o.Provider = blobStorageOptions.Provider);
-        services.Configure<FileSystemBlobStorageOptions>(o => o.BasePath = fileSystemOptions.BasePath);
-        services.Configure<S3BlobStorageOptions>(o =>
-        {
-            o.ServiceUrl = s3Options.ServiceUrl;
-            o.AccessKey = s3Options.AccessKey;
-            o.SecretKey = s3Options.SecretKey;
-            o.BucketName = s3Options.BucketName;
-            o.Prefix = s3Options.Prefix;
-            o.ForcePathStyle = s3Options.ForcePathStyle;
-        });
-        services.Configure<OrphanCleanupOptions>(o =>
-        {
-            o.IntervalHours = orphanCleanupOptions.IntervalHours;
-            o.GracePeriodMinutes = orphanCleanupOptions.GracePeriodMinutes;
         });
     }
 
@@ -79,49 +50,68 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAiService, AiService>();
         services.AddSingleton<IBlobStorageService, BlobStorageService>();
         services.AddSingleton<BlobDeletionQueue>();
-        services.AddSingleton<IBlobDeletionQueue>(serviceProvider =>
+        services.AddSingleton<IBlobDeletionQueue>(static serviceProvider =>
             serviceProvider.GetRequiredService<BlobDeletionQueue>());
-        services.AddHostedService(serviceProvider =>
+        services.AddSingleton<IHostedService>(static serviceProvider =>
             serviceProvider.GetRequiredService<BlobDeletionQueue>());
         services.AddScoped<IEncryptionService, EncryptionService>();
     }
 
-    private static void AddBlobStorage(this IServiceCollection services, BlobStorageOptions blobStorageOptions,
-        FileSystemBlobStorageOptions fileSystemOptions, S3BlobStorageOptions s3Options)
+    private static void AddBlobStorage(this IServiceCollection services, IConfiguration configuration)
+    {
+        var blobOptions = configuration.GetSection(BlobStorageOptions.SectionName).Get<BlobStorageOptions>()
+            ?? throw new InvalidOperationException($"{BlobStorageOptions.SectionName} section is not configured.");
+
+        if (blobOptions.UsesFileSystem)
+            services.AddFileSystemBlobStorage();
+        else if (blobOptions.UsesS3)
+            services.AddS3BlobStorage();
+        else
+            throw new InvalidOperationException(
+                $"{BlobStorageOptions.SectionName}:Provider must be '{BlobStorageOptions.FileSystemProvider}' or '{BlobStorageOptions.S3Provider}'.");
+
+        services.AddScoped<IBlobOrphanCleanupRunner, BlobOrphanCleanupRunner>();
+    }
+
+    private static void AddFileSystemBlobStorage(this IServiceCollection services)
     {
         services.AddSingleton<IBlobStorageProvider>(serviceProvider =>
         {
-            if (blobStorageOptions.UsesFileSystem)
+            var options = serviceProvider.GetRequiredService<IOptions<FileSystemBlobStorageOptions>>().Value;
+
+            return new FileSystemBlobStorageProvider(
+                options.BasePath,
+                serviceProvider.GetRequiredService<ILogger<FileSystemBlobStorageProvider>>());
+        });
+    }
+
+    private static void AddS3BlobStorage(this IServiceCollection services)
+    {
+        services.AddSingleton<IAmazonS3>(serviceProvider =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<S3BlobStorageOptions>>().Value;
+            var credentials = new BasicAWSCredentials(options.AccessKey, options.SecretKey);
+            var config = new AmazonS3Config
             {
-                return new FileSystemBlobStorageProvider(
-                    fileSystemOptions.BasePath,
-                    serviceProvider.GetRequiredService<ILogger<FileSystemBlobStorageProvider>>());
-            }
+                ServiceURL = options.ServiceUrl,
+                ForcePathStyle = options.ForcePathStyle
+            };
+
+            return new AmazonS3Client(credentials, config);
+        });
+
+        services.AddSingleton<IBlobStorageProvider>(serviceProvider =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<S3BlobStorageOptions>>().Value;
 
             return new S3BlobStorageProvider(
                 serviceProvider.GetRequiredService<IAmazonS3>(),
-                s3Options.BucketName,
-                s3Options.Prefix,
+                options.BucketName,
+                options.Prefix,
                 serviceProvider.GetRequiredService<ILogger<S3BlobStorageProvider>>());
         });
-        if (blobStorageOptions.UsesS3)
-        {
-            services.AddSingleton<IAmazonS3>(_ =>
-            {
-                var credentials = new BasicAWSCredentials(s3Options.AccessKey, s3Options.SecretKey);
-                var config = new AmazonS3Config
-                {
-                    ServiceURL = s3Options.ServiceUrl,
-                    ForcePathStyle = s3Options.ForcePathStyle
-                };
 
-                return new AmazonS3Client(credentials, config);
-            });
-
-            services.AddHostedService<S3BucketInitializationService>();
-        }
-
-        services.AddScoped<IBlobOrphanCleanupRunner, BlobOrphanCleanupRunner>();
+        services.AddHostedService<S3BucketInitializationService>();
     }
 
     private static void AddRepositories(this IServiceCollection services)
@@ -136,37 +126,76 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAttachmentRepository, AttachmentRepository>();
         services.AddScoped<ISettingsRepository, SettingsRepository>();
     }
-
-    private static EncryptionOptions GetEncryptionOptions(this IConfiguration configuration)
+    
+    private static void AddInfrastructureOptions(this IServiceCollection services)
     {
-        var section = configuration.GetSection(EncryptionOptions.SectionName);
-        var options = section.Get<EncryptionOptions>() ?? new EncryptionOptions();
-        return options.Validate();
+        services.AddSingleton<IValidateOptions<FileSystemBlobStorageOptions>, FileSystemBlobStorageOptionsValidation>();
+        services.AddSingleton<IValidateOptions<S3BlobStorageOptions>, S3BlobStorageOptionsValidation>();
+        
+        services.AddOptions<EncryptionOptions>()
+            .BindConfiguration(EncryptionOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddOptions<BlobStorageOptions>()
+            .BindConfiguration(BlobStorageOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddOptions<FileSystemBlobStorageOptions>()
+            .BindConfiguration(FileSystemBlobStorageOptions.SectionName)
+            .ValidateOnStart();
+
+        services.AddOptions<S3BlobStorageOptions>()
+            .BindConfiguration(S3BlobStorageOptions.SectionName)
+            .ValidateOnStart();
+
+        services.AddOptions<OrphanCleanupOptions>()
+            .BindConfiguration(OrphanCleanupOptions.SectionName)
+            .Validate(
+                options => options.GracePeriodMinutes <= options.IntervalHours * 60,
+                $"{OrphanCleanupOptions.SectionName}:GracePeriodMinutes must be less than or equal to IntervalHours * 60")
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
     }
 
-    private static BlobStorageOptions GetBlobStorageOptions(this IConfiguration configuration)
+    private sealed class FileSystemBlobStorageOptionsValidation(IOptions<BlobStorageOptions> blobStorageOptions)
+        : IValidateOptions<FileSystemBlobStorageOptions>
     {
-        var section = configuration.GetSection(BlobStorageOptions.SectionName);
-        var options = section.Get<BlobStorageOptions>() ?? new BlobStorageOptions();
-        return options.Validate();
+        public ValidateOptionsResult Validate(string? name, FileSystemBlobStorageOptions options)
+        {
+            return !blobStorageOptions.Value.UsesFileSystem
+                ? ValidateOptionsResult.Skip
+                : ValidateDataAnnotations(options);
+        }
     }
 
-    private static FileSystemBlobStorageOptions GetOptionalFileSystemBlobStorageOptions(
-        this IConfiguration configuration)
+    private sealed class S3BlobStorageOptionsValidation(IOptions<BlobStorageOptions> blobStorageOptions)
+        : IValidateOptions<S3BlobStorageOptions>
     {
-        var section = configuration.GetSection(FileSystemBlobStorageOptions.SectionName);
-        return section.Get<FileSystemBlobStorageOptions>() ?? new FileSystemBlobStorageOptions();
+        public ValidateOptionsResult Validate(string? name, S3BlobStorageOptions options)
+        {
+            return !blobStorageOptions.Value.UsesS3
+                ? ValidateOptionsResult.Skip
+                : ValidateDataAnnotations(options);
+        }
     }
 
-    private static S3BlobStorageOptions GetOptionalS3BlobStorageOptions(this IConfiguration configuration)
+    private static ValidateOptionsResult ValidateDataAnnotations<TOptions>(TOptions options)
+        where TOptions : class
     {
-        var section = configuration.GetSection(S3BlobStorageOptions.SectionName);
-        return section.Get<S3BlobStorageOptions>() ?? new S3BlobStorageOptions();
-    }
+        var validationResults = new List<ValidationResult>();
+        var validationContext = new ValidationContext(options);
 
-    private static OrphanCleanupOptions GetOrphanCleanupOptions(this IConfiguration configuration)
-    {
-        var section = configuration.GetSection(OrphanCleanupOptions.SectionName);
-        return section.Get<OrphanCleanupOptions>() ?? new OrphanCleanupOptions();
+        if (Validator.TryValidateObject(options, validationContext, validationResults, true))
+            return ValidateOptionsResult.Success;
+
+        var errors = validationResults
+            .Select(validationResult => validationResult.ErrorMessage)
+            .Where(error => !string.IsNullOrWhiteSpace(error))
+            .Cast<string>()
+            .ToArray();
+
+        return ValidateOptionsResult.Fail(errors);
     }
 }
