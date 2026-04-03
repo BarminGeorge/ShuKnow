@@ -3,7 +3,7 @@ namespace ShuKnow.Application.Common;
 public class S3BlobStorageOptions
 {
     public const string SectionName = "BlobStorage:S3";
-
+    
     public string ServiceUrl { get; set; } = "";
     public string AccessKey { get; set; } = "";
     public string SecretKey { get; set; } = "";
@@ -13,12 +13,6 @@ public class S3BlobStorageOptions
 
     public S3BlobStorageOptions Validate()
     {
-        ServiceUrl = ServiceUrl.Trim();
-        AccessKey = AccessKey.Trim();
-        SecretKey = SecretKey.Trim();
-        BucketName = BucketName.Trim();
-        Prefix = Prefix.Trim().Trim('/');
-
         if (string.IsNullOrEmpty(ServiceUrl))
             throw new InvalidOperationException($"{SectionName}:ServiceUrl is not configured");
 

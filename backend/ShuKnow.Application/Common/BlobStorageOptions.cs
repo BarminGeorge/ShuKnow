@@ -16,8 +16,6 @@ public class BlobStorageOptions
 
     public BlobStorageOptions Validate()
     {
-        Provider = Provider.Trim();
-
         if (UsesFileSystem || UsesS3)
             return this;
 

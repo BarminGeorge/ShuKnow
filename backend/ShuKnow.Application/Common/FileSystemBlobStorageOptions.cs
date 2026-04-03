@@ -8,8 +8,6 @@ public class FileSystemBlobStorageOptions
 
     public FileSystemBlobStorageOptions Validate()
     {
-        BasePath = BasePath.Trim();
-
         if (string.IsNullOrEmpty(BasePath))
             throw new InvalidOperationException($"{SectionName}:BasePath is not configured");
 
