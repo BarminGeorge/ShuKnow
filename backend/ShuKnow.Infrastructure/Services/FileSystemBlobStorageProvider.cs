@@ -166,15 +166,19 @@ public class FileSystemBlobStorageProvider(
 
     private void TryDeleteEmptyShardDirectory(Guid blobId)
     {
+        var shardDir = Path.GetDirectoryName(GetBlobPath(blobId))!;
+
         try
         {
-            var shardDir = Path.GetDirectoryName(GetBlobPath(blobId))!;
             if (Directory.Exists(shardDir) && !Directory.EnumerateFileSystemEntries(shardDir).Any())
                 Directory.Delete(shardDir);
         }
         catch (IOException)
         {
-            // Best-effort cleanup
+            logger.LogDebug(
+                "Best-effort cleanup failed for shard directory {ShardDir} after deleting blob {BlobId}",
+                shardDir,
+                blobId);
         }
     }
 }
