@@ -19,8 +19,9 @@ function folderToTreeNode(folder: Folder): FolderTreeNodeDto {
 export const handlers = [
   // GET /api/folders/tree
   http.get(`${API_BASE}/folders/tree`, () => {
-    // Return full Folder objects with emoji instead of FolderTreeNodeDto
-    return HttpResponse.json(MOCK_FOLDERS);
+    // Convert Folder objects to FolderTreeNodeDto format
+    const treeNodes = MOCK_FOLDERS.map(folderToTreeNode);
+    return HttpResponse.json(treeNodes);
   }),
 
   // GET /api/folders/:id
