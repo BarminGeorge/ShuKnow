@@ -1,15 +1,12 @@
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
-import { ChevronRight, MoreVertical, FileText, ArrowLeft, Plus, Folder as FolderIcon, Image as ImageIcon, Smile, Upload, File as FileIcon, Paperclip } from "lucide-react";
-import { useDrag, useDrop, useDragLayer } from "react-dnd";
+import { useDrop } from "react-dnd";
 import { NativeTypes } from "react-dnd-html5-backend";
-import { getEmptyImage } from "react-dnd-html5-backend";
 import { FileContextMenu } from "./FileContextMenu";
 import { FolderContextMenu } from "./FolderContextMenu";
 import { EditFileModal } from "./EditFileModal";
 import { EditFolderModal } from "./EditFolderModal";
 import { CreateFileModal } from "./CreateFileModal";
 import { CreateFolderModal } from "./CreateFolderModal";
-import { EmojiPicker } from "./EmojiPicker";
 import type { Folder, FileItem } from "../../api/types";
 import { useWorkspaceView } from "../hooks/useWorkspaceView";
 import { useFiles } from "../hooks/useFiles";
@@ -17,15 +14,10 @@ import { useFolders } from "../hooks/useFolders";
 import { useTabs } from "../hooks/useTabs";
 import { useAtomValue } from "jotai";
 import { filesInCurrentFolderAtom } from "../store";
-import type { GridItemType, GridItem, FolderContentViewProps, DropIntent, DraggableGridItemProps } from "./FolderContentView/types";
-import { GRID_ITEM_TYPE } from "./FolderContentView/constants";
-import {
-  formatRelativeDate,
-  formatFolderStats,
-  formatFolderStatsHeader,
-} from "./FolderContentView/helpers";
-import { CustomDragLayer } from "./FolderContentView/components/CustomDragLayer";
-import { DraggableGridItem } from "./FolderContentView/components/DraggableGridItem";
+import type { FolderContentViewProps } from "./FolderContentView/types";
+import { FolderHeader } from "./FolderContentView/components/FolderHeader";
+import { GridContainer } from "./FolderContentView/components/GridContainer";
+import { UploadZone } from "./FolderContentView/components/UploadZone";
 import { useGridItems } from "./FolderContentView/hooks/useGridItems";
 import { useFolderActions } from "./FolderContentView/hooks/useFolderActions";
 import { useFileUpload } from "./FolderContentView/hooks/useFileUpload";
@@ -335,7 +327,7 @@ export function FolderContentView({
   const photoCount = folderFiles.filter(f => f.type === "photo").length;
 
   // Drop zone for files from OS
-  const [{ isFileOver }, fileDropRef] = useDrop({
+  const [{ isFileOver }] = useDrop({
     accept: [NativeTypes.FILE],
     drop: (item: { files: File[] }) => {
       if (item.files && item.files.length > 0) {
@@ -372,244 +364,91 @@ export function FolderContentView({
   };
 
   return (
-    <div 
-      ref={fileDropRef}
+    <UploadZone
+      onDropFiles={handleDroppedFiles}
+      onChatFileDrop={handleChatFileDrop}
       onDragOver={handleDragOver}
-      onDrop={handleChatFileDrop}
-      className={`h-full flex flex-col bg-[#121212] transition-colors ${
-                  isFileOver ? "bg-indigo-500/5" : ""      }`}
+      isFileOver={isFileOver}
     >
-      {/* Header Section */}
-      <div className="border-b border-white/10 px-8 py-6">
+      <FolderHeader
+        breadcrumbs={breadcrumbs}
+        onBreadcrumbClick={onBreadcrumbClick}
+        emoji={emoji}
+        isEmojiPickerOpen={isEmojiPickerOpen}
+        setIsEmojiPickerOpen={setIsEmojiPickerOpen}
+        onEmojiSelect={(selectedEmoji) => {
+          setEmoji(selectedEmoji);
+          handleUpdateFolder({ emoji: selectedEmoji });
+        }}
+        onEmojiRemove={() => {
+          setEmoji("");
+          handleUpdateFolder({ emoji: "" });
+        }}
+        title={title}
+        setTitle={setTitle}
+        isEditingTitle={isEditingTitle}
+        setIsEditingTitle={setIsEditingTitle}
+        onTitleBlur={handleTitleBlur}
+        subfolderCount={subfolderCount}
+        fileCount={fileCount}
+        photoCount={photoCount}
+        hasGridItems={gridItems.length > 0}
+        onCreateFolder={() => setIsCreateFolderModalOpen(true)}
+        onCreateFile={handleCreateFile}
+        onAttachFile={() => fileInputRef.current?.click()}
+        fileInputRef={fileInputRef}
+        onFileInputChange={(e) => {
+          const files = Array.from(e.target.files || []);
+          if (files.length > 0) {
+            handleDroppedFiles(files);
+          }
+          e.target.value = "";
+        }}
+        aiPrompt={aiPrompt}
+        setAiPrompt={setAiPrompt}
+        onPromptBlur={handlePromptBlur}
+      />
 
-        {/* Breadcrumbs */}
-        <div className="flex items-center gap-2 text-sm text-gray-400 mb-4 overflow-x-auto scrollbar-none" style={{ scrollbarWidth: "none" }}>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {breadcrumbs.map((crumb, index) => (
-              <div key={index} className="flex items-center gap-2 flex-shrink-0">
-                <span
-                  className={`transition-colors block max-w-[150px] truncate ${
-                    index < breadcrumbs.length - 1 ? "hover:text-gray-200 hover:underline cursor-pointer" : "text-gray-200"
-                  }`}
-                  onClick={() => {
-                    if (index < breadcrumbs.length - 1) onBreadcrumbClick(index);
-                  }}
-                >
-                  {crumb}
-                </span>
-                {index < breadcrumbs.length - 1 && <ChevronRight size={14} className="flex-shrink-0" />}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Title & Emoji */}
-        <div className="flex items-center gap-3 mb-4">
-          {/* Emoji picker trigger */}
-          <button
-            ref={emojiTriggerRef}
-            onClick={() => setIsEmojiPickerOpen((o) => !o)}
-            className={`flex-shrink-0 flex items-center justify-center rounded-xl hover:bg-white/10 transition-colors group ${
-              emoji ? "w-14 h-14 text-4xl" : "w-14 h-14"
-            }`}
-            title={emoji ? "Изменить иконку" : "Добавить иконку"}
-          >
-            {emoji ? (
-              <span className="leading-none">{emoji}</span>
-            ) : (
-              <span className="flex flex-col items-center gap-0.5 text-gray-600 group-hover:text-gray-400 transition-colors">
-                <Smile size={22} />
-                <span className="text-[9px] leading-none">иконка</span>
-              </span>
-            )}
-          </button>
-
-          {isEditingTitle ? (
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value.slice(0, 50))}
-              onBlur={handleTitleBlur}
-              onKeyDown={(e) => { if (e.key === "Enter") handleTitleBlur(); }}
-              maxLength={50}
-              className="text-3xl font-semibold bg-transparent text-white border-b-2 border-indigo-500 outline-none"
-              autoFocus
-            />
-          ) : (
-            <div className="flex-1">
-              <h1
-                className="text-3xl font-semibold text-white cursor-pointer hover:text-gray-300 transition-colors"
-                onClick={() => setIsEditingTitle(true)}
-                title="Кликните чтобы изменить название"
-              >
-                {title}
-              </h1>
-              <p className="text-sm text-gray-400 mt-1">
-                {formatFolderStatsHeader(subfolderCount, fileCount, photoCount)}
-              </p>
-            </div>
-          )}
-
-          <div className="ml-auto flex items-center gap-2">
-            {gridItems.length > 0 && (
-              <>
-                <button
-                  onClick={() => setIsCreateFolderModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
-                  title="Создать папку"
-                >
-                  <FolderIcon size={16} />
-                  Создать папку
-                </button>
-                <button
-                  onClick={handleCreateFile}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg transition-colors text-sm border border-indigo-500/20"
-                  title="Создать файл"
-                >
-                  <Plus size={16} />
-                  Создать файл
-                </button>
-              </>
-            )}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
-              title="Прикрепить файл"
-            >
-              <Paperclip size={16} />
-              Прикрепить файл
-            </button>
-          </div>
-        </div>
-
-        {/* Hidden file input for attaching files */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept="image/*,.pdf,.txt,.md,.json,.js,.ts,.tsx,.jsx,.html,.css"
-          className="hidden"
-          onChange={(e) => {
-            const files = Array.from(e.target.files || []);
-            if (files.length > 0) {
-              handleDroppedFiles(files);
-            }
-            // Reset input so the same file can be selected again
-            e.target.value = "";
-          }}
-        />
-
-        {/* AI Prompt Field */}
-        <div>
-          <textarea
-            value={aiPrompt}
-            onChange={(e) => setAiPrompt(e.target.value)}
-            onBlur={handlePromptBlur}
-            placeholder="Инструкция для ИИ: что должно попадать в эту папку..."
-            className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-indigo-500/50 transition-colors"
-            rows={2}
-          />
-        </div>
-      </div>
-
-      {/* Grid */}
-      <div className="flex-1 overflow-y-auto px-8 py-6 relative">
-        {/* Drop overlay when dragging files */}
-        {isFileOver && gridItems.length > 0 && (
-          <div className="absolute inset-0 bg-indigo-500/5 border-2 border-dashed border-indigo-500/50 rounded-xl z-10 flex items-center justify-center pointer-events-none">
-            <div className="bg-[#141414] px-6 py-4 rounded-xl border border-indigo-500/30">
-              <div className="flex items-center gap-3">
-                <Upload size={24} className="text-indigo-400" />
-                <span className="text-indigo-300 text-lg">Отпустите файлы для загрузки</span>
-              </div>
-            </div>
-          </div>
-        )}
-        {/* 自定义拖拽预览层 */}
-        <CustomDragLayer />
-        <div ref={gridRef} className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
-          {gridItems.map((item, index) => (
-            <DraggableGridItem
-              key={item.id}
-              item={item}
-              index={index}
-              moveItem={moveGridItemWithFlip}
-              onDragEnd={handleDragEnd}
-              onFileContextMenu={handleFileContextMenu}
-              onFolderContextMenu={handleFolderContextMenu}
-              onFolderClick={handleFolderClick}
-              onFileDoubleClick={openTab}
-              onMoveItemToFolder={(itemId, destFolderId, itemType) => {
-                if (itemType === "file") {
-                  updateFile(itemId, { folderId: destFolderId });
-                } else if (itemType === "folder") {
-                  const items = folder.subfolders || [];
-                  const draggedFolder = items.find(f => f.id === itemId);
-                  if (draggedFolder) {
-                    const newSubfolders = items.map(f => {
-                      if (f.id === destFolderId) {
-                        return { ...f, subfolders: [...(f.subfolders || []), draggedFolder] };
-                      }
-                      return f;
-                    }).filter(f => f.id !== itemId);
-                    handleUpdateFolder({ subfolders: newSubfolders });
-                  }
+      <GridContainer
+        gridRef={gridRef}
+        gridItems={gridItems}
+        isFileOver={isFileOver}
+        emoji={emoji}
+        moveItem={moveGridItemWithFlip}
+        onDragEnd={handleDragEnd}
+        onFileContextMenu={handleFileContextMenu}
+        onFolderContextMenu={handleFolderContextMenu}
+        onFolderClick={handleFolderClick}
+        onFileDoubleClick={openTab}
+        onMoveItemToFolder={(itemId, destFolderId, itemType) => {
+          if (itemType === "file") {
+            updateFile(itemId, { folderId: destFolderId });
+          } else if (itemType === "folder") {
+            const items = folder.subfolders || [];
+            const draggedFolder = items.find(f => f.id === itemId);
+            if (draggedFolder) {
+              const newSubfolders = items.map(f => {
+                if (f.id === destFolderId) {
+                  return { ...f, subfolders: [...(f.subfolders || []), draggedFolder] };
                 }
-                setGridItems((prev) => prev.filter(i => i.id !== itemId));
-              }}
-              editingFileId={editingFileId}
-              onFileNameChange={handleFileNameChange}
-              onEditingComplete={() => setEditingFileId(null)}
-              allFiles={files}
-              openContextMenuId={
-                fileContextMenu.isOpen ? fileContextMenu.fileId :
-                folderContextMenu.isOpen ? folderContextMenu.folderId : null
-              }
-            />
-          ))}
-        </div>
-
-        {/* Empty State */}
-        {gridItems.length === 0 && (
-          <div className={`flex flex-col items-center justify-center h-full text-center ${
-            isFileOver ? "ring-2 ring-indigo-500/50 ring-inset rounded-xl" : ""
-          }`}>
-            <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-4 transition-colors ${
-              isFileOver ? "bg-indigo-500/10" : "bg-white/5"
-            }`}>
-              {isFileOver ? (
-                <Upload size={40} className="text-indigo-400" />
-              ) : (
-                <span className="text-5xl">{emoji}</span>
-              )}
-            </div>
-            <p className="text-gray-400 text-lg mb-2">
-              {isFileOver ? "Отпустите файлы для загрузки" : "Папка пуста"}
-            </p>
-            <p className="text-gray-500 text-sm mb-4">
-              {isFileOver ? "" : "Перетащите файлы сюда или создайте новый"}
-            </p>
-            {!isFileOver && (
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setIsCreateFolderModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
-                >
-                  <FolderIcon size={16} />
-                  Создать папку
-                </button>
-                <button
-                  onClick={handleCreateFile}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg transition-colors text-sm border border-indigo-500/20"
-                >
-                  <Plus size={16} />
-                  Создать файл
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+                return f;
+              }).filter(f => f.id !== itemId);
+              handleUpdateFolder({ subfolders: newSubfolders });
+            }
+          }
+          setGridItems((prev) => prev.filter(i => i.id !== itemId));
+        }}
+        editingFileId={editingFileId}
+        onFileNameChange={handleFileNameChange}
+        onEditingComplete={() => setEditingFileId(null)}
+        allFiles={files}
+        openContextMenuId={
+          fileContextMenu.isOpen ? fileContextMenu.fileId :
+          folderContextMenu.isOpen ? folderContextMenu.folderId : null
+        }
+        onCreateFolder={() => setIsCreateFolderModalOpen(true)}
+        onCreateFile={handleCreateFile}
+      />
 
       <FileContextMenu
         isOpen={fileContextMenu.isOpen}
@@ -652,22 +491,6 @@ export function FolderContentView({
         onClose={() => setIsCreateFolderModalOpen(false)}
         onCreateFolder={handleCreateFolderFromModal}
       />
-      <EmojiPicker
-        isOpen={isEmojiPickerOpen}
-        onClose={() => setIsEmojiPickerOpen(false)}
-        onSelect={(selectedEmoji) => {
-          setEmoji(selectedEmoji);
-          handleUpdateFolder({ emoji: selectedEmoji });
-          setIsEmojiPickerOpen(false);
-        }}
-        onRemove={() => {
-          setEmoji("");
-          handleUpdateFolder({ emoji: "" });
-          setIsEmojiPickerOpen(false);
-        }}
-        hasEmoji={!!emoji}
-        anchorEl={emojiTriggerRef.current}
-      />
-    </div>
+    </UploadZone>
   );
 }
