@@ -1,4 +1,5 @@
 import { atom } from 'jotai';
+import { toast } from 'sonner';
 import { 
   foldersAtom, 
   filesAtom, 
@@ -48,6 +49,8 @@ export const loadFoldersAtom = atom(
       set(foldersAtom, folders);
     } catch (error) {
       console.error('Failed to load folders:', error);
+      toast.error('Не удалось загрузить папки. Попробуйте перезагрузить страницу.');
+      // Don't throw - handle error gracefully
     } finally {
       set(isLoadingFoldersAtom, false);
     }

@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router";
 import { Provider } from "jotai";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -22,7 +23,9 @@ export default function App() {
             path="/app"
             element={
               <ProtectedRoute>
-                <Workspace />
+                <ErrorBoundary>
+                  <Workspace />
+                </ErrorBoundary>
               </ProtectedRoute>
             }
           />

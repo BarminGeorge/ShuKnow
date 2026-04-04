@@ -9,6 +9,7 @@ import { Sparkles } from "lucide-react";
 import { FolderContentView } from "./components/FolderContentView";
 import { TabsWorkspace } from "./components/workspace/TabsWorkspace";
 import { TabBar } from "./components/workspace/TabBar";
+import { WorkspaceErrorBoundary } from "./components/workspace/WorkspaceErrorBoundary";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { Toaster } from "sonner";
@@ -469,11 +470,16 @@ export default function Workspace() {
 
                 ) : viewMode === "folder" ? (
                   selectedFolder && selectedFolderPath ? (
-                    <FolderContentView
-                      onBack={handleNavigateBack}
-                      onNavigateToSubfolder={handleNavigateToSubfolder}
-                      onBreadcrumbClick={handleBreadcrumbClick}
-                    />
+                    <WorkspaceErrorBoundary onReset={() => {
+                      setViewMode('chat');
+                      setSelectedFolderPath(null);
+                    }}>
+                      <FolderContentView
+                        onBack={handleNavigateBack}
+                        onNavigateToSubfolder={handleNavigateToSubfolder}
+                        onBreadcrumbClick={handleBreadcrumbClick}
+                      />
+                    </WorkspaceErrorBoundary>
                   ) : null
 
                 ) : (
