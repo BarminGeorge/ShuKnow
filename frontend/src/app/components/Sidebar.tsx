@@ -23,7 +23,7 @@ interface SidebarProps {
 
 export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarProps) {
   // Jotai hooks
-  const { folders, setFolders, updateFolder } = useFolders();
+  const { folders, setFolders, updateFolder, createFolder, moveFolderAtom } = useFolders();
   const { setSelectedFolderPath, setViewMode } = useWorkspaceView();
   
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -195,31 +195,7 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
       subfolders: [],
     };
 
-    if (createFolderParentPath === null) {
-      setFolders([...folders, newFolder]);
-    } else {
-      setFolders((previousFolders) => {
-        const clonedFolders = JSON.parse(JSON.stringify(previousFolders)) as Folder[];
-        const path = createFolderParentPath;
-
-        let currentFolderList: Folder[] = clonedFolders;
-        for (let pathIndex = 0; pathIndex < path.length; pathIndex++) {
-          const folderIndex = parseInt(path[pathIndex]);
-          if (pathIndex === path.length - 1) {
-            if (!currentFolderList[folderIndex].subfolders) {
-              currentFolderList[folderIndex].subfolders = [];
-            }
-            currentFolderList[folderIndex].subfolders!.push(newFolder);
-          } else {
-            if (!currentFolderList[folderIndex].subfolders) return previousFolders;
-            currentFolderList = currentFolderList[folderIndex].subfolders!;
-          }
-        }
-
-        return clonedFolders;
-      });
-    }
-
+    createFolder(newFolder, createFolderParentPath);
     setCreateFolderParentPath(null);
   };
 

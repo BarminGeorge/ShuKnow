@@ -86,6 +86,46 @@ export const setFoldersAtom = atom(
   }
 );
 
+export const createFolderAtom = atom(
+  null,
+  (get, set, folder: Folder, parentPath: string[] | null) => {
+    const folders = get(foldersAtom);
+    
+    if (parentPath === null) {
+      // Add to root
+      set(foldersAtom, [...folders, folder]);
+    } else {
+      // Add to subfolder
+      const newFolders = JSON.parse(JSON.stringify(folders)) as Folder[];
+      let currentFolderList: Folder[] = newFolders;
+      
+      for (let i = 0; i < parentPath.length; i++) {
+        const folderIndex = parseInt(parentPath[i]);
+        if (i === parentPath.length - 1) {
+          if (!currentFolderList[folderIndex].subfolders) {
+            currentFolderList[folderIndex].subfolders = [];
+          }
+          currentFolderList[folderIndex].subfolders!.push(folder);
+        } else {
+          if (!currentFolderList[folderIndex].subfolders) return;
+          currentFolderList = currentFolderList[folderIndex].subfolders!;
+        }
+      }
+      
+      set(foldersAtom, newFolders);
+    }
+  }
+);
+
+export const moveFolderAtom = atom(
+  null,
+  (get, set, updater: (folders: Folder[]) => Folder[]) => {
+    const folders = get(foldersAtom);
+    const newFolders = updater(folders);
+    set(foldersAtom, newFolders);
+  }
+);
+
 // ── File actions ────────────────────────────────────────────────────────────
 
 export const createFileAtom = atom(

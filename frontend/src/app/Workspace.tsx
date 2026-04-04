@@ -70,9 +70,9 @@ const CHAT_TITLES = [
 
 export default function Workspace() {
   // Jotai hooks
-  const { viewMode, setViewMode, isSidebarCollapsed, setIsSidebarCollapsed, selectedFolderPath, setSelectedFolderPath } = useWorkspaceView();
+  const { viewMode, setViewMode, isSidebarCollapsed, setIsSidebarCollapsed, selectedFolderPath, setSelectedFolderPath, currentFolder, breadcrumbs } = useWorkspaceView();
   const { folders, setFolders, isLoading: isLoadingFolders, loadFolders } = useFolders();
-  const { files, setFiles } = useFiles();
+  const { files, createFile, updateFile, deleteFile } = useFiles();
   const { messages, setMessages, currentTitle, setCurrentTitle } = useChat();
   const { openTabs, activeTab, activeTabId, openTab, closeTab, switchTab } = useTabs();
   
@@ -175,56 +175,22 @@ export default function Workspace() {
   // ── File management ─────────────────────────────────────────────────────────
 
   const handleUpdateFileContent = (fileId: string, content: string) => {
-    setFiles((prev) =>
-      prev.map((f) => (f.id === fileId ? { ...f, content } : f))
-    );
+    updateFile(fileId, { content });
   };
 
   const handleCreateFile = (file: FileItem, openAfterCreate: boolean = true) => {
-    setFiles((prev) => [...prev, file]);
-    if (openAfterCreate) {
-      // Small delay so the file is in state before opening the tab
-      setTimeout(() => handleOpenTab(file.id), 50);
-    }
+    createFile(file, openAfterCreate);
   };
 
   const handleDeleteFile = (fileId: string) => {
-    setFiles((prev) => prev.filter((f) => f.id !== fileId));
-    handleCloseTab(fileId);
+    deleteFile(fileId);
   };
 
   const handleUpdateFile = (fileId: string, updates: Partial<FileItem>) => {
-    setFiles((prev) =>
-      prev.map((f) => (f.id === fileId ? { ...f, ...updates } : f))
-    );
+    updateFile(fileId, updates);
   };
 
   // ── Folder navigation ───────────────────────────────────────────────────────
-
-  const getFolderByPath = (path: string[]): Folder | null => {
-    let current: Folder[] = folders;
-    for (let i = 0; i < path.length; i++) {
-      const idx = parseInt(path[i]);
-      if (!current[idx]) return null;
-      if (i === path.length - 1) return current[idx];
-      if (!current[idx].subfolders) return null;
-      current = current[idx].subfolders!;
-    }
-    return null;
-  };
-
-  const buildBreadcrumbs = (path: string[]): string[] => {
-    const crumbs: string[] = [];
-    let current: Folder[] = folders;
-    for (let i = 0; i < path.length; i++) {
-      const idx = parseInt(path[i]);
-      if (current[idx]) {
-        crumbs.push(current[idx].name);
-        if (current[idx].subfolders) current = current[idx].subfolders!;
-      }
-    }
-    return crumbs;
-  };
 
   const handleFolderClick = (_folder: Folder, path: string[]) => {
     setSelectedFolderPath(path);
@@ -284,9 +250,6 @@ export default function Workspace() {
     if (!selectedFolderPath) return;
     setSelectedFolderPath(selectedFolderPath.slice(0, index + 1));
   };
-
-  const selectedFolder      = selectedFolderPath ? getFolderByPath(selectedFolderPath) : null;
-  const selectedBreadcrumbs = selectedFolderPath ? buildBreadcrumbs(selectedFolderPath) : [];
 
   // ── Navigate to folder by file's folderId ──────────────────────────────────
 
@@ -375,7 +338,7 @@ export default function Workspace() {
                   />
 
                 ) : viewMode === "folder" ? (
-                  selectedFolder && selectedFolderPath ? (
+                  currentFolder && selectedFolderPath ? (
                     <WorkspaceErrorBoundary onReset={() => {
                       setViewMode('chat');
                       setSelectedFolderPath(null);
