@@ -26,6 +26,9 @@ import {
 } from "./FolderContentView/helpers";
 import { CustomDragLayer } from "./FolderContentView/components/CustomDragLayer";
 import { DraggableGridItem } from "./FolderContentView/components/DraggableGridItem";
+import { useGridItems } from "./FolderContentView/hooks/useGridItems";
+import { useFolderActions } from "./FolderContentView/hooks/useFolderActions";
+import { useFileUpload } from "./FolderContentView/hooks/useFileUpload";
 
 export function FolderContentView({
   onBack,
@@ -46,6 +49,15 @@ export function FolderContentView({
   
   const folder = currentFolder;
   
+  // Custom hooks
+  const { handleUpdateFolder } = useFolderActions({ selectedFolderPath, updateFolder });
+  const { gridItems, setGridItems, moveItem, handleDragEnd } = useGridItems({ 
+    folder, 
+    files, 
+    onUpdateFolder: handleUpdateFolder 
+  });
+  const { handleDroppedFiles } = useFileUpload({ folderId: folder.id, createFile });
+  
   const [title, setTitle] = useState(folder.name);
   const [emoji, setEmoji] = useState(folder.emoji || "");
   const [aiPrompt, setAiPrompt] = useState(folder.prompt || "");
@@ -53,7 +65,6 @@ export function FolderContentView({
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [gridItems, setGridItems] = useState<GridItem[]>([]);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   
   const [editFileModal, setEditFileModal] = useState<{ isOpen: boolean; file: FileItem | null; }>({ isOpen: false, file: null });
@@ -61,41 +72,18 @@ export function FolderContentView({
   const [fileContextMenu, setFileContextMenu] = useState<{ isOpen: boolean; fileId: string; position: { x: number; y: number }; }>({ isOpen: false, fileId: "", position: { x: 0, y: 0 } });
   const [folderContextMenu, setFolderContextMenu] = useState<{ isOpen: boolean; folderId: string; position: { x: number; y: number }; }>({ isOpen: false, folderId: "", position: { x: 0, y: 0 } });
 
-  // Refs for state management without re-renders
-  const orderRef = useRef<string[]>([]);
-  const hasOrderChangedRef = useRef(false);
-
-  // Handler for updating folder
-  const handleUpdateFolder = useCallback((updates: Partial<Folder>) => {
-    if (!selectedFolderPath || selectedFolderPath.length === 0) {
-      console.warn('Cannot update folder: no folder path selected');
-      return;
-    }
-    updateFolder(selectedFolderPath, updates);
-  }, [updateFolder, selectedFolderPath]);
-
   // Global dragend cleanup to ensure pointer events are restored
   useEffect(() => {
-    const handleDragEnd = () => {
+    const handleDragEndCleanup = () => {
       // Ensure cursor is restored after drag
       document.body.style.cursor = '';
       // Remove any lingering drag-related styles
       document.body.classList.remove('dragging');
     };
 
-    document.addEventListener('dragend', handleDragEnd);
-    return () => document.removeEventListener('dragend', handleDragEnd);
+    document.addEventListener('dragend', handleDragEndCleanup);
+    return () => document.removeEventListener('dragend', handleDragEndCleanup);
   }, []);
-
-  // Silently update order ref on grid changes
-  useEffect(() => {
-    const newOrder = gridItems.map((item) => item.id);
-    const hasChanged = JSON.stringify(newOrder) !== JSON.stringify(orderRef.current);
-    orderRef.current = newOrder;
-    if (hasChanged && newOrder.length > 0) {
-      hasOrderChangedRef.current = true;
-    }
-  }, [gridItems]);
 
   // Sync metadata (if changed externally)
   useEffect(() => {
@@ -103,45 +91,6 @@ export function FolderContentView({
     setEmoji(folder.emoji || "");
     setAiPrompt(folder.prompt || "");
   }, [folder]);
-
-  // Rebuild grid only on folder change
-  useEffect(() => {
-    const folderFiles = files.filter((f) => f.folderId === folder.id);
-    const items: GridItem[] = [];
-    let order = 0;
-
-    // Add subfolders first
-    if (folder.subfolders) {
-      folder.subfolders.forEach((subfolder) => {
-        items.push({ id: subfolder.id, type: "folder", data: subfolder, order: order++ });
-      });
-    }
-
-    // Add files
-    folderFiles.forEach((file) => {
-      items.push({ id: file.id, type: "file", data: file, order: order++ });
-    });
-
-    // Apply custom order if exists
-    if (folder.customOrder && folder.customOrder.length > 0) {
-      const orderedItems: GridItem[] = [];
-      const itemsMap = new Map(items.map((item) => [item.id, item]));
-      
-      folder.customOrder.forEach((id) => {
-        const item = itemsMap.get(id);
-        if (item) {
-          orderedItems.push(item);
-          itemsMap.delete(id);
-        }
-      });
-      
-      // Add remaining items (new files/folders not in customOrder)
-      itemsMap.forEach((item) => orderedItems.push(item));
-      setGridItems(orderedItems);
-    } else {
-      setGridItems(items);
-    }
-  }, [folder.id, files, folder.subfolders]);
 
   const handleFileContextMenu = (fileId: string, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -256,68 +205,6 @@ export function FolderContentView({
     createFile(newFile, true); // Open file after creation
   };
 
-  // Handle dropped files from OS file explorer
-  const handleDroppedFiles = useCallback((files: File[]) => {
-    files.forEach((file, index) => {
-      const isImage = file.type.startsWith("image/");
-      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-      
-      if (isImage) {
-        // Create object URL for image preview
-        const contentUrl = URL.createObjectURL(file);
-        const newFile: FileItem = {
-          id: `${Date.now()}-${index}`,
-          name: file.name,
-          type: "photo",
-          folderId: folder.id,
-          contentUrl,
-          createdAt: new Date().toISOString(),
-        };
-        createFile(newFile, false); // Don't open after drop
-      } else if (isPdf) {
-        // Create object URL for PDF viewing
-        const pdfUrl = URL.createObjectURL(file);
-        const newFile: FileItem = {
-          id: `${Date.now()}-${index}`,
-          name: file.name,
-          type: "pdf",
-          folderId: folder.id,
-          pdfUrl,
-          createdAt: new Date().toISOString(),
-        };
-        createFile(newFile, false); // Don't open after drop
-      } else {
-        // For text files, try to read content
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const content = e.target?.result as string || "";
-          const newFile: FileItem = {
-            id: `${Date.now()}-${index}`,
-            name: file.name,
-            type: "text",
-            folderId: folder.id,
-            content,
-            createdAt: new Date().toISOString(),
-          };
-          createFile(newFile, false); // Don't open after drop
-        };
-        reader.onerror = () => {
-          // If reading fails, create empty text file
-          const newFile: FileItem = {
-            id: `${Date.now()}-${index}`,
-            name: file.name,
-            type: "text",
-            folderId: folder.id,
-            content: "",
-            createdAt: new Date().toISOString(),
-          };
-          createFile(newFile, false); // Don't open after drop
-        };
-        reader.readAsText(file);
-      }
-    });
-  }, [folder.id, createFile]);
-
   const handleCreateFolderFromModal = (name: string, emoji: string, prompt: string) => {
     const newFolder: Folder = {
       id: Date.now().toString(),
@@ -423,21 +310,8 @@ export function FolderContentView({
   // Wrapper: capture positions, then update state
   const moveGridItemWithFlip = useCallback((dragIndex: number, hoverIndex: number) => {
     captureGridPositions();
-    setGridItems((prev) => {
-      const newItems = [...prev];
-      const [draggedItem] = newItems.splice(dragIndex, 1);
-      newItems.splice(hoverIndex, 0, draggedItem);
-      return newItems;
-    });
-  }, [captureGridPositions]);
-
-  const handleDragEnd = () => {
-    // Save custom order only after drag operation
-    if (hasOrderChangedRef.current && orderRef.current.length > 0) {
-      handleUpdateFolder({ customOrder: orderRef.current });
-      hasOrderChangedRef.current = false;
-    }
-  };
+    moveItem(dragIndex, hoverIndex);
+  }, [captureGridPositions, moveItem]);
 
   const handleFolderClick = (subfolder: Folder) => {
     const subfolderIndex = folder.subfolders?.findIndex((f) => f.id === subfolder.id) ?? -1;
