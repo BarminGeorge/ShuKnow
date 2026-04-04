@@ -173,15 +173,8 @@ export default function Workspace() {
 
   // Load folders from API
   useEffect(() => {
-    if (IS_MOCK_MODE_ENABLED) {
-      // Set mock data
-      setFolders(MOCK_INITIAL_FOLDERS);
-      setFiles(MOCK_INITIAL_FILES);
-      return;
-    }
-    
     loadFolders();
-  }, [loadFolders, setFolders, setFiles]);
+  }, [loadFolders]);
 
   // Randomize title when entering chat view
   useEffect(() => {

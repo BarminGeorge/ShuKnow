@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { X, AlertTriangle, Loader2 } from "lucide-react";
-import type { Folder } from "../Workspace";
+import type { Folder } from "../../api/types";
 
 interface DeleteFolderModalProps {
   isOpen: boolean;

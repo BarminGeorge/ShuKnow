@@ -12,15 +12,15 @@ function folderToTreeNode(folder: Folder): FolderTreeNodeDto {
     description: folder.description,
     sortOrder: folder.sortOrder,
     fileCount: folder.fileCount,
-    children: folder.subfolders.map(folderToTreeNode),
+    children: (folder.subfolders || []).map(folderToTreeNode),
   };
 }
 
 export const handlers = [
   // GET /api/folders/tree
   http.get(`${API_BASE}/folders/tree`, () => {
-    const tree = MOCK_FOLDERS.map(folderToTreeNode);
-    return HttpResponse.json(tree);
+    // Return full Folder objects with emoji instead of FolderTreeNodeDto
+    return HttpResponse.json(MOCK_FOLDERS);
   }),
 
   // GET /api/folders/:id

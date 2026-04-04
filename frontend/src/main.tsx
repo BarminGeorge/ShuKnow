@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
+import { Provider } from "jotai";
 import App from "./app/App.tsx";
 import "./styles/index.css";
 
@@ -18,8 +19,10 @@ if (import.meta.env.VITE_USE_MOCK_AUTH === 'true') {
 
 console.log('[Main] Rendering app...');
 createRoot(document.getElementById("root")!).render(
-  <BrowserRouter>
-    <App />
-  </BrowserRouter>
+  <Provider>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </Provider>
 );
 console.log('[Main] App rendered');

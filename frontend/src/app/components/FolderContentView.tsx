@@ -809,7 +809,7 @@ export function FolderContentView({
   onBreadcrumbClick,
 }: FolderContentViewProps) {
   // Jotai hooks
-  const { currentFolder, breadcrumbs } = useWorkspaceView();
+  const { currentFolder, breadcrumbs, selectedFolderPath } = useWorkspaceView();
   const { updateFolder } = useFolders();
   const { createFile, updateFile, deleteFile } = useFiles();
   const { openTab } = useTabs();
@@ -843,10 +843,12 @@ export function FolderContentView({
 
   // Handler for updating folder
   const handleUpdateFolder = useCallback((updates: Partial<Folder>) => {
-    // TODO: Need to get current folder path from somewhere
-    // For now, just update the folder directly
-    updateFolder([], updates);
-  }, [updateFolder]);
+    if (!selectedFolderPath || selectedFolderPath.length === 0) {
+      console.warn('Cannot update folder: no folder path selected');
+      return;
+    }
+    updateFolder(selectedFolderPath, updates);
+  }, [updateFolder, selectedFolderPath]);
 
   // Global dragend cleanup to ensure pointer events are restored
   useEffect(() => {
@@ -876,7 +878,7 @@ export function FolderContentView({
     setTitle(folder.name);
     setEmoji(folder.emoji || "");
     setAiPrompt(folder.prompt || "");
-  }, [folder.name, folder.emoji, folder.prompt]);
+  }, [folder]);
 
   // Rebuild grid only on folder change
   useEffect(() => {
@@ -983,10 +985,18 @@ export function FolderContentView({
 
   const handleSaveFolderEdit = (name: string, emoji: string, prompt: string) => {
     if (!editFolderModal.folder) return;
-    const updatedSubfolders = folder.subfolders?.map((f) =>
-      f.id === editFolderModal.folder!.id ? { ...f, name, emoji, prompt } : f
-    );
-    handleUpdateFolder({ subfolders: updatedSubfolders });
+    
+    // Find the index of the subfolder being edited
+    const subfolderIndex = folder.subfolders?.findIndex((f) => f.id === editFolderModal.folder!.id);
+    
+    if (subfolderIndex !== undefined && subfolderIndex !== -1 && selectedFolderPath) {
+      // Build path to the subfolder: current path + subfolder index
+      const subfolderPath = [...selectedFolderPath, subfolderIndex.toString()];
+      
+      // Update the subfolder directly by its path
+      updateFolder(subfolderPath, { name, emoji, prompt });
+    }
+    
     setEditFolderModal({ isOpen: false, folder: null });
   };
 
@@ -1019,7 +1029,7 @@ export function FolderContentView({
       prompt: prompt || undefined,
       createdAt: new Date().toISOString(),
     };
-    createFile(newFile);
+    createFile(newFile, true); // Open file after creation
   };
 
   // Handle dropped files from OS file explorer
@@ -1090,10 +1100,15 @@ export function FolderContentView({
       name,
       emoji,
       prompt,
+      description: "",
+      sortOrder: (folder.subfolders || []).length,
+      fileCount: 0,
+      subfolders: [],
     };
     handleUpdateFolder({
       subfolders: [...(folder.subfolders || []), newFolder]
     });
+    setIsCreateFolderModalOpen(false);
   };
 
   const handleFileNameChange = (fileId: string, newName: string) => {

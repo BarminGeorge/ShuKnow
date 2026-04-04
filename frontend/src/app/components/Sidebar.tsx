@@ -188,12 +188,16 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
     }
   }, [folders, setFolders]);
 
-  const handleCreateFolder = (name: string, emoji: string, description: string) => {
+  const handleCreateFolder = (name: string, emoji: string, prompt: string) => {
     const newFolder: Folder = {
       id: Date.now().toString(),
       name,
       emoji,
-      description,
+      prompt,
+      description: "",
+      sortOrder: 0,
+      fileCount: 0,
+      subfolders: [],
     };
 
     if (createFolderParentPath === null) {
@@ -238,10 +242,10 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
     setEditFolderState({ isOpen: true, folder, path });
   };
 
-  const handleSaveFolderEdit = (name: string, emoji: string, description: string) => {
+  const handleSaveFolderEdit = (name: string, emoji: string, prompt: string) => {
     if (!editFolderState.path.length) return;
     
-    onUpdateFolder(editFolderState.path, { name, emoji, description });
+    updateFolder(editFolderState.path, { name, emoji, prompt });
     setEditFolderState({ isOpen: false, folder: null, path: [] });
   };
 
@@ -402,7 +406,7 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
             folder={folder}
             path={[index.toString()]}
             moveFolder={moveFolder}
-            handleFolderClick={handleFolderClick}
+            onFolderClick={handleFolderClick}
             onEditFolder={handleEditFolder}
             onAddSubfolder={handleAddSubfolder}
             onDeleteFolder={handleDeleteFolder}
@@ -442,7 +446,7 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
         onClose={() => setEditFolderState({ isOpen: false, folder: null, path: [] })}
         folderName={editFolderState.folder?.name || ""}
         folderEmoji={editFolderState.folder?.emoji || ""}
-        currentDescription={editFolderState.folder?.description || ""}
+        currentPrompt={editFolderState.folder?.prompt || ""}
         onSave={handleSaveFolderEdit}
       />
       <DeleteFolderModal

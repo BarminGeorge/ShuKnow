@@ -21,18 +21,29 @@ export const loadFoldersAtom = atom(
     set(isLoadingFoldersAtom, true);
     try {
       const apiTree = await folderService.fetchFolderTree();
-      // Map API folders to local folders
-      const mapFolder = (apiFolder: any): Folder => ({
-        id: apiFolder.id,
-        name: apiFolder.name,
-        description: apiFolder.description,
-        sortOrder: apiFolder.sortOrder,
-        fileCount: apiFolder.fileCount,
-        subfolders: apiFolder.children?.map(mapFolder) || [],
-        emoji: undefined,
-        prompt: undefined,
-        customOrder: undefined,
-      });
+      // In mock mode, API returns full Folder objects with emoji
+      // In real mode, API returns FolderTreeNodeDto, so we need to map
+      const mapFolder = (apiFolder: any): Folder => {
+        // If it's already a Folder with subfolders, return as is
+        if (apiFolder.subfolders !== undefined) {
+          return {
+            ...apiFolder,
+            subfolders: apiFolder.subfolders.map(mapFolder),
+          };
+        }
+        // Otherwise map from FolderTreeNodeDto
+        return {
+          id: apiFolder.id,
+          name: apiFolder.name,
+          description: apiFolder.description,
+          sortOrder: apiFolder.sortOrder,
+          fileCount: apiFolder.fileCount,
+          subfolders: apiFolder.children?.map(mapFolder) || [],
+          emoji: apiFolder.emoji,
+          prompt: apiFolder.prompt,
+          customOrder: apiFolder.customOrder,
+        };
+      };
       const folders = apiTree.map(mapFolder);
       set(foldersAtom, folders);
     } catch (error) {

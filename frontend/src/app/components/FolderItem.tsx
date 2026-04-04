@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useDrag, useDrop } from "react-dnd";
 import { Edit3, Plus, ChevronRight, ChevronDown, Trash2 } from "lucide-react";
-import type { Folder } from "../Workspace";
+import type { Folder } from "../../api/types";
 
 interface FolderItemProps {
   folder: Folder;
