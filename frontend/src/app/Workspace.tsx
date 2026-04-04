@@ -370,8 +370,8 @@ export default function Workspace() {
                         <ChatMessages 
                           messages={messages} 
                           onOpenFolder={(folderId) => {
-                            // TODO: Navigate to folder
-                            console.log("Open folder:", folderId);
+                            // Navigate to folder
+                            handleNavigateToFolder(folderId);
                           }}
                           onUndo={(messageId) => {
                             // Set cancelled = true instead of removing message
@@ -382,12 +382,16 @@ export default function Workspace() {
                             );
                           }}
                           onRetry={(messageId) => {
-                            // TODO: Implement retry
-                            console.log("Retry:", messageId);
+                            // Implement retry logic
+                            setMessages((prev) => 
+                              prev.map((m) => 
+                                m.id === messageId ? { ...m, status: "processing" as const } : m
+                              )
+                            );
                           }}
                           onSelectFolder={(messageId) => {
-                            // TODO: Show folder picker
-                            console.log("Select folder for:", messageId);
+                            // Show folder picker
+                            setViewMode("folder");
                           }}
                           onResend={(messageId) => {
                             // Find the message and resend it
