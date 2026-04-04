@@ -21,8 +21,6 @@ import { useTabs } from "./hooks/useTabs";
 import { useWorkspaceView } from "./hooks/useWorkspaceView";
 import { useChat } from "./hooks/useChat";
 
-const IS_MOCK_MODE_ENABLED = import.meta.env.VITE_USE_MOCK_AUTH === "true";
-
 function mapApiFolderToLocalFolder(apiFolder: ApiFolder): Folder {
   return {
     ...apiFolder,

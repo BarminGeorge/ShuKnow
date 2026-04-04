@@ -6,6 +6,10 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
+    "dev:mock": "vite --mode development",
+    "dev:real": "VITE_USE_MOCKS=false vite",
+    "build:mock": "vite build --mode development",
+    "build:prod": "vite build --mode production",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",

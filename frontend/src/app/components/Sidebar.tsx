@@ -13,8 +13,6 @@ import type { Folder } from "../../api/types";
 import { useFolders } from "../hooks/useFolders";
 import { useWorkspaceView } from "../hooks/useWorkspaceView";
 
-const IS_MOCK_MODE_ENABLED = import.meta.env.VITE_USE_MOCK_AUTH === "true";
-
 interface SidebarProps {
   onLogoClick: () => void;
   onToggleSidebar?: () => void;
@@ -160,10 +158,6 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
 
     setFolders(applyMove);
 
-    if (IS_MOCK_MODE_ENABLED) {
-      return;
-    }
-
     try {
       await folderService.moveFolder(draggedFolder.id, { newParentFolderId });
     } catch (apiError) {
@@ -231,9 +225,7 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
     const { folder, path } = deleteFolderState;
     if (!folder) return;
 
-    if (!IS_MOCK_MODE_ENABLED) {
-      await folderService.deleteFolder(folder.id, isRecursiveDelete);
-    }
+    await folderService.deleteFolder(folder.id, isRecursiveDelete);
 
     setFolders((previousFolders) => {
       const clonedFolders = JSON.parse(JSON.stringify(previousFolders)) as Folder[];

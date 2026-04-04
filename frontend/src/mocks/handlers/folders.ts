@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw';
-import { MOCK_FOLDERS, MOCK_FILES } from './data';
-import type { Folder, FileItem, FolderTreeNodeDto } from '../api/types';
+import { MOCK_FOLDERS } from '../data/folders';
+import type { Folder, FolderTreeNodeDto } from '../../api/types';
 
 const API_BASE = '/api';
 
@@ -16,10 +16,9 @@ function folderToTreeNode(folder: Folder): FolderTreeNodeDto {
   };
 }
 
-export const handlers = [
+export const folderHandlers = [
   // GET /api/folders/tree
   http.get(`${API_BASE}/folders/tree`, () => {
-    // Convert Folder objects to FolderTreeNodeDto format
     const treeNodes = MOCK_FOLDERS.map(folderToTreeNode);
     return HttpResponse.json(treeNodes);
   }),
@@ -42,19 +41,6 @@ export const handlers = [
       return new HttpResponse(null, { status: 404 });
     }
     return HttpResponse.json(folder);
-  }),
-
-  // GET /api/folders/:id/files
-  http.get(`${API_BASE}/folders/:id/files`, ({ params }) => {
-    const { id } = params;
-    const files = MOCK_FILES.filter(f => f.folderId === id);
-    return HttpResponse.json({
-      items: files,
-      totalCount: files.length,
-      page: 1,
-      pageSize: 100,
-      hasNextPage: false,
-    });
   }),
 
   // POST /api/folders
@@ -120,35 +106,11 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  // POST /api/files
-  http.post(`${API_BASE}/files`, async ({ request }) => {
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const folderId = formData.get('folderId') as string;
-    const description = formData.get('description') as string;
-
-    const newFile: FileItem = {
-      id: `file-${Date.now()}`,
-      name: file.name,
-      folderId,
-      description,
-      contentType: file.type,
-      sizeBytes: file.size,
-      type: file.type.startsWith('image/') ? 'photo' : 'text',
-      createdAt: new Date().toISOString(),
-    };
-    MOCK_FILES.push(newFile);
-    return HttpResponse.json(newFile, { status: 201 });
-  }),
-
-  // DELETE /api/files/:id
-  http.delete(`${API_BASE}/files/:id`, ({ params }) => {
+  // PATCH /api/folders/:id/move
+  http.patch(`${API_BASE}/folders/:id/move`, async ({ params, request }) => {
     const { id } = params;
-    const index = MOCK_FILES.findIndex(f => f.id === id);
-    if (index === -1) {
-      return new HttpResponse(null, { status: 404 });
-    }
-    MOCK_FILES.splice(index, 1);
+    const body = await request.json() as any;
+    // В mock режиме просто возвращаем успех
     return new HttpResponse(null, { status: 204 });
   }),
 ];

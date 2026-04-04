@@ -5,10 +5,10 @@ import App from "./app/App.tsx";
 import "./styles/index.css";
 
 console.log('[Main] Starting app...');
-console.log('[Main] VITE_USE_MOCK_AUTH:', import.meta.env.VITE_USE_MOCK_AUTH);
+console.log('[Main] VITE_USE_MOCKS:', import.meta.env.VITE_USE_MOCKS);
 
 // Enable MSW in development
-if (import.meta.env.VITE_USE_MOCK_AUTH === 'true') {
+if (import.meta.env.VITE_USE_MOCKS === 'true') {
   console.log('[Main] Loading MSW...');
   const { worker } = await import('./mocks/browser');
   await worker.start({
