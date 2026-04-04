@@ -2,12 +2,12 @@ import { useRef, useState } from "react";
 import { useDrag, useDrop } from "react-dnd";
 import { Edit3, Plus, ChevronRight, ChevronDown, Trash2 } from "lucide-react";
 import type { Folder } from "../../api/types";
+import { useWorkspaceView } from "../hooks/useWorkspaceView";
 
 interface FolderItemProps {
   folder: Folder;
   path: string[];
   moveFolder: (dragPath: string[], hoverPath: string[], dropZone: "before" | "after" | "inside") => void;
-  onFolderClick: (folder: Folder, path: string[]) => void;
   onEditFolder: (folder: Folder, path: string[]) => void;
   onAddSubfolder: (parentPath: string[]) => void;
   onDeleteFolder: (path: string[]) => void;
@@ -27,12 +27,12 @@ export function FolderItem({
   folder,
   path,
   moveFolder,
-  onFolderClick,
   onEditFolder,
   onAddSubfolder,
   onDeleteFolder,
   depth = 0,
 }: FolderItemProps) {
+  const { setSelectedFolderPath, setViewMode } = useWorkspaceView();
   const [isExpanded, setIsExpanded] = useState(depth === 0);
   const [isHovered, setIsHovered] = useState(false);
   const [dropZone, setDropZone] = useState<DropZone>(null);
@@ -153,7 +153,8 @@ export function FolderItem({
         return;
       }
     }
-    onFolderClick(folder, path);
+    setSelectedFolderPath(path);
+    setViewMode('folder');
     dragStartPosRef.current = null;
   };
 
@@ -252,7 +253,6 @@ export function FolderItem({
               folder={subfolder}
               path={[...path, index.toString()]}
               moveFolder={moveFolder}
-              onFolderClick={onFolderClick}
               onEditFolder={onEditFolder}
               onAddSubfolder={onAddSubfolder}
               onDeleteFolder={onDeleteFolder}

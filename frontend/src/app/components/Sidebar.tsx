@@ -42,11 +42,6 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
     path: string[];
   }>({ isOpen: false, folder: null, path: [] });
 
-  const handleFolderClick = (folder: Folder, path: string[]) => {
-    setSelectedFolderPath(path);
-    setViewMode('folder');
-  };
-
   const findFolderByPath = (path: string[]): Folder | null => {
     if (path.length === 0) return null;
     if (path.length === 1) {
@@ -321,7 +316,10 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
               key={folder.id}
               className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/10 cursor-pointer transition-colors flex-shrink-0"
               title={folder.name}
-              onClick={() => handleFolderClick(folder, [index.toString()])}
+              onClick={() => {
+                setSelectedFolderPath([index.toString()]);
+                setViewMode('folder');
+              }}
             >
               <span className="text-xl select-none">{folder.emoji || "📁"}</span>
             </div>
@@ -406,7 +404,6 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
             folder={folder}
             path={[index.toString()]}
             moveFolder={moveFolder}
-            onFolderClick={handleFolderClick}
             onEditFolder={handleEditFolder}
             onAddSubfolder={handleAddSubfolder}
             onDeleteFolder={handleDeleteFolder}
