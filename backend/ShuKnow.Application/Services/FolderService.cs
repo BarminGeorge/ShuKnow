@@ -77,7 +77,7 @@ internal class FolderService(
             .ActAsync(existingFolder => EnsureFolderNameUniqueAsync(folder.Name, existingFolder.ParentFolderId, existingFolder.Id))
             .BindAsync(existingFolder =>
             {
-                var updatedFolder = CopyFolder(
+                var updatedFolder = UpdateFolder(
                     existingFolder,
                     name: folder.Name,
                     description: folder.Description);
@@ -109,7 +109,7 @@ internal class FolderService(
                     .BindAsync(_ => folderRepository.GetSiblingsAsync(newParentFolderId, CurrentUserId))
                     .BindAsync(siblings =>
                     {
-                        var movedFolder = CopyFolder(
+                        var movedFolder = UpdateFolder(
                             existingFolder,
                             newParentFolderId: newParentFolderId,
                             updateParentFolderId: true,
@@ -127,15 +127,14 @@ internal class FolderService(
         if (position < 0)
             return Result.Error("Position must be greater than or equal to zero.");
 
-        var existingFolderResult = await GetByIdAsync(folderId, ct);
-        if (!existingFolderResult.IsSuccess)
-            return existingFolderResult.Map();
+        return await GetByIdAsync(folderId, ct)
+            .BindAsync(folder => folderRepository.GetSiblingsAsync(folder.ParentFolderId, CurrentUserId))
+            .BindAsync(siblings => ApplyReorderAsync(siblings, folderId, position));
+    }
 
-        var siblingsResult = await folderRepository.GetSiblingsAsync(existingFolderResult.Value.ParentFolderId, CurrentUserId);
-        if (!siblingsResult.IsSuccess)
-            return siblingsResult.Map();
-
-        var reorderedFolders = siblingsResult.Value.ToList();
+    private async Task<Result> ApplyReorderAsync(IReadOnlyList<Folder> siblings, Guid folderId, int position)
+    {
+        var reorderedFolders = siblings.ToList();
         var currentIndex = reorderedFolders.FindIndex(folder => folder.Id == folderId);
         if (currentIndex < 0)
             return Result.NotFound();
@@ -148,12 +147,17 @@ internal class FolderService(
         reorderedFolders.RemoveAt(currentIndex);
         reorderedFolders.Insert(targetIndex, movedFolder);
 
-        foreach (var indexedFolder in reorderedFolders.Select((folder, index) => new { folder, index }))
+        return await UpdateSortOrdersAsync(reorderedFolders);
+    }
+
+    private async Task<Result> UpdateSortOrdersAsync(List<Folder> folders)
+    {
+        foreach (var (folder, index) in folders.Select((f, i) => (f, i)))
         {
-            if (indexedFolder.folder.SortOrder == indexedFolder.index)
+            if (folder.SortOrder == index)
                 continue;
 
-            var updatedFolder = CopyFolder(indexedFolder.folder, sortOrder: indexedFolder.index);
+            var updatedFolder = UpdateFolder(folder, sortOrder: index);
             var updateResult = await folderRepository.UpdateAsync(updatedFolder);
             if (!updateResult.IsSuccess)
                 return updateResult;
@@ -263,7 +267,7 @@ internal class FolderService(
             : Result.Success();
     }
 
-    private static Folder CopyFolder(
+    private static Folder UpdateFolder(
         Folder source,
         string? name = null,
         string? description = null,
