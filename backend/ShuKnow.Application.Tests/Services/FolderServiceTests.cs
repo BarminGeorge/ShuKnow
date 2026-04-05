@@ -12,7 +12,6 @@ namespace ShuKnow.Application.Tests.Services;
 public class FolderServiceTests
 {
     private IFolderRepository folderRepository = null!;
-    private IFileRepository fileRepository = null!;
     private ICurrentUserService currentUserService = null!;
     private IUnitOfWork unitOfWork = null!;
     private Guid currentUserId;
@@ -22,7 +21,6 @@ public class FolderServiceTests
     public void SetUp()
     {
         folderRepository = Substitute.For<IFolderRepository>();
-        fileRepository = Substitute.For<IFileRepository>();
         currentUserService = Substitute.For<ICurrentUserService>();
         unitOfWork = Substitute.For<IUnitOfWork>();
         currentUserId = Guid.NewGuid();
@@ -224,45 +222,12 @@ public class FolderServiceTests
     }
 
     [Test]
-    public async Task DeleteAsync_WhenNonRecursiveAndFolderHasChildren_ShouldReturnConflict()
-    {
-        var folder = CreateFolder();
-        IReadOnlyList<Folder> children = [CreateFolder(parentFolderId: folder.Id)];
-
-        folderRepository.GetByIdAsync(folder.Id, currentUserId).Returns(Success(folder));
-        folderRepository.GetChildrenAsync(folder.Id, currentUserId).Returns(Success(children));
-
-        var result = await sut.DeleteAsync(folder.Id, recursive: false);
-
-        result.Status.Should().Be(ResultStatus.Conflict);
-        await fileRepository.DidNotReceive().CountByFolderAsync(Arg.Any<Guid>());
-        await folderRepository.DidNotReceive().DeleteAsync(Arg.Any<Guid>(), Arg.Any<Guid>());
-        await unitOfWork.DidNotReceive().SaveChangesAsync();
-    }
-
-    [Test]
-    public async Task DeleteAsync_WhenNonRecursiveAndFolderHasFiles_ShouldReturnConflict()
-    {
-        var folder = CreateFolder();
-
-        folderRepository.GetByIdAsync(folder.Id, currentUserId).Returns(Success(folder));
-        folderRepository.GetChildrenAsync(folder.Id, currentUserId).Returns(Success<IReadOnlyList<Folder>>([]));
-        fileRepository.CountByFolderAsync(folder.Id).Returns(Success(2));
-
-        var result = await sut.DeleteAsync(folder.Id, recursive: false);
-
-        result.Status.Should().Be(ResultStatus.Conflict);
-        await folderRepository.DidNotReceive().DeleteAsync(Arg.Any<Guid>(), Arg.Any<Guid>());
-        await unitOfWork.DidNotReceive().SaveChangesAsync();
-    }
-
-    [Test]
-    public async Task DeleteAsync_WhenRecursive_ShouldDeleteSubtreeAndSaveChanges()
+    public async Task DeleteAsync_WhenFolderExists_ShouldDeleteSubtreeAndSaveChanges()
     {
         var folder = CreateFolder();
         folderRepository.GetByIdAsync(folder.Id, currentUserId).Returns(Success(folder));
 
-        var result = await sut.DeleteAsync(folder.Id, recursive: true);
+        var result = await sut.DeleteAsync(folder.Id);
 
         result.Status.Should().Be(ResultStatus.Ok);
         await folderRepository.Received(1).DeleteSubtreeAsync(folder.Id, currentUserId);
@@ -389,7 +354,6 @@ public class FolderServiceTests
         folderRepository.UpdateAsync(Arg.Any<Folder>()).Returns(Success());
         folderRepository.DeleteAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success());
         folderRepository.DeleteSubtreeAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success());
-        fileRepository.CountByFolderAsync(Arg.Any<Guid>()).Returns(Success(0));
     }
 
     private IFolderService CreateSut()
@@ -401,7 +365,7 @@ public class FolderServiceTests
         var constructor = folderServiceType.GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
             .Single();
 
-        return (IFolderService)constructor.Invoke([folderRepository, fileRepository, currentUserService, unitOfWork]);
+        return (IFolderService)constructor.Invoke([folderRepository, currentUserService, unitOfWork]);
     }
 
     private Folder CreateFolder(

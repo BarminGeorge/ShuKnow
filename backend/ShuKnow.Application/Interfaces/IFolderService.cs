@@ -22,10 +22,7 @@ public interface IFolderService
     
     Task<Result<Folder>> UpdateAsync(Folder folder, CancellationToken ct = default);
     
-    Task<Result> DeleteAsync(
-        Guid folderId,
-        bool recursive, 
-        CancellationToken ct = default);
+    Task<Result> DeleteAsync(Guid folderId, CancellationToken ct = default);
     
     Task<Result<Folder>> MoveAsync(
         Guid folderId,

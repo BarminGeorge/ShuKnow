@@ -9,7 +9,6 @@ namespace ShuKnow.Application.Services;
 
 internal class FolderService(
     IFolderRepository folderRepository,
-    IFileRepository fileRepository,
     ICurrentUserService currentUserService,
     IUnitOfWork unitOfWork) 
     : IFolderService
@@ -88,13 +87,11 @@ internal class FolderService(
             });
     }
 
-    public async Task<Result> DeleteAsync(Guid folderId, bool recursive, CancellationToken ct = default)
+    public async Task<Result> DeleteAsync(Guid folderId, CancellationToken ct = default)
     {
         return await GetByIdAsync(folderId, ct)
-            .BindAsync(_ => recursive
-                ? folderRepository.DeleteSubtreeAsync(folderId, CurrentUserId)
-                    .SaveChangesAsync(unitOfWork)
-                : DeleteNonRecursiveAsync(folderId));
+            .BindAsync(_ => folderRepository.DeleteSubtreeAsync(folderId, CurrentUserId))
+            .SaveChangesAsync(unitOfWork);
     }
 
     public async Task<Result<Folder>> MoveAsync(Guid folderId, Guid? newParentFolderId = null, CancellationToken ct = default)
@@ -171,27 +168,6 @@ internal class FolderService(
         return await EnsureFolderExistsAsync(parentFolderId.Value)
             .BindAsync(_ => folderRepository.GetChildrenAsync(parentFolderId.Value, CurrentUserId));
     }
-
-    private async Task<Result> DeleteNonRecursiveAsync(Guid folderId)
-    {
-        var childrenResult = await folderRepository.GetChildrenAsync(folderId, CurrentUserId);
-        if (!childrenResult.IsSuccess)
-            return childrenResult.Map();
-
-        if (childrenResult.Value.Count > 0)
-            return Result.Conflict("Cannot delete a folder that has child folders without recursive deletion.");
-
-        var fileCountResult = await fileRepository.CountByFolderAsync(folderId);
-        if (!fileCountResult.IsSuccess)
-            return fileCountResult.Map();
-
-        if (fileCountResult.Value > 0)
-            return Result.Conflict("Cannot delete a folder that contains files without recursive deletion.");
-
-        return await folderRepository.DeleteAsync(folderId, CurrentUserId)
-            .SaveChangesAsync(unitOfWork);
-    }
-
     private async Task<Result> EnsureFolderExistsAsync(Guid folderId)
     {
         var existsResult = await folderRepository.ExistsByIdAsync(folderId, CurrentUserId);
