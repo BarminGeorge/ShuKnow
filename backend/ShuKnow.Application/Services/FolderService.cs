@@ -73,7 +73,7 @@ internal class FolderService(
 
     public async Task<Result<Folder>> UpdateAsync(Folder folder, CancellationToken ct = default)
     {
-        return await folderRepository.GetByIdAsync(folder.Id, CurrentUserId)
+        return await GetByIdAsync(folder.Id, ct)
             .ActAsync(existingFolder => EnsureFolderNameUniqueAsync(folder.Name, existingFolder.ParentFolderId, existingFolder.Id))
             .BindAsync(existingFolder =>
             {
@@ -90,7 +90,7 @@ internal class FolderService(
 
     public async Task<Result> DeleteAsync(Guid folderId, bool recursive, CancellationToken ct = default)
     {
-        return await folderRepository.GetByIdAsync(folderId, CurrentUserId)
+        return await GetByIdAsync(folderId, ct)
             .BindAsync(_ => recursive
                 ? folderRepository.DeleteSubtreeAsync(folderId, CurrentUserId)
                     .SaveChangesAsync(unitOfWork)
@@ -99,31 +99,27 @@ internal class FolderService(
 
     public async Task<Result<Folder>> MoveAsync(Guid folderId, Guid? newParentFolderId = null, CancellationToken ct = default)
     {
-        var existingFolderResult = await folderRepository.GetByIdAsync(folderId, CurrentUserId);
-        if (!existingFolderResult.IsSuccess)
-            return existingFolderResult;
+        return await GetByIdAsync(folderId, ct)
+            .BindAsync(existingFolder =>
+            {
+                if (existingFolder.ParentFolderId == newParentFolderId)
+                    return Task.FromResult(Result.Success(existingFolder));
 
-        var existingFolder = existingFolderResult.Value;
-        if (existingFolder.ParentFolderId == newParentFolderId)
-            return existingFolderResult;
+                return EnsureMoveIsValidAsync(existingFolder.Id, existingFolder.Name, newParentFolderId)
+                    .BindAsync(_ => folderRepository.GetSiblingsAsync(newParentFolderId, CurrentUserId))
+                    .BindAsync(siblings =>
+                    {
+                        var movedFolder = CopyFolder(
+                            existingFolder,
+                            newParentFolderId: newParentFolderId,
+                            updateParentFolderId: true,
+                            sortOrder: siblings.Count);
 
-        var validationResult = await EnsureMoveIsValidAsync(existingFolder.Id, existingFolder.Name, newParentFolderId);
-        if (!validationResult.IsSuccess)
-            return ToTypedResult<Folder>(validationResult);
-
-        var siblingsResult = await folderRepository.GetSiblingsAsync(newParentFolderId, CurrentUserId);
-        if (!siblingsResult.IsSuccess)
-            return ToTypedResult<IReadOnlyList<Folder>, Folder>(siblingsResult);
-
-        var movedFolder = CopyFolder(
-            existingFolder,
-            newParentFolderId: newParentFolderId,
-            updateParentFolderId: true,
-            sortOrder: siblingsResult.Value.Count);
-
-        return await folderRepository.UpdateAsync(movedFolder)
-            .SaveChangesAsync(unitOfWork)
-            .MapAsync(() => movedFolder);
+                        return folderRepository.UpdateAsync(movedFolder)
+                            .SaveChangesAsync(unitOfWork)
+                            .MapAsync(() => movedFolder);
+                    });
+            });
     }
 
     public async Task<Result> ReorderAsync(Guid folderId, int position, CancellationToken ct = default)
@@ -131,7 +127,7 @@ internal class FolderService(
         if (position < 0)
             return Result.Error("Position must be greater than or equal to zero.");
 
-        var existingFolderResult = await folderRepository.GetByIdAsync(folderId, CurrentUserId);
+        var existingFolderResult = await GetByIdAsync(folderId, ct);
         if (!existingFolderResult.IsSuccess)
             return existingFolderResult.Map();
 
