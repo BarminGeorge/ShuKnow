@@ -178,7 +178,7 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
             .FirstOrDefaultAsync(folder => folder.Id == folderId && folder.UserId == userId);
 
         if (folder is null)
-            return Result.Success();
+            return Result.NotFound();
 
         context.Folders.Remove(folder);
         return Result.Success();
