@@ -28,4 +28,8 @@ public interface IFileRepository
     Task<Result<IReadOnlyList<File>>> DeleteByFolderAsync(Guid folderId);
 
     Task<Result<IReadOnlyList<File>>> GetByFolderAsync(Guid folderId);
+
+    Task<Result<IReadOnlySet<Guid>>> GetExistingBlobIdsAsync(
+        IReadOnlyCollection<Guid> blobIds,
+        CancellationToken ct = default);
 }

@@ -5,6 +5,7 @@ namespace ShuKnow.Domain.Entities;
 public class ChatAttachment : IEntity<Guid>
 {
     public Guid Id { get; private set; }
+    public Guid BlobId { get; set; }
     public Guid UserId { get; private set; }
     public string FileName { get; private set; } = string.Empty;
     public string ContentType { get; private set; } = string.Empty;

@@ -56,4 +56,11 @@ public class FileRepository : IFileRepository
     {
         throw new NotImplementedException();
     }
+
+    public Task<Result<IReadOnlySet<Guid>>> GetExistingBlobIdsAsync(
+        IReadOnlyCollection<Guid> blobIds,
+        CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
 }

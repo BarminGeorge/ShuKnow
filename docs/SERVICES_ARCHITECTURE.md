@@ -87,7 +87,7 @@
 
 ### 1.5 IFileService
 
-**Назначение.** Управляет CRUD-операциями над метаданными файлов, загрузкой/скачиванием/заменой бинарного содержимого, обновлением текстового содержимого, переупорядочиванием и перемещением файлов между папками. Файлы имеют `SortOrder`, разделяющий общее пространство порядка с соседними папками, что обеспечивает смешанное перетаскивание файлов и папок. Проверяет уникальность имени в пределах папки, применяет ограничения по размеру и делегирует хранение бинарных данных абстракции blob-хранилища.
+**Назначение.** Управляет CRUD-операциями над метаданными файлов, загрузкой/скачиванием/заменой бинарного содержимого, обновлением текстового содержимого, переупорядочиванием и перемещением файлов между папками. Файлы имеют `SortOrder`, разделяющий общее пространство порядка с соседними папками, что обеспечивает смешанное перетаскивание файлов и папок. Проверяет уникальность имени в пределах папки, применяет ограничения по размеру и делегирует хранение бинарных данных абстракции blob-хранилища. Бинарное содержимое адресуется отдельным `File.BlobId`, а не ID сущности, поэтому потоки replace/delete опираются на orphan cleanup, а не на изменение blob-а "на месте".
 
 **Методы**
 
@@ -95,15 +95,15 @@
 |---|---|
 | `GetByIdAsync(fileId)` → `File` | Метаданные файла, включая имя папки-владельца. |
 | `ListByFolderAsync(folderId, page, pageSize)` → `(List<File> Files, int TotalCount)` | Пагинированный список файлов внутри папки по offset-схеме. |
-| `UploadAsync(folderId, file, stream)` → `File` | Сохраняет бинарное содержимое через `IBlobStorageService`, затем сохраняет предоставленную сущность метаданных файла. Проверяет уникальность имени и ограничение по размеру. |
-| `UpdateMetadataAsync(fileId, file)` → `File` | Обновляет изменяемые метаданные файла (имя/описание). Проверяет уникальность имени в текущей папке файла. |
-| `DeleteAsync(fileId)` | Удаляет запись метаданных и бинарный blob. |
+| `UploadAsync(file, stream)` → `File` | Назначает новый `BlobId`, сохраняет бинарное содержимое через `IBlobStorageService`, затем сохраняет сущность метаданных файла. Если DB commit завершается ошибкой, blob остаётся orphan и будет удалён GC. |
+| `UpdateMetadataAsync(file)` → `File` | Обновляет изменяемые метаданные файла (имя/описание). Проверяет уникальность имени в текущей папке файла. |
+| `DeleteAsync(fileId)` | Удаляет запись метаданных, коммитит это удаление, затем ставит best-effort очистку blob-а в `IBlobDeletionQueue`. |
 | `GetContentAsync(fileId, rangeStart?, rangeEnd?)` → `(Stream Content, string ContentType, long SizeBytes)` | Стримит бинарное содержимое. Возвращает content type и поддерживает HTTP Range для частичных загрузок. |
-| `ReplaceContentAsync(fileId, stream, contentType)` → `File` | Заменяет бинарный blob на месте. Метаданные (имя, описание) не меняются; обновляются `sizeBytes` и `contentType`. |
+| `ReplaceContentAsync(fileId, stream, contentType)` → `File` | Сохраняет новое содержимое под новым `BlobId`, обновляет метаданные только после успешной загрузки blob-а, коммитит изменения и ставит старый blob в очередь на удаление. Это исключает перезапись "на месте" и сохраняет старый blob нетронутым при ошибке загрузки. |
 | `MoveAsync(fileId, targetFolderId)` → `File` | Меняет `FolderId` файла. Проверяет уникальность имени в целевой папке. |
 | `ReorderAsync(fileId, position)` | Устанавливает для файла `SortOrder` в указанную позицию с нуля и переиндексирует всех соседей (файлы и папки) внутри родительской папки. |
-| `UpdateTextContentAsync(fileId, text)` → `File` | Заменяет содержимое текстового файла из строки. Обновляет `sizeBytes`; остальные метаданные не меняются. |
-| `DeleteByFolderAsync(folderId)` | Удаляет все файлы в папке. Используется при рекурсивном удалении папки. |
+| `UpdateTextContentAsync(fileId, text)` → `File` | Заменяет содержимое текстового файла, записывая новый blob под новым `BlobId`, затем обновляет `sizeBytes` и ставит старый blob в очередь на очистку. |
+| `DeleteByFolderAsync(folderId)` | Удаляет все файлы в папке. Используется при рекурсивном удалении папки; очистка blob-ов ставится в очередь после commit. |
 
 **Зависимости**
 
@@ -112,7 +112,9 @@
 | `IFileRepository` | Хранение и чтение метаданных. |
 | `IFolderRepository` | Проверка существования целевой папки при загрузке и перемещении. |
 | `IBlobStorageService` | Хранение и получение бинарного содержимого файлов. |
+| `IBlobDeletionQueue` | Сериализует post-commit удаление blob-ов через hosted background worker. |
 | `ICurrentUserService` | Ограничение по владельцу. |
+| `IUnitOfWork` | Сохраняет изменения метаданных после успешной записи blob-а. |
 
 ---
 
@@ -143,16 +145,16 @@
 
 ### 1.7 IAttachmentService
 
-**Назначение.** Подготавливает загрузки файлов, которые будут использованы в будущем вызове `SendMessage` через хаб. Вложения представляют собой временную staging-зону — они существуют потому, что стандартный лимит сообщения SignalR в 32 КБ делает его непригодным для передачи бинарных данных, поэтому файлы должны сначала приходить через REST, а уже затем упоминаться в сообщении чата по ID.
+**Назначение.** Подготавливает загрузки файлов, которые будут использованы в будущем вызове `SendMessage` через хаб. Вложения представляют собой временную staging-зону — они существуют потому, что стандартный лимит сообщения SignalR в 32 КБ делает его непригодным для передачи бинарных данных, поэтому файлы должны сначала приходить через REST, а уже затем упоминаться в сообщении чата по ID. Каждое вложение получает собственный `BlobId`, а сами загрузки передаются как упорядоченный список пар `(ChatAttachment Attachment, Stream Content)`, чтобы метаданные и поток содержимого не расходились.
 
 **Методы**
 
 | Метод | Описание |
 |---|---|
-| `UploadAsync(attachments, contents)` → `List<ChatAttachment>` | Сохраняет предварительно созданные метаданные вложений с соответствующими потоками содержимого. WebAPI маппит multipart-загрузки в этот контракт. Возвращает ID для дальнейшего использования. |
-| `GetByIdsAsync(attachmentIds)` → `List<ChatAttachment>` | Получает сущности вложений вместе с их storage keys. Используется orchestration-сервисом для построения AI-prompts. Проверяет, что все ID принадлежат текущему пользователю и ещё не были использованы. |
+| `UploadAsync(uploads)` → `IReadOnlyList<ChatAttachment>` | Назначает `BlobId`, сохраняет каждый blob, затем сохраняет коллекцию метаданных вложений. WebAPI маппит multipart-загрузки в этот упорядоченный контракт. |
+| `GetByIdsAsync(attachmentIds)` → `IReadOnlyList<ChatAttachment>` | Получает сущности вложений вместе с их `BlobId`. Используется orchestration-сервисом для построения AI-prompts. Проверяет, что все ID принадлежат текущему пользователю и ещё не были использованы. |
 | `MarkConsumedAsync(attachmentIds)` | Помечает вложения как использованные, чтобы их нельзя было повторно использовать или удалить как просроченные. Вызывается после успешной привязки к сообщению чата. |
-| `PurgeExpiredAsync()` | Удаляет вложения старше 1 часа, которые так и не были использованы. Предназначен для вызова фоновой задачей или hosted service. |
+| `PurgeExpiredAsync()` → `IReadOnlyList<ChatAttachment>` | Удаляет вложения старше 1 часа, которые так и не были использованы, затем ставит blob-ы удалённых записей в очередь на очистку. Предназначен для вызова фоновой задачей или hosted service. |
 
 **Зависимости**
 
@@ -160,6 +162,7 @@
 |---|---|
 | `IAttachmentRepository` | Хранение и чтение метаданных вложений. |
 | `IBlobStorageService` | Хранение бинарного содержимого. |
+| `IBlobDeletionQueue` | Ставит в очередь best-effort удаление blob-ов для просроченных вложений после DB commit. |
 | `ICurrentUserService` | Проверка владельца. |
 | `IUnitOfWork` | Координация сохранения (метаданные + blob). |
 
@@ -426,6 +429,7 @@
 | `DeleteAsync(fileId)` | Удаляет файловую сущность. |
 | `DeleteByFolderAsync(folderId)` | Удаляет все файлы в папке (для рекурсивного удаления папки). |
 | `GetByFolderAsync(folderId)` → `List<File>` | Все файлы в папке (для рекурсивного удаления папки — нужны storage keys для удаления blob-объектов). |
+| `GetExistingBlobIdsAsync(blobIds, cancellationToken)` → `IReadOnlySet<Guid>` | Возвращает, какие candidate blob IDs всё ещё привязаны к файлам. Используется orphan cleanup в batch-режиме с поддержкой отмены. |
 
 ---
 
@@ -482,6 +486,7 @@
 | `MarkConsumedAsync(ids)` | Обновляет статус на consumed. |
 | `GetExpiredUnconsumedAsync(olderThan)` → `List<Attachment>` | Используется purge-задачей. |
 | `DeleteRangeAsync(ids)` | Удаляет записи вложений. |
+| `GetExistingBlobIdsAsync(blobIds, cancellationToken)` → `IReadOnlySet<Guid>` | Возвращает, какие candidate blob IDs всё ещё привязаны к вложениям. Используется orphan cleanup в batch-режиме с поддержкой отмены. |
 
 ---
 
@@ -505,20 +510,29 @@
 
 ### 2.10 IBlobStorageService
 
-**Назначение.** Абстракция хранилища бинарных файлов. Отвязывает приложение от физического механизма хранения (локальная файловая система для MVP, позже облачное blob-хранилище).
+**Назначение.** Абстракция хранилища бинарных файлов. Отвязывает приложение от физического механизма хранения. Текущая реализация основана на `blobId`, не хранит состояние и делегирует работу внутреннему провайдеру (`FileSystem` или `S3`) без staging и без транзакционной координации с базой данных.
 
 | Метод | Описание |
 |---|---|
-| `SaveAsync(content, file)` | Сохраняет бинарное содержимое, используя метаданные из сущности `File`. |
-| `SaveAsync(content, id)` | Сохраняет бинарное содержимое по GUID (используется для вложений и других blob-ов, не привязанных к `File`). |
-| `GetAsync(fileId)` → `Stream` | Получает всё бинарное содержимое по ID файла. |
-| `GetRangeAsync(fileId, rangeStart, rangeEnd)` → `Stream` | Получает диапазон байтов (для поддержки HTTP Range). |
-| `DeleteAsync(fileId)` | Удаляет бинарное содержимое по ID файла. |
-| `GetSizeAsync(fileId)` → `long` | Возвращает размер сохранённого содержимого (для Range/Content-Length). |
+| `SaveAsync(content, blobId)` | Сохраняет бинарное содержимое по `blobId`. Используется и для файлов, и для chat attachments. |
+| `GetAsync(blobId)` → `Stream` | Получает всё бинарное содержимое по `blobId`. |
+| `GetRangeAsync(blobId, rangeStart, rangeEnd)` → `Stream` | Получает диапазон байтов по `blobId`. Общая валидация отклоняет отрицательные и инвертированные диапазоны до вызова провайдера. |
+| `DeleteAsync(blobId)` | Удаляет бинарное содержимое по `blobId`. Используется для eager cleanup и orphan cleanup. |
+| `GetSizeAsync(blobId)` → `long` | Возвращает размер сохранённого содержимого по `blobId` (для Range/Content-Length). |
 
 ---
 
-### 2.11 IEncryptionService
+### 2.11 IBlobDeletionQueue
+
+**Назначение.** Ставит post-commit удаление blob-ов в очередь на одиночный hosted background worker. Это убирает best-effort cleanup из request scope и исключает fire-and-forget работу на scoped-сервисах.
+
+| Метод | Описание |
+|---|---|
+| `EnqueueDeleteAsync(blobId)` | Добавляет `blobId` в bounded-очередь удаления. Реальное удаление выполняет hosted worker через `IBlobStorageService.DeleteAsync`. |
+
+---
+
+### 2.12 IEncryptionService
 
 **Назначение.** Шифрует и расшифровывает чувствительные данные в покое, в частности API keys для LLM.
 
@@ -644,6 +658,7 @@ flowchart LR
         direction TB
         AIService["IAIService"]:::port
         BlobStorage["IBlobStorageService"]:::port
+        BlobDeletionQueue["IBlobDeletionQueue"]:::helper
         Encryption["IEncryptionService"]:::port
         JwtService["IJwtService"]:::port
         PasswordHasher["IPasswordHasher"]:::helper
@@ -654,7 +669,8 @@ flowchart LR
         direction TB
         DB[(PostgreSQL)]:::external
         LLM["LLM-провайдер"]:::external
-        BlobStore["Файловая система или cloud blob storage"]:::external
+        BlobStore["Файловая система или S3-compatible blob storage"]:::external
+        HostedWorkers["Hosted background workers"]:::external
         KeyConfig["Ключи, секреты, конфигурация"]:::external
         SignalR["Контекст SignalR-хаба"]:::external
     end
@@ -671,8 +687,18 @@ flowchart LR
 
     AIService --> LLM
     BlobStorage --> BlobStore
+    BlobDeletionQueue --> HostedWorkers
+    HostedWorkers --> BlobStore
     Encryption --> KeyConfig
     JwtService --> KeyConfig
     PasswordHasher --> KeyConfig
     ChatNotificationPort --> SignalR
 ```
+
+### 3.3 Примечания по runtime blob storage
+
+- `File.BlobId` и `ChatAttachment.BlobId` являются устойчивыми storage keys. Потоки replace и delete намеренно создают orphan blob-ы, а не пытаются координировать blob state внутри DB transaction.
+- `IBlobStorageService`, `IBlobStorageProvider` и `IAmazonS3` зарегистрированы как singleton-safe компоненты. `PostgresUnitOfWork` остаётся scoped, потому что оборачивает `AppDbContext`.
+- Best-effort eager delete выполняется через `IBlobDeletionQueue`, то есть через bounded single-reader background worker, а не через fire-and-forget задачи вида `_ = DeleteAsync(...)`.
+- `BlobOrphanCleanupService` выполняет один cleanup cycle сразу при старте, а затем повторяет его по настроенному интервалу. Очистка обрабатывает candidate blob-ы пакетами, передаёт `CancellationToken` в repository lookups и удаляет только blob-ы старше grace period, которые больше не привязаны к данным.
+- При выборе провайдера `S3` на старте также запускается `S3BucketInitializationService`, который валидирует наличие настроенного bucket-а и создаёт его, если bucket отсутствует.

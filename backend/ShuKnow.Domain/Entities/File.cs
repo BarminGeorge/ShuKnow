@@ -5,6 +5,7 @@ namespace ShuKnow.Domain.Entities;
 public class File : IEntity<Guid>, IOrderedItem
 {
     public Guid Id { get; private set; }
+    public Guid BlobId { get; set; }
 
     public Guid FolderId { get; private set; }
     public string Name { get; private set; } = string.Empty;

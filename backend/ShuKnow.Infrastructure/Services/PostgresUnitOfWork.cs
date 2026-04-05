@@ -7,7 +7,7 @@ using ShuKnow.Infrastructure.Persistent;
 
 namespace ShuKnow.Infrastructure.Services;
 
-public class UnitOfWork(AppDbContext context, ILogger<UnitOfWork> logger) : IUnitOfWork
+public class PostgresUnitOfWork(AppDbContext context, ILogger<PostgresUnitOfWork> logger) : IUnitOfWork
 {
     public async Task<Result> SaveChangesAsync()
     {

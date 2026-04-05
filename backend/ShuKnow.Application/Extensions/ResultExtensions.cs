@@ -25,7 +25,12 @@ public static class ResultExtensions
     {
         return await resultTask.BindAsync(source => Task.FromResult(bindFunc(source)));
     }
-    
+    public static async Task<Result<TDestination>> Map<TSource, TDestination>(
+        this Task<Result<TSource>> result, Func<TSource, TDestination> mapFunc)
+    {
+        return (await result).Map(mapFunc);
+    }
+
     public static async Task<Result<TSource>> ActAsync<TSource>(
         this Result<TSource> result, Func<TSource, Task<Result>> actFunc)
     {

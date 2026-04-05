@@ -13,6 +13,7 @@ public class FileService(
     IFileRepository fileRepository,
     IFolderRepository folderRepository,
     IBlobStorageService blobStorageService,
+    IBlobDeletionQueue blobDeletionQueue,
     ICurrentUserService currentUserService,
     IUnitOfWork unitOfWork)
     : IFileService
@@ -33,10 +34,12 @@ public class FileService(
     public async Task<Result<File>> UploadAsync(
         File file, Stream content, CancellationToken ct = default)
     {
+        file.BlobId = Guid.NewGuid();
+
         return await EnsureFolderExistsAsync(file.FolderId)
             .BindAsync(_ => EnsureFileNameUnique(file.Name, file.FolderId, file.Id))
+            .BindAsync(_ => blobStorageService.SaveAsync(content, file.BlobId, ct))
             .BindAsync(_ => fileRepository.AddAsync(file))
-            .BindAsync(_ => blobStorageService.SaveAsync(content, file, ct))
             .SaveChangesAsync(unitOfWork)
             .MapAsync(() => file);
     }
@@ -52,20 +55,18 @@ public class FileService(
     public async Task<Result> DeleteAsync(Guid fileId, CancellationToken ct = default)
     {
         return await fileRepository.GetByIdAsync(fileId, CurrentUserId)
-            .BindAsync(file => fileRepository.DeleteAsync(file.Id)
-                .BindAsync(_ => blobStorageService.DeleteAsync(file.Id, ct))
-                .SaveChangesAsync(unitOfWork));
+            .ActAsync(file => fileRepository.DeleteAsync(file.Id))
+            .SaveChangesAsync(unitOfWork)
+            .ActAsync(file => blobDeletionQueue.EnqueueDeleteAsync(file.BlobId).AsTask())
+            .BindAsync(_ => Result.Success());
     }
 
     public async Task<Result<(Stream Content, string ContentType, long SizeBytes)>> GetContentAsync(
         Guid fileId, long? rangeStart = null, long? rangeEnd = null, CancellationToken ct = default)
     {
         return await fileRepository.GetByIdAsync(fileId, CurrentUserId)
-            .BindAsync(file =>
-            {
-                return GetStreamAsync(file, rangeStart, rangeEnd, ct)
-                    .MapAsync(stream => (stream, file.ContentType, file.SizeBytes));
-            });
+            .BindAsync(file => GetStreamAsync(file, rangeStart, rangeEnd, ct)
+                .MapAsync(stream => (stream, file.ContentType, file.SizeBytes)));
     }
 
     public async Task<Result<File>> ReplaceContentAsync(
@@ -74,12 +75,21 @@ public class FileService(
         return await fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId)
             .BindAsync(async existingFile =>
             {
-                await using var bufferedContent = await BufferContentAsync(content, ct);
-                existingFile.ReplaceContent(contentType, bufferedContent.Length);
-                return await blobStorageService.ReplaceAsync(bufferedContent, existingFile, ct)
-                    .MapAsync(() => existingFile);
+                var oldBlobId = existingFile.BlobId;
+                var newBlobId = Guid.NewGuid();
+                await using var upload = await PrepareUploadAsync(content, ct);
+
+                var saveResult = await blobStorageService.SaveAsync(upload.Content, newBlobId, ct);
+                if (!saveResult.IsSuccess)
+                    return saveResult.Map(() => (File: existingFile, OldBlobId: oldBlobId));
+
+                existingFile.ReplaceContent(contentType, upload.SizeBytes);
+                existingFile.BlobId = newBlobId;
+                return Result.Success((File: existingFile, OldBlobId: oldBlobId));
             })
-            .SaveChangesAsync(unitOfWork);
+            .SaveChangesAsync(unitOfWork)
+            .ActAsync(pair => blobDeletionQueue.EnqueueDeleteAsync(pair.OldBlobId).AsTask())
+            .Map(pair => pair.File);
     }
 
     public async Task<Result<File>> MoveAsync(Guid fileId, Guid targetFolderId, CancellationToken ct = default)
@@ -95,8 +105,9 @@ public class FileService(
     {
         return await EnsureFolderExistsAsync(folderId)
             .BindAsync(_ => fileRepository.DeleteByFolderAsync(folderId))
-            .BindAsync(files => DeleteBlobsAsync(files, ct))
-            .SaveChangesAsync(unitOfWork);
+            .SaveChangesAsync(unitOfWork)
+            .ActAsync(files => EnqueueDeletesAsync(files.Select(file => file.BlobId)))
+            .BindAsync(_ => Result.Success());
     }
 
     public async Task<Result> ReorderAsync(Guid fileId, int position, CancellationToken ct = default)
@@ -116,11 +127,20 @@ public class FileService(
             .BindAsync(async file =>
             {
                 await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
+                var oldBlobId = file.BlobId;
+                var newBlobId = Guid.NewGuid();
+
+                var saveResult = await blobStorageService.SaveAsync(stream, newBlobId, ct);
+                if (!saveResult.IsSuccess)
+                    return saveResult.Map(() => (File: file, OldBlobId: oldBlobId));
+
                 file.ReplaceContent(file.ContentType, stream.Length);
-                return await blobStorageService.ReplaceAsync(stream, file, ct)
-                    .MapAsync(() => file);
+                file.BlobId = newBlobId;
+                return Result.Success((File: file, OldBlobId: oldBlobId));
             })
-            .SaveChangesAsync(unitOfWork);
+            .SaveChangesAsync(unitOfWork)
+            .ActAsync(pair => blobDeletionQueue.EnqueueDeleteAsync(pair.OldBlobId).AsTask())
+            .Map(pair => pair.File);
     }
 
     private static Result EnsureTextContentType(File file)
@@ -146,32 +166,29 @@ public class FileService(
         File file, long? rangeStart = null, long? rangeEnd = null, CancellationToken ct = default)
     {
         if (rangeStart is null && rangeEnd is null)
-            return await blobStorageService.GetAsync(file.Id, ct);
+            return await blobStorageService.GetAsync(file.BlobId, ct);
 
         var start = rangeStart ?? 0;
         var end = rangeEnd ?? file.SizeBytes;
 
-        return await blobStorageService.GetRangeAsync(file.Id, start, end, ct);
+        return await blobStorageService.GetRangeAsync(file.BlobId, start, end, ct);
     }
 
-    private async Task<Result> DeleteBlobsAsync(IReadOnlyList<File> files, CancellationToken ct)
+    private async Task EnqueueDeletesAsync(IEnumerable<Guid> blobIds)
     {
-        foreach (var file in files)
-        {
-            var result = await blobStorageService.DeleteAsync(file.Id, ct);
-            if (!result.IsSuccess)
-                return result;
-        }
-
-        return Result.Success();
+        foreach (var blobId in blobIds)
+            await blobDeletionQueue.EnqueueDeleteAsync(blobId);
     }
 
-    private static async Task<MemoryStream> BufferContentAsync(Stream content, CancellationToken ct)
+    private static async Task<PreparedUpload> PrepareUploadAsync(Stream content, CancellationToken ct)
     {
+        if (content.CanSeek)
+            return new PreparedUpload(content, content.Length - content.Position);
+
         var bufferedContent = new MemoryStream();
         await content.CopyToAsync(bufferedContent, ct);
         bufferedContent.Position = 0;
-        return bufferedContent;
+        return new PreparedUpload(bufferedContent, bufferedContent.Length, bufferedContent);
     }
 
     private static Result ApplyReorder(
@@ -201,5 +218,15 @@ public class FileService(
     {
         for (var i = 0; i < items.Count; i++)
             items[i].SortOrder = i;
+    }
+
+    private sealed class PreparedUpload(Stream content, long sizeBytes, IAsyncDisposable? disposable = null)
+        : IAsyncDisposable
+    {
+        public Stream Content { get; } = content;
+        public long SizeBytes { get; } = sizeBytes;
+
+        public ValueTask DisposeAsync()
+            => disposable?.DisposeAsync() ?? ValueTask.CompletedTask;
     }
 }

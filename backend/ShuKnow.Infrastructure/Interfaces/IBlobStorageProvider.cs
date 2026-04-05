@@ -1,8 +1,8 @@
 using Ardalis.Result;
 
-namespace ShuKnow.Application.Interfaces;
+namespace ShuKnow.Infrastructure.Interfaces;
 
-public interface IBlobStorageService
+public interface IBlobStorageProvider
 {
     Task<Result> SaveAsync(Stream content, Guid blobId, CancellationToken ct = default);
 
@@ -13,4 +13,9 @@ public interface IBlobStorageService
     Task<Result> DeleteAsync(Guid blobId, CancellationToken ct = default);
 
     Task<Result<long>> GetSizeAsync(Guid blobId, CancellationToken ct = default);
+
+    Task<Result<bool>> ExistsAsync(Guid blobId, CancellationToken ct = default);
+
+    IAsyncEnumerable<(Guid BlobId, DateTimeOffset CreatedAt)> StreamWithTimestampsAsync(
+        CancellationToken ct = default);
 }

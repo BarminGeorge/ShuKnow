@@ -1,25 +1,20 @@
-﻿namespace ShuKnow.Application.Common;
+using System.ComponentModel.DataAnnotations;
+
+namespace ShuKnow.Application.Common;
 
 public class JwtOptions
 {
     public const string SectionName = "Jwt";
-    
+
+    [Required(AllowEmptyStrings = false)]
     public string Key { get; set; } = "";
+
+    [Range(1, int.MaxValue)]
     public int ExpiresInMinutes { get; set; } = 60;
+
+    [Required(AllowEmptyStrings = false)]
     public string Issuer { get; set; } = "";
+
+    [Required(AllowEmptyStrings = false)]
     public string Audience { get; set; } = "";
-
-    public JwtOptions Validate()
-    {
-        if (string.IsNullOrEmpty(Key))
-            throw new InvalidOperationException($"{SectionName}:Key is not configured");
-        
-        if (string.IsNullOrEmpty(Issuer))
-            throw new InvalidOperationException($"{SectionName}:Issuer is not configured");
-        
-        if (string.IsNullOrEmpty(Audience))
-            throw new InvalidOperationException($"{SectionName}:Audience is not configured");
-
-        return this;
-    }
 }

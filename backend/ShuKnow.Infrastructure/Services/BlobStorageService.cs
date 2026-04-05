@@ -1,44 +1,31 @@
 using Ardalis.Result;
 using ShuKnow.Application.Interfaces;
-using File = ShuKnow.Domain.Entities.File;
+using ShuKnow.Infrastructure.Interfaces;
 
 namespace ShuKnow.Infrastructure.Services;
 
-internal class BlobStorageService : IBlobStorageService
+public class BlobStorageService(IBlobStorageProvider provider) : IBlobStorageService
 {
-    public Task<Result> SaveAsync(Stream content, File file, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
-    }
+    private const string InvalidRangeMessage = "Byte range must be non-negative and end must be greater than start.";
 
-    public Task<Result> SaveAsync(Stream content, Guid id, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
-    }
+    public Task<Result> SaveAsync(Stream content, Guid blobId, CancellationToken ct = default)
+        => provider.SaveAsync(content, blobId, ct);
 
-    public Task<Result> ReplaceAsync(Stream content, File file, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task<Result<Stream>> GetAsync(Guid fileId, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
-    }
+    public Task<Result<Stream>> GetAsync(Guid blobId, CancellationToken ct = default)
+        => provider.GetAsync(blobId, ct);
 
     public Task<Result<Stream>> GetRangeAsync(
-        Guid fileId, long rangeStart, long rangeEnd, CancellationToken ct = default)
+        Guid blobId, long rangeStart, long rangeEnd, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        if (rangeStart < 0 || rangeEnd <= rangeStart)
+            return Task.FromResult(Result<Stream>.Invalid(new ValidationError(InvalidRangeMessage)));
+
+        return provider.GetRangeAsync(blobId, rangeStart, rangeEnd, ct);
     }
 
-    public Task<Result> DeleteAsync(Guid fileId, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
-    }
+    public Task<Result> DeleteAsync(Guid blobId, CancellationToken ct = default)
+        => provider.DeleteAsync(blobId, ct);
 
-    public Task<Result<long>> GetSizeAsync(Guid fileId, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
-    }
+    public Task<Result<long>> GetSizeAsync(Guid blobId, CancellationToken ct = default)
+        => provider.GetSizeAsync(blobId, ct);
 }
