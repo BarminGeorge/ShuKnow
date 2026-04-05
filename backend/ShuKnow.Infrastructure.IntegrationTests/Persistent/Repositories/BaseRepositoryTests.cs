@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using ShuKnow.Infrastructure.Persistent;
 using Testcontainers.PostgreSql;
 
@@ -61,14 +61,12 @@ public class BaseRepositoryTests
     {
         await using var resetContext = CreateDbContext();
 
-        await resetContext.Database.ExecuteSqlRawAsync("""
-            TRUNCATE TABLE
-                folders,
-                identity_users,
-                chat_sessions,
-                user_ai_settings,
-                users
-            CASCADE;
-            """);
+        resetContext.RemoveRange(resetContext.Folders);
+        resetContext.RemoveRange(resetContext.Users);
+        resetContext.RemoveRange(resetContext.IdentityUsers);
+        resetContext.RemoveRange(resetContext.ChatSessions);
+        resetContext.RemoveRange(resetContext.UserAiSettings);
+
+        await resetContext.SaveChangesAsync();
     }
 }
