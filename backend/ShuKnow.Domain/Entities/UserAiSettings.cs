@@ -36,23 +36,23 @@ public class UserAiSettings
         LastTestLatencyMs = lastTestLatencyMs;
         LastTestError = lastTestError;
     }
-    
+
     public void UpdateTestResult(bool success, int latencyMs, string? errorMessage)
     {
         LastTestSuccess = success;
         LastTestLatencyMs = latencyMs;
         LastTestError = errorMessage;
     }
-    
+
     public void UpdateSettings(string? baseUrl, string? apiKeyEncrypted, AiProvider? provider, string? modelId)
     {
         BaseUrl = baseUrl ?? BaseUrl;
         ApiKeyEncrypted = apiKeyEncrypted ?? ApiKeyEncrypted;
         Provider = provider ?? Provider;
         ModelId = modelId ?? ModelId;
-        ClearTestResult();   
+        ClearTestResult();
     }
-    
+
     public void ClearTestResult()
     {
         LastTestSuccess = null;

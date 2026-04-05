@@ -14,6 +14,8 @@ public interface IChatService
         int limit,
         CancellationToken ct = default);
     
+    Task<Result<IReadOnlyList<ChatMessage>>> GetMessagesAsync(CancellationToken ct = default);
+    
     Task<Result<ChatMessage>> PersistUserMessageAsync(
         ChatMessage message,
         IReadOnlyCollection<Guid>? attachmentIds = null,
@@ -26,4 +28,6 @@ public interface IChatService
     Task<Result<ChatMessage>> PersistCancellationRecordAsync(
         ChatMessage message,
         CancellationToken ct = default);
+
+    Task<Result<ChatMessage>> PersistMessageAsync(ChatMessage message, CancellationToken ct = default);
 }

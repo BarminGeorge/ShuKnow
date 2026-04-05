@@ -23,7 +23,8 @@ public class ChatSession : IEntity<Guid>
         UserId = userId;
         Status = status;
     }
-
+    
+    // TODO: удалить (у нас messages должно быть виртуальным свойством, которое резолвится бдшкой)
     public Result AddMessage(ChatMessage message)
     {
         if (message.SessionId != Id)

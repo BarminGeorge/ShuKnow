@@ -32,12 +32,22 @@ internal class FolderService(
         throw new NotImplementedException();
     }
 
+    public Task<Result<Folder>> GetByPathAsync(string folderPath, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
+
     public Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid folderId, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }
 
     public Task<Result<Folder>> CreateAsync(Folder folder, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<Result<Folder>> CreateByPathAsync(string folderPath, string description, string emoji, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }

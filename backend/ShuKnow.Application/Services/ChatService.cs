@@ -45,26 +45,36 @@ public class ChatService(
         return await GetOrCreateActiveSessionAsync(ct)
             .BindAsync(session => chatMessageRepository.GetPageAsync(session.Id, cursor, limit));
     }
-
+    
+    // TODO: заменить на извлечение сообщений из виртуального свойства
+    public Task<Result<IReadOnlyList<ChatMessage>>> GetMessagesAsync(CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
+    
+    [Obsolete("Unused")] // TODO: use PersistMessageAsync
     public async Task<Result<ChatMessage>> PersistUserMessageAsync(ChatMessage message,
         IReadOnlyCollection<Guid>? attachmentIds = null, CancellationToken ct = default)
     {
         return await PersistMessageAsync(message);
     }
-
+    
+    [Obsolete("Unused")] // TODO: use PersistMessageAsync
     public async Task<Result<ChatMessage>> PersistAiMessageAsync(ChatMessage message, CancellationToken ct = default)
     {
         return await PersistMessageAsync(message);
     }
-
+    
+    [Obsolete("Unused")] // TODO: remove
     public async Task<Result<ChatMessage>> PersistCancellationRecordAsync(
         ChatMessage message, CancellationToken ct = default)
     {
         return await PersistMessageAsync(message);
     }
 
-    private async Task<Result<ChatMessage>> PersistMessageAsync(ChatMessage message)
+    public async Task<Result<ChatMessage>> PersistMessageAsync(ChatMessage message, CancellationToken ct = default)
     {
+        // TODO: add index increment
         return await chatSessionRepository.GetActiveAsync(CurrentUserId)
             .BindAsync(session => Task.FromResult(
                 session.Id == message.SessionId

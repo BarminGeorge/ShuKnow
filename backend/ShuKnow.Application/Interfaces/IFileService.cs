@@ -7,6 +7,8 @@ public interface IFileService
 {
     Task<Result<File>> GetByIdAsync(Guid fileId, CancellationToken ct = default);
 
+    Task<Result<File>> GetByPathAsync(string filePath, CancellationToken ct = default);
+
     Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
         Guid folderId,
         int page,
