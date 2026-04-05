@@ -77,31 +77,16 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
         return Result.Success();
     }
 
-    public async Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid parentId, Guid userId)
-    {
-        var folders = await context.Folders
-            .AsNoTracking()
-            .Where(folder => folder.UserId == userId && folder.ParentFolderId == parentId)
-            .OrderBy(folder => folder.SortOrder)
-            .ThenBy(folder => folder.Name)
-            .ToListAsync();
+    public Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid parentId, Guid userId) =>
+        GetFoldersByParentIdAsync(parentId, userId);
 
-        return Result.Success<IReadOnlyList<Folder>>(folders);
-    }
+    public Task<Result<IReadOnlyList<Folder>>> GetRootFoldersAsync(Guid userId) =>
+        GetFoldersByParentIdAsync(null, userId);
 
-    public async Task<Result<IReadOnlyList<Folder>>> GetRootFoldersAsync(Guid userId)
-    {
-        var folders = await context.Folders
-            .AsNoTracking()
-            .Where(folder => folder.UserId == userId && folder.ParentFolderId == null)
-            .OrderBy(folder => folder.SortOrder)
-            .ThenBy(folder => folder.Name)
-            .ToListAsync();
+    public Task<Result<IReadOnlyList<Folder>>> GetSiblingsAsync(Guid? parentId, Guid userId) =>
+        GetFoldersByParentIdAsync(parentId, userId);
 
-        return Result.Success<IReadOnlyList<Folder>>(folders);
-    }
-
-    public async Task<Result<IReadOnlyList<Folder>>> GetSiblingsAsync(Guid? parentId, Guid userId)
+    private async Task<Result<IReadOnlyList<Folder>>> GetFoldersByParentIdAsync(Guid? parentId, Guid userId)
     {
         var folders = await context.Folders
             .AsNoTracking()
