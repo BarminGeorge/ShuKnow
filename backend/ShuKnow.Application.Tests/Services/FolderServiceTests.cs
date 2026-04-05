@@ -28,22 +28,13 @@ public class FolderServiceTests
         currentUserId = Guid.NewGuid();
 
         currentUserService.UserId.Returns(currentUserId);
-        currentUserService.IsAuthenticated.Returns(true);
+
         ConfigureDefaults();
 
         sut = CreateSut();
     }
 
-    [Test]
-    public async Task GetTreeAsync_WhenUserIsNotAuthenticated_ShouldReturnUnauthorized()
-    {
-        currentUserService.IsAuthenticated.Returns(false);
 
-        var result = await sut.GetTreeAsync();
-
-        result.Status.Should().Be(ResultStatus.Unauthorized);
-        await folderRepository.DidNotReceive().GetTreeAsync(Arg.Any<Guid>());
-    }
 
     [Test]
     public async Task GetTreeAsync_WhenUserIsAuthenticated_ShouldReturnRepositoryResultForCurrentUser()

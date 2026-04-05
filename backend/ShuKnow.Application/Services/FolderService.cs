@@ -18,14 +18,12 @@ internal class FolderService(
 
     public async Task<Result<IReadOnlyList<Folder>>> GetTreeAsync(CancellationToken ct = default)
     {
-        return await EnsureAuthenticatedAsync()
-            .BindAsync(_ => folderRepository.GetTreeAsync(CurrentUserId));
+        return await folderRepository.GetTreeAsync(CurrentUserId);
     }
 
     public async Task<Result<IReadOnlyList<FolderSummary>>> GetFolderTreeForPromptAsync(CancellationToken ct = default)
     {
-        var treeResult = await EnsureAuthenticatedAsync()
-            .BindAsync(_ => folderRepository.GetTreeAsync(CurrentUserId));
+        var treeResult = await GetTreeAsync(ct);
         if (!treeResult.IsSuccess)
             return ToTypedResult<IReadOnlyList<Folder>, IReadOnlyList<FolderSummary>>(treeResult);
 
@@ -38,27 +36,23 @@ internal class FolderService(
 
     public async Task<Result<IReadOnlyList<Folder>>> ListAsync(Guid? parentFolderId = null, CancellationToken ct = default)
     {
-        return await EnsureAuthenticatedAsync()
-            .BindAsync(_ => ListInternalAsync(parentFolderId));
+        return await ListInternalAsync(parentFolderId);
     }
 
     public async Task<Result<Folder>> GetByIdAsync(Guid folderId, CancellationToken ct = default)
     {
-        return await EnsureAuthenticatedAsync()
-            .BindAsync(_ => folderRepository.GetByIdAsync(folderId, CurrentUserId));
+        return await folderRepository.GetByIdAsync(folderId, CurrentUserId);
     }
 
     public async Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid folderId, CancellationToken ct = default)
     {
-        return await EnsureAuthenticatedAsync()
-            .BindAsync(_ => EnsureFolderExistsAsync(folderId))
+        return await EnsureFolderExistsAsync(folderId)
             .BindAsync(_ => folderRepository.GetChildrenAsync(folderId, CurrentUserId));
     }
 
     public async Task<Result<Folder>> CreateAsync(Folder folder, CancellationToken ct = default)
     {
-        return await EnsureAuthenticatedAsync()
-            .BindAsync(_ => EnsureParentFolderExistsAsync(folder.ParentFolderId))
+        return await EnsureParentFolderExistsAsync(folder.ParentFolderId)
             .BindAsync(_ => EnsureFolderNameUniqueAsync(folder.Name, folder.ParentFolderId))
             .BindAsync(_ => folderRepository.GetSiblingsAsync(folder.ParentFolderId, CurrentUserId))
             .BindAsync(siblings =>
@@ -79,8 +73,7 @@ internal class FolderService(
 
     public async Task<Result<Folder>> UpdateAsync(Folder folder, CancellationToken ct = default)
     {
-        return await EnsureAuthenticatedAsync()
-            .BindAsync(_ => folderRepository.GetByIdAsync(folder.Id, CurrentUserId))
+        return await folderRepository.GetByIdAsync(folder.Id, CurrentUserId)
             .ActAsync(existingFolder => EnsureFolderNameUniqueAsync(folder.Name, existingFolder.ParentFolderId, existingFolder.Id))
             .BindAsync(existingFolder =>
             {
@@ -97,8 +90,7 @@ internal class FolderService(
 
     public async Task<Result> DeleteAsync(Guid folderId, bool recursive, CancellationToken ct = default)
     {
-        return await EnsureAuthenticatedAsync()
-            .BindAsync(_ => folderRepository.GetByIdAsync(folderId, CurrentUserId))
+        return await folderRepository.GetByIdAsync(folderId, CurrentUserId)
             .BindAsync(_ => recursive
                 ? folderRepository.DeleteSubtreeAsync(folderId, CurrentUserId)
                     .SaveChangesAsync(unitOfWork)
@@ -107,8 +99,7 @@ internal class FolderService(
 
     public async Task<Result<Folder>> MoveAsync(Guid folderId, Guid? newParentFolderId = null, CancellationToken ct = default)
     {
-        var existingFolderResult = await EnsureAuthenticatedAsync()
-            .BindAsync(_ => folderRepository.GetByIdAsync(folderId, CurrentUserId));
+        var existingFolderResult = await folderRepository.GetByIdAsync(folderId, CurrentUserId);
         if (!existingFolderResult.IsSuccess)
             return existingFolderResult;
 
@@ -140,8 +131,7 @@ internal class FolderService(
         if (position < 0)
             return Result.Error("Position must be greater than or equal to zero.");
 
-        var existingFolderResult = await EnsureAuthenticatedAsync()
-            .BindAsync(_ => folderRepository.GetByIdAsync(folderId, CurrentUserId));
+        var existingFolderResult = await folderRepository.GetByIdAsync(folderId, CurrentUserId);
         if (!existingFolderResult.IsSuccess)
             return existingFolderResult.Map();
 
@@ -178,8 +168,7 @@ internal class FolderService(
 
     public async Task<Result<Folder>> EnsureInboxExistsAsync(CancellationToken ct = default)
     {
-        var rootFoldersResult = await EnsureAuthenticatedAsync()
-            .BindAsync(_ => folderRepository.GetRootFoldersAsync(CurrentUserId));
+        var rootFoldersResult = await folderRepository.GetRootFoldersAsync(CurrentUserId);
         if (!rootFoldersResult.IsSuccess)
             return ToTypedResult<IReadOnlyList<Folder>, Folder>(rootFoldersResult);
 
@@ -197,14 +186,6 @@ internal class FolderService(
         return await folderRepository.AddAsync(inbox)
             .SaveChangesAsync(unitOfWork)
             .MapAsync(() => inbox);
-    }
-
-    private Task<Result> EnsureAuthenticatedAsync()
-    {
-        return Task.FromResult(
-            currentUserService.IsAuthenticated
-                ? Result.Success()
-                : Result.Unauthorized());
     }
 
     private async Task<Result<IReadOnlyList<Folder>>> ListInternalAsync(Guid? parentFolderId)
