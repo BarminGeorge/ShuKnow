@@ -93,7 +93,7 @@ public class TornadoAiService(
             .BindAsync(settings => CreateApi(settings)
                 .Map(api => api.Chat.CreateConversation(new ChatRequest
                 {
-                    Model = new ChatModel(settings.ModelId),
+                    Model = new ChatModel(settings.ModelId, api.GetFirstAuthenticatedProvider()),
                     Tools = tools,
                     Temperature = Temperature
                 })));
