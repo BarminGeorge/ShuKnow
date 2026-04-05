@@ -28,36 +28,53 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
 
     public async Task<Result<IReadOnlyList<Folder>>> GetTreeAsync(Guid userId)
     {
-        var folders = await context.Folders
+        var folders = await FetchUserFoldersAsync(userId);
+        return BuildTreeFromFolders(folders);
+    }
+
+    private async Task<List<Folder>> FetchUserFoldersAsync(Guid userId)
+    {
+        return await context.Folders
             .AsNoTracking()
             .Where(folder => folder.UserId == userId)
             .OrderBy(folder => folder.SortOrder)
             .ThenBy(folder => folder.Name)
             .ToListAsync();
+    }
 
-        var childrenByParentId = folders
-            .ToLookup(folder => folder.ParentFolderId);
-
+    private static Result<IReadOnlyList<Folder>> BuildTreeFromFolders(List<Folder> folders)
+    {
+        var childrenByParentId = folders.ToLookup(folder => folder.ParentFolderId);
         var orderedFolders = new List<Folder>(folders.Count);
         var visitedFolderIds = new HashSet<Guid>();
         var pathFolderIds = new HashSet<Guid>();
 
-        foreach (var rootFolder in childrenByParentId[null])
-        {
-            if (!AppendSubtree(rootFolder, childrenByParentId, orderedFolders, visitedFolderIds, pathFolderIds))
-                return Result<IReadOnlyList<Folder>>.Error("Folder hierarchy cycle detected.");
-        }
+        var rootNodesResult = TryAppendNodes(childrenByParentId[null], childrenByParentId, orderedFolders, visitedFolderIds, pathFolderIds);
+        if (!rootNodesResult.IsSuccess) return rootNodesResult.Map();
 
-        foreach (var folder in folders)
-        {
-            if (visitedFolderIds.Contains(folder.Id))
-                continue;
-
-            if (!AppendSubtree(folder, childrenByParentId, orderedFolders, visitedFolderIds, pathFolderIds))
-                return Result<IReadOnlyList<Folder>>.Error("Folder hierarchy cycle detected.");
-        }
+        var remainingNodesResult = TryAppendNodes(folders, childrenByParentId, orderedFolders, visitedFolderIds, pathFolderIds);
+        if (!remainingNodesResult.IsSuccess) return remainingNodesResult.Map();
 
         return Result.Success<IReadOnlyList<Folder>>(orderedFolders);
+    }
+
+    private static Result TryAppendNodes(
+        IEnumerable<Folder> nodes,
+        ILookup<Guid?, Folder> childrenByParentId,
+        List<Folder> orderedFolders,
+        HashSet<Guid> visitedFolderIds,
+        HashSet<Guid> pathFolderIds)
+    {
+        foreach (var node in nodes)
+        {
+            if (visitedFolderIds.Contains(node.Id))
+                continue;
+
+            if (!AppendSubtree(node, childrenByParentId, orderedFolders, visitedFolderIds, pathFolderIds))
+                return Result.Error("Folder hierarchy cycle detected.");
+        }
+
+        return Result.Success();
     }
 
     public async Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid parentId, Guid userId)
