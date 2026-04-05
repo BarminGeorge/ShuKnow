@@ -61,14 +61,10 @@ public class BaseRepositoryTests
     {
         await using var resetContext = CreateDbContext();
 
-        await resetContext.Database.ExecuteSqlRawAsync("""
-            TRUNCATE TABLE
-                folders,
-                identity_users,
-                chat_sessions,
-                user_ai_settings,
-                users
-            CASCADE;
-            """);
+        await resetContext.Folders.ExecuteDeleteAsync();
+        await resetContext.UserAiSettings.ExecuteDeleteAsync();
+        await resetContext.ChatSessions.ExecuteDeleteAsync();
+        await resetContext.Users.ExecuteDeleteAsync();
+        await resetContext.IdentityUsers.ExecuteDeleteAsync();
     }
 }
