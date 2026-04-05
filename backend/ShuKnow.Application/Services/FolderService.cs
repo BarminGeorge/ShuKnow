@@ -15,39 +15,26 @@ internal class FolderService(
 {
     private Guid CurrentUserId => currentUserService.UserId;
 
-    public async Task<Result<IReadOnlyList<Folder>>> GetTreeAsync(CancellationToken ct = default)
+    public Task<Result<IReadOnlyList<Folder>>> GetTreeAsync(CancellationToken ct = default) =>
+        folderRepository.GetTreeAsync(CurrentUserId);
+
+    public Task<Result<IReadOnlyList<FolderSummary>>> GetFolderTreeForPromptAsync(CancellationToken ct = default)
     {
-        return await folderRepository.GetTreeAsync(CurrentUserId);
+        return GetTreeAsync(ct)
+            .MapAsync(folders => (IReadOnlyList<FolderSummary>)folders
+                .Select(folder => new FolderSummary(folder.Id, folder.Name, folder.Description, folder.ParentFolderId))
+                .ToList());
     }
 
-    public async Task<Result<IReadOnlyList<FolderSummary>>> GetFolderTreeForPromptAsync(CancellationToken ct = default)
-    {
-        var treeResult = await GetTreeAsync(ct);
-        if (!treeResult.IsSuccess)
-            return treeResult.ToTypedResult<IReadOnlyList<Folder>, IReadOnlyList<FolderSummary>>();
+    public Task<Result<IReadOnlyList<Folder>>> ListAsync(Guid? parentFolderId = null, CancellationToken ct = default) =>
+        ListInternalAsync(parentFolderId);
 
-        IReadOnlyList<FolderSummary> summaries = treeResult.Value
-            .Select(folder => new FolderSummary(folder.Id, folder.Name, folder.Description, folder.ParentFolderId))
-            .ToList();
+    public Task<Result<Folder>> GetByIdAsync(Guid folderId, CancellationToken ct = default) =>
+        folderRepository.GetByIdAsync(folderId, CurrentUserId);
 
-        return Result.Success(summaries);
-    }
-
-    public async Task<Result<IReadOnlyList<Folder>>> ListAsync(Guid? parentFolderId = null, CancellationToken ct = default)
-    {
-        return await ListInternalAsync(parentFolderId);
-    }
-
-    public async Task<Result<Folder>> GetByIdAsync(Guid folderId, CancellationToken ct = default)
-    {
-        return await folderRepository.GetByIdAsync(folderId, CurrentUserId);
-    }
-
-    public async Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid folderId, CancellationToken ct = default)
-    {
-        return await EnsureFolderExistsAsync(folderId)
+    public Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid folderId, CancellationToken ct = default) =>
+        EnsureFolderExistsAsync(folderId)
             .BindAsync(_ => folderRepository.GetChildrenAsync(folderId, CurrentUserId));
-    }
 
     public async Task<Result<Folder>> CreateAsync(Folder folder, CancellationToken ct = default)
     {
@@ -87,12 +74,10 @@ internal class FolderService(
             });
     }
 
-    public async Task<Result> DeleteAsync(Guid folderId, CancellationToken ct = default)
-    {
-        return await GetByIdAsync(folderId, ct)
+    public Task<Result> DeleteAsync(Guid folderId, CancellationToken ct = default) =>
+        GetByIdAsync(folderId, ct)
             .BindAsync(_ => folderRepository.DeleteSubtreeAsync(folderId, CurrentUserId))
             .SaveChangesAsync(unitOfWork);
-    }
 
     public async Task<Result<Folder>> MoveAsync(Guid folderId, Guid? newParentFolderId = null, CancellationToken ct = default)
     {
