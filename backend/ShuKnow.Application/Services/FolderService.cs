@@ -124,10 +124,8 @@ internal class FolderService(
 
     public async Task<Result> ReorderAsync(Guid folderId, int position, CancellationToken ct = default)
     {
-        if (position < 0)
-            return Result.Error("Position must be greater than or equal to zero.");
-
-        return await GetByIdAsync(folderId, ct)
+        return await EnsurePositionValidAsync(position)
+            .BindAsync(_ => GetByIdAsync(folderId, ct))
             .BindAsync(folder => folderRepository.GetSiblingsAsync(folder.ParentFolderId, CurrentUserId))
             .BindAsync(siblings => ApplyReorderAsync(siblings, folderId, position));
     }
@@ -231,6 +229,13 @@ internal class FolderService(
         return parentFolderId.HasValue
             ? EnsureFolderExistsAsync(parentFolderId.Value)
             : Task.FromResult(Result.Success());
+    }
+
+    private static Task<Result> EnsurePositionValidAsync(int position)
+    {
+        return Task.FromResult(position >= 0
+            ? Result.Success()
+            : Result.Error("Position must be greater than or equal to zero."));
     }
 
     private async Task<Result> EnsureFolderNameUniqueAsync(string name, Guid? parentFolderId, Guid? excludeId = null)
