@@ -24,7 +24,7 @@ internal class FolderService(
     {
         var treeResult = await GetTreeAsync(ct);
         if (!treeResult.IsSuccess)
-            return ToTypedResult<IReadOnlyList<Folder>, IReadOnlyList<FolderSummary>>(treeResult);
+            return treeResult.ToTypedResult<IReadOnlyList<Folder>, IReadOnlyList<FolderSummary>>();
 
         IReadOnlyList<FolderSummary> summaries = treeResult.Value
             .Select(folder => new FolderSummary(folder.Id, folder.Name, folder.Description, folder.ParentFolderId))
@@ -241,27 +241,5 @@ internal class FolderService(
             description ?? source.Description,
             updateParentFolderId ? newParentFolderId : source.ParentFolderId,
             sortOrder ?? source.SortOrder);
-    }
-
-    private static Result<T> ToTypedResult<T>(Result result)
-    {
-        return result.Status switch
-        {
-            ResultStatus.Unauthorized => Result<T>.Unauthorized(),
-            ResultStatus.NotFound => Result<T>.NotFound(),
-            ResultStatus.Conflict => Result<T>.Conflict(),
-            _ => Result<T>.Error()
-        };
-    }
-
-    private static Result<TDestination> ToTypedResult<TSource, TDestination>(Result<TSource> result)
-    {
-        return result.Status switch
-        {
-            ResultStatus.Unauthorized => Result<TDestination>.Unauthorized(),
-            ResultStatus.NotFound => Result<TDestination>.NotFound(),
-            ResultStatus.Conflict => Result<TDestination>.Conflict(),
-            _ => Result<TDestination>.Error()
-        };
     }
 }
