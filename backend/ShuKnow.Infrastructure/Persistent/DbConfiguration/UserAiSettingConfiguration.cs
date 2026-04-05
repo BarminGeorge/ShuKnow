@@ -4,7 +4,7 @@ using ShuKnow.Domain.Entities;
 
 namespace ShuKnow.Infrastructure.Persistent.DbConfiguration;
 
-public class UserAiSettingConfiguration : IEntityTypeConfiguration<UserAiSettings>
+internal class UserAiSettingConfiguration : IEntityTypeConfiguration<UserAiSettings>
 {
     public void Configure(EntityTypeBuilder<UserAiSettings> builder)
     {

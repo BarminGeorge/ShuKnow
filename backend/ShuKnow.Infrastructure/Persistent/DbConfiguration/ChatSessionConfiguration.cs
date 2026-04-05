@@ -4,7 +4,7 @@ using ShuKnow.Domain.Entities;
 
 namespace ShuKnow.Infrastructure.Persistent.DbConfiguration;
 
-public class ChatSessionConfiguration : IEntityTypeConfiguration<ChatSession>
+internal class ChatSessionConfiguration : IEntityTypeConfiguration<ChatSession>
 {
     public void Configure(EntityTypeBuilder<ChatSession> builder)
     {

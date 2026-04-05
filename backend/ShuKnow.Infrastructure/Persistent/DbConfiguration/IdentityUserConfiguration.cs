@@ -5,7 +5,7 @@ using ShuKnow.Infrastructure.Misc;
 
 namespace ShuKnow.Infrastructure.Persistent.DbConfiguration;
 
-public class IdentityUserConfiguration : IEntityTypeConfiguration<IdentityUser>
+internal class IdentityUserConfiguration : IEntityTypeConfiguration<IdentityUser>
 {
     public void Configure(EntityTypeBuilder<IdentityUser> builder)
     {
