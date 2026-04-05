@@ -190,16 +190,16 @@ public class FolderRepositoryTests : BaseRepositoryTests
     }
 
     [Test]
-    public async Task DeleteAsync_WhenFolderDoesNotExist_ShouldBeNoOp()
+    public async Task DeleteAsync_WhenFolderDoesNotExist_ShouldReturnNotFound()
     {
         var result = await sut.DeleteAsync(Guid.NewGuid(), Guid.NewGuid());
         await Context.SaveChangesAsync();
 
-        result.Status.Should().Be(ResultStatus.Ok);
+        result.Status.Should().Be(ResultStatus.NotFound);
     }
 
     [Test]
-    public async Task DeleteSubtreeAsync_WhenFolderDoesNotExist_ShouldBeNoOp()
+    public async Task DeleteSubtreeAsync_WhenFolderDoesNotExist_ShouldReturnNotFound()
     {
         var user = await SeedUserAsync();
         await SeedFolderAsync(user.Id, "root");
@@ -207,7 +207,7 @@ public class FolderRepositoryTests : BaseRepositoryTests
         var result = await sut.DeleteSubtreeAsync(Guid.NewGuid(), user.Id);
         await Context.SaveChangesAsync();
 
-        result.Status.Should().Be(ResultStatus.Ok);
+        result.Status.Should().Be(ResultStatus.NotFound);
 
         await using var assertContext = CreateDbContext();
         (await assertContext.Folders.CountAsync()).Should().Be(1);
@@ -228,7 +228,7 @@ public class FolderRepositoryTests : BaseRepositoryTests
     }
 
     [Test]
-    public async Task DeleteAsync_WhenFolderBelongsToAnotherUser_ShouldBeNoOp()
+    public async Task DeleteAsync_WhenFolderBelongsToAnotherUser_ShouldReturnNotFound()
     {
         var user = await SeedUserAsync();
         var otherUser = await SeedUserAsync();
@@ -237,14 +237,14 @@ public class FolderRepositoryTests : BaseRepositoryTests
         var result = await sut.DeleteAsync(folder.Id, user.Id);
         await Context.SaveChangesAsync();
 
-        result.Status.Should().Be(ResultStatus.Ok);
+        result.Status.Should().Be(ResultStatus.NotFound);
 
         await using var assertContext = CreateDbContext();
         (await assertContext.Folders.AnyAsync(existingFolder => existingFolder.Id == folder.Id)).Should().BeTrue();
     }
 
     [Test]
-    public async Task DeleteSubtreeAsync_WhenFolderBelongsToAnotherUser_ShouldBeNoOp()
+    public async Task DeleteSubtreeAsync_WhenFolderBelongsToAnotherUser_ShouldReturnNotFound()
     {
         var user = await SeedUserAsync();
         var otherUser = await SeedUserAsync();
@@ -254,7 +254,7 @@ public class FolderRepositoryTests : BaseRepositoryTests
         var result = await sut.DeleteSubtreeAsync(root.Id, user.Id);
         await Context.SaveChangesAsync();
 
-        result.Status.Should().Be(ResultStatus.Ok);
+        result.Status.Should().Be(ResultStatus.NotFound);
 
         await using var assertContext = CreateDbContext();
         (await assertContext.Folders.AnyAsync(folder => folder.Id == root.Id)).Should().BeTrue();
