@@ -202,27 +202,28 @@ internal class FolderService(
 
     private async Task<Result> EnsureMoveIsValidAsync(Guid folderId, string folderName, Guid? newParentFolderId)
     {
-        if (newParentFolderId == folderId)
-            return Result.Conflict("A folder cannot be moved into itself.");
+        return await EnsureNotMovingIntoSelfAsync(folderId, newParentFolderId)
+            .BindAsync(_ => EnsureParentFolderExistsAsync(newParentFolderId))
+            .BindAsync(_ => EnsureFolderNameUniqueAsync(folderName, newParentFolderId, folderId))
+            .BindAsync(_ => EnsureNotMovingIntoSubtreeAsync(folderId, newParentFolderId));
+    }
 
-        var parentExistsResult = await EnsureParentFolderExistsAsync(newParentFolderId);
-        if (!parentExistsResult.IsSuccess)
-            return parentExistsResult;
+    private static Task<Result> EnsureNotMovingIntoSelfAsync(Guid folderId, Guid? newParentFolderId)
+    {
+        return Task.FromResult(newParentFolderId == folderId
+            ? Result.Conflict("A folder cannot be moved into itself.")
+            : Result.Success());
+    }
 
-        var uniqueNameResult = await EnsureFolderNameUniqueAsync(folderName, newParentFolderId, folderId);
-        if (!uniqueNameResult.IsSuccess)
-            return uniqueNameResult;
-
+    private async Task<Result> EnsureNotMovingIntoSubtreeAsync(Guid folderId, Guid? newParentFolderId)
+    {
         if (!newParentFolderId.HasValue)
             return Result.Success();
 
-        var ancestorIdsResult = await folderRepository.GetAncestorIdsAsync(newParentFolderId.Value, CurrentUserId);
-        if (!ancestorIdsResult.IsSuccess)
-            return ancestorIdsResult.Map();
-
-        return ancestorIdsResult.Value.Contains(folderId)
-            ? Result.Conflict("A folder cannot be moved into its own subtree.")
-            : Result.Success();
+        return await folderRepository.GetAncestorIdsAsync(newParentFolderId.Value, CurrentUserId)
+            .BindAsync(ancestorIds => Task.FromResult(ancestorIds.Contains(folderId)
+                ? Result.Conflict("A folder cannot be moved into its own subtree.")
+                : Result.Success()));
     }
 
     private static Folder UpdateFolder(
