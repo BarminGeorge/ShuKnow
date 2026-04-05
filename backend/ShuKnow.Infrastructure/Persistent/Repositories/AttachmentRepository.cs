@@ -4,7 +4,7 @@ using ShuKnow.Domain.Repositories;
 
 namespace ShuKnow.Infrastructure.Persistent.Repositories;
 
-public class AttachmentRepository : IAttachmentRepository
+public class AttachmentRepository(AppDbContext context) : IAttachmentRepository
 {
     public Task<Result<IReadOnlyList<ChatAttachment>>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, Guid userId)
     {
