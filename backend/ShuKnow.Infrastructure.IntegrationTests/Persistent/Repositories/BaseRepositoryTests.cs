@@ -65,6 +65,7 @@ public class BaseRepositoryTests
         resetContext.RemoveRange(resetContext.IdentityUsers);
         resetContext.RemoveRange(resetContext.ChatSessions);
         resetContext.RemoveRange(resetContext.UserAiSettings);
+        resetContext.RemoveRange(resetContext.ChatAttachments);
         await resetContext.SaveChangesAsync();
     }
 }
