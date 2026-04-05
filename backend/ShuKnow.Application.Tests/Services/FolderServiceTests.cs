@@ -334,9 +334,12 @@ public class FolderServiceTests
         var result = await sut.ReorderAsync(secondFolder.Id, 0);
 
         result.Status.Should().Be(ResultStatus.Ok);
-        await folderRepository.Received(1).UpdateAsync(Arg.Is<Folder>(folder => folder.Id == secondFolder.Id && folder.SortOrder == 0));
-        await folderRepository.Received(1).UpdateAsync(Arg.Is<Folder>(folder => folder.Id == firstFolder.Id && folder.SortOrder == 1));
+        await folderRepository.Received(1).UpdateRangeAsync(Arg.Is<IReadOnlyList<Folder>>(folders =>
+            folders.Count == 2 &&
+            folders.Any(f => f.Id == secondFolder.Id && f.SortOrder == 0) &&
+            folders.Any(f => f.Id == firstFolder.Id && f.SortOrder == 1)));
         await unitOfWork.Received(1).SaveChangesAsync();
+    }
 
     private void ConfigureDefaults()
     {
@@ -352,6 +355,7 @@ public class FolderServiceTests
         folderRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<Folder>());
         folderRepository.AddAsync(Arg.Any<Folder>()).Returns(Success());
         folderRepository.UpdateAsync(Arg.Any<Folder>()).Returns(Success());
+        folderRepository.UpdateRangeAsync(Arg.Any<IReadOnlyList<Folder>>()).Returns(Success());
         folderRepository.DeleteAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success());
         folderRepository.DeleteSubtreeAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success());
     }
