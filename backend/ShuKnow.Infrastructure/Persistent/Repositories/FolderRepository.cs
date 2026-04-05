@@ -100,36 +100,30 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
 
     public async Task<Result<IReadOnlyList<Guid>>> GetAncestorIdsAsync(Guid folderId, Guid userId)
     {
+        var parentFolderMap = await context.Folders
+            .AsNoTracking()
+            .Where(f => f.UserId == userId)
+            .Select(f => new { f.Id, f.ParentFolderId })
+            .ToDictionaryAsync(f => f.Id, f => f.ParentFolderId);
+
         var ancestorIds = new List<Guid>();
         var visitedFolderIds = new HashSet<Guid> { folderId };
 
-        var currentFolder = await context.Folders
-            .AsNoTracking()
-            .Where(folder => folder.Id == folderId && folder.UserId == userId)
-            .Select(folder => new { folder.Id, folder.ParentFolderId })
-            .SingleOrDefaultAsync();
-
-        if (currentFolder is null)
+        if (!parentFolderMap.TryGetValue(folderId, out var currentParentId))
             return Result.Success<IReadOnlyList<Guid>>(ancestorIds);
 
-        while (currentFolder.ParentFolderId.HasValue)
+        while (currentParentId.HasValue)
         {
-            var parentFolderId = currentFolder.ParentFolderId.Value;
+            var parentId = currentParentId.Value;
 
-            if (!visitedFolderIds.Add(parentFolderId))
+            if (!visitedFolderIds.Add(parentId))
                 return Result<IReadOnlyList<Guid>>.Error("Folder hierarchy cycle detected.");
 
-            var parentFolder = await context.Folders
-                .AsNoTracking()
-                .Where(folder => folder.Id == parentFolderId && folder.UserId == userId)
-                .Select(folder => new { folder.Id, folder.ParentFolderId })
-                .SingleOrDefaultAsync();
-
-            if (parentFolder is null)
+            if (!parentFolderMap.TryGetValue(parentId, out var nextParentId))
                 return Result.Success<IReadOnlyList<Guid>>(ancestorIds);
 
-            ancestorIds.Add(parentFolderId);
-            currentFolder = parentFolder;
+            ancestorIds.Add(parentId);
+            currentParentId = nextParentId;
         }
 
         return Result.Success<IReadOnlyList<Guid>>(ancestorIds);
