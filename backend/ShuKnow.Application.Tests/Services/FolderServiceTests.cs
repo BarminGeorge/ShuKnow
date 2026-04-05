@@ -372,46 +372,6 @@ public class FolderServiceTests
         await folderRepository.Received(1).UpdateAsync(Arg.Is<Folder>(folder => folder.Id == secondFolder.Id && folder.SortOrder == 0));
         await folderRepository.Received(1).UpdateAsync(Arg.Is<Folder>(folder => folder.Id == firstFolder.Id && folder.SortOrder == 1));
         await unitOfWork.Received(1).SaveChangesAsync();
-    }
-
-    [Test]
-    public async Task EnsureInboxExistsAsync_WhenInboxAlreadyExists_ShouldReturnExistingFolder()
-    {
-        var inbox = CreateFolder(name: "Inbox");
-        folderRepository.GetRootFoldersAsync(currentUserId).Returns(Success<IReadOnlyList<Folder>>([inbox]));
-
-        var result = await sut.EnsureInboxExistsAsync();
-
-        result.Status.Should().Be(ResultStatus.Ok);
-        result.Value.Should().BeSameAs(inbox);
-        await folderRepository.DidNotReceive().AddAsync(Arg.Any<Folder>());
-        await unitOfWork.DidNotReceive().SaveChangesAsync();
-    }
-
-    [Test]
-    public async Task EnsureInboxExistsAsync_WhenInboxDoesNotExist_ShouldCreateItAtRootEnd()
-    {
-        IReadOnlyList<Folder> rootFolders =
-        [
-            CreateFolder(name: "A", sortOrder: 0),
-            CreateFolder(name: "B", sortOrder: 1)
-        ];
-        folderRepository.GetRootFoldersAsync(currentUserId).Returns(Success(rootFolders));
-
-        var result = await sut.EnsureInboxExistsAsync();
-
-        result.Status.Should().Be(ResultStatus.Ok);
-        result.Value.UserId.Should().Be(currentUserId);
-        result.Value.Name.Should().Be("Inbox");
-        result.Value.ParentFolderId.Should().BeNull();
-        result.Value.SortOrder.Should().Be(rootFolders.Count);
-        await folderRepository.Received(1).AddAsync(Arg.Is<Folder>(folder =>
-            folder.UserId == currentUserId &&
-            folder.Name == "Inbox" &&
-            folder.ParentFolderId == null &&
-            folder.SortOrder == rootFolders.Count));
-        await unitOfWork.Received(1).SaveChangesAsync();
-    }
 
     private void ConfigureDefaults()
     {

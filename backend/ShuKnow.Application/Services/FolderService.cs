@@ -163,28 +163,6 @@ internal class FolderService(
             .SaveChangesAsync(unitOfWork);
     }
 
-    public async Task<Result<Folder>> EnsureInboxExistsAsync(CancellationToken ct = default)
-    {
-        return await folderRepository.GetRootFoldersAsync(CurrentUserId)
-            .BindAsync(rootFolders =>
-            {
-                var existingInbox = rootFolders.FirstOrDefault(folder => folder.Name == "Inbox");
-                if (existingInbox is not null)
-                    return Task.FromResult(Result.Success(existingInbox));
-
-                var inbox = new Folder(
-                    Guid.NewGuid(),
-                    CurrentUserId,
-                    "Inbox",
-                    string.Empty,
-                    sortOrder: rootFolders.Count);
-
-                return folderRepository.AddAsync(inbox)
-                    .SaveChangesAsync(unitOfWork)
-                    .MapAsync(() => inbox);
-            });
-    }
-
     private async Task<Result<IReadOnlyList<Folder>>> ListInternalAsync(Guid? parentFolderId)
     {
         if (!parentFolderId.HasValue)
