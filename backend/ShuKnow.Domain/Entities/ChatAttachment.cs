@@ -10,6 +10,8 @@ public class ChatAttachment : IEntity<Guid>
     public string FileName { get; private set; } = string.Empty;
     public string ContentType { get; private set; } = string.Empty;
     public long SizeBytes { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
+    public bool IsConsumed { get; set; }
 
     protected ChatAttachment()
     {
@@ -27,5 +29,7 @@ public class ChatAttachment : IEntity<Guid>
         FileName = fileName;
         ContentType = contentType;
         SizeBytes = sizeBytes;
+        CreatedAt = DateTimeOffset.UtcNow;
+        IsConsumed = false;
     }
 }

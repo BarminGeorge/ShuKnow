@@ -37,6 +37,16 @@ internal class ChatAttachmentConfiguration : IEntityTypeConfiguration<ChatAttach
         builder.Property(e => e.SizeBytes)
             .HasColumnName("size_bytes")
             .IsRequired();
+        
+        builder.Property(e => e.CreatedAt)
+            .HasColumnName("created_at")
+            .HasColumnType("timestamp with time zone")
+            .HasDefaultValueSql("CURRENT_TIMESTAMP")
+            .ValueGeneratedOnAdd();
+        
+        builder.Property(e => e.IsConsumed)
+            .HasColumnName("is_consumed")
+            .IsRequired();
 
         builder.HasOne<User>()
             .WithMany()
