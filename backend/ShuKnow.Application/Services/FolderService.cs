@@ -150,18 +150,17 @@ internal class FolderService(
 
     private async Task<Result> UpdateSortOrdersAsync(List<Folder> folders)
     {
-        foreach (var (folder, index) in folders.Select((f, i) => (f, i)))
-        {
-            if (folder.SortOrder == index)
-                continue;
+        var updatedFolders = folders
+            .Select((folder, index) => (folder, index))
+            .Where(x => x.folder.SortOrder != x.index)
+            .Select(x => UpdateFolder(x.folder, sortOrder: x.index))
+            .ToList();
 
-            var updatedFolder = UpdateFolder(folder, sortOrder: index);
-            var updateResult = await folderRepository.UpdateAsync(updatedFolder);
-            if (!updateResult.IsSuccess)
-                return updateResult;
-        }
+        if (updatedFolders.Count == 0)
+            return Result.Success();
 
-        return await unitOfWork.SaveChangesAsync();
+        return await folderRepository.UpdateRangeAsync(updatedFolders)
+            .SaveChangesAsync(unitOfWork);
     }
 
     public async Task<Result<Folder>> EnsureInboxExistsAsync(CancellationToken ct = default)
