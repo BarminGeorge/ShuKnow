@@ -165,24 +165,24 @@ internal class FolderService(
 
     public async Task<Result<Folder>> EnsureInboxExistsAsync(CancellationToken ct = default)
     {
-        var rootFoldersResult = await folderRepository.GetRootFoldersAsync(CurrentUserId);
-        if (!rootFoldersResult.IsSuccess)
-            return ToTypedResult<IReadOnlyList<Folder>, Folder>(rootFoldersResult);
+        return await folderRepository.GetRootFoldersAsync(CurrentUserId)
+            .BindAsync(rootFolders =>
+            {
+                var existingInbox = rootFolders.FirstOrDefault(folder => folder.Name == "Inbox");
+                if (existingInbox is not null)
+                    return Task.FromResult(Result.Success(existingInbox));
 
-        var existingInbox = rootFoldersResult.Value.FirstOrDefault(folder => folder.Name == "Inbox");
-        if (existingInbox is not null)
-            return existingInbox;
+                var inbox = new Folder(
+                    Guid.NewGuid(),
+                    CurrentUserId,
+                    "Inbox",
+                    string.Empty,
+                    sortOrder: rootFolders.Count);
 
-        var inbox = new Folder(
-            Guid.NewGuid(),
-            CurrentUserId,
-            "Inbox",
-            string.Empty,
-            sortOrder: rootFoldersResult.Value.Count);
-
-        return await folderRepository.AddAsync(inbox)
-            .SaveChangesAsync(unitOfWork)
-            .MapAsync(() => inbox);
+                return folderRepository.AddAsync(inbox)
+                    .SaveChangesAsync(unitOfWork)
+                    .MapAsync(() => inbox);
+            });
     }
 
     private async Task<Result<IReadOnlyList<Folder>>> ListInternalAsync(Guid? parentFolderId)
