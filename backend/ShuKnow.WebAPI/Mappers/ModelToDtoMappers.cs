@@ -4,6 +4,7 @@ using ShuKnow.WebAPI.Dto.Auth;
 using ShuKnow.WebAPI.Dto.Chat;
 using ShuKnow.WebAPI.Dto.Files;
 using ShuKnow.WebAPI.Dto.Folders;
+using ShuKnow.WebAPI.Events;
 
 namespace ShuKnow.WebAPI.Mappers;
 
