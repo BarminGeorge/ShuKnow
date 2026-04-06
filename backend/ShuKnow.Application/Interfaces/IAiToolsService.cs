@@ -16,7 +16,7 @@ public interface IAiToolsService
         CancellationToken ct = default);
 
     Task<Result<string>> SaveAttachment(
-        string fileName,
+        string attachmentId,
         string filePath,
         CancellationToken ct = default);
 
