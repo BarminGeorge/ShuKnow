@@ -26,16 +26,17 @@ public class TornadoAiServiceLiveTests
     {
         var config = LoadConfigurationOrIgnore();
         var fixture = CreateFixture(config, []);
+        const string prompt = "Коротко представься без markdown и перечисли доступные tools с сигнатурами.";
 
         var result = await fixture.Service.ProcessMessageAsync(
-            "Коротко представься одним предложением без markdown.",
+            prompt,
             attachmentIds: null,
             fixture.Settings);
 
         AssertResultOk(result, fixture.Logs);
         fixture.PersistedMessages.Should().HaveCount(2);
         fixture.PersistedMessages[0].Role.Should().Be(ChatMessageRole.User);
-        fixture.PersistedMessages[0].Content.Should().Be("Коротко представься одним предложением без markdown.");
+        fixture.PersistedMessages[0].Content.Should().Be(prompt);
         fixture.PersistedMessages[1].Role.Should().Be(ChatMessageRole.Ai);
         fixture.PersistedMessages[1].Content.Should().NotBeNullOrWhiteSpace();
     }
