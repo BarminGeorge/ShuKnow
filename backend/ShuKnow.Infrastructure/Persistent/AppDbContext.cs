@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Infrastructure.Misc;
 
@@ -9,6 +9,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<User> Users { get; set; }
     public DbSet<IdentityUser> IdentityUsers { get; set; }
     public DbSet<ChatSession> ChatSessions { get; set; }
+    public DbSet<ChatMessage> ChatMessages { get; set; }
     public DbSet<UserAiSettings> UserAiSettings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -49,8 +50,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasForeignKey(session => session.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // TODO: убрать после реализации ChatMessageRepository
-            entity.Ignore(session => session.Messages);
+            entity.HasMany(session => session.Messages)
+                .WithOne()
+                .HasForeignKey(message => message.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ChatMessage>(entity =>
+        {
+            entity.ToTable("chat_messages");
+            entity.HasKey(m => m.Id);
+
+            entity.Property(m => m.Role)
+                .HasConversion<int>();
+
+            entity.HasIndex(m => new { m.SessionId, m.Index });
         });
 
         modelBuilder.Entity<UserAiSettings>(entity =>
