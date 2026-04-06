@@ -1,8 +1,8 @@
-﻿using Ardalis.Result;
+using Ardalis.Result;
 using LlmTornado.ChatFunctions;
-using LlmTornado.Code;
 using LlmTornado.Common;
 using ShuKnow.Application.Interfaces;
+using static ShuKnow.Infrastructure.Misc.TornadoAiToolUtil;
 
 namespace ShuKnow.Infrastructure.Services;
 
@@ -10,16 +10,12 @@ public class TornadoAiToolsService(IAiToolsService toolsService)
 {
     public List<Tool> Tools { get; } =
     [
-        CreateTool(toolsService.CreateFolderAsync, "create_folder"),
-        CreateTool(toolsService.CreateTextFileAsync, "create_text_file"),
+        // TODO: add description
+        CreateTool(toolsService.CreateFolderAsync, "create_folder", ""),
+        CreateTool(toolsService.CreateTextFileAsync, "create_text_file", ""),
         // TODO: add other tools
     ];
 
-    private static Tool CreateTool(Delegate function, string name)
-    {
-        return new Tool(function, name, new ToolMetadata { Ignore = ["ct"] });
-    }
-    
     public async ValueTask DispatchToolCalls(List<FunctionCall> calls, CancellationToken ct = default)
     {
         await Task.WhenAll(calls.Select(async call =>
