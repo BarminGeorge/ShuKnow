@@ -42,8 +42,14 @@ public class ChatNotificationService(
             new ProcessingCompletedEvent(notification.OperationId, notification.ActionId, notification.Summary, notification.FilesCreated, notification.FilesMoved), ct);
 
     public Task SendProcessingFailedAsync(ProcessingFailedNotification notification, CancellationToken ct = default)
-        => SendEventAsync(nameof(ChatHub.OnProcessingFailed), 
-            new ProcessingFailedEvent(notification.OperationId, notification.Error, ProcessingErrorCode.InternalError), ct);
+    {
+        var errorCode = Enum.TryParse<ProcessingErrorCode>(notification.ErrorCode, true, out var parsed)
+            ? parsed
+            : ProcessingErrorCode.InternalError;
+
+        return SendEventAsync(nameof(ChatHub.OnProcessingFailed), 
+            new ProcessingFailedEvent(notification.OperationId, notification.Error, errorCode), ct);
+    }
 
     public Task SendProcessingCancelledAsync(Guid operationId, CancellationToken ct = default)
         => SendEventAsync(nameof(ChatHub.OnProcessingCancelled), new ProcessingCancelledEvent(operationId), ct);
