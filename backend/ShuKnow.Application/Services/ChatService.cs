@@ -54,7 +54,6 @@ public class ChatService(
 
     public async Task<Result<ChatMessage>> PersistMessageAsync(ChatMessage message, CancellationToken ct = default)
     {
-        // TODO: add index increment
         return await chatSessionRepository.GetActiveAsync(CurrentUserId)
             .BindAsync(session => Task.FromResult(
                 session.Id == message.SessionId
