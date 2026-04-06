@@ -14,41 +14,41 @@ public static class ModelToDtoMappers
         return new UserDto(user.Id, user.Login);
     }
 
-    public static ChatMessageDto ToDto(this ChatMessage message)
+    public static ChatMessageDto ToDto(this MessageCompletedNotification notification)
     {
         return new ChatMessageDto(
-            message.Id,
-            (Dto.Enums.ChatMessageRole)message.Role,
-            message.Content,
-            message.Index,
+            notification.Id,
+            (Dto.Enums.ChatMessageRole)notification.Role,
+            notification.Content,
+            notification.Index,
             null);
     }
 
-    public static FileDto ToDto(this FileNotification notification)
+    public static FileDto ToDto(this FileCreatedNotification notification)
     {
         return new FileDto(
-            notification.Entity.Id,
-            notification.Entity.FolderId,
+            notification.FileId,
+            notification.FolderId,
             notification.FolderName,
-            notification.Entity.Name,
-            notification.Entity.Description,
-            notification.Entity.ContentType,
-            notification.Entity.SizeBytes,
-            notification.Entity.Version,
-            notification.Entity.ChecksumSha256,
-            notification.Entity.SortOrder,
-            notification.Entity.CreatedAt);
+            notification.Name,
+            notification.Description,
+            notification.ContentType,
+            notification.SizeBytes,
+            notification.Version,
+            notification.ChecksumSha256,
+            notification.SortOrder,
+            notification.CreatedAt);
     }
 
-    public static FolderDto ToDto(this FolderNotification notification)
+    public static FolderDto ToDto(this FolderCreatedNotification notification)
     {
         return new FolderDto(
-            notification.Entity.Id,
-            notification.Entity.Name,
-            notification.Entity.Description,
-            notification.Entity.Emoji,
-            notification.Entity.ParentFolderId,
-            notification.Entity.SortOrder,
+            notification.FolderId,
+            notification.Name,
+            notification.Description,
+            notification.Emoji,
+            notification.ParentFolderId,
+            notification.SortOrder,
             notification.FileCount,
             notification.HasChildren,
             null);
