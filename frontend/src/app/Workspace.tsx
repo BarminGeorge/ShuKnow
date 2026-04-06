@@ -3,54 +3,38 @@ import { PanelLeftOpen, Loader2 } from "lucide-react";
 import { Panel, PanelGroup, PanelResizeHandle, ImperativePanelHandle } from "react-resizable-panels";
 import { useRef } from "react";
 import { Sidebar } from "./components/Sidebar";
-import { ChatMessages, type Message, type Attachment } from "./components/ChatMessages";
+import { ChatMessages, type Message, type Attachment, applyServerIds } from "./components/ChatMessages";
 import { InputConsole } from "./components/InputConsole";
 import { Sparkles } from "lucide-react";
 import { FolderContentView } from "./components/FolderContentView";
 import { TabsWorkspace } from "./components/workspace/TabsWorkspace";
 import { TabBar } from "./components/workspace/TabBar";
+import { WorkspaceErrorBoundary } from "./components/workspace/WorkspaceErrorBoundary";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import { Toaster } from "sonner";
-import { folderService, fileService } from "../api";
-import type { Folder as ApiFolder, FileItem as ApiFileItem } from "../api/types";
-
-const IS_MOCK_MODE_ENABLED = import.meta.env.VITE_USE_MOCK_AUTH === "true";
-
-export interface Folder {
-  id: string;
-  name: string;
-  emoji?: string;
-  description?: string;
-  subfolders?: Folder[];
-  customOrder?: string[];
-  fileCount?: number;
-  sortOrder?: number;
-}
-
-export interface FileItem {
-  id: string;
-  name: string;
-  type: "text" | "photo" | "pdf" | "other";
-  folderId: string;
-  content?: string;
-  contentUrl?: string;
-  description?: string;
-  contentType?: string;
-  sizeBytes?: number;
-  createdAt: string;
-}
+import { Toaster, toast } from "sonner";
+import { folderService, fileService, chatService } from "../api";
+import type { Folder, FileItem, Folder as ApiFolder, FileItem as ApiFileItem } from "../api/types";
+import { useFolders } from "./hooks/useFolders";
+import { useFiles } from "./hooks/useFiles";
+import { useTabs } from "./hooks/useTabs";
+import { useWorkspaceView } from "./hooks/useWorkspaceView";
+import { useChat } from "./hooks/useChat";
+import { useChatHub } from "./hooks/useChatHub";
+import type { 
+  ProcessingCompletedEvent, 
+  ProcessingFailedEvent,
+  ChatHubFileDto,
+  ChatHubFolderDto,
+} from "../api/chatHub";
 
 function mapApiFolderToLocalFolder(apiFolder: ApiFolder): Folder {
   return {
-    id: apiFolder.id,
-    name: apiFolder.name,
-    description: apiFolder.description,
-    sortOrder: apiFolder.sortOrder,
-    fileCount: apiFolder.fileCount,
+    ...apiFolder,
     emoji: undefined,
-    subfolders: apiFolder.subfolders?.map(mapApiFolderToLocalFolder),
+    prompt: undefined,
     customOrder: undefined,
+    subfolders: apiFolder.subfolders?.map(mapApiFolderToLocalFolder) || [],
   };
 }
 
@@ -67,111 +51,11 @@ function mapApiFileToLocalFile(apiFile: ApiFileItem): FileItem {
   }
   
   return {
-    id: apiFile.id,
-    name: apiFile.name,
-    folderId: apiFile.folderId,
-    description: apiFile.description,
-    contentType: apiFile.contentType,
-    sizeBytes: apiFile.sizeBytes,
+    ...apiFile,
     type,
-    contentUrl: apiFile.contentUrl,
     createdAt: new Date().toISOString(),
   };
 }
-
-// ── Initial data (mock mode only) ──────────────────────────────────────────────────────────────
-
-const MOCK_INITIAL_FOLDERS: Folder[] = [
-  {
-    id: "1",
-    name: "Идеи",
-    emoji: "💡",
-    prompt: "Все идеи, заметки о новых концепциях и креативные мысли",
-    subfolders: [
-      { id: "1-1", name: "Бизнес",  emoji: "💼", prompt: "Бизнес-идеи и предложения" },
-      { id: "1-2", name: "Личное",  emoji: "✨", prompt: "Личные идеи и планы" },
-    ],
-  },
-  {
-    id: "2",
-    name: "Дизайн",
-    emoji: "🎨",
-    prompt: "Визуальные материалы, скриншоты дизайна и референсы",
-    subfolders: [
-      { id: "2-1", name: "UI-вдохновение",    emoji: "🖼️" },
-      { id: "2-2", name: "Цветовые палитры",  emoji: "🌈" },
-      { id: "2-3", name: "Типографика",       emoji: "📝" },
-    ],
-  },
-  {
-    id: "3",
-    name: "Проекты",
-    emoji: "🚀",
-    prompt: "Все файлы, связанные с проектами",
-    subfolders: [
-      { id: "3-1", name: "Активные", emoji: "⚡" },
-      { id: "3-2", name: "Архив",    emoji: "📦" },
-    ],
-  },
-  { id: "4", name: "Исследования",   emoji: "📚", prompt: "Исследовательские материалы и аналитика" },
-  { id: "5", name: "Заметки встреч", emoji: "📋", prompt: "Записи с встреч, протоколы и заметки" },
-  {
-    id: "6",
-    name: "Ресурсы",
-    emoji: "🔗",
-    prompt: "Полезные ресурсы, ссылки и материалы",
-    subfolders: [
-      { id: "6-1", name: "Статьи", emoji: "📰" },
-      { id: "6-2", name: "Видео",  emoji: "🎥" },
-    ],
-  },
-];
-
-const MOCK_INITIAL_FILES: FileItem[] = [
-  {
-    id: "file-1",
-    name: "Добро пожаловать в ShuKnow.md",
-    type: "text",
-    folderId: "1",
-    content:
-      "# Добро пожаловать в ShuKnow\n\nЭто ваш AI-инструмент для заметок и сортировки файлов.\n\n## Основные возможности\n\n- 📝 **Текстовые заметки** с Markdown\n- 🖼️ **Фото и изображения**\n- 📁 **Умная сортировка** с AI-промптами\n- 🗂️ **Вкладки** — открывайте несколько файлов одновременно\n\n## Как начать\n\n1. Дважды кликните на файл — он откроется во вкладке\n2. Редактируйте текст прямо здесь\n3. Изменения сохраняются автоматически\n4. Закройте вкладку крестиком когда закончите\n\n**Попробуйте прямо сейчас!** 🚀",
-    createdAt: new Date("2026-03-01T10:00:00").toISOString(),
-  },
-  {
-    id: "file-photo-1",
-    name: "фото1.webp",
-    type: "photo",
-    folderId: "1",
-    contentUrl: "/mock_foto/фото1.webp",
-    createdAt: new Date("2026-03-02T10:00:00").toISOString(),
-  },
-  {
-    id: "file-photo-2",
-    name: "фото2.webp",
-    type: "photo",
-    folderId: "1-2",
-    contentUrl: "/mock_foto/фото2.webp",
-    createdAt: new Date("2026-03-02T11:00:00").toISOString(),
-  },
-  {
-    id: "file-2",
-    name: "Идеи для стартапа.md",
-    type: "text",
-    folderId: "1-1",
-    content:
-      "# Идеи для стартапа\n\n## 1. AI Ассистент для встреч\n- Автоматическая расшифровка\n- Генерация action items\n- Интеграция с календарями\n\n## 2. Платформа для микро-обучения\n- Короткие 5-минутные курсы\n- Геймификация\n- Адаптивный AI-тренер\n\n## 3. Социальная сеть для книг\n- Обмен цитатами\n- Клубы по интересам\n- Рекомендации на основе AI",
-    createdAt: new Date("2026-03-02T14:30:00").toISOString(),
-  },
-  {
-    id: "file-3",
-    name: "Мои цели на 2026.md",
-    type: "text",
-    folderId: "1-2",
-    content:
-      "# Личные цели на 2026 год\n\n## Карьера\n- [ ] Изучить TypeScript на продвинутом уровне\n- [ ] Запустить собственный SaaS проект\n- [ ] Выступить на технической конференции\n\n## Здоровье\n- [ ] Бегать 3 раза в неделю\n- [ ] Медитировать каждое утро\n- [ ] Научиться готовить 10 новых блюд\n\n## Образование\n- [ ] Прочитать 24 книги\n- [ ] Пройти курс по ML\n- [ ] Изучить основы дизайна",
-    createdAt: new Date("2026-03-03T09:15:00").toISOString(),
-  },
-];
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
@@ -190,34 +74,139 @@ const CHAT_TITLES = [
 ];
 
 export default function Workspace() {
-  const [viewMode, setViewMode]                   = useState<ViewMode>("chat");
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  // Check if we're in mock mode
+  const isMockMode = import.meta.env.VITE_USE_MOCKS === 'true';
+  
+  // Jotai hooks
+  const { viewMode, setViewMode, isSidebarCollapsed, setIsSidebarCollapsed, selectedFolderPath, setSelectedFolderPath, currentFolder, breadcrumbs } = useWorkspaceView();
+  const { folders, setFolders, isLoading: isLoadingFolders, loadFolders } = useFolders();
+  const { files, createFile, updateFile, deleteFile } = useFiles();
+  const { messages, setMessages, currentTitle, setCurrentTitle } = useChat();
+  const { openTabs, activeTab, activeTabId, openTab, closeTab, switchTab } = useTabs();
+  
   const sidebarRef = useRef<ImperativePanelHandle>(null);
-  const [selectedFolderPath, setSelectedFolderPath] = useState<string[] | null>(null);
-  const [folders, setFolders]                     = useState<Folder[]>(IS_MOCK_MODE_ENABLED ? MOCK_INITIAL_FOLDERS : []);
-  const [files, setFiles]                         = useState<FileItem[]>(IS_MOCK_MODE_ENABLED ? MOCK_INITIAL_FILES : []);
-  const [messages, setMessages]                   = useState<Message[]>([]);
-  const [currentTitle, setCurrentTitle]           = useState<string>(CHAT_TITLES[0]);
-  const [isLoadingFolders, setIsLoadingFolders]   = useState(!IS_MOCK_MODE_ENABLED);
+  
+  // Track current processing message ID for SignalR events
+  const currentAgentMessageIdRef = useRef<string | null>(null);
+  // Track files created during current operation for result display
+  const createdFilesRef = useRef<Array<{ name: string; folder: string; folderId?: string; action: "created" | "sorted" }>>([]);
+
+  // SignalR Chat Hub integration (disabled in mock mode)
+  const chatHub = useChatHub({
+    shouldAutoConnect: !isMockMode, // Don't auto-connect in mock mode
+    handlers: {
+      onProcessingStarted: () => {
+        // Create agent message in processing state
+        const agentMessageId = Date.now().toString();
+        currentAgentMessageIdRef.current = agentMessageId;
+        createdFilesRef.current = [];
+        
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: agentMessageId,
+            type: "agent",
+            content: "",
+            timestamp: new Date(),
+            status: "processing",
+          },
+        ]);
+      },
+      
+      onFileCreated: (file: ChatHubFileDto) => {
+        createdFilesRef.current.push({
+          name: file.name,
+          folder: file.folderName,
+          folderId: file.folderId,
+          action: "created",
+        });
+        // Refresh folders to show new file counts
+        loadFolders();
+      },
+      
+      onFolderCreated: (folder: ChatHubFolderDto) => {
+        // Refresh folders to show new folder
+        loadFolders();
+      },
+      
+      onFileMoved: () => {
+        // Track as sorted action
+        // Refresh folders to update file counts
+        loadFolders();
+      },
+      
+      onProcessingCompleted: (event: ProcessingCompletedEvent) => {
+        const agentMessageId = currentAgentMessageIdRef.current;
+        if (agentMessageId) {
+          setMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id === agentMessageId) {
+                return {
+                  ...msg,
+                  status: "success" as const,
+                  timestamp: new Date(),
+                  result: createdFilesRef.current.length > 0 
+                    ? createdFilesRef.current 
+                    : [{ name: event.summary, folder: "", action: "created" as const }],
+                };
+              }
+              return msg;
+            })
+          );
+        }
+        currentAgentMessageIdRef.current = null;
+        createdFilesRef.current = [];
+      },
+      
+      onProcessingFailed: (event: ProcessingFailedEvent) => {
+        const agentMessageId = currentAgentMessageIdRef.current;
+        if (agentMessageId) {
+          setMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id === agentMessageId) {
+                return {
+                  ...msg,
+                  status: "error" as const,
+                  timestamp: new Date(),
+                  errorMessage: event.error,
+                };
+              }
+              return msg;
+            })
+          );
+        }
+        currentAgentMessageIdRef.current = null;
+        createdFilesRef.current = [];
+      },
+      
+      onProcessingCancelled: () => {
+        const agentMessageId = currentAgentMessageIdRef.current;
+        if (agentMessageId) {
+          setMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id === agentMessageId) {
+                return {
+                  ...msg,
+                  cancelled: true,
+                  status: "error" as const,
+                  timestamp: new Date(),
+                  errorMessage: "Обработка отменена",
+                };
+              }
+              return msg;
+            })
+          );
+        }
+        currentAgentMessageIdRef.current = null;
+        createdFilesRef.current = [];
+      },
+    },
+  });
 
   // Load folders from API
   useEffect(() => {
-    if (IS_MOCK_MODE_ENABLED) return;
-    
-    const loadFolders = async () => {
-      try {
-        const apiTree = await folderService.fetchFolderTree();
-        const localFolders = apiTree.map(mapApiFolderToLocalFolder);
-        setFolders(localFolders);
-      } catch (error) {
-        console.error("Failed to load folders:", error);
-      } finally {
-        setIsLoadingFolders(false);
-      }
-    };
-    
     loadFolders();
-  }, []);
+  }, [loadFolders]);
 
   // Randomize title when entering chat view
   useEffect(() => {
@@ -225,27 +214,21 @@ export default function Workspace() {
       const randomIndex = Math.floor(Math.random() * CHAT_TITLES.length);
       setCurrentTitle(CHAT_TITLES[randomIndex]);
     }
-  }, [viewMode]);
+  }, [viewMode, setCurrentTitle]);
 
-  const handleSendMessage = (content: string, attachments?: Attachment[]) => {
-    // Don't send if no content and no attachments
-    if (!content.trim() && (!attachments || attachments.length === 0)) {
-      return;
-    }
-    
+  // Mock message handler for development mode
+  const handleSendMessageMock = (content: string, attachments?: Attachment[]) => {
     const userMessage: Message = {
       id: Date.now().toString(),
       type: "user",
-      content: content.trim(), // Store trimmed content (may be empty if only files)
+      content: content.trim(),
       attachments,
       timestamp: new Date(),
-      status: "sending",
     };
     setMessages((prev) => [...prev, userMessage]);
-    
-    // Simulate processing -> success/error
+
     const agentMessageId = (Date.now() + 1).toString();
-    
+
     // Show processing state
     setTimeout(() => {
       setMessages((prev) => [
@@ -256,14 +239,13 @@ export default function Workspace() {
           content: "",
           timestamp: new Date(),
           status: "processing",
-          attachments,
         },
       ]);
     }, 500);
-    
-    // Simulate AI response (success or error randomly for demo)
+
+    // Simulate AI response
     setTimeout(() => {
-      setMessages((prev) => 
+      setMessages((prev) =>
         prev.map((msg) => {
           if (msg.id === agentMessageId) {
             // Demo: 80% success, 20% error
@@ -294,98 +276,116 @@ export default function Workspace() {
     }, 2000);
   };
 
-  // Tab state (replaces floating windows)
-  const [openTabIds, setOpenTabIds]   = useState<string[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  // Real message handler using SignalR
+  const handleSendMessageReal = async (content: string, attachments?: Attachment[]) => {
+    // Create user message immediately
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      type: "user",
+      content: content.trim(),
+      attachments,
+      timestamp: new Date(),
+      status: "sending",
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    
+    try {
+      // Upload attachments if any
+      let attachmentIds: string[] | undefined;
+      if (attachments && attachments.length > 0) {
+        const filesToUpload = attachments
+          .filter((a) => a.file)
+          .map((a) => a.file!);
+        
+        if (filesToUpload.length > 0) {
+          const uploadedAttachments = await chatService.uploadChatAttachments(filesToUpload);
+          attachmentIds = uploadedAttachments.map((a) => a.id);
+          
+          // Update user message with server IDs
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === userMessage.id
+                ? { ...msg, attachments: applyServerIds(attachments, uploadedAttachments) }
+                : msg
+            )
+          );
+        }
+      }
+      
+      // Send message via SignalR
+      await chatHub.sendMessage({
+        content: content.trim(),
+        attachmentIds: attachmentIds || null,
+        context: null,
+      });
+      
+      // Update user message status
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === userMessage.id ? { ...msg, status: undefined } : msg
+        )
+      );
+    } catch (sendError) {
+      console.error("Failed to send message:", sendError);
+      toast.error("Не удалось отправить сообщение");
+      
+      // Update user message to show error
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === userMessage.id
+            ? { ...msg, status: "error" as const, errorMessage: "Ошибка отправки" }
+            : msg
+        )
+      );
+    }
+  };
+
+  const handleSendMessage = (content: string, attachments?: Attachment[]) => {
+    // Don't send if no content and no attachments
+    if (!content.trim() && (!attachments || attachments.length === 0)) {
+      return;
+    }
+    
+    if (isMockMode) {
+      handleSendMessageMock(content, attachments);
+    } else {
+      handleSendMessageReal(content, attachments);
+    }
+  };
 
   // ── Tab management ──────────────────────────────────────────────────────────
 
   const handleOpenTab = (fileId: string) => {
-    setOpenTabIds((prev) => (prev.includes(fileId) ? prev : [...prev, fileId]));
-    setActiveTabId(fileId);
-    setViewMode("editor");
+    openTab(fileId);
   };
 
   const handleCloseTab = (fileId: string) => {
-    setOpenTabIds((prev) => {
-      const next = prev.filter((id) => id !== fileId);
-
-      // If we closed the active tab, pick an adjacent one
-      if (activeTabId === fileId) {
-        const idx = prev.indexOf(fileId);
-        const newActive = next[idx] ?? next[idx - 1] ?? null;
-        setActiveTabId(newActive);
-        if (newActive === null) {
-          if (selectedFolderPath) {
-            setViewMode("folder");
-          } else {
-            setViewMode("chat");
-          }
-        }
-      }
-
-      return next;
-    });
+    closeTab(fileId);
   };
 
   const handleSwitchTab = (fileId: string) => {
-    setActiveTabId(fileId);
-    setViewMode("editor");
+    switchTab(fileId);
   };
 
   // ── File management ─────────────────────────────────────────────────────────
 
   const handleUpdateFileContent = (fileId: string, content: string) => {
-    setFiles((prev) =>
-      prev.map((f) => (f.id === fileId ? { ...f, content } : f))
-    );
+    updateFile(fileId, { content });
   };
 
   const handleCreateFile = (file: FileItem, openAfterCreate: boolean = true) => {
-    setFiles((prev) => [...prev, file]);
-    if (openAfterCreate) {
-      // Small delay so the file is in state before opening the tab
-      setTimeout(() => handleOpenTab(file.id), 50);
-    }
+    createFile(file, openAfterCreate);
   };
 
   const handleDeleteFile = (fileId: string) => {
-    setFiles((prev) => prev.filter((f) => f.id !== fileId));
-    handleCloseTab(fileId);
+    deleteFile(fileId);
   };
 
   const handleUpdateFile = (fileId: string, updates: Partial<FileItem>) => {
-    setFiles((prev) =>
-      prev.map((f) => (f.id === fileId ? { ...f, ...updates } : f))
-    );
+    updateFile(fileId, updates);
   };
 
   // ── Folder navigation ───────────────────────────────────────────────────────
-
-  const getFolderByPath = (path: string[]): Folder | null => {
-    let current: Folder[] = folders;
-    for (let i = 0; i < path.length; i++) {
-      const idx = parseInt(path[i]);
-      if (!current[idx]) return null;
-      if (i === path.length - 1) return current[idx];
-      if (!current[idx].subfolders) return null;
-      current = current[idx].subfolders!;
-    }
-    return null;
-  };
-
-  const buildBreadcrumbs = (path: string[]): string[] => {
-    const crumbs: string[] = [];
-    let current: Folder[] = folders;
-    for (let i = 0; i < path.length; i++) {
-      const idx = parseInt(path[i]);
-      if (current[idx]) {
-        crumbs.push(current[idx].name);
-        if (current[idx].subfolders) current = current[idx].subfolders!;
-      }
-    }
-    return crumbs;
-  };
 
   const handleFolderClick = (_folder: Folder, path: string[]) => {
     setSelectedFolderPath(path);
@@ -446,9 +446,6 @@ export default function Workspace() {
     setSelectedFolderPath(selectedFolderPath.slice(0, index + 1));
   };
 
-  const selectedFolder      = selectedFolderPath ? getFolderByPath(selectedFolderPath) : null;
-  const selectedBreadcrumbs = selectedFolderPath ? buildBreadcrumbs(selectedFolderPath) : [];
-
   // ── Navigate to folder by file's folderId ──────────────────────────────────
 
   const findFolderPathById = useCallback((folderId: string): string[] | null => {
@@ -474,16 +471,6 @@ export default function Workspace() {
       setViewMode("folder");
     }
   }, [findFolderPathById]);
-
-  // ── Computed tab data ──────────────────────────────────────────────────────
-
-  const openTabs = openTabIds
-    .map((id) => files.find((f) => f.id === id))
-    .filter(Boolean) as FileItem[];
-
-  const activeFile = activeTabId
-    ? files.find((f) => f.id === activeTabId) ?? null
-    : null;
 
   const handleToggleSidebar = () => {
     const panel = sidebarRef.current;
@@ -514,10 +501,6 @@ export default function Workspace() {
             onExpand={() => setIsSidebarCollapsed(false)}
           >
             <Sidebar
-              folders={folders}
-              setFolders={setFolders}
-              onFolderClick={handleFolderClick}
-              onUpdateFolder={handleUpdateFolder}
               onLogoClick={handleGoToChat}
               onToggleSidebar={handleToggleSidebar}
               isCollapsed={isSidebarCollapsed}
@@ -545,27 +528,22 @@ export default function Workspace() {
               <div className="flex-1 overflow-hidden">
                 {viewMode === "editor" ? (
                   <TabsWorkspace
-                    activeFile={activeFile}
+                    activeFile={activeTab}
                     onUpdateFileContent={handleUpdateFileContent}
                   />
 
                 ) : viewMode === "folder" ? (
-                  selectedFolder && selectedFolderPath ? (
-                    <FolderContentView
-                      folder={selectedFolder}
-                      breadcrumbs={selectedBreadcrumbs}
-                      onBack={handleNavigateBack}
-                      onUpdateFolder={(updates) =>
-                        handleUpdateFolder(selectedFolderPath, updates)
-                      }
-                      onNavigateToSubfolder={handleNavigateToSubfolder}
-                      onBreadcrumbClick={handleBreadcrumbClick}
-                      files={files}
-                      onOpenFile={handleOpenTab}
-                      onCreateFile={handleCreateFile}
-                      onDeleteFile={handleDeleteFile}
-                      onUpdateFile={handleUpdateFile}
-                    />
+                  currentFolder && selectedFolderPath ? (
+                    <WorkspaceErrorBoundary onReset={() => {
+                      setViewMode('chat');
+                      setSelectedFolderPath(null);
+                    }}>
+                      <FolderContentView
+                        onBack={handleNavigateBack}
+                        onNavigateToSubfolder={handleNavigateToSubfolder}
+                        onBreadcrumbClick={handleBreadcrumbClick}
+                      />
+                    </WorkspaceErrorBoundary>
                   ) : null
 
                 ) : (
@@ -587,8 +565,8 @@ export default function Workspace() {
                         <ChatMessages 
                           messages={messages} 
                           onOpenFolder={(folderId) => {
-                            // TODO: Navigate to folder
-                            console.log("Open folder:", folderId);
+                            // Navigate to folder
+                            handleNavigateToFolder(folderId);
                           }}
                           onUndo={(messageId) => {
                             // Set cancelled = true instead of removing message
@@ -599,12 +577,16 @@ export default function Workspace() {
                             );
                           }}
                           onRetry={(messageId) => {
-                            // TODO: Implement retry
-                            console.log("Retry:", messageId);
+                            // Implement retry logic
+                            setMessages((prev) => 
+                              prev.map((m) => 
+                                m.id === messageId ? { ...m, status: "processing" as const } : m
+                              )
+                            );
                           }}
                           onSelectFolder={(messageId) => {
-                            // TODO: Show folder picker
-                            console.log("Select folder for:", messageId);
+                            // Show folder picker
+                            setViewMode("folder");
                           }}
                           onResend={(messageId) => {
                             // Find the message and resend it

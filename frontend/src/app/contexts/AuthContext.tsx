@@ -16,8 +16,6 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const USE_MOCK_AUTH = import.meta.env.VITE_USE_MOCK_AUTH === "true";
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthenticatedUser | null>(() => {
     try {
@@ -40,12 +38,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const performLogin = async (loginValue: string, password: string) => {
-    if (USE_MOCK_AUTH) {
-      setUser({ id: "mock-user-id", login: loginValue || "user" });
-      localStorage.setItem(LOCAL_STORAGE_AUTH_TOKEN_KEY, "mock-token");
-      return;
-    }
-
     const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -75,12 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const performRegister = async (loginValue: string, password: string) => {
-    if (USE_MOCK_AUTH) {
-      setUser({ id: "mock-user-id", login: loginValue || "user" });
-      localStorage.setItem(LOCAL_STORAGE_AUTH_TOKEN_KEY, "mock-token");
-      return;
-    }
-
     const response = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

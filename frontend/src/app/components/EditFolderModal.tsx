@@ -7,8 +7,8 @@ interface EditFolderModalProps {
   onClose: () => void;
   folderName: string;
   folderEmoji: string;
-  currentDescription: string;
-  onSave: (name: string, emoji: string, description: string) => void;
+  currentPrompt: string;
+  onSave: (name: string, emoji: string, prompt: string) => void;
 }
 
 export function EditFolderModal({
@@ -16,25 +16,25 @@ export function EditFolderModal({
   onClose,
   folderName,
   folderEmoji,
-  currentDescription,
+  currentPrompt,
   onSave,
 }: EditFolderModalProps) {
   const [name, setName] = useState(folderName);
   const [emoji, setEmoji] = useState(folderEmoji);
-  const [description, setDescription] = useState(currentDescription);
+  const [prompt, setPrompt] = useState(currentPrompt);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setName(folderName);
     setEmoji(folderEmoji);
-    setDescription(currentDescription);
+    setPrompt(currentPrompt);
     setIsEmojiPickerOpen(false);
-  }, [folderName, folderEmoji, currentDescription, isOpen]);
+  }, [folderName, folderEmoji, currentPrompt, isOpen]);
 
   const handleSave = () => {
     if (!name.trim()) return;
-    onSave(name, emoji, description);
+    onSave(name, emoji, prompt);
     setIsEmojiPickerOpen(false);
     onClose();
   };
@@ -83,14 +83,14 @@ export function EditFolderModal({
 
         {/* Content */}
         <div className="px-6 py-5">
-          {/* Description for AI */}
+          {/* Prompt for AI */}
           <div>
             <label className="text-sm font-medium text-gray-300 mb-2 block">
-              Описание папки
+              Инструкция для ИИ
             </label>
             <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
               placeholder="Опишите, какие файлы и заметки должны попадать в эту папку..."
               className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-indigo-500/50 transition-colors"
               rows={6}

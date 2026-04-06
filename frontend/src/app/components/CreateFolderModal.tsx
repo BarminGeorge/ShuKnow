@@ -5,22 +5,22 @@ import { EmojiPicker } from "./EmojiPicker";
 interface CreateFolderModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreateFolder: (name: string, emoji: string, description: string) => void;
+  onCreateFolder: (name: string, emoji: string, prompt: string) => void;
 }
 
 export function CreateFolderModal({ isOpen, onClose, onCreateFolder }: CreateFolderModalProps) {
   const [folderName, setFolderName] = useState("");
   const [folderEmoji, setFolderEmoji] = useState("");
-  const [description, setDescription] = useState("");
+  const [prompt, setPrompt] = useState("");
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
 
   const handleCreate = () => {
     if (folderName.trim()) {
-      onCreateFolder(folderName, folderEmoji, description);
+      onCreateFolder(folderName, folderEmoji, prompt);
       setFolderName("");
       setFolderEmoji("");
-      setDescription("");
+      setPrompt("");
       setIsEmojiPickerOpen(false);
       onClose();
     }
@@ -29,7 +29,7 @@ export function CreateFolderModal({ isOpen, onClose, onCreateFolder }: CreateFol
   const handleClose = () => {
     setFolderName("");
     setFolderEmoji("");
-    setDescription("");
+    setPrompt("");
     setIsEmojiPickerOpen(false);
     onClose();
   };
@@ -79,14 +79,14 @@ export function CreateFolderModal({ isOpen, onClose, onCreateFolder }: CreateFol
 
         {/* Content */}
         <div className="px-6 py-5">
-          {/* Description for AI */}
+          {/* Prompt for AI */}
           <div>
             <label className="text-sm font-medium text-gray-300 mb-2 block">
-              Описание папки
+              Инструкция для ИИ
             </label>
             <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
               placeholder="Опишите, какие файлы и заметки должны попадать в эту папку..."
               className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-indigo-500/50 transition-colors"
               rows={4}

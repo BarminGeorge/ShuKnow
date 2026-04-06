@@ -9,21 +9,21 @@ import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router";
 import { folderService, ApiError } from "../../api";
 import { toast } from "sonner";
-import type { Folder } from "../Workspace";
-
-const IS_MOCK_MODE_ENABLED = import.meta.env.VITE_USE_MOCK_AUTH === "true";
+import type { Folder } from "../../api/types";
+import { useFolders } from "../hooks/useFolders";
+import { useWorkspaceView } from "../hooks/useWorkspaceView";
 
 interface SidebarProps {
-  folders: Folder[];
-  setFolders: React.Dispatch<React.SetStateAction<Folder[]>>;
-  onFolderClick: (folder: Folder, path: string[]) => void;
-  onUpdateFolder: (path: string[], updates: Partial<Folder>) => void;
   onLogoClick: () => void;
   onToggleSidebar?: () => void;
   isCollapsed?: boolean;
 }
 
-export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, onLogoClick, onToggleSidebar, isCollapsed }: SidebarProps) {
+export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarProps) {
+  // Jotai hooks
+  const { folders, setFolders, updateFolder, createFolder, moveFolderAtom } = useFolders();
+  const { setSelectedFolderPath, setViewMode } = useWorkspaceView();
+  
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -158,10 +158,6 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
 
     setFolders(applyMove);
 
-    if (IS_MOCK_MODE_ENABLED) {
-      return;
-    }
-
     try {
       await folderService.moveFolder(draggedFolder.id, { newParentFolderId });
     } catch (apiError) {
@@ -181,39 +177,19 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
     }
   }, [folders, setFolders]);
 
-  const handleCreateFolder = (name: string, emoji: string, description: string) => {
+  const handleCreateFolder = (name: string, emoji: string, prompt: string) => {
     const newFolder: Folder = {
       id: Date.now().toString(),
       name,
       emoji,
-      description,
+      prompt,
+      description: "",
+      sortOrder: 0,
+      fileCount: 0,
+      subfolders: [],
     };
 
-    if (createFolderParentPath === null) {
-      setFolders([...folders, newFolder]);
-    } else {
-      setFolders((previousFolders) => {
-        const clonedFolders = JSON.parse(JSON.stringify(previousFolders)) as Folder[];
-        const path = createFolderParentPath;
-
-        let currentFolderList: Folder[] = clonedFolders;
-        for (let pathIndex = 0; pathIndex < path.length; pathIndex++) {
-          const folderIndex = parseInt(path[pathIndex]);
-          if (pathIndex === path.length - 1) {
-            if (!currentFolderList[folderIndex].subfolders) {
-              currentFolderList[folderIndex].subfolders = [];
-            }
-            currentFolderList[folderIndex].subfolders!.push(newFolder);
-          } else {
-            if (!currentFolderList[folderIndex].subfolders) return previousFolders;
-            currentFolderList = currentFolderList[folderIndex].subfolders!;
-          }
-        }
-
-        return clonedFolders;
-      });
-    }
-
+    createFolder(newFolder, createFolderParentPath);
     setCreateFolderParentPath(null);
   };
 
@@ -231,10 +207,10 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
     setEditFolderState({ isOpen: true, folder, path });
   };
 
-  const handleSaveFolderEdit = (name: string, emoji: string, description: string) => {
+  const handleSaveFolderEdit = (name: string, emoji: string, prompt: string) => {
     if (!editFolderState.path.length) return;
     
-    onUpdateFolder(editFolderState.path, { name, emoji, description });
+    updateFolder(editFolderState.path, { name, emoji, prompt });
     setEditFolderState({ isOpen: false, folder: null, path: [] });
   };
 
@@ -249,9 +225,7 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
     const { folder, path } = deleteFolderState;
     if (!folder) return;
 
-    if (!IS_MOCK_MODE_ENABLED) {
-      await folderService.deleteFolder(folder.id, isRecursiveDelete);
-    }
+    await folderService.deleteFolder(folder.id, isRecursiveDelete);
 
     setFolders((previousFolders) => {
       const clonedFolders = JSON.parse(JSON.stringify(previousFolders)) as Folder[];
@@ -310,7 +284,10 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
               key={folder.id}
               className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/10 cursor-pointer transition-colors flex-shrink-0"
               title={folder.name}
-              onClick={() => onFolderClick(folder, [index.toString()])}
+              onClick={() => {
+                setSelectedFolderPath([index.toString()]);
+                setViewMode('folder');
+              }}
             >
               <span className="text-xl select-none">{folder.emoji || "📁"}</span>
             </div>
@@ -395,7 +372,6 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
             folder={folder}
             path={[index.toString()]}
             moveFolder={moveFolder}
-            onFolderClick={onFolderClick}
             onEditFolder={handleEditFolder}
             onAddSubfolder={handleAddSubfolder}
             onDeleteFolder={handleDeleteFolder}
@@ -435,7 +411,7 @@ export function Sidebar({ folders, setFolders, onFolderClick, onUpdateFolder, on
         onClose={() => setEditFolderState({ isOpen: false, folder: null, path: [] })}
         folderName={editFolderState.folder?.name || ""}
         folderEmoji={editFolderState.folder?.emoji || ""}
-        currentDescription={editFolderState.folder?.description || ""}
+        currentPrompt={editFolderState.folder?.prompt || ""}
         onSave={handleSaveFolderEdit}
       />
       <DeleteFolderModal
