@@ -24,12 +24,7 @@ public class ChatNotificationService(
 
     public Task SendClassificationResultAsync(Guid operationId, IReadOnlyCollection<ClassificationDecisionNotification> decisions, CancellationToken ct = default)
     {
-        var decisionsDto = decisions.Select(x => new ClassificationDecisionDto(
-            x.FileName, 
-            x.TargetFolderName, 
-            x.TargetFolderId, 
-            x.IsNewFolder)).ToList();
-
+        var decisionsDto = decisions.Select(x => x.ToDto()).ToList();
         return SendEventAsync(nameof(ChatHub.OnClassificationResult), new ClassificationResultEvent(operationId, decisionsDto), ct);
     }
 

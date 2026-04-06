@@ -53,4 +53,13 @@ public static class ModelToDtoMappers
             notification.HasChildren,
             null);
     }
+
+    public static ClassificationDecisionDto ToDto(this ClassificationDecisionNotification notification)
+    {
+        return new ClassificationDecisionDto(
+            notification.FileName,
+            notification.TargetFolderName,
+            notification.TargetFolderId,
+            notification.IsNewFolder);
+    }
 }
