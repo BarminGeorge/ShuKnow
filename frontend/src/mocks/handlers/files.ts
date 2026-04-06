@@ -88,4 +88,32 @@ export const fileHandlers = [
     Object.assign(file, body);
     return HttpResponse.json(file);
   }),
+
+  // PATCH /api/files/:id/content (lightweight text update)
+  http.patch(`${API_BASE}/files/:id/content`, async ({ params, request }) => {
+    const { id } = params;
+    const file = MOCK_FILES.find(f => f.id === id);
+    if (!file) {
+      return new HttpResponse(null, { status: 404 });
+    }
+    const body = await request.json() as any;
+    if (body.content !== undefined) {
+      file.content = body.content;
+    }
+    return HttpResponse.json(file);
+  }),
+
+  // PATCH /api/files/:id/reorder
+  http.patch(`${API_BASE}/files/:id/reorder`, async ({ params, request }) => {
+    const { id } = params;
+    const file = MOCK_FILES.find(f => f.id === id);
+    if (!file) {
+      return new HttpResponse(null, { status: 404 });
+    }
+    const body = await request.json() as any;
+    if (body.position !== undefined) {
+      file.sortOrder = body.position;
+    }
+    return HttpResponse.json(file);
+  }),
 ];

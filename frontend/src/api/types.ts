@@ -2,6 +2,7 @@ export interface FolderTreeNodeDto {
   id: string;
   name: string;
   description?: string;
+  emoji?: string;
   sortOrder: number;
   fileCount: number;
   children: FolderTreeNodeDto[];
@@ -11,6 +12,7 @@ export interface FolderDto {
   id: string;
   name: string;
   description?: string;
+  emoji?: string;
   parentFolderId: string | null;
   sortOrder: number;
   fileCount: number;
@@ -21,12 +23,14 @@ export interface FolderDto {
 export interface CreateFolderRequest {
   name: string;
   description?: string;
+  emoji?: string;
   parentFolderId?: string | null;
 }
 
 export interface UpdateFolderRequest {
   name?: string;
   description?: string;
+  emoji?: string;
 }
 
 export interface MoveFolderRequest {
@@ -47,6 +51,8 @@ export interface FileDto {
   sizeBytes: number;
   version: number;
   checksumSha256?: string | null;
+  createdAt?: string;
+  sortOrder?: number;
 }
 
 export interface UpdateFileRequest {
@@ -56,6 +62,10 @@ export interface UpdateFileRequest {
 
 export interface MoveFileRequest {
   targetFolderId: string;
+}
+
+export interface ReorderFileRequest {
+  position: number;
 }
 
 export interface PagedFileResult {
@@ -91,6 +101,7 @@ export interface FileItem {
   // UI-специфичные поля:
   type?: "text" | "photo" | "pdf" | "other";
   createdAt?: string;
+  sortOrder?: number;
 }
 
 export type FileDisplayType = "text" | "photo" | "pdf" | "other";
@@ -113,6 +124,7 @@ export function mapFolderTreeNodeToFolder(node: FolderTreeNodeDto): Folder {
     id: node.id,
     name: node.name,
     description: node.description,
+    emoji: node.emoji,
     sortOrder: node.sortOrder,
     fileCount: node.fileCount,
     subfolders: node.children.map(mapFolderTreeNodeToFolder),
@@ -128,6 +140,8 @@ export function mapFileDtoToFileItem(dto: FileDto): FileItem {
     contentType: dto.contentType,
     sizeBytes: dto.sizeBytes,
     contentUrl: `/api/files/${dto.id}/content`,
+    createdAt: dto.createdAt,
+    sortOrder: dto.sortOrder,
   };
 }
 

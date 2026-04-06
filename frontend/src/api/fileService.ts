@@ -4,6 +4,7 @@ import {
   PagedFileResult,
   UpdateFileRequest,
   MoveFileRequest,
+  ReorderFileRequest,
   FileItem,
   mapFileDtoToFileItem,
 } from "./types";
@@ -103,6 +104,16 @@ export async function moveFile(
   });
 }
 
+export async function reorderFile(
+  fileId: string,
+  request: ReorderFileRequest
+): Promise<FileDto> {
+  return apiRequest<FileDto>(`/api/files/${fileId}/reorder`, {
+    method: "PATCH",
+    body: JSON.stringify(request),
+  });
+}
+
 export function buildFileContentUrl(fileId: string): string {
   return `/api/files/${fileId}/content`;
 }
@@ -148,4 +159,18 @@ export async function updateFileContent(
   }
 
   return response.json();
+}
+
+/**
+ * Lightweight PATCH for text content updates (autosave).
+ * Uses JSON body instead of multipart/form-data.
+ */
+export async function patchFileContent(
+  fileId: string,
+  content: string
+): Promise<FileDto> {
+  return apiRequest<FileDto>(`/api/files/${fileId}/content`, {
+    method: "PATCH",
+    body: JSON.stringify({ content }),
+  });
 }
