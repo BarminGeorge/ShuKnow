@@ -12,16 +12,6 @@ using TornadoChatMessage = LlmTornado.Chat.ChatMessage;
 
 namespace ShuKnow.Infrastructure.Services;
 
-public interface ITornadoConversationFactory
-{
-    Result<ITornadoConversation> CreateConversation(
-        UserAiSettings settings,
-        IReadOnlyCollection<Tool> tools,
-        double temperature);
-
-    Result<ITornadoConversation> CreateSimpleConversation(UserAiSettings settings);
-}
-
 public class TornadoConversationFactory(IEncryptionService encryptionService) : ITornadoConversationFactory
 {
     public Result<ITornadoConversation> CreateConversation(
