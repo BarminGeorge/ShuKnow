@@ -1,4 +1,5 @@
 ﻿using Ardalis.Result;
+using LlmTornado.Chat;
 using Microsoft.Extensions.Logging;
 using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
@@ -24,11 +25,11 @@ public class TornadoAiService(
         return await chatService.GetOrCreateActiveSessionAsync(ct)
             .BindAsync(session => conversationFactory.CreateConversation(settings, toolsService.Tools, Temperature)
                 .ActAsync(conversation => promptBuilder.CreateSystemInstructions(ct)
-                    .Act(instructions => conversation.PrependSystemMessage(instructions)))
+                    .Act(conversation.PrependSystemMessage))
                 .ActAsync(conversation => promptBuilder.GetPreviousMessages(ct)
-                    .Act(messages => conversation.AddMessages(messages)))
+                    .Act(conversation.AddMessages))
                 .ActAsync(conversation => promptBuilder.CreateUserMessages(content, attachmentIds, ct)
-                    .Act(parts => conversation.AddUserMessage(parts)))
+                    .Act(conversation.AddUserMessage))
                 .BindAsync(conversation => RunWithTools(conversation, ct))
                 .ActAsync(_ => chatService.PersistMessageAsync(ChatMessage.CreateUserMessage(session.Id, content), ct))
                 .ActAsync(response =>
@@ -71,6 +72,7 @@ public class TornadoAiService(
 
     private async Task<Result<string>> RunConnectionTest(ITornadoConversation conversation, CancellationToken ct = default)
     {
+        conversation.AddUserMessage([new ChatMessagePart("Say 'ok' to confirm the connection works.")]);
         var response = await conversation.GetResponseAsync(ct);
         if (response.Exception is null && response.HasData)
             return Result.Success(response.Text ?? string.Empty);

@@ -42,7 +42,7 @@ public class TornadoPromptBuilder(
                 foreach (var attachment in attachments)
                 {
                     messageParts.Add(new ChatMessagePart(
-                        $"Attachement: `{attachment.FileName}` ({attachment.ContentType})"));
+                        $"Attachment: `{attachment.FileName}` ({attachment.ContentType})"));
                     
                     var partResult = await blobStorageService.GetAsync(attachment.BlobId, ct).ToBase64Async(ct)
                         .BindAsync(base64 => CreateMessagePart(base64, attachment))
