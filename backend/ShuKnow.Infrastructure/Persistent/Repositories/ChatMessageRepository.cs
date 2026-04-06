@@ -18,7 +18,19 @@ public class ChatMessageRepository(AppDbContext context) : IChatMessageRepositor
         string? cursor,
         int limit)
     {
-        var query = await ApplyCursorFilterAsync(GetBaseQuery(sessionId), cursor);
+        var query = GetBaseQuery(sessionId);
+
+        if (!string.IsNullOrWhiteSpace(cursor))
+        {
+            if (!TryParseCursor(cursor, sessionId, out var cursorData))
+                return Result.Invalid(new ValidationError("Invalid or tampered cursor provided."));
+
+            query = query.Where(m =>
+                (cursorData.Index == null && m.Index != null) ||
+                m.Index > cursorData.Index ||
+                (m.Index == cursorData.Index && m.Id.CompareTo(cursorData.Id) > 0));
+        }
+
         var messages = await query.Take(limit + 1).ToListAsync();
 
         return Result.Success(CreatePageResult(messages, limit));
@@ -40,22 +52,43 @@ public class ChatMessageRepository(AppDbContext context) : IChatMessageRepositor
             .OrderBy(m => m.Index)
             .ThenBy(m => m.Id);
 
-    private async Task<IQueryable<ChatMessage>> ApplyCursorFilterAsync(IQueryable<ChatMessage> query, string? cursor) =>
-        Guid.TryParse(cursor, out var cursorId) && await GetCursorDataAsync(cursorId) is { } cursorData
-            ? query.Where(m => m.Index > cursorData.Index || (m.Index == cursorData.Index && m.Id.CompareTo(cursorData.Id) > 0))
-            : query;
+    private static bool TryParseCursor(string encodedCursor, Guid expectedSessionId, out CursorData cursorData)
+    {
+        cursorData = default;
 
-    private async Task<CursorData?> GetCursorDataAsync(Guid cursorId) =>
-        await context.ChatMessages
-            .AsNoTracking()
-            .Where(m => m.Id == cursorId)
-            .Select(m => new CursorData(m.Index, m.Id))
-            .FirstOrDefaultAsync();
+        Span<byte> buffer = new byte[encodedCursor.Length];
+        if (!Convert.TryFromBase64String(encodedCursor, buffer, out var bytesWritten))
+            return false;
+
+        var str = System.Text.Encoding.UTF8.GetString(buffer[..bytesWritten]);
+        var parts = str.Split('|');
+        if (parts.Length != 3) return false;
+
+        if (!Guid.TryParse(parts[0], out var sessionId) || sessionId != expectedSessionId) return false;
+
+        int? index = null;
+        if (!string.IsNullOrEmpty(parts[1]))
+        {
+            if (!int.TryParse(parts[1], out var parsedIndex)) return false;
+            index = parsedIndex;
+        }
+
+        if (!Guid.TryParse(parts[2], out var id)) return false;
+
+        cursorData = new CursorData(index, id);
+        return true;
+    }
+
+    private static string EncodeCursor(ChatMessage message)
+    {
+        var str = $"{message.SessionId:N}|{message.Index}|{message.Id:N}";
+        return Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(str));
+    }
 
     private static (IReadOnlyList<ChatMessage> Messages, string? NextCursor) CreatePageResult(List<ChatMessage> messages, int limit) =>
         messages.Count > limit
-            ? (messages.GetRange(0, limit).AsReadOnly(), messages[limit - 1].Id.ToString())
+            ? (messages.GetRange(0, limit).AsReadOnly(), EncodeCursor(messages[limit - 1]))
             : (messages.AsReadOnly(), null);
 
-    private record CursorData(int? Index, Guid Id);
+    private readonly record struct CursorData(int? Index, Guid Id);
 }

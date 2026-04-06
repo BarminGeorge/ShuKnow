@@ -64,7 +64,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(m => m.Role)
                 .HasConversion<int>();
 
-            entity.HasIndex(m => new { m.SessionId, m.Index });
+            entity.HasIndex(m => new { m.SessionId, m.Index, m.Id });
         });
 
         modelBuilder.Entity<UserAiSettings>(entity =>
