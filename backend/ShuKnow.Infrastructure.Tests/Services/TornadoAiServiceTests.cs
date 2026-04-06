@@ -169,7 +169,7 @@ public class TornadoAiServiceTests
     {
         var previousMessage = ChatMessage.CreateSystemMessage(session.Id, "existing instruction");
         chatService.GetMessagesAsync(Arg.Any<CancellationToken>())
-            .Returns(Success<IReadOnlyList<ChatMessage>>([previousMessage]));
+            .Returns(Success<IReadOnlyCollection<ChatMessage>>([previousMessage]));
 
         await sut.ProcessMessageAsync("hello", attachmentIds: null, settings);
 
@@ -183,7 +183,7 @@ public class TornadoAiServiceTests
     public async Task ProcessMessageAsync_WhenNoPreviousMessages_ShouldAddEmptyList()
     {
         chatService.GetMessagesAsync(Arg.Any<CancellationToken>())
-            .Returns(Success<IReadOnlyList<ChatMessage>>([]));
+            .Returns(Success<IReadOnlyCollection<ChatMessage>>([]));
 
         await sut.ProcessMessageAsync("hello", attachmentIds: null, settings);
 
@@ -607,7 +607,7 @@ public class TornadoAiServiceTests
         chatService.GetOrCreateActiveSessionAsync(Arg.Any<CancellationToken>())
             .Returns(Success(session));
         chatService.GetMessagesAsync(Arg.Any<CancellationToken>())
-            .Returns(Success<IReadOnlyList<ChatMessage>>([]));
+            .Returns(Success<IReadOnlyCollection<ChatMessage>>([]));
         chatService.PersistMessageAsync(Arg.Any<ChatMessage>(), Arg.Any<CancellationToken>())
             .Returns(callInfo => Success(callInfo.Arg<ChatMessage>()));
 

@@ -305,7 +305,7 @@ public class TornadoAiServiceLiveTests
         chatService.GetOrCreateActiveSessionAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success(session)));
         chatService.GetMessagesAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Success<IReadOnlyList<ChatMessage>>([])));
+            .Returns(Task.FromResult(Result.Success<IReadOnlyCollection<ChatMessage>>([])));
         chatService.PersistMessageAsync(Arg.Any<ChatMessage>(), Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
