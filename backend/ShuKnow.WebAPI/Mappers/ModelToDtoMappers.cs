@@ -1,9 +1,9 @@
+using ShuKnow.Application.Models.Notifications;
 using ShuKnow.Domain.Entities;
 using ShuKnow.WebAPI.Dto.Auth;
 using ShuKnow.WebAPI.Dto.Chat;
 using ShuKnow.WebAPI.Dto.Files;
 using ShuKnow.WebAPI.Dto.Folders;
-using File = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.WebAPI.Mappers;
 
@@ -24,33 +24,33 @@ public static class ModelToDtoMappers
             null);
     }
 
-    public static FileDto ToDto(this File file, string folderName = "")
+    public static FileDto ToDto(this FileNotification notification)
     {
         return new FileDto(
-            file.Id,
-            file.FolderId,
-            folderName,
-            file.Name,
-            file.Description,
-            file.ContentType,
-            file.SizeBytes,
-            file.Version,
-            file.ChecksumSha256,
-            file.SortOrder,
-            file.CreatedAt);
+            notification.Entity.Id,
+            notification.Entity.FolderId,
+            notification.FolderName,
+            notification.Entity.Name,
+            notification.Entity.Description,
+            notification.Entity.ContentType,
+            notification.Entity.SizeBytes,
+            notification.Entity.Version,
+            notification.Entity.ChecksumSha256,
+            notification.Entity.SortOrder,
+            notification.Entity.CreatedAt);
     }
 
-    public static FolderDto ToDto(this Folder folder)
+    public static FolderDto ToDto(this FolderNotification notification)
     {
         return new FolderDto(
-            folder.Id,
-            folder.Name,
-            folder.Description,
-            folder.Emoji,
-            folder.ParentFolderId,
-            folder.SortOrder,
-            0,
-            false,
+            notification.Entity.Id,
+            notification.Entity.Name,
+            notification.Entity.Description,
+            notification.Entity.Emoji,
+            notification.Entity.ParentFolderId,
+            notification.Entity.SortOrder,
+            notification.FileCount,
+            notification.HasChildren,
             null);
     }
 }
