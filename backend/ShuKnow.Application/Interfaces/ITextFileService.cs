@@ -7,7 +7,7 @@ public interface ITextFileService
 {
     Task<Result<File>> CreateAsync(string filePath, string content, CancellationToken ct = default); 
     
-    Task<Result> AppendTextAsync(Guid fileId, string text, CancellationToken ct = default);
+    Task<Result> AppendTextAsync(string filePath, string text, CancellationToken ct = default);
 
-    Task<Result> PrependTextAsync(Guid fileId, string text, CancellationToken ct = default);
+    Task<Result> PrependTextAsync(string filePath, string text, CancellationToken ct = default);
 }

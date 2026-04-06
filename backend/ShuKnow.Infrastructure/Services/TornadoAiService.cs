@@ -14,7 +14,7 @@ public class TornadoAiService(
     IChatService chatService,
     TornadoToolsService toolsService,
     ITornadoConversationFactory conversationFactory,
-    ILogger<TornadoAiService> logger)
+    ILogger<TornadoAiService> logger) : IAiService
 {
     private const double Temperature = 0.3;
     private const int MaxTurns = 10;

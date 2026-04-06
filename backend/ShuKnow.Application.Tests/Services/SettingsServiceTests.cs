@@ -210,7 +210,7 @@ public class SettingsServiceTests
 
         var tested = CreateSettings(lastTestSuccess: true, lastTestLatencyMs: 150);
         aiService.TestConnectionAsync(settings, Arg.Any<CancellationToken>())
-            .Returns(Success(tested));
+            .Returns(tested);
 
         var result = await sut.TestConnectionAsync();
 
@@ -230,7 +230,7 @@ public class SettingsServiceTests
 
         var tested = CreateSettings(lastTestSuccess: false, lastTestLatencyMs: null, lastTestError: "Connection refused");
         aiService.TestConnectionAsync(settings, Arg.Any<CancellationToken>())
-            .Returns(Success(tested));
+            .Returns(tested);
 
         var result = await sut.TestConnectionAsync();
 
@@ -240,21 +240,6 @@ public class SettingsServiceTests
         result.Value.ErrorMessage.Should().Be("Connection refused");
         await settingsRepository.Received(1).UpsertAsync(tested);
         await unitOfWork.Received(1).SaveChangesAsync();
-    }
-
-    [Test]
-    public async Task TestConnectionAsync_WhenAiServiceReturnsError_ShouldPropagateWithoutPersisting()
-    {
-        var settings = CreateSettings();
-        settingsRepository.GetByUserAsync(currentUserId).Returns(Success(settings));
-        aiService.TestConnectionAsync(settings, Arg.Any<CancellationToken>())
-            .Returns(Error<UserAiSettings>());
-
-        var result = await sut.TestConnectionAsync();
-
-        result.Status.Should().Be(ResultStatus.Error);
-        await settingsRepository.DidNotReceive().UpsertAsync(Arg.Any<UserAiSettings>());
-        await unitOfWork.DidNotReceive().SaveChangesAsync();
     }
 
     #endregion
