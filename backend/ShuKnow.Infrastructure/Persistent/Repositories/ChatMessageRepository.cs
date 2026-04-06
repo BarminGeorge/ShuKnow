@@ -25,10 +25,18 @@ public class ChatMessageRepository(AppDbContext context) : IChatMessageRepositor
             if (!TryParseCursor(cursor, sessionId, out var cursorData))
                 return Result.Invalid(new ValidationError("Invalid or tampered cursor provided."));
 
-            query = query.Where(m =>
-                (cursorData.Index == null && m.Index != null) ||
-                m.Index > cursorData.Index ||
-                (m.Index == cursorData.Index && m.Id.CompareTo(cursorData.Id) > 0));
+            if (cursorData.Index.HasValue)
+            {
+                query = query.Where(m =>
+                    m.Index > cursorData.Index ||
+                    m.Index == null ||
+                    (m.Index == cursorData.Index && m.Id.CompareTo(cursorData.Id) > 0));
+            }
+            else
+            {
+                query = query.Where(m =>
+                    m.Index == null && m.Id.CompareTo(cursorData.Id) > 0);
+            }
         }
 
         var messages = await query.Take(limit + 1).ToListAsync();

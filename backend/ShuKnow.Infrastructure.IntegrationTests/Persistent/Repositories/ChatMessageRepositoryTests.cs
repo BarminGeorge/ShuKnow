@@ -85,9 +85,11 @@ public class ChatMessageRepositoryTests : BaseRepositoryTests
     [Test]
     public async Task GetPageAsync_WithForeignCursor_ShouldReturnInvalid()
     {
-        var user = await SeedUserAsync();
-        var session1 = await SeedSessionAsync(user.Id);
-        var session2 = await SeedSessionAsync(user.Id);
+        var user1 = await SeedUserAsync();
+        var session1 = await SeedSessionAsync(user1.Id);
+        
+        var user2 = await SeedUserAsync();
+        var session2 = await SeedSessionAsync(user2.Id);
 
         await SeedMessagesAsync(session1.Id, 1, 2);
         var s1Page = await sut.GetPageAsync(session1.Id, null, 1);
