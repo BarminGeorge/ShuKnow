@@ -39,4 +39,15 @@ public static class TornadoMappers
             _ => throw new ArgumentOutOfRangeException(nameof(role), role, null)
         };
     }
+
+    public static Result<ChatAudioFormats> MapToAudioFormat(this string mimeType)
+    {
+        return mimeType switch
+        {
+            "audio/mpeg" => ChatAudioFormats.Mp3,
+            "audio/wav" => ChatAudioFormats.Wav,
+            "audio/L16" => ChatAudioFormats.L16,
+            _ => Result.Invalid(new ValidationError($"Unsupported audio MIME type: {mimeType}"))
+        };
+    }
 }

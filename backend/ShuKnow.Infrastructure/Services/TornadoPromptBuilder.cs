@@ -1,9 +1,13 @@
 ﻿using Ardalis.Result;
 using LlmTornado.Chat;
+using LlmTornado.Code;
 using LlmTornado.Images;
+using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.Domain.Entities;
 using ShuKnow.Infrastructure.Extensions;
 using ShuKnow.Infrastructure.Misc;
+using ChatMessage = LlmTornado.Chat.ChatMessage;
 
 namespace ShuKnow.Infrastructure.Services;
 
@@ -37,15 +41,30 @@ public class TornadoPromptBuilder(
             {
                 foreach (var attachment in attachments)
                 {
-                    var base64Result = await blobStorageService.GetAsync(attachment.BlobId, ct).ToBase64Async(ct);
-                    if (!base64Result.IsSuccess)
-                        return base64Result.Map();
+                    messageParts.Add(new ChatMessagePart(
+                        $"Attachement: `{attachment.FileName}` ({attachment.ContentType})"));
                     
-                    messageParts.Add(new ChatMessagePart($"Attachement: `{attachment.FileName}`"));
-                    messageParts.Add(new ChatMessagePart(base64Result.Value, ImageDetail.Auto, attachment.ContentType));
+                    var partResult = await blobStorageService.GetAsync(attachment.BlobId, ct).ToBase64Async(ct)
+                        .BindAsync(base64 => CreateMessagePart(base64, attachment))
+                        .Act(part => messageParts.Add(part));
+                    
+                    if (!partResult.IsSuccess)
+                        return partResult.Map();
                 }
 
                 return Result.Success(messageParts);
             });
+    }
+
+    private static Result<ChatMessagePart> CreateMessagePart(string base64Data, ChatAttachment attachment)
+    {
+        var prefix = attachment.ContentType.Split('/', 2)[0];
+        return prefix switch
+        {
+            "image" => new ChatMessagePart(base64Data, ImageDetail.Auto, attachment.ContentType),
+            "audio" => attachment.ContentType.MapToAudioFormat()
+                .Map(audioFormat => new ChatMessagePart(base64Data, audioFormat)),
+            _ => new ChatMessagePart(new ChatDocument(base64Data))
+        };
     }
 }

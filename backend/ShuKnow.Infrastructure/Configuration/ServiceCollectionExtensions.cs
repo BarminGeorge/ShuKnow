@@ -57,6 +57,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IEncryptionService, EncryptionService>();
         services.AddScoped<TornadoPromptBuilder>();
         services.AddScoped<TornadoToolsService>();
+        services.AddScoped<ITornadoConversationFactory, TornadoConversationFactory>();
         services.AddScoped<TornadoAiService>();
     }
 
