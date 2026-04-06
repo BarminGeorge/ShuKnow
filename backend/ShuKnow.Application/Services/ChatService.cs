@@ -60,7 +60,6 @@ public class ChatService(
                 session.Id == message.SessionId
                     ? Result.Success(session)
                     : Result<ChatSession>.NotFound()))
-            .Act(session => session.AddMessage(message))
             .BindAsync(_ => chatMessageRepository.AddAsync(message))
             .SaveChangesAsync(unitOfWork)
             .MapAsync(() => message);
