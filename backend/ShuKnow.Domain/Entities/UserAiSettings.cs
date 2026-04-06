@@ -37,7 +37,7 @@ public class UserAiSettings
         LastTestError = lastTestError;
     }
 
-    public void UpdateTestResult(bool success, int latencyMs, string? errorMessage)
+    public void UpdateTestResult(bool success, int? latencyMs, string? errorMessage)
     {
         LastTestSuccess = success;
         LastTestLatencyMs = latencyMs;

@@ -8,13 +8,13 @@ using ShuKnow.Application.Interfaces;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Extensions;
 using ShuKnow.Infrastructure.Extensions;
+using ShuKnow.Infrastructure.Misc;
 using ChatMessage = ShuKnow.Domain.Entities.ChatMessage;
 
 namespace ShuKnow.Infrastructure.Services;
 
 public class TornadoAiService(
     TornadoPromptBuilder promptBuilder,
-    ISettingsService settingsService,
     IEncryptionService encryptionService,
     IChatService chatService,
     TornadoAiToolsService toolsService,
@@ -24,10 +24,10 @@ public class TornadoAiService(
     private const int MaxTurns = 10;
 
     public async Task<Result> ProcessMessageAsync(string content, IReadOnlyCollection<Guid>? attachmentIds,
-        CancellationToken ct = default)
+        UserAiSettings settings, CancellationToken ct = default)
     {
         return await chatService.GetOrCreateActiveSessionAsync(ct)
-            .BindAsync(session => CreateConversation(ct)
+            .BindAsync(session => CreateConversation(settings)
                 .ActAsync(conversation => promptBuilder.CreateSystemInstructions(ct)
                     .Act(instructions => conversation.PrependSystemMessage(instructions)))
                 .ActAsync(conversation => promptBuilder.GetPreviousMessages(ct)
@@ -42,27 +42,37 @@ public class TornadoAiService(
             .BindAsync(_ => Result.Success());
     }
 
-    private async Task<Result<Conversation>> CreateConversation(CancellationToken ct = default)
+    public async Task<UserAiSettings> TestConnectionAsync(UserAiSettings settings, CancellationToken ct = default)
     {
-        // TODO: add reasoning helper to add reasoning according to specified provider
-        return await settingsService.GetOrCreateAsync(ct)
-            .BindAsync(settings => CreateApi(settings)
-                .Map(api => api.Chat.CreateConversation(new ChatRequest
-                {
-                    Model = new ChatModel(settings.ModelId, api.GetFirstAuthenticatedProvider()),
-                    Tools = toolsService.Tools,
-                    Temperature = Temperature
-                })));
+        var testResult = await CreateSimpleConversation(settings)
+            .BindAsync(conversation => LatencyMeasureUtil.MeasureAsync(() => RunConnectionTest(conversation, ct)));
+
+        var latency = testResult.IsSuccess ? (int?)testResult.Value : null;
+        var error = testResult.IsSuccess ? null : testResult.Errors.FirstOrDefault();
+        
+        settings.UpdateTestResult(testResult.IsSuccess, latency, error);
+        return settings;
     }
 
-    private async Task<Result<Conversation>> CreateSimpleConversation(CancellationToken ct = default)
+    private Result<Conversation> CreateConversation(UserAiSettings settings)
     {
-        return await settingsService.GetOrCreateAsync(ct)
-            .BindAsync(settings => CreateApi(settings)
-                .Map(api => api.Chat.CreateConversation(new ChatRequest
-                {
-                    Model = new ChatModel(settings.ModelId, api.GetFirstAuthenticatedProvider())
-                })));
+        // TODO: add reasoning helper to add reasoning according to specified provider
+        return CreateApi(settings)
+            .Map(api => api.Chat.CreateConversation(new ChatRequest
+            {
+                Model = new ChatModel(settings.ModelId, api.GetFirstAuthenticatedProvider()),
+                Tools = toolsService.Tools,
+                Temperature = Temperature
+            }));
+    }
+
+    private Result<Conversation> CreateSimpleConversation(UserAiSettings settings)
+    {
+        return CreateApi(settings)
+            .Map(api => api.Chat.CreateConversation(new ChatRequest
+            {
+                Model = new ChatModel(settings.ModelId, api.GetFirstAuthenticatedProvider())
+            }));
     }
 
     private Result<TornadoApi> CreateApi(UserAiSettings settings)
@@ -96,5 +106,15 @@ public class TornadoAiService(
         }
 
         return Result.Error($"Agent did not converge after {MaxTurns} iterations");
+    }
+
+    private async Task<Result<string>> RunConnectionTest(Conversation conversation, CancellationToken ct = default)
+    {
+        var safeResponse = await conversation.GetResponseRichSafe(ct);
+        if (safeResponse.Exception is null && safeResponse.Data is not null)
+            return Result.Success(safeResponse.Data.Text);
+        
+        logger.LogError(safeResponse.Exception, "Error while processing message with Tornado API");
+        return Result.Error("Error while processing message");
     }
 }

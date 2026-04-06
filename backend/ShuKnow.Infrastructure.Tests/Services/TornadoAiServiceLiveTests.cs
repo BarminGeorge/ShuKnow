@@ -29,7 +29,8 @@ public class TornadoAiServiceLiveTests
 
         var result = await fixture.Service.ProcessMessageAsync(
             "Коротко представься одним предложением без markdown.",
-            attachmentIds: null);
+            attachmentIds: null,
+            fixture.Settings);
 
         AssertResultOk(result, fixture.Logs);
         fixture.PersistedMessages.Should().HaveCount(2);
@@ -55,7 +56,8 @@ public class TornadoAiServiceLiveTests
 
         var result = await fixture.Service.ProcessMessageAsync(
             "Подтверди, что получил описание вложения, одним коротким предложением.",
-            [attachmentId]);
+            [attachmentId],
+            fixture.Settings);
 
         AssertResultOk(result, fixture.Logs);
         await fixture.AttachmentService.Received(1).GetByIdsAsync(
@@ -83,8 +85,7 @@ public class TornadoAiServiceLiveTests
         var attachmentService = Substitute.For<IAttachmentService>();
         attachmentService.GetByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(Result.Success(attachments));
-
-        var settingsService = Substitute.For<ISettingsService>();
+        
         var encryptionService = new EncryptionService(
             Options.Create(new EncryptionOptions { Key = EncryptionKey }));
         var encryptedApiKey = encryptionService.Encrypt(config.ApiKey).Value;
@@ -94,9 +95,6 @@ public class TornadoAiServiceLiveTests
             encryptedApiKey,
             config.Provider,
             config.ModelId);
-
-        settingsService.GetOrCreateAsync(Arg.Any<CancellationToken>())
-            .Returns(Result.Success(settings));
 
         var chatService = Substitute.For<IChatService>();
         var session = new ChatSession(Guid.NewGuid(), Guid.NewGuid());
@@ -126,13 +124,12 @@ public class TornadoAiServiceLiveTests
 
         var service = new TornadoAiService(
             promptBuilder,
-            settingsService,
             encryptionService,
             chatService,
             tornadoToolsService,
             testLogger);
 
-        return new TornadoAiFixture(service, attachmentService, persistedMessages, testLogger.Logs);
+        return new TornadoAiFixture(service, settings, attachmentService, persistedMessages, testLogger.Logs);
     }
 
     private static TornadoAiLiveTestConfig LoadConfigurationOrIgnore()
@@ -170,6 +167,7 @@ public class TornadoAiServiceLiveTests
 
     private record TornadoAiFixture(
         TornadoAiService Service,
+        UserAiSettings Settings,
         IAttachmentService AttachmentService,
         List<ChatMessage> PersistedMessages,
         List<string> Logs);
