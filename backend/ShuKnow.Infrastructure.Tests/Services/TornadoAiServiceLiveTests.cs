@@ -1,7 +1,7 @@
 using Ardalis.Result;
 using AwesomeAssertions;
 using dotenv.net;
-using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using ShuKnow.Application.Common;
@@ -31,7 +31,7 @@ public class TornadoAiServiceLiveTests
             "Коротко представься одним предложением без markdown.",
             attachmentIds: null);
 
-        result.Status.Should().Be(ResultStatus.Ok);
+        AssertResultOk(result, fixture.Logs);
         fixture.PersistedMessages.Should().HaveCount(2);
         fixture.PersistedMessages[0].Role.Should().Be(ChatMessageRole.User);
         fixture.PersistedMessages[0].Content.Should().Be("Коротко представься одним предложением без markdown.");
@@ -57,7 +57,7 @@ public class TornadoAiServiceLiveTests
             "Подтверди, что получил описание вложения, одним коротким предложением.",
             [attachmentId]);
 
-        result.Status.Should().Be(ResultStatus.Ok);
+        AssertResultOk(result, fixture.Logs);
         await fixture.AttachmentService.Received(1).GetByIdsAsync(
             Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Count == 1 && ids.Contains(attachmentId)),
             Arg.Any<CancellationToken>());
@@ -66,13 +66,23 @@ public class TornadoAiServiceLiveTests
         fixture.PersistedMessages[1].Content.Should().NotBeNullOrWhiteSpace();
     }
 
+    private static void AssertResultOk(Result result, IReadOnlyList<string> logs)
+    {
+        if (result.Status != ResultStatus.Ok)
+        {
+            var errors = string.Join("; ", result.Errors);
+            var logOutput = string.Join(Environment.NewLine, logs);
+            Assert.Fail($"Result status is {result.Status}. Errors: {errors}. Logs:{Environment.NewLine}{logOutput}");
+        }
+    }
+
     private static TornadoAiFixture CreateFixture(
         TornadoAiLiveTestConfig config,
         IReadOnlyList<ChatAttachment> attachments)
     {
         var attachmentService = Substitute.For<IAttachmentService>();
         attachmentService.GetByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(Result.Success<IReadOnlyList<ChatAttachment>>(attachments));
+            .Returns(Result.Success(attachments));
 
         var settingsService = Substitute.For<ISettingsService>();
         var encryptionService = new EncryptionService(
@@ -110,15 +120,19 @@ public class TornadoAiServiceLiveTests
         toolsService.CreateTextFileAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(callInfo => Result.Success($"created file {callInfo.ArgAt<string>(0)}"));
 
+        var promptBuilder = new TornadoPromptBuilder(attachmentService, chatService);
+        var tornadoToolsService = new TornadoAiToolsService(toolsService);
+        var testLogger = new TestLogger<TornadoAiService>();
+
         var service = new TornadoAiService(
-            attachmentService,
+            promptBuilder,
             settingsService,
             encryptionService,
             chatService,
-            toolsService,
-            NullLogger<TornadoAiService>.Instance);
+            tornadoToolsService,
+            testLogger);
 
-        return new TornadoAiFixture(service, attachmentService, persistedMessages);
+        return new TornadoAiFixture(service, attachmentService, persistedMessages, testLogger.Logs);
     }
 
     private static TornadoAiLiveTestConfig LoadConfigurationOrIgnore()
@@ -157,5 +171,24 @@ public class TornadoAiServiceLiveTests
     private record TornadoAiFixture(
         TornadoAiService Service,
         IAttachmentService AttachmentService,
-        List<ChatMessage> PersistedMessages);
+        List<ChatMessage> PersistedMessages,
+        List<string> Logs);
+
+    private class TestLogger<T> : ILogger<T>
+    {
+        public List<string> Logs { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => null!;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            var message = $"[{logLevel}] {formatter(state, exception)}";
+            if (exception is not null)
+                message += $"{Environment.NewLine}{exception}";
+            Logs.Add(message);
+        }
+    }
 }
