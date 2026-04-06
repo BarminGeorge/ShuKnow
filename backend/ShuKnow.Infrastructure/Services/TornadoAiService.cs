@@ -17,7 +17,7 @@ public class TornadoAiService(
     TornadoPromptBuilder promptBuilder,
     IEncryptionService encryptionService,
     IChatService chatService,
-    TornadoAiToolsService toolsService,
+    TornadoToolsService toolsService,
     ILogger<TornadoAiService> logger)
 {
     private const double Temperature = 0.3;

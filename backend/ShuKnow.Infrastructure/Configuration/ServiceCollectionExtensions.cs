@@ -56,7 +56,7 @@ public static class ServiceCollectionExtensions
             serviceProvider.GetRequiredService<BlobDeletionQueue>());
         services.AddScoped<IEncryptionService, EncryptionService>();
         services.AddScoped<TornadoPromptBuilder>();
-        services.AddScoped<TornadoAiToolsService>();
+        services.AddScoped<TornadoToolsService>();
         services.AddScoped<TornadoAiService>();
     }
 

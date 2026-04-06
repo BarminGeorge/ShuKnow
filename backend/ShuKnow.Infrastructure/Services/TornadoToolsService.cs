@@ -6,14 +6,16 @@ using static ShuKnow.Infrastructure.Misc.TornadoAiToolUtil;
 
 namespace ShuKnow.Infrastructure.Services;
 
-public class TornadoAiToolsService(IAiToolsService toolsService)
+public class TornadoToolsService(IAiToolsService toolsService)
 {
     public List<Tool> Tools { get; } =
     [
-        // TODO: add description
-        CreateTool(toolsService.CreateFolderAsync, "create_folder", ""),
-        CreateTool(toolsService.CreateTextFileAsync, "create_text_file", ""),
-        // TODO: add other tools
+        CreateTool(toolsService.CreateFolderAsync, "create_folder", "Creates a new folder at the specified path with a description and an emoji."),
+        CreateTool(toolsService.CreateTextFileAsync, "create_text_file", "Creates a new text file at the specified path with the given content."),
+        CreateTool(toolsService.SaveAttachment, "save_attachment", "Saves an attachment to the specified file path."),
+        CreateTool(toolsService.AppendTextAsync, "append_text", "Appends text to an existing file at the specified path."),
+        CreateTool(toolsService.PrependTextAsync, "prepend_text", "Prepends text to an existing file at the specified path."),
+        CreateTool(toolsService.MoveFileAsync, "move_file", "Moves a file from the source path to the destination path."),
     ];
 
     public async ValueTask DispatchToolCalls(List<FunctionCall> calls, CancellationToken ct = default)

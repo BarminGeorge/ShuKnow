@@ -120,7 +120,7 @@ public class TornadoAiServiceLiveTests
             .Returns(callInfo => Result.Success($"created file {callInfo.ArgAt<string>(0)}"));
 
         var promptBuilder = new TornadoPromptBuilder(attachmentService, chatService);
-        var tornadoToolsService = new TornadoAiToolsService(toolsService);
+        var tornadoToolsService = new TornadoToolsService(toolsService);
         var testLogger = new TestLogger<TornadoAiService>();
 
         var service = new TornadoAiService(
