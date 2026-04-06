@@ -55,6 +55,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IHostedService>(static serviceProvider =>
             serviceProvider.GetRequiredService<BlobDeletionQueue>());
         services.AddScoped<IEncryptionService, EncryptionService>();
+        services.AddScoped<TornadoPromptBuilder>();
+        services.AddScoped<TornadoAiToolsService>();
+        services.AddScoped<TornadoAiService>();
     }
 
     private static void AddBlobStorage(this IServiceCollection services, IConfiguration configuration)
