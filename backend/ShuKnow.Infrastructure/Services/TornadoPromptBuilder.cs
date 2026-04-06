@@ -1,12 +1,15 @@
 ﻿using Ardalis.Result;
 using LlmTornado.Chat;
+using LlmTornado.Images;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Infrastructure.Extensions;
+using ShuKnow.Infrastructure.Misc;
 
 namespace ShuKnow.Infrastructure.Services;
 
 public class TornadoPromptBuilder(
     IAttachmentService attachmentService,
+    IBlobStorageService blobStorageService,
     IChatService chatService)
 {
     public async Task<Result<string>> CreateSystemInstructions(CancellationToken ct = default)
@@ -30,15 +33,19 @@ public class TornadoPromptBuilder(
             return Result.Success(messageParts);
 
         return await attachmentService.GetByIdsAsync(attachmentIds, ct)
-            .MapAsync(attachments =>
+            .BindAsync(async attachments =>
             {
                 foreach (var attachment in attachments)
                 {
-                    messageParts.Add(new ChatMessagePart($"File: `{attachment.FileName}`"));
-                    // TODO: add blob (after rebase on main)
+                    var base64Result = await blobStorageService.GetAsync(attachment.BlobId, ct).ToBase64Async(ct);
+                    if (!base64Result.IsSuccess)
+                        return base64Result.Map();
+                    
+                    messageParts.Add(new ChatMessagePart($"Attachement: `{attachment.FileName}`"));
+                    messageParts.Add(new ChatMessagePart(base64Result.Value, ImageDetail.Auto, attachment.ContentType));
                 }
 
-                return messageParts;
+                return Result.Success(messageParts);
             });
     }
 }

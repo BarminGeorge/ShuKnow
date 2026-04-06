@@ -52,6 +52,7 @@ public class TornadoAiServiceLiveTests
             "notes.txt",
             "text/plain",
             128);
+        attachment.BlobId = Guid.NewGuid();
 
         var fixture = CreateFixture(config, [attachment]);
 
@@ -64,6 +65,7 @@ public class TornadoAiServiceLiveTests
         await fixture.AttachmentService.Received(1).GetByIdsAsync(
             Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Count == 1 && ids.Contains(attachmentId)),
             Arg.Any<CancellationToken>());
+        await fixture.BlobStorageService.Received(1).GetAsync(attachment.BlobId, Arg.Any<CancellationToken>());
         fixture.PersistedMessages.Should().HaveCount(2);
         fixture.PersistedMessages[1].Role.Should().Be(ChatMessageRole.Ai);
         fixture.PersistedMessages[1].Content.Should().NotBeNullOrWhiteSpace();
@@ -86,6 +88,10 @@ public class TornadoAiServiceLiveTests
         var attachmentService = Substitute.For<IAttachmentService>();
         attachmentService.GetByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(Result.Success(attachments));
+
+        var blobStorageService = Substitute.For<IBlobStorageService>();
+        blobStorageService.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Result.Success<Stream>(new MemoryStream("live-test-attachment"u8.ToArray())));
         
         var encryptionService = new EncryptionService(
             Options.Create(new EncryptionOptions { Key = EncryptionKey }));
@@ -119,7 +125,7 @@ public class TornadoAiServiceLiveTests
         toolsService.CreateTextFileAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(callInfo => Result.Success($"created file {callInfo.ArgAt<string>(0)}"));
 
-        var promptBuilder = new TornadoPromptBuilder(attachmentService, chatService);
+        var promptBuilder = new TornadoPromptBuilder(attachmentService, blobStorageService, chatService);
         var tornadoToolsService = new TornadoToolsService(toolsService);
         var testLogger = new TestLogger<TornadoAiService>();
 
@@ -130,7 +136,13 @@ public class TornadoAiServiceLiveTests
             tornadoToolsService,
             testLogger);
 
-        return new TornadoAiFixture(service, settings, attachmentService, persistedMessages, testLogger.Logs);
+        return new TornadoAiFixture(
+            service,
+            settings,
+            attachmentService,
+            blobStorageService,
+            persistedMessages,
+            testLogger.Logs);
     }
 
     private static TornadoAiLiveTestConfig LoadConfigurationOrIgnore()
@@ -170,6 +182,7 @@ public class TornadoAiServiceLiveTests
         TornadoAiService Service,
         UserAiSettings Settings,
         IAttachmentService AttachmentService,
+        IBlobStorageService BlobStorageService,
         List<ChatMessage> PersistedMessages,
         List<string> Logs);
 
