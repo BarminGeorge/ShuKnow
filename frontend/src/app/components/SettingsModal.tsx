@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { X, Eye, EyeOff, ArrowLeft, ChevronDown, Loader2 } from "lucide-react";
+import { X, Eye, EyeOff, ArrowLeft, ChevronDown, Loader2, User, Sparkles, Cpu, Key, Settings, CheckCircle2, AlertCircle, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { settingsService } from "../../api";
 import type { AiProvider, AiConnectionTestResult } from "../../api/types";
+import { Badge } from "./ui/badge";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -25,6 +26,14 @@ const PROVIDER_MODELS: Record<string, string> = {
   Anthropic: "claude-3-5-sonnet-20241022",
 };
 
+// Provider icons
+const PROVIDER_ICONS: Record<string, React.ReactNode> = {
+  OpenAI: <Sparkles size={16} className="text-green-400" />,
+  OpenRouter: <Cpu size={16} className="text-blue-400" />,
+  Gemini: <Sparkles size={16} className="text-purple-400" />,
+  Anthropic: <Sparkles size={16} className="text-orange-400" />,
+};
+
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [apiKey, setApiKey] = useState("");
   const [provider, setProvider] = useState("OpenAI");
@@ -36,6 +45,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<AiConnectionTestResult | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isConfigured, setIsConfigured] = useState(false);
   const { user } = useAuth();
 
   // Update base URL and model when provider changes
@@ -53,10 +63,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   const loadSettings = async () => {
     try {
-      setIsLoading(true);
       const settings = await settingsService.fetchAiSettings();
       
       setBaseUrl(settings.baseUrl || PROVIDER_URLS["OpenAI"]);
+      setIsConfigured(settings.isConfigured);
       
       // Convert provider from lowercase to PascalCase for UI
       const providerKey = settings.provider 
@@ -66,11 +76,22 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       
       setModelId(settings.modelId || PROVIDER_MODELS[providerKey]);
       setApiKey(""); // Don't load key for security
+      
+      // Auto-test connection if configured
+      if (settings.isConfigured) {
+        setIsTesting(true);
+        try {
+          const result = await settingsService.testAiConnection();
+          setTestResult(result);
+        } catch (error) {
+          console.error("Auto-test failed:", error);
+        } finally {
+          setIsTesting(false);
+        }
+      }
     } catch (error) {
       console.error("Failed to load settings:", error);
       toast.error("Не удалось загрузить настройки");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -115,6 +136,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         
         if (result.success) {
           toast.success(`Подключение успешно (${result.latencyMs}ms)`);
+          setIsConfigured(true);
           // Close editing form only on successful test
           setTimeout(() => {
             setIsEditingKey(false);
@@ -151,6 +173,28 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     return key.substring(0, 3) + "••••••••••••" + key.substring(key.length - 3);
   };
 
+  const handleQuickTest = async () => {
+    if (!isConfigured) return;
+    
+    try {
+      setIsTesting(true);
+      const result = await settingsService.testAiConnection();
+      setTestResult(result);
+      
+      if (result.success) {
+        toast.success(`Подключение успешно (${result.latencyMs}ms)`);
+      } else {
+        toast.error(result.errorMessage || "Не удалось подключиться");
+      }
+    } catch (error) {
+      console.error("Test failed:", error);
+      const errorMsg = error instanceof Error ? error.message : "Не удалось выполнить тест";
+      toast.error(errorMsg);
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={handleClose}>
       <div 
@@ -173,50 +217,127 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         {/* Content */}
         <div className="px-6 py-6 max-h-[70vh] overflow-y-auto">
           {!isEditingKey ? (
-            isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 size={24} className="animate-spin text-gray-400" />
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Account Section */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">Аккаунт</h3>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs text-gray-400 block mb-1">Логин</label>
-                      <div className="w-full px-4 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-400">
-                        {user?.login || "—"}
-                      </div>
+            <div className="space-y-6">
+              {/* Account Section */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-300 mb-3">Аккаунт</h3>
+                <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center">
+                      <User size={18} className="text-indigo-400" />
                     </div>
-                    <button className="w-full px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 hover:text-gray-200 transition-colors text-sm">
-                      Сменить пароль
-                    </button>
+                    <div className="flex-1">
+                      <div className="text-xs text-gray-500">Логин</div>
+                      <div className="text-sm font-medium text-gray-200">{user?.login || "—"}</div>
+                    </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-white/10" />
+
+              {/* API Settings Section */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium text-gray-300">API Настройки</h3>
+                  {isTesting ? (
+                    <div className="flex items-center gap-1.5 text-gray-400">
+                      <Loader2 size={14} className="animate-spin" />
+                      <span className="text-xs">Проверка...</span>
+                    </div>
+                  ) : (
+                    <>
+                      {isConfigured && testResult?.success && (
+                        <Badge className="bg-green-500/10 text-green-400 border-green-500/20 flex items-center gap-1">
+                          <CheckCircle2 size={12} />
+                          Подключено
+                        </Badge>
+                      )}
+                      {isConfigured && testResult && !testResult.success && (
+                        <Badge className="bg-red-500/10 text-red-400 border-red-500/20 flex items-center gap-1">
+                          <AlertCircle size={12} />
+                          Ошибка
+                        </Badge>
+                      )}
+                      {!isConfigured && (
+                        <Badge className="bg-gray-500/10 text-gray-400 border-gray-500/20">
+                          Не настроено
+                        </Badge>
+                      )}
+                    </>
+                  )}
                 </div>
 
-                {/* API Key Section */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">API Настройки</h3>
-                  <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-4 flex justify-between items-center">
-                    <div className="flex flex-col gap-1.5">
-                      <span className="text-sm font-medium text-gray-200">{provider} — {modelId}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-400 font-mono tracking-wider">
-                          {maskKey(apiKey)}
-                        </span>
-                      </div>
+                {!isConfigured ? (
+                  // Empty state
+                  <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6 text-center">
+                    <div className="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center mx-auto mb-3">
+                      <Key size={20} className="text-indigo-400" />
                     </div>
+                    <h4 className="text-sm font-medium text-gray-200 mb-1">
+                      API ключ не настроен
+                    </h4>
+                    <p className="text-xs text-gray-500 mb-4">
+                      Настройте подключение к AI провайдеру для начала работы
+                    </p>
                     <button
                       onClick={() => setIsEditingKey(true)}
-                      className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm text-gray-300 transition-colors whitespace-nowrap ml-4"
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm font-medium"
                     >
-                      Изменить API ключ
+                      Настроить API ключ
                     </button>
                   </div>
-                </div>
+                ) : (
+                  // Configured state
+                  <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-4 space-y-3">
+                    {/* Provider */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                        {PROVIDER_ICONS[provider] || <Sparkles size={16} className="text-indigo-400" />}
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs text-gray-500">Провайдер</div>
+                        <div className="text-sm font-medium text-gray-200">{provider}</div>
+                      </div>
+                    </div>
+
+                    {/* Model */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                        <Cpu size={16} className="text-purple-400" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs text-gray-500">Модель</div>
+                        <div className="text-sm font-medium text-gray-200">{modelId}</div>
+                      </div>
+                    </div>
+
+                    {/* API Key */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                        <Key size={16} className="text-green-400" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs text-gray-500">API ключ</div>
+                        <div className="text-sm font-mono text-gray-400">{maskKey(apiKey)}</div>
+                      </div>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="border-t border-white/10 pt-3">
+                      <button
+                        onClick={() => setIsEditingKey(true)}
+                        className="w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-gray-300 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Settings size={14} />
+                        Изменить настройки
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )
+            </div>
           ) : (
             <div className="space-y-5">
               <div>
@@ -327,6 +448,28 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           )}
         </div>
 
+        {/* Footer with quick actions */}
+        {!isEditingKey && isConfigured && (
+          <div className="border-t border-white/10 px-6 py-4 flex items-center justify-between">
+            <button
+              onClick={handleQuickTest}
+              disabled={isTesting}
+              className="text-sm text-gray-400 hover:text-gray-200 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isTesting ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Тестирование...
+                </>
+              ) : (
+                <>
+                  <Zap size={14} />
+                  Быстрый тест
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
       </div>
     </div>
