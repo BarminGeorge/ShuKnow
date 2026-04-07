@@ -54,12 +54,21 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     setModelId(PROVIDER_MODELS[provider] || "");
   }, [provider]);
 
-  // Load settings when modal opens
+  // Load settings when modal opens (only on initial open)
   useEffect(() => {
-    if (isOpen && !isEditingKey) {
+    if (isOpen) {
       loadSettings();
     }
-  }, [isOpen, isEditingKey]);
+  }, [isOpen]);
+
+  // Set default OpenAI values when opening edit form for unconfigured API
+  useEffect(() => {
+    if (isEditingKey && !isConfigured) {
+      setProvider("OpenAI");
+      setBaseUrl(PROVIDER_URLS["OpenAI"]);
+      setModelId(PROVIDER_MODELS["OpenAI"]);
+    }
+  }, [isEditingKey, isConfigured]);
 
   const loadSettings = async () => {
     try {
@@ -126,8 +135,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         modelId: modelId || undefined,
       });
       
-      toast.success("Настройки сохранены");
-      
       // Automatically run connection test
       setIsTesting(true);
       try {
@@ -135,13 +142,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         setTestResult(result);
         
         if (result.success) {
-          toast.success(`Подключение успешно (${result.latencyMs}ms)`);
           setIsConfigured(true);
-          // Close editing form only on successful test
-          setTimeout(() => {
-            setIsEditingKey(false);
-            setApiKey("");
-          }, 1500);
+          // Close editing form immediately on successful test
+          setIsEditingKey(false);
+          setApiKey("");
         } else {
           toast.error(result.errorMessage || "Не удалось подключиться");
         }
@@ -181,9 +185,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       const result = await settingsService.testAiConnection();
       setTestResult(result);
       
-      if (result.success) {
-        toast.success(`Подключение успешно (${result.latencyMs}ms)`);
-      } else {
+      if (!result.success) {
         toast.error(result.errorMessage || "Не удалось подключиться");
       }
     } catch (error) {
@@ -430,21 +432,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               </div>
 
               {saveError && (
-                <div className="p-3 rounded-lg text-sm bg-red-500/10 text-red-400 border border-red-500/20">
+                <div className="p-3 rounded-lg text-sm bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                   {saveError}
                 </div>
               )}
 
-              {testResult && (
-                <div className={`p-3 rounded-lg text-sm ${
-                  testResult.success 
-                    ? "bg-green-500/10 text-green-400 border border-green-500/20" 
-                    : "bg-red-500/10 text-red-400 border border-red-500/20"
-                }`}>
-                  {testResult.success 
-                    ? `✓ Подключение успешно (${testResult.latencyMs}ms)`
-                    : `✗ ${testResult.errorMessage}`
-                  }
+              {testResult && !testResult.success && (
+                <div className="p-3 rounded-lg text-sm bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  ✗ {testResult.errorMessage}
                 </div>
               )}
 
