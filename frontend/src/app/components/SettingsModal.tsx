@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Eye, EyeOff, ArrowLeft, ChevronDown, Loader2, User, Sparkles, Cpu, Key, Settings, CheckCircle2, AlertCircle, Zap } from "lucide-react";
+import { X, Eye, EyeOff, ArrowLeft, ChevronDown, Loader2, User, Sparkles, Cpu, Key, Settings, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { settingsService } from "../../api";
@@ -241,32 +241,47 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-medium text-gray-300">API Настройки</h3>
-                  {isTesting ? (
-                    <div className="flex items-center gap-1.5 text-gray-400">
-                      <Loader2 size={14} className="animate-spin" />
-                      <span className="text-xs">Проверка...</span>
-                    </div>
-                  ) : (
-                    <>
-                      {isConfigured && testResult?.success && (
-                        <Badge className="bg-green-500/10 text-green-400 border-green-500/20 flex items-center gap-1">
-                          <CheckCircle2 size={12} />
-                          Подключено
-                        </Badge>
-                      )}
-                      {isConfigured && testResult && !testResult.success && (
-                        <Badge className="bg-red-500/10 text-red-400 border-red-500/20 flex items-center gap-1">
-                          <AlertCircle size={12} />
-                          Ошибка
-                        </Badge>
-                      )}
-                      {!isConfigured && (
-                        <Badge className="bg-gray-500/10 text-gray-400 border-gray-500/20">
-                          Не настроено
-                        </Badge>
-                      )}
-                    </>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {/* Refresh button - only show if configured */}
+                    {isConfigured && (
+                      <button
+                        onClick={handleQuickTest}
+                        disabled={isTesting}
+                        className={`w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 transition-colors disabled:cursor-not-allowed
+                          ${isTesting ? 'text-gray-500' : 'text-gray-400 hover:text-gray-200'}`}
+                      >
+                        <RefreshCw size={14} className={isTesting ? "animate-spin" : ""} />
+                      </button>
+                    )}
+
+                    {/* Status badge */}
+                    {isTesting ? (
+                      <Badge className="bg-gray-500/10 text-gray-400 border-gray-500/20 flex items-center gap-1 w-[120px]">
+                        <AlertCircle size={12} />
+                        Проверка
+                      </Badge>
+                    ) : (
+                      <>
+                        {isConfigured && testResult?.success && (
+                          <Badge className="bg-green-500/10 text-green-400 border-green-500/20 flex items-center gap-1 w-[120px]">
+                            <CheckCircle2 size={12} />
+                            Подключено
+                          </Badge>
+                        )}
+                        {isConfigured && testResult && !testResult.success && (
+                          <Badge className="bg-red-500/10 text-red-400 border-red-500/20 flex items-center gap-1 w-[120px]">
+                            <AlertCircle size={12} />
+                            Ошибка
+                          </Badge>
+                        )}
+                        {!isConfigured && (
+                          <Badge className="bg-gray-500/10 text-gray-400 border-gray-500/20 w-[120px]">
+                            Не настроено
+                          </Badge>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {!isConfigured ? (
@@ -447,29 +462,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
           )}
         </div>
-
-        {/* Footer with quick actions */}
-        {!isEditingKey && isConfigured && (
-          <div className="border-t border-white/10 px-6 py-4 flex items-center justify-between">
-            <button
-              onClick={handleQuickTest}
-              disabled={isTesting}
-              className="text-sm text-gray-400 hover:text-gray-200 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isTesting ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  Тестирование...
-                </>
-              ) : (
-                <>
-                  <Zap size={14} />
-                  Быстрый тест
-                </>
-              )}
-            </button>
-          </div>
-        )}
 
       </div>
     </div>
