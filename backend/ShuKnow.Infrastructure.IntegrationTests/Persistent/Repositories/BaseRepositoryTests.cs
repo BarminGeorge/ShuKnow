@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using ShuKnow.Infrastructure.Persistent;
 using Testcontainers.PostgreSql;
 
@@ -60,11 +60,11 @@ public class BaseRepositoryTests
     private async Task ResetDatabaseAsync()
     {
         await using var resetContext = CreateDbContext();
-        
-        resetContext.RemoveRange(resetContext.Users);
-        resetContext.RemoveRange(resetContext.IdentityUsers);
-        resetContext.RemoveRange(resetContext.ChatSessions);
-        resetContext.RemoveRange(resetContext.UserAiSettings);
-        await resetContext.SaveChangesAsync();
+
+        await resetContext.Folders.ExecuteDeleteAsync();
+        await resetContext.UserAiSettings.ExecuteDeleteAsync();
+        await resetContext.ChatSessions.ExecuteDeleteAsync();
+        await resetContext.Users.ExecuteDeleteAsync();
+        await resetContext.IdentityUsers.ExecuteDeleteAsync();
     }
 }

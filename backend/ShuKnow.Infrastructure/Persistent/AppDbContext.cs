@@ -7,6 +7,7 @@ namespace ShuKnow.Infrastructure.Persistent;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<User> Users { get; set; }
+    public DbSet<Folder> Folders { get; set; }
     public DbSet<IdentityUser> IdentityUsers { get; set; }
     public DbSet<ChatSession> ChatSessions { get; set; }
     public DbSet<UserAiSettings> UserAiSettings { get; set; }
@@ -29,6 +30,28 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasOne<User>()
                 .WithOne()
                 .HasForeignKey<IdentityUser>(iu => iu.Id)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Folder>(entity =>
+        {
+            entity.ToTable("folders");
+            entity.HasKey(folder => folder.Id);
+
+            entity.Property(folder => folder.Name)
+                .HasMaxLength(256);
+
+            entity.HasIndex(folder => new { folder.UserId, folder.ParentFolderId, folder.SortOrder });
+            entity.HasIndex(folder => new { folder.UserId, folder.ParentFolderId, folder.Name });
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(folder => folder.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne<Folder>()
+                .WithMany()
+                .HasForeignKey(folder => folder.ParentFolderId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
