@@ -36,6 +36,7 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [apiKey, setApiKey] = useState("");
+  const [apiKeyMasked, setApiKeyMasked] = useState("");
   const [provider, setProvider] = useState("OpenAI");
   const [baseUrl, setBaseUrl] = useState(PROVIDER_URLS["OpenAI"]);
   const [modelId, setModelId] = useState("gpt-4o");
@@ -63,10 +64,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   // Set default OpenAI values when opening edit form for unconfigured API
   useEffect(() => {
-    if (isEditingKey && !isConfigured) {
-      setProvider("OpenAI");
-      setBaseUrl(PROVIDER_URLS["OpenAI"]);
-      setModelId(PROVIDER_MODELS["OpenAI"]);
+    if (isEditingKey) {
+      if (!isConfigured) {
+        // First time setup - set OpenAI defaults
+        setProvider("OpenAI");
+        setBaseUrl(PROVIDER_URLS["OpenAI"]);
+        setModelId(PROVIDER_MODELS["OpenAI"]);
+      }
+      // Always clear API key when opening edit form
+      setApiKey("");
     }
   }, [isEditingKey, isConfigured]);
 
@@ -76,6 +82,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       
       setBaseUrl(settings.baseUrl || PROVIDER_URLS["OpenAI"]);
       setIsConfigured(settings.isConfigured);
+      setApiKeyMasked(settings.apiKeyMasked || "");
       
       // Convert provider from lowercase to PascalCase for UI
       const providerKey = settings.provider 
@@ -143,6 +150,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         
         if (result.success) {
           setIsConfigured(true);
+          // Update masked key for display
+          const masked = apiKey.length > 6
+            ? apiKey.substring(0, 3) + '***' + apiKey.substring(apiKey.length - 3)
+            : '***';
+          setApiKeyMasked(masked);
           // Close editing form immediately on successful test
           setIsEditingKey(false);
           setApiKey("");
@@ -337,7 +349,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       </div>
                       <div className="flex-1">
                         <div className="text-xs text-gray-500">API ключ</div>
-                        <div className="text-sm font-mono text-gray-400">{maskKey(apiKey)}</div>
+                        <div className="text-sm font-mono text-gray-400">{apiKeyMasked || "Не задан"}</div>
                       </div>
                     </div>
 
