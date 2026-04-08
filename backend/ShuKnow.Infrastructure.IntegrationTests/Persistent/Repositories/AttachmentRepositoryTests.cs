@@ -61,8 +61,8 @@ public class AttachmentRepositoryTests : BaseRepositoryTests
     public async Task AddRangeAsync_WhenCommitted_ShouldPersistAttachments()
     {
         var user = await SeedUserAsync();
-        var attachment1 = new ChatAttachment(Guid.NewGuid(), user.Id, "file1.txt", "text/plain", 100);
-        var attachment2 = new ChatAttachment(Guid.NewGuid(), user.Id, "file2.pdf", "application/pdf", 2000);
+        var attachment1 = new ChatAttachment(Guid.NewGuid(), user.Id, Guid.NewGuid(), "file1.txt", "text/plain", 100);
+        var attachment2 = new ChatAttachment(Guid.NewGuid(), user.Id, Guid.NewGuid(), "file2.pdf", "application/pdf", 2000);
         attachment1.BlobId = Guid.NewGuid();
         attachment2.BlobId = Guid.NewGuid();
 
@@ -85,7 +85,7 @@ public class AttachmentRepositoryTests : BaseRepositoryTests
     public async Task AddRangeAsync_WhenUserDoesNotExist_ShouldFailOnSave()
     {
         var nonExistentUserId = Guid.NewGuid();
-        var attachment = new ChatAttachment(Guid.NewGuid(), nonExistentUserId, "file.txt", "text/plain", 100);
+        var attachment = new ChatAttachment(Guid.NewGuid(), nonExistentUserId, Guid.NewGuid(), "file.txt", "text/plain", 100);
         attachment.BlobId = Guid.NewGuid();
 
         var result = await sut.AddRangeAsync([attachment]);
@@ -245,11 +245,11 @@ public class AttachmentRepositoryTests : BaseRepositoryTests
         var attachment = new ChatAttachment(
             attachmentId ?? Guid.NewGuid(),
             userId,
+            blobId ?? Guid.NewGuid(),
             fileName,
             contentType,
             sizeBytes);
 
-        attachment.BlobId = blobId ?? Guid.NewGuid();
         attachment.IsConsumed = isConsumed;
 
         await using var seedContext = CreateDbContext();

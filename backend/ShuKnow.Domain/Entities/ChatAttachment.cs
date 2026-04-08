@@ -20,12 +20,14 @@ public class ChatAttachment : IEntity<Guid>
     public ChatAttachment(
         Guid attachmentId,
         Guid userId,
+        Guid blobId,
         string fileName,
         string contentType,
         long sizeBytes)
     {
         Id = attachmentId;
         UserId = userId;
+        BlobId = blobId;
         FileName = fileName;
         ContentType = contentType;
         SizeBytes = sizeBytes;

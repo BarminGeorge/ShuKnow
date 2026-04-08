@@ -243,6 +243,7 @@ public class AttachmentServiceTests
         return new ChatAttachment(
             attachmentId ?? Guid.NewGuid(),
             userId ?? currentUserId,
+            Guid.NewGuid(),
             fileName,
             contentType,
             sizeBytes);

@@ -54,5 +54,7 @@ internal class ChatAttachmentConfiguration : IEntityTypeConfiguration<ChatAttach
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(e => e.UserId);
+        builder.HasIndex(e => e.BlobId);
+        builder.HasIndex(e => e.CreatedAt);
     }
 }
