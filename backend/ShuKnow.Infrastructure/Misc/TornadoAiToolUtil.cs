@@ -244,7 +244,8 @@ public static class TornadoAiToolUtil
         var required = IsRequired(parameter);
 
         if (parameterType.IsEnum)
-            return new ToolParam(parameterName, new ToolParamEnum(description: null, [.. Enum.GetNames(parameterType)], required));
+            throw new NotSupportedException(
+                $"Tool parameter type '{parameterType.FullName}' is not supported for AI tool schema generation.");
 
         return new ToolParam(parameterName, description: null, MapToolParamType(parameterType), required);
     }
