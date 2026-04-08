@@ -55,6 +55,6 @@ internal class ChatAttachmentConfiguration : IEntityTypeConfiguration<ChatAttach
 
         builder.HasIndex(e => e.UserId);
         builder.HasIndex(e => e.BlobId);
-        builder.HasIndex(e => e.CreatedAt);
+        builder.HasIndex(e => new { e.CreatedAt, e.IsConsumed });
     }
 }
