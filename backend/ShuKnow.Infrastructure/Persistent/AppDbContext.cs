@@ -1,12 +1,14 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Infrastructure.Misc;
+using File = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.Infrastructure.Persistent;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<User> Users { get; set; }
+    public DbSet<File> Files { get; set; }
     public DbSet<Folder> Folders { get; set; }
     public DbSet<IdentityUser> IdentityUsers { get; set; }
     public DbSet<ChatSession> ChatSessions { get; set; }
@@ -31,6 +33,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithOne()
                 .HasForeignKey<IdentityUser>(iu => iu.Id)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+        
+        modelBuilder.Entity<File>(entity =>
+        {
+            entity.ToTable("files");
+            entity.HasKey(f => f.Id);
+
+            entity.HasOne(f => f.Folder)
+                .WithMany()
+                .HasForeignKey(f => f.FolderId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired(false);
         });
 
         modelBuilder.Entity<Folder>(entity =>

@@ -174,12 +174,12 @@ public class FileServiceTests
         var file = CreateFile();
         file.BlobId = Guid.NewGuid();
         ReturnsExistingFile(file);
-        fileRepository.DeleteAsync(file.Id).Returns(Success());
+        fileRepository.DeleteAsync(file.Id, currentUserId).Returns(Success());
 
         var result = await sut.DeleteAsync(file.Id);
 
         result.Status.Should().Be(ResultStatus.Ok);
-        await fileRepository.Received(1).DeleteAsync(file.Id);
+        await fileRepository.Received(1).DeleteAsync(file.Id, currentUserId);
         await unitOfWork.Received(1).SaveChangesAsync();
     }
 
@@ -189,7 +189,7 @@ public class FileServiceTests
         var file = CreateFile();
         file.BlobId = Guid.NewGuid();
         ReturnsExistingFile(file);
-        fileRepository.DeleteAsync(file.Id).Returns(Success());
+        fileRepository.DeleteAsync(file.Id, currentUserId).Returns(Success());
 
         var result = await sut.DeleteAsync(file.Id);
 
@@ -412,7 +412,7 @@ public class FileServiceTests
         secondFile.BlobId = Guid.NewGuid();
 
         ReturnsFolderExists(folderId);
-        fileRepository.DeleteByFolderAsync(folderId)
+        fileRepository.DeleteByFolderAsync(folderId, currentUserId)
             .Returns(Success<IReadOnlyList<File>>([firstFile, secondFile]));
 
         var result = await sut.DeleteByFolderAsync(folderId);
@@ -431,7 +431,7 @@ public class FileServiceTests
         secondFile.BlobId = Guid.NewGuid();
 
         ReturnsFolderExists(folderId);
-        fileRepository.DeleteByFolderAsync(folderId)
+        fileRepository.DeleteByFolderAsync(folderId, currentUserId)
             .Returns(Success<IReadOnlyList<File>>([firstFile, secondFile]));
 
         var result = await sut.DeleteByFolderAsync(folderId);
@@ -459,7 +459,7 @@ public class FileServiceTests
         var folderId = Guid.NewGuid();
         var file = CreateFile(folderId: folderId, sortOrder: 0);
         ReturnsExistingFileForUpdate(file);
-        fileRepository.GetByFolderAsync(file.FolderId).Returns(Success<IReadOnlyList<File>>([file]));
+        fileRepository.GetByFolderAsync(file.FolderId, currentUserId).Returns(Success<IReadOnlyList<File>>([file]));
 
         var result = await sut.ReorderAsync(file.Id, -1);
 
@@ -473,7 +473,7 @@ public class FileServiceTests
         var folderId = Guid.NewGuid();
         var file = CreateFile(folderId: folderId, sortOrder: 0);
         ReturnsExistingFileForUpdate(file);
-        fileRepository.GetByFolderAsync(file.FolderId).Returns(Success<IReadOnlyList<File>>([file]));
+        fileRepository.GetByFolderAsync(file.FolderId, currentUserId).Returns(Success<IReadOnlyList<File>>([file]));
 
         var result = await sut.ReorderAsync(file.Id, 1);
 
@@ -491,7 +491,8 @@ public class FileServiceTests
         var subfolder = CreateFolder(parentFolderId: folderId, sortOrder: 3);
 
         ReturnsExistingFileForUpdate(fileC);
-        fileRepository.GetByFolderAsync(folderId).Returns(Success<IReadOnlyList<File>>([fileA, fileB, fileC]));
+        fileRepository.GetByFolderAsync(folderId, currentUserId)
+            .Returns(Success<IReadOnlyList<File>>([fileA, fileB, fileC]));
         folderRepository.GetChildrenAsync(folderId, currentUserId)
             .Returns(Success<IReadOnlyList<Folder>>([subfolder]));
 
@@ -514,7 +515,7 @@ public class FileServiceTests
         var subfolder = CreateFolder(parentFolderId: folderId, sortOrder: 2);
 
         ReturnsExistingFileForUpdate(fileA);
-        fileRepository.GetByFolderAsync(folderId).Returns(Success<IReadOnlyList<File>>([fileA, fileB]));
+        fileRepository.GetByFolderAsync(folderId, currentUserId).Returns(Success<IReadOnlyList<File>>([fileA, fileB]));
         folderRepository.GetChildrenAsync(folderId, currentUserId)
             .Returns(Success<IReadOnlyList<Folder>>([subfolder]));
 
@@ -634,11 +635,11 @@ public class FileServiceTests
         fileRepository.ExistsByNameInFolderAsync(Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<Guid?>())
             .Returns(Success(false));
         fileRepository.AddAsync(Arg.Any<File>()).Returns(Success());
-        fileRepository.DeleteAsync(Arg.Any<Guid>()).Returns(Success());
-        fileRepository.DeleteByFolderAsync(Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
+        fileRepository.DeleteAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success());
+        fileRepository.DeleteByFolderAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
         fileRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<File>());
         fileRepository.GetByIdForUpdateAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<File>());
-        fileRepository.GetByFolderAsync(Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
+        fileRepository.GetByFolderAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
         blobStorageService.SaveAsync(Arg.Any<Stream>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Success());
         blobDeletionQueue.EnqueueDeleteAsync(Arg.Any<Guid>()).Returns(ValueTask.CompletedTask);
@@ -684,7 +685,7 @@ public class FileServiceTests
         await unitOfWork.DidNotReceive().SaveChangesAsync();
     }
 
-    private static File CreateFile(
+    private File CreateFile(
         Guid? fileId = null,
         Guid? folderId = null,
         string name = "file.txt",
@@ -697,6 +698,7 @@ public class FileServiceTests
     {
         return new File(
             fileId ?? Guid.NewGuid(),
+            userId: currentUserId,
             folderId ?? Guid.NewGuid(),
             name,
             description,

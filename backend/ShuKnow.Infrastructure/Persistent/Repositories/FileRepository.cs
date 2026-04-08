@@ -1,60 +1,105 @@
 using Ardalis.Result;
+using Microsoft.EntityFrameworkCore;
 using ShuKnow.Domain.Repositories;
 using File = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.Infrastructure.Persistent.Repositories;
 
-public class FileRepository : IFileRepository
+public class FileRepository(AppDbContext context) : IFileRepository
 {
-    public Task<Result<File>> GetByIdAsync(Guid fileId, Guid userId)
+    // TODO: make folder id optional
+
+    public async Task<Result<File>> GetByIdAsync(Guid fileId, Guid userId)
     {
-        throw new NotImplementedException();
+        return await GetByIdAsync(fileId, userId, trackChanges: false);
     }
 
-    public Task<Result<File>> GetByIdForUpdateAsync(Guid fileId, Guid userId)
+    public async Task<Result<File>> GetByIdForUpdateAsync(Guid fileId, Guid userId)
     {
-        throw new NotImplementedException();
+        return await GetByIdAsync(fileId, userId, trackChanges: true);
     }
 
-    public Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
+    public async Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
         Guid folderId, Guid userId, int page, int pageSize)
     {
-        throw new NotImplementedException();
+        var query = context.Files
+            .AsNoTracking()
+            .Where(file => file.FolderId == folderId && file.UserId == userId)
+            .OrderBy(file => file.Name);
+
+        var totalCount = await query.CountAsync();
+
+        var files = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return (files, totalCount);
     }
 
-    public Task<Result<bool>> ExistsByNameInFolderAsync(string name, Guid folderId, Guid userId, Guid? excludeId = null)
+    public async Task<Result<bool>> ExistsByNameInFolderAsync(
+        string name, Guid folderId, Guid userId, Guid? excludeId = null)
     {
-        throw new NotImplementedException();
+        var query = context.Files
+            .AsNoTracking()
+            .Where(file => file.Name == name && file.FolderId == folderId && file.UserId == userId);
+
+        if (excludeId.HasValue)
+            query = query.Where(file => file.Id != excludeId.Value);
+
+        return await query.AnyAsync();
     }
 
-    public Task<Result<int>> CountByFolderAsync(Guid folderId)
+    public async Task<Result<int>> CountByFolderAsync(Guid folderId, Guid userId)
     {
-        throw new NotImplementedException();
+        return await context.Files
+            .AsNoTracking()
+            .CountAsync(file => file.FolderId == folderId && file.UserId == userId);
     }
 
     public Task<Result> AddAsync(File file)
     {
-        throw new NotImplementedException();
+        context.Files.Add(file);
+        return Task.FromResult(Result.Success());
     }
 
     public Task<Result> UpdateAsync(File file)
     {
-        throw new NotImplementedException();
+        context.Files.Update(file);
+        return Task.FromResult(Result.Success());
     }
 
-    public Task<Result> DeleteAsync(Guid fileId)
+    public async Task<Result> DeleteAsync(Guid fileId, Guid userId)
     {
-        throw new NotImplementedException();
+        var deleted = await context.Files
+            .Where(file => file.Id == fileId && file.UserId == userId)
+            .SingleOrDefaultAsync();
+        
+        if (deleted is null)
+            return Result.NotFound($"File with id '{fileId}' was not found.");
+        
+        context.Files.Remove(deleted);
+        return Result.Success();
     }
 
-    public Task<Result<IReadOnlyList<File>>> DeleteByFolderAsync(Guid folderId)
+    public async Task<Result<IReadOnlyList<File>>> DeleteByFolderAsync(Guid folderId, Guid userId)
     {
-        throw new NotImplementedException();
+        var files = await context.Files
+            .AsNoTracking()
+            .Where(file => file.FolderId == folderId && file.UserId == userId)
+            .ToListAsync();
+
+        context.Files.RemoveRange(files);
+        return files;
     }
 
-    public Task<Result<IReadOnlyList<File>>> GetByFolderAsync(Guid folderId)
+    public async Task<Result<IReadOnlyList<File>>> GetByFolderAsync(Guid folderId, Guid userId)
     {
-        throw new NotImplementedException();
+        return await context.Files
+            .AsNoTracking()
+            .Where(file => file.FolderId == folderId && file.UserId == userId)
+            .OrderBy(file => file.Name)
+            .ToListAsync();
     }
 
     public Task<Result<IReadOnlySet<Guid>>> GetExistingBlobIdsAsync(
@@ -62,5 +107,17 @@ public class FileRepository : IFileRepository
         CancellationToken ct = default)
     {
         throw new NotImplementedException();
+    }
+
+    private async Task<Result<File>> GetByIdAsync(Guid fileId, Guid userId, bool trackChanges)
+    {
+        var query = context.Files.Where(file => file.Id == fileId && file.UserId == userId);
+        if (!trackChanges)
+            query = query.AsNoTracking();
+
+        var file = await query.FirstOrDefaultAsync();
+        return file is not null
+            ? Result.Success(file)
+            : Result.NotFound($"File with id '{fileId}' was not found.");
     }
 }

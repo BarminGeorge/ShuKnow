@@ -5,6 +5,7 @@ namespace ShuKnow.Domain.Entities;
 public class File : IEntity<Guid>, IOrderedItem
 {
     public Guid Id { get; private set; }
+    public Guid UserId { get; private set; }
     public Guid BlobId { get; set; }
 
     public Guid FolderId { get; private set; }
@@ -16,6 +17,8 @@ public class File : IEntity<Guid>, IOrderedItem
     public string? ChecksumSha256 { get; private set; }
     public int SortOrder { get; set; }
     public DateTimeOffset CreatedAt { get; private set; }
+    
+    public virtual Folder Folder { get; private set; }
 
     protected File()
     {
@@ -23,6 +26,7 @@ public class File : IEntity<Guid>, IOrderedItem
 
     public File(
         Guid fileId,
+        Guid userId,
         Guid folderId,
         string name,
         string description,
@@ -34,6 +38,7 @@ public class File : IEntity<Guid>, IOrderedItem
         DateTimeOffset? createdAt = null)
     {
         Id = fileId;
+        UserId = userId;
         FolderId = folderId;
         Name = name;
         Description = description;

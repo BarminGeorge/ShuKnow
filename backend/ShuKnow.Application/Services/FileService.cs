@@ -55,7 +55,7 @@ public class FileService(
     public async Task<Result> DeleteAsync(Guid fileId, CancellationToken ct = default)
     {
         return await fileRepository.GetByIdAsync(fileId, CurrentUserId)
-            .ActAsync(file => fileRepository.DeleteAsync(file.Id))
+            .ActAsync(file => fileRepository.DeleteAsync(file.Id, CurrentUserId))
             .SaveChangesAsync(unitOfWork)
             .ActAsync(file => blobDeletionQueue.EnqueueDeleteAsync(file.BlobId).AsTask())
             .BindAsync(_ => Result.Success());
@@ -104,7 +104,7 @@ public class FileService(
     public async Task<Result> DeleteByFolderAsync(Guid folderId, CancellationToken ct = default)
     {
         return await EnsureFolderExistsAsync(folderId)
-            .BindAsync(_ => fileRepository.DeleteByFolderAsync(folderId))
+            .BindAsync(_ => fileRepository.DeleteByFolderAsync(folderId, CurrentUserId))
             .SaveChangesAsync(unitOfWork)
             .ActAsync(files => EnqueueDeletesAsync(files.Select(file => file.BlobId)))
             .BindAsync(_ => Result.Success());
@@ -113,7 +113,7 @@ public class FileService(
     public async Task<Result> ReorderAsync(Guid fileId, int position, CancellationToken ct = default)
     {
         return await fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId)
-            .BindAsync(file => fileRepository.GetByFolderAsync(file.FolderId)
+            .BindAsync(file => fileRepository.GetByFolderAsync(file.FolderId, CurrentUserId)
                 .BindAsync(files => folderRepository.GetChildrenAsync(file.FolderId, CurrentUserId)
                     .BindAsync(folders => ApplyReorder(file, files, folders, position))))
             .SaveChangesAsync(unitOfWork);
