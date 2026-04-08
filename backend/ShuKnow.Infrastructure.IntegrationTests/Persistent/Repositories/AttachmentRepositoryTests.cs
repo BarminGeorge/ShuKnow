@@ -166,7 +166,8 @@ public class AttachmentRepositoryTests : BaseRepositoryTests
         var result = await sut.DeleteRangeAsync([attachment1.Id, attachment2.Id]);
 
         result.Status.Should().Be(ResultStatus.Ok);
-
+        await Context.SaveChangesAsync();
+        
         await using var assertContext = CreateDbContext();
         var remaining = await assertContext.ChatAttachments.ToListAsync();
 

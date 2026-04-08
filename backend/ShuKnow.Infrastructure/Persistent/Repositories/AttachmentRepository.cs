@@ -45,10 +45,11 @@ public class AttachmentRepository(AppDbContext context) : IAttachmentRepository
 
     public async Task<Result> DeleteRangeAsync(IReadOnlyCollection<Guid> ids)
     {
-        await context.ChatAttachments
+        var attachments = await context.ChatAttachments
             .Where(x => ids.Contains(x.Id))
-            .ExecuteDeleteAsync();
+            .ToListAsync();
         
+        context.ChatAttachments.RemoveRange(attachments);
         return Result.Success();
     }
 
