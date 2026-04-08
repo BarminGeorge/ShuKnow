@@ -83,9 +83,6 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
     public Task<Result<IReadOnlyList<Folder>>> GetRootFoldersAsync(Guid userId) =>
         GetFoldersByParentIdAsync(null, userId);
 
-    public Task<Result<IReadOnlyList<Folder>>> GetSiblingsAsync(Guid? parentId, Guid userId) =>
-        GetFoldersByParentIdAsync(parentId, userId);
-
     private async Task<Result<IReadOnlyList<Folder>>> GetFoldersByParentIdAsync(Guid? parentId, Guid userId)
     {
         var folders = await context.Folders

@@ -15,8 +15,6 @@ public interface IFolderRepository
 
     Task<Result<IReadOnlyList<Folder>>> GetRootFoldersAsync(Guid userId);
 
-    Task<Result<IReadOnlyList<Folder>>> GetSiblingsAsync(Guid? parentId, Guid userId);
-
     Task<Result<IReadOnlyList<Guid>>> GetAncestorIdsAsync(Guid folderId, Guid userId);
 
     Task<Result<bool>> ExistsByNameInParentAsync(string name, Guid? parentId, Guid userId, Guid? excludeId = null);

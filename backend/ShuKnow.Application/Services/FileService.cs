@@ -114,7 +114,7 @@ public class FileService(
     {
         return await fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId)
             .BindAsync(file => fileRepository.GetByFolderAsync(file.FolderId, CurrentUserId)
-                .BindAsync(files => GetSiblingFoldersAsync(file.FolderId)
+                .BindAsync(files => GetChildrenFoldersAsync(file.FolderId)
                     .BindAsync(folders => ApplyReorder(file, files, folders, position))))
             .SaveChangesAsync(unitOfWork);
     }
@@ -165,7 +165,7 @@ public class FileService(
             .BindAsync(exists => exists ? Result.Success() : Result.NotFound());
     }
 
-    private async Task<Result<IReadOnlyList<Folder>>> GetSiblingFoldersAsync(Guid? folderId)
+    private async Task<Result<IReadOnlyList<Folder>>> GetChildrenFoldersAsync(Guid? folderId)
     {
         return folderId.HasValue
             ? await folderRepository.GetChildrenAsync(folderId.Value, CurrentUserId)
