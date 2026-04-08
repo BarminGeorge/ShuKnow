@@ -8,7 +8,7 @@ public class File : IEntity<Guid>, IOrderedItem
     public Guid UserId { get; private set; }
     public Guid BlobId { get; set; }
 
-    public Guid FolderId { get; private set; }
+    public Guid? FolderId { get; private set; }
     public string Name { get; private set; } = string.Empty;
     public string Description { get; private set; } = string.Empty;
     public string ContentType { get; private set; } = string.Empty;
@@ -18,7 +18,7 @@ public class File : IEntity<Guid>, IOrderedItem
     public int SortOrder { get; set; }
     public DateTimeOffset CreatedAt { get; private set; }
     
-    public virtual Folder Folder { get; private set; }
+    public virtual Folder? Folder { get; private set; }
 
     protected File()
     {
@@ -27,7 +27,7 @@ public class File : IEntity<Guid>, IOrderedItem
     public File(
         Guid fileId,
         Guid userId,
-        Guid folderId,
+        Guid? folderId,
         string name,
         string description,
         string contentType,
@@ -64,7 +64,7 @@ public class File : IEntity<Guid>, IOrderedItem
         Version++;
     }
 
-    public void MoveTo(Guid targetFolderId)
+    public void MoveTo(Guid? targetFolderId)
     {
         FolderId = targetFolderId;
         Version++;

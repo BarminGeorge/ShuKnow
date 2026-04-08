@@ -7,8 +7,6 @@ namespace ShuKnow.Infrastructure.Persistent.Repositories;
 
 public class FileRepository(AppDbContext context) : IFileRepository
 {
-    // TODO: make folder id optional
-
     public async Task<Result<File>> GetByIdAsync(Guid fileId, Guid userId)
     {
         return await GetByIdAsync(fileId, userId, trackChanges: false);
@@ -20,7 +18,7 @@ public class FileRepository(AppDbContext context) : IFileRepository
     }
 
     public async Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
-        Guid folderId, Guid userId, int page, int pageSize)
+        Guid? folderId, Guid userId, int page, int pageSize)
     {
         var query = context.Files
             .AsNoTracking()
@@ -38,7 +36,7 @@ public class FileRepository(AppDbContext context) : IFileRepository
     }
 
     public async Task<Result<bool>> ExistsByNameInFolderAsync(
-        string name, Guid folderId, Guid userId, Guid? excludeId = null)
+        string name, Guid? folderId, Guid userId, Guid? excludeId = null)
     {
         var query = context.Files
             .AsNoTracking()
@@ -50,7 +48,7 @@ public class FileRepository(AppDbContext context) : IFileRepository
         return await query.AnyAsync();
     }
 
-    public async Task<Result<int>> CountByFolderAsync(Guid folderId, Guid userId)
+    public async Task<Result<int>> CountByFolderAsync(Guid? folderId, Guid userId)
     {
         return await context.Files
             .AsNoTracking()
@@ -82,7 +80,7 @@ public class FileRepository(AppDbContext context) : IFileRepository
         return Result.Success();
     }
 
-    public async Task<Result<IReadOnlyList<File>>> DeleteByFolderAsync(Guid folderId, Guid userId)
+    public async Task<Result<IReadOnlyList<File>>> DeleteByFolderAsync(Guid? folderId, Guid userId)
     {
         var files = await context.Files
             .AsNoTracking()
@@ -93,7 +91,7 @@ public class FileRepository(AppDbContext context) : IFileRepository
         return files;
     }
 
-    public async Task<Result<IReadOnlyList<File>>> GetByFolderAsync(Guid folderId, Guid userId)
+    public async Task<Result<IReadOnlyList<File>>> GetByFolderAsync(Guid? folderId, Guid userId)
     {
         return await context.Files
             .AsNoTracking()

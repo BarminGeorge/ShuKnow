@@ -125,6 +125,25 @@ public class FileServiceTests
     }
 
     [Test]
+    public async Task UploadAsync_WhenFileIsAtRoot_ShouldPersistWithoutCheckingFolderExistence()
+    {
+        var file = CreateFile(useRoot: true);
+        using var content = CreateStream("payload");
+        ReturnsFileNameAvailable(file.Name, file.FolderId, file.Id);
+        fileRepository.AddAsync(file).Returns(Success());
+        blobStorageService.SaveAsync(content, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(Success());
+
+        var result = await sut.UploadAsync(file, content);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().BeSameAs(file);
+        file.FolderId.Should().BeNull();
+        await folderRepository.DidNotReceive().ExistsByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>());
+        await fileRepository.Received(1).AddAsync(file);
+        await unitOfWork.Received(1).SaveChangesAsync();
+    }
+
+    [Test]
     public async Task UpdateMetadataAsync_WhenNewNameAlreadyExists_ShouldReturnConflict()
     {
         var existingFile = CreateFile(name: "old-name.txt", description: "old description");
@@ -397,8 +416,28 @@ public class FileServiceTests
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().BeSameAs(file);
         file.FolderId.Should().Be(targetFolderId);
-        file.FolderId.Should().NotBe(originalFolderId);
+        file.FolderId.Should().NotBe(originalFolderId!.Value);
         file.Version.Should().Be(5);
+        await unitOfWork.Received(1).SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task MoveAsync_WhenTargetFolderIsRoot_ShouldMoveFileWithoutCheckingFolderExistence()
+    {
+        var file = CreateFile(name: "report.pdf", version: 4);
+        var originalFolderId = file.FolderId;
+
+        ReturnsExistingFileForUpdate(file);
+        ReturnsFileNameAvailable(file.Name, null, file.Id);
+
+        var result = await sut.MoveAsync(file.Id, null);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().BeSameAs(file);
+        file.FolderId.Should().BeNull();
+        file.Version.Should().Be(5);
+        originalFolderId.Should().NotBeNull();
+        await folderRepository.DidNotReceive().ExistsByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>());
         await unitOfWork.Received(1).SaveChangesAsync();
     }
 
@@ -437,6 +476,26 @@ public class FileServiceTests
         var result = await sut.DeleteByFolderAsync(folderId);
 
         result.Status.Should().Be(ResultStatus.Ok);
+        await unitOfWork.Received(1).SaveChangesAsync();
+        await blobDeletionQueue.Received(1).EnqueueDeleteAsync(firstFile.BlobId);
+        await blobDeletionQueue.Received(1).EnqueueDeleteAsync(secondFile.BlobId);
+    }
+
+    [Test]
+    public async Task DeleteByFolderAsync_WhenFolderIsRoot_ShouldDeleteRootFilesWithoutCheckingFolderExistence()
+    {
+        var firstFile = CreateFile(useRoot: true);
+        firstFile.BlobId = Guid.NewGuid();
+        var secondFile = CreateFile(useRoot: true);
+        secondFile.BlobId = Guid.NewGuid();
+
+        fileRepository.DeleteByFolderAsync(null, currentUserId)
+            .Returns(Success<IReadOnlyList<File>>([firstFile, secondFile]));
+
+        var result = await sut.DeleteByFolderAsync(null);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        await folderRepository.DidNotReceive().ExistsByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>());
         await unitOfWork.Received(1).SaveChangesAsync();
         await blobDeletionQueue.Received(1).EnqueueDeleteAsync(firstFile.BlobId);
         await blobDeletionQueue.Received(1).EnqueueDeleteAsync(secondFile.BlobId);
@@ -525,6 +584,27 @@ public class FileServiceTests
         fileB.SortOrder.Should().Be(0);
         subfolder.SortOrder.Should().Be(1);
         fileA.SortOrder.Should().Be(2);
+        await unitOfWork.Received(1).SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task ReorderAsync_WhenFileIsAtRoot_ShouldUseRootFoldersAsSiblings()
+    {
+        var fileA = CreateFile(name: "a.txt", sortOrder: 0, useRoot: true);
+        var fileB = CreateFile(name: "b.txt", sortOrder: 1, useRoot: true);
+        var rootFolder = CreateFolder(sortOrder: 2);
+
+        ReturnsExistingFileForUpdate(fileA);
+        fileRepository.GetByFolderAsync(null, currentUserId).Returns(Success<IReadOnlyList<File>>([fileA, fileB]));
+        folderRepository.GetRootFoldersAsync(currentUserId).Returns(Success<IReadOnlyList<Folder>>([rootFolder]));
+
+        var result = await sut.ReorderAsync(fileA.Id, 2);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        fileB.SortOrder.Should().Be(0);
+        rootFolder.SortOrder.Should().Be(1);
+        fileA.SortOrder.Should().Be(2);
+        await folderRepository.DidNotReceive().GetChildrenAsync(Arg.Any<Guid>(), Arg.Any<Guid>());
         await unitOfWork.Received(1).SaveChangesAsync();
     }
 
@@ -632,14 +712,14 @@ public class FileServiceTests
     {
         unitOfWork.SaveChangesAsync().Returns(Success());
         folderRepository.ExistsByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success(true));
-        fileRepository.ExistsByNameInFolderAsync(Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<Guid?>())
+        fileRepository.ExistsByNameInFolderAsync(Arg.Any<string>(), Arg.Any<Guid?>(), Arg.Any<Guid>(), Arg.Any<Guid?>())
             .Returns(Success(false));
         fileRepository.AddAsync(Arg.Any<File>()).Returns(Success());
         fileRepository.DeleteAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success());
-        fileRepository.DeleteByFolderAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
+        fileRepository.DeleteByFolderAsync(Arg.Any<Guid?>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
         fileRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<File>());
         fileRepository.GetByIdForUpdateAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<File>());
-        fileRepository.GetByFolderAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
+        fileRepository.GetByFolderAsync(Arg.Any<Guid?>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
         blobStorageService.SaveAsync(Arg.Any<Stream>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Success());
         blobDeletionQueue.EnqueueDeleteAsync(Arg.Any<Guid>()).Returns(ValueTask.CompletedTask);
@@ -650,19 +730,24 @@ public class FileServiceTests
             .Returns(_ => Success<Stream>(new MemoryStream()));
         folderRepository.GetChildrenAsync(Arg.Any<Guid>(), Arg.Any<Guid>())
             .Returns(Success<IReadOnlyList<Folder>>([]));
+        folderRepository.GetRootFoldersAsync(Arg.Any<Guid>())
+            .Returns(Success<IReadOnlyList<Folder>>([]));
     }
 
-    private void ReturnsFolderExists(Guid folderId, bool exists = true)
+    private void ReturnsFolderExists(Guid? folderId, bool exists = true)
     {
-        folderRepository.ExistsByIdAsync(folderId, currentUserId).Returns(Success(exists));
+        if (folderId is null)
+            throw new ArgumentNullException(nameof(folderId));
+
+        folderRepository.ExistsByIdAsync(folderId.Value, currentUserId).Returns(Success(exists));
     }
 
-    private void ReturnsFileNameExists(string name, Guid folderId, Guid fileId)
+    private void ReturnsFileNameExists(string name, Guid? folderId, Guid fileId)
     {
         fileRepository.ExistsByNameInFolderAsync(name, folderId, currentUserId, fileId).Returns(Success(true));
     }
 
-    private void ReturnsFileNameAvailable(string name, Guid folderId, Guid fileId)
+    private void ReturnsFileNameAvailable(string name, Guid? folderId, Guid fileId)
     {
         fileRepository.ExistsByNameInFolderAsync(name, folderId, currentUserId, fileId).Returns(Success(false));
     }
@@ -694,12 +779,13 @@ public class FileServiceTests
         long sizeBytes = 128,
         int version = 1,
         string? checksumSha256 = null,
-        int sortOrder = 0)
+        int sortOrder = 0,
+        bool useRoot = false)
     {
         return new File(
             fileId ?? Guid.NewGuid(),
             userId: currentUserId,
-            folderId ?? Guid.NewGuid(),
+            useRoot ? null : folderId ?? Guid.NewGuid(),
             name,
             description,
             contentType,

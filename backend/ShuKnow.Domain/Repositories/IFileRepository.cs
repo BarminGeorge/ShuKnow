@@ -10,12 +10,12 @@ public interface IFileRepository
     Task<Result<File>> GetByIdForUpdateAsync(Guid fileId, Guid userId);
 
     Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
-        Guid folderId, Guid userId, int page, int pageSize);
+        Guid? folderId, Guid userId, int page, int pageSize);
 
     Task<Result<bool>> ExistsByNameInFolderAsync(
-        string name, Guid folderId, Guid userId, Guid? excludeId = null);
+        string name, Guid? folderId, Guid userId, Guid? excludeId = null);
 
-    Task<Result<int>> CountByFolderAsync(Guid folderId, Guid userId);
+    Task<Result<int>> CountByFolderAsync(Guid? folderId, Guid userId);
     
     Task<Result> AddAsync(File file);
     
@@ -23,9 +23,9 @@ public interface IFileRepository
     
     Task<Result> DeleteAsync(Guid fileId, Guid userId);
     
-    Task<Result<IReadOnlyList<File>>> DeleteByFolderAsync(Guid folderId, Guid userId);
-    
-    Task<Result<IReadOnlyList<File>>> GetByFolderAsync(Guid folderId, Guid userId);
+    Task<Result<IReadOnlyList<File>>> DeleteByFolderAsync(Guid? folderId, Guid userId);
+
+    Task<Result<IReadOnlyList<File>>> GetByFolderAsync(Guid? folderId, Guid userId);
 
     Task<Result<IReadOnlySet<Guid>>> GetExistingBlobIdsAsync(
         IReadOnlyCollection<Guid> blobIds,
