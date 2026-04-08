@@ -61,6 +61,7 @@ public class BaseRepositoryTests
     {
         await using var resetContext = CreateDbContext();
 
+        await resetContext.Files.ExecuteDeleteAsync();
         await resetContext.Folders.ExecuteDeleteAsync();
         await resetContext.UserAiSettings.ExecuteDeleteAsync();
         await resetContext.ChatSessions.ExecuteDeleteAsync();
