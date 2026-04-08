@@ -1,3 +1,4 @@
+using System.Reflection;
 using Ardalis.Result;
 using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -252,17 +253,23 @@ public class AttachmentRepositoryTests : BaseRepositoryTests
         
         if (isConsumed)
             attachment.MarkAsConsumed();
-
+        if (createdAt.HasValue)
+            attachment.SetCreatedAt(createdAt.Value);
+        
         await using var seedContext = CreateDbContext();
         seedContext.ChatAttachments.Add(attachment);
         await seedContext.SaveChangesAsync();
-
-        if (createdAt.HasValue)
-        {
-            await seedContext.Database.ExecuteSqlInterpolatedAsync(
-                $"UPDATE chat_attachments SET created_at = {createdAt.Value} WHERE id = {attachment.Id}");
-        }
+        
 
         return attachment;
+    }
+}
+
+internal static class AttachmentExtensions
+{
+    internal static void SetCreatedAt(this ChatAttachment attachment, DateTimeOffset createdAt)
+    {
+        var property = typeof(ChatAttachment).GetProperty("CreatedAt", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        property?.SetValue(attachment, createdAt);
     }
 }
