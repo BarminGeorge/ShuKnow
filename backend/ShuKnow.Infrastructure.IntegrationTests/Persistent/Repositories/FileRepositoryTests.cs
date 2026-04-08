@@ -255,6 +255,97 @@ public class FileRepositoryTests : BaseRepositoryTests
             options => options.WithStrictOrdering());
     }
 
+    [Test]
+    public async Task GetExistingBlobIdsAsync_WhenBlobIdsExist_ShouldReturnExistingBlobIds()
+    {
+        var user = await SeedUserAsync();
+        var blobId1 = Guid.NewGuid();
+        var blobId2 = Guid.NewGuid();
+        var blobId3 = Guid.NewGuid();
+
+        await SeedFileAsync(user.Id, null, "file1.txt", blobId: blobId1);
+        await SeedFileAsync(user.Id, null, "file2.txt", blobId: blobId2);
+
+        var result = await sut.GetExistingBlobIdsAsync([blobId1, blobId2, blobId3]);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().BeEquivalentTo([blobId1, blobId2]);
+    }
+
+    [Test]
+    public async Task GetExistingBlobIdsAsync_WhenNoBlobIdsProvided_ShouldReturnEmptySet()
+    {
+        var result = await sut.GetExistingBlobIdsAsync([]);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task GetExistingBlobIdsAsync_WhenNoBlobIdsMatch_ShouldReturnEmptySet()
+    {
+        var user = await SeedUserAsync();
+        var nonExistentBlobId1 = Guid.NewGuid();
+        var nonExistentBlobId2 = Guid.NewGuid();
+
+        await SeedFileAsync(user.Id, null, "file.txt", blobId: Guid.NewGuid());
+
+        var result = await sut.GetExistingBlobIdsAsync([nonExistentBlobId1, nonExistentBlobId2]);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task GetExistingBlobIdsAsync_WhenDuplicateBlobIdsInDatabase_ShouldReturnDistinctSet()
+    {
+        var user = await SeedUserAsync();
+        var blobId = Guid.NewGuid();
+
+        await SeedFileAsync(user.Id, null, "file1.txt", blobId: blobId);
+        await SeedFileAsync(user.Id, null, "file2.txt", blobId: blobId);
+        await SeedFileAsync(user.Id, null, "file3.txt", blobId: blobId);
+
+        var result = await sut.GetExistingBlobIdsAsync([blobId]);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().ContainSingle().Which.Should().Be(blobId);
+    }
+
+    [Test]
+    public async Task GetExistingBlobIdsAsync_WhenMultipleFilesShareBlobIds_ShouldReturnOnlyUniqueBlobIds()
+    {
+        var user = await SeedUserAsync();
+        var blobId1 = Guid.NewGuid();
+        var blobId2 = Guid.NewGuid();
+
+        await SeedFileAsync(user.Id, null, "file1a.txt", blobId: blobId1);
+        await SeedFileAsync(user.Id, null, "file1b.txt", blobId: blobId1);
+        await SeedFileAsync(user.Id, null, "file2a.txt", blobId: blobId2);
+        await SeedFileAsync(user.Id, null, "file2b.txt", blobId: blobId2);
+
+        var result = await sut.GetExistingBlobIdsAsync([blobId1, blobId2]);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().BeEquivalentTo([blobId1, blobId2]);
+        result.Value.Count.Should().Be(2);
+    }
+
+    [Test]
+    public async Task GetExistingBlobIdsAsync_ShouldRespectCancellationToken()
+    {
+        var user = await SeedUserAsync();
+        var blobId = Guid.NewGuid();
+        await SeedFileAsync(user.Id, null, "file.txt", blobId: blobId);
+
+        using var cts = new CancellationTokenSource();
+
+        var result = await sut.GetExistingBlobIdsAsync([blobId], cts.Token);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().Contain(blobId);
+    }
+
     private async Task<User> SeedUserAsync(Guid? userId = null)
     {
         var user = new User(userId ?? Guid.NewGuid(), "test_user");

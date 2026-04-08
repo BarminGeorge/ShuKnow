@@ -100,11 +100,21 @@ public class FileRepository(AppDbContext context) : IFileRepository
             .ToListAsync();
     }
 
-    public Task<Result<IReadOnlySet<Guid>>> GetExistingBlobIdsAsync(
+    public async Task<Result<IReadOnlySet<Guid>>> GetExistingBlobIdsAsync(
         IReadOnlyCollection<Guid> blobIds,
         CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        if (blobIds.Count == 0)
+            return new HashSet<Guid>();
+
+        var existingBlobIds = await context.Files
+            .AsNoTracking()
+            .Where(file => blobIds.Contains(file.BlobId))
+            .Select(file => file.BlobId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        return existingBlobIds.ToHashSet();
     }
 
     private async Task<Result<File>> GetByIdAsync(Guid fileId, Guid userId, bool trackChanges)
