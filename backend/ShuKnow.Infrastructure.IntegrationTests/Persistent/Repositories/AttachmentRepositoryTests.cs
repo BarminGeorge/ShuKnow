@@ -63,8 +63,8 @@ public class AttachmentRepositoryTests : BaseRepositoryTests
         var user = await SeedUserAsync();
         var attachment1 = new ChatAttachment(Guid.NewGuid(), user.Id, Guid.NewGuid(), "file1.txt", "text/plain", 100);
         var attachment2 = new ChatAttachment(Guid.NewGuid(), user.Id, Guid.NewGuid(), "file2.pdf", "application/pdf", 2000);
-        attachment1.BlobId = Guid.NewGuid();
-        attachment2.BlobId = Guid.NewGuid();
+        attachment1.SetBlobId(Guid.NewGuid());
+        attachment2.SetBlobId(Guid.NewGuid());
 
         var result = await sut.AddRangeAsync([attachment1, attachment2]);
         await Context.SaveChangesAsync();
@@ -86,7 +86,7 @@ public class AttachmentRepositoryTests : BaseRepositoryTests
     {
         var nonExistentUserId = Guid.NewGuid();
         var attachment = new ChatAttachment(Guid.NewGuid(), nonExistentUserId, Guid.NewGuid(), "file.txt", "text/plain", 100);
-        attachment.BlobId = Guid.NewGuid();
+        attachment.SetBlobId(Guid.NewGuid());
 
         var result = await sut.AddRangeAsync([attachment]);
         var act = async () => await Context.SaveChangesAsync();
@@ -249,8 +249,9 @@ public class AttachmentRepositoryTests : BaseRepositoryTests
             fileName,
             contentType,
             sizeBytes);
-
-        attachment.IsConsumed = isConsumed;
+        
+        if (isConsumed)
+            attachment.MarkAsConsumed();
 
         await using var seedContext = CreateDbContext();
         seedContext.ChatAttachments.Add(attachment);

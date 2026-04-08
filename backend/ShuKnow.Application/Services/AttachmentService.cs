@@ -25,7 +25,7 @@ public class AttachmentService(
         var attachments = uploads.Select(upload => upload.Attachment).ToList();
 
         foreach (var attachment in attachments)
-            attachment.BlobId = Guid.NewGuid();
+            attachment.SetBlobId(Guid.NewGuid());
 
         return await SaveBlobsAsync(uploads, ct)
             .BindAsync(_ => attachmentRepository.AddRangeAsync(attachments))

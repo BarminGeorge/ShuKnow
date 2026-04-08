@@ -29,7 +29,7 @@ public class AttachmentRepository(AppDbContext context) : IAttachmentRepository
             .ToListAsync();
 
         foreach (var attachment in attachments)
-            attachment.IsConsumed = true;
+            attachment.MarkAsConsumed();
         
         return Result.Success();
     }

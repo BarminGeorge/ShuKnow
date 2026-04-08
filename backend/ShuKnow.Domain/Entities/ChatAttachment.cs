@@ -5,13 +5,13 @@ namespace ShuKnow.Domain.Entities;
 public class ChatAttachment : IEntity<Guid>
 {
     public Guid Id { get; private set; }
-    public Guid BlobId { get; set; }
+    public Guid BlobId { get; private set; }
     public Guid UserId { get; private set; }
     public string FileName { get; private set; } = string.Empty;
     public string ContentType { get; private set; } = string.Empty;
     public long SizeBytes { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
-    public bool IsConsumed { get; set; }
+    public bool IsConsumed { get; private set; }
 
     protected ChatAttachment()
     {
@@ -33,5 +33,15 @@ public class ChatAttachment : IEntity<Guid>
         SizeBytes = sizeBytes;
         CreatedAt = DateTimeOffset.UtcNow;
         IsConsumed = false;
+    }
+
+    public void SetBlobId(Guid blobId)
+    {
+        BlobId = blobId;
+    }
+    
+    public void MarkAsConsumed()
+    {
+        IsConsumed = true;
     }
 }

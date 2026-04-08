@@ -175,9 +175,9 @@ public class AttachmentServiceTests
     public async Task PurgeExpiredAsync_WhenExpiredExist_ShouldDeleteRecordsThenSave()
     {
         var expired1 = CreateAttachment();
-        expired1.BlobId = Guid.NewGuid();
+        expired1.SetBlobId(Guid.NewGuid());
         var expired2 = CreateAttachment();
-        expired2.BlobId = Guid.NewGuid();
+        expired2.SetBlobId(Guid.NewGuid());
         IReadOnlyList<ChatAttachment> expired = [expired1, expired2];
 
         attachmentRepository.GetExpiredUnconsumedAsync(Arg.Any<DateTimeOffset>())
@@ -200,7 +200,7 @@ public class AttachmentServiceTests
     public async Task PurgeExpiredAsync_WhenDeleteRangeFails_ShouldReturnFailureWithoutSaving()
     {
         var expired = CreateAttachment();
-        expired.BlobId = Guid.NewGuid();
+        expired.SetBlobId(Guid.NewGuid());
         IReadOnlyList<ChatAttachment> expiredList = [expired];
 
         attachmentRepository.GetExpiredUnconsumedAsync(Arg.Any<DateTimeOffset>())
