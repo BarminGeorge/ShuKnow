@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.HttpOverrides;
 using Saunter;
 using ShuKnow.WebAPI.Hubs;
 
@@ -9,6 +10,14 @@ public static class WebApplicationExtensions
     public static void UseWeb(this WebApplication app)
     {
         app.UseExceptionHandler();
+
+        var forwardedHeadersOptions = new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+        };
+        forwardedHeadersOptions.KnownNetworks.Clear();
+        forwardedHeadersOptions.KnownProxies.Clear();
+        app.UseForwardedHeaders(forwardedHeadersOptions);
         
         app.UseHttpsRedirection();
         app.UseAuthentication();
