@@ -1,40 +1,67 @@
 using Ardalis.Result;
+using Microsoft.EntityFrameworkCore;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Repositories;
 
 namespace ShuKnow.Infrastructure.Persistent.Repositories;
 
-public class AttachmentRepository : IAttachmentRepository
+public class AttachmentRepository(AppDbContext context) : IAttachmentRepository
 {
-    public Task<Result<IReadOnlyList<ChatAttachment>>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, Guid userId)
+    public async Task<Result<IReadOnlyList<ChatAttachment>>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, Guid userId)
     {
-        throw new NotImplementedException();
+        var attachments = await context.ChatAttachments
+            .Where(a => ids.Contains(a.Id) && userId == a.UserId)
+            .ToListAsync();
+        
+        return Result<IReadOnlyList<ChatAttachment>>.Success(attachments);
     }
 
-    public Task<Result> AddRangeAsync(IReadOnlyCollection<ChatAttachment> attachments)
+    public async Task<Result> AddRangeAsync(IReadOnlyCollection<ChatAttachment> attachments)
     {
-        throw new NotImplementedException();
+        await context.ChatAttachments.AddRangeAsync(attachments);
+        return Result.Success();
     }
 
-    public Task<Result> MarkConsumedAsync(IReadOnlyCollection<Guid> ids)
+    public async Task<Result> MarkConsumedAsync(IReadOnlyCollection<Guid> ids)
     {
-        throw new NotImplementedException();
+        var attachments = await context.ChatAttachments
+            .Where(a => ids.Contains(a.Id))
+            .ToListAsync();
+
+        foreach (var attachment in attachments)
+            attachment.MarkAsConsumed();
+        
+        return Result.Success();
     }
 
-    public Task<Result<IReadOnlyList<ChatAttachment>>> GetExpiredUnconsumedAsync(DateTimeOffset olderThan)
+    public async Task<Result<IReadOnlyList<ChatAttachment>>> GetExpiredUnconsumedAsync(DateTimeOffset olderThan)
     {
-        throw new NotImplementedException();
+        var expiredAttachments = await context.ChatAttachments
+            .Where(x => x.CreatedAt < olderThan && !x.IsConsumed)
+            .ToListAsync();
+        
+        return Result<IReadOnlyList<ChatAttachment>>.Success(expiredAttachments);
     }
 
-    public Task<Result> DeleteRangeAsync(IReadOnlyCollection<Guid> ids)
+    public async Task<Result> DeleteRangeAsync(IReadOnlyCollection<Guid> ids)
     {
-        throw new NotImplementedException();
+        var attachments = await context.ChatAttachments
+            .Where(x => ids.Contains(x.Id))
+            .ToListAsync();
+        
+        context.ChatAttachments.RemoveRange(attachments);
+        return Result.Success();
     }
 
-    public Task<Result<IReadOnlySet<Guid>>> GetExistingBlobIdsAsync(
+    public async Task<Result<IReadOnlySet<Guid>>> GetExistingBlobIdsAsync(
         IReadOnlyCollection<Guid> blobIds,
         CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        var existingBlobIds = await context.ChatAttachments
+            .Where(a => blobIds.Contains(a.BlobId))
+            .Select(a => a.BlobId)
+            .ToListAsync(ct);
+            
+        return Result<IReadOnlySet<Guid>>.Success(existingBlobIds.ToHashSet());
     }
 }

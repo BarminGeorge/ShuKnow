@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ShuKnow.Infrastructure.Persistent;
@@ -11,9 +12,11 @@ using ShuKnow.Infrastructure.Persistent;
 namespace ShuKnow.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260405135333_AddChatAttachments")]
+    partial class AddChatAttachments
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -97,55 +100,6 @@ namespace ShuKnow.Infrastructure.Migrations
                         .HasFilter("\"status\" = 1");
 
                     b.ToTable("chat_sessions", (string)null);
-                });
-
-            modelBuilder.Entity("ShuKnow.Domain.Entities.Folder", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("description");
-
-                    b.Property<string>("Emoji")
-                        .HasColumnType("text")
-                        .HasColumnName("emoji");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("name");
-
-                    b.Property<Guid?>("ParentFolderId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("parent_folder_id");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
-                        .HasColumnName("sort_order");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_folders");
-
-                    b.HasIndex("ParentFolderId")
-                        .HasDatabaseName("ix_folders_parent_folder_id");
-
-                    b.HasIndex("UserId", "ParentFolderId", "Name")
-                        .HasDatabaseName("ix_folders_user_id_parent_folder_id_name");
-
-                    b.HasIndex("UserId", "ParentFolderId", "SortOrder")
-                        .HasDatabaseName("ix_folders_user_id_parent_folder_id_sort_order");
-
-                    b.ToTable("folders", (string)null);
                 });
 
             modelBuilder.Entity("ShuKnow.Domain.Entities.User", b =>
@@ -253,22 +207,6 @@ namespace ShuKnow.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_chat_sessions_users_user_id");
-                });
-
-            modelBuilder.Entity("ShuKnow.Domain.Entities.Folder", b =>
-                {
-                    b.HasOne("ShuKnow.Domain.Entities.Folder", null)
-                        .WithMany()
-                        .HasForeignKey("ParentFolderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .HasConstraintName("fk_folders_folders_parent_folder_id");
-
-                    b.HasOne("ShuKnow.Domain.Entities.User", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_folders_users_user_id");
                 });
 
             modelBuilder.Entity("ShuKnow.Domain.Entities.UserAiSettings", b =>
