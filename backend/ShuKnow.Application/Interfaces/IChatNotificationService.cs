@@ -1,26 +1,38 @@
-using ShuKnow.Application.Models.Notifications;
+using ChatAttachmentEntity = ShuKnow.Domain.Entities.ChatAttachment;
+using FileEntity = ShuKnow.Domain.Entities.File;
+using FolderEntity = ShuKnow.Domain.Entities.Folder;
 
 namespace ShuKnow.Application.Interfaces;
 
 public interface IChatNotificationService
 {
-    Task SendProcessingStartedAsync(ProcessingStartedNotification notification, CancellationToken ct = default);
+    Task SendProcessingStartedAsync(Guid operationId, CancellationToken ct = default);
 
     Task SendMessageChunkAsync(Guid operationId, Guid messageId, string chunk, CancellationToken ct = default);
 
-    Task SendMessageCompletedAsync(MessageCompletedNotification notification, CancellationToken ct = default);
+    Task SendFileCreatedAsync(FileEntity file, CancellationToken ct = default);
 
-    Task SendClassificationResultAsync(Guid operationId, IReadOnlyCollection<ClassificationDecisionNotification> decisions, CancellationToken ct = default);
+    Task SendFileMovedAsync(FileEntity file, Guid fromFolderId, CancellationToken ct = default);
 
-    Task SendFileCreatedAsync(FileCreatedNotification notification, CancellationToken ct = default);
+    Task SendFolderCreatedAsync(FolderEntity folder, CancellationToken ct = default);
 
-    Task SendFileMovedAsync(FileMovedNotification notification, CancellationToken ct = default);
+    Task SendTextAppendedAsync(FileEntity file, string text, CancellationToken ct = default);
 
-    Task SendFolderCreatedAsync(FolderCreatedNotification notification, CancellationToken ct = default);
+    Task SendTextPrependedAsync(FileEntity file, string text, CancellationToken ct = default);
 
-    Task SendProcessingCompletedAsync(ProcessingCompletedNotification notification, CancellationToken ct = default);
+    Task SendAttachmentSavedAsync(ChatAttachmentEntity attachment, CancellationToken ct = default);
 
-    Task SendProcessingFailedAsync(ProcessingFailedNotification notification, CancellationToken ct = default);
+    Task SendProcessingCompletedAsync(
+        Guid operationId,
+        Guid actionId,
+        string summary,
+        int filesCreated,
+        int filesMoved,
+        CancellationToken ct = default);
 
-    Task SendProcessingCancelledAsync(Guid operationId, CancellationToken ct = default);
+    Task SendProcessingFailedAsync(
+        Guid operationId,
+        string error,
+        string? errorCode = null,
+        CancellationToken ct = default);
 }

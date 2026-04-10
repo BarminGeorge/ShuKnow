@@ -1,9 +1,11 @@
-namespace ShuKnow.Application.Models.Notifications;
+namespace ShuKnow.WebAPI.Events;
 
-public record FileCreatedNotification(
+/// <summary>
+/// Event from server to client when a file is created.
+/// </summary>
+public record FileCreatedEvent(
     Guid FileId,
     Guid FolderId,
-    string FolderName,
     string Name,
     string Description,
     string ContentType,
