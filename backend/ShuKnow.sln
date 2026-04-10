@@ -16,6 +16,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShuKnow.Infrastructure.Test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShuKnow.Infrastructure.IntegrationTests", "ShuKnow.Infrastructure.IntegrationTests\ShuKnow.Infrastructure.IntegrationTests.csproj", "{96F140AB-23E1-4092-BB16-EBB3BD6BF992}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShuKnow.Metrics", "ShuKnow.Metrics\ShuKnow.Metrics.csproj", "{65060A1E-1904-463D-B23B-030536C0B426}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -54,5 +56,9 @@ Global
 		{96F140AB-23E1-4092-BB16-EBB3BD6BF992}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{96F140AB-23E1-4092-BB16-EBB3BD6BF992}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{96F140AB-23E1-4092-BB16-EBB3BD6BF992}.Release|Any CPU.Build.0 = Release|Any CPU
+		{65060A1E-1904-463D-B23B-030536C0B426}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{65060A1E-1904-463D-B23B-030536C0B426}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{65060A1E-1904-463D-B23B-030536C0B426}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{65060A1E-1904-463D-B23B-030536C0B426}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

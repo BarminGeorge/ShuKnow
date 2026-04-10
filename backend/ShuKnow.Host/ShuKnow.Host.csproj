@@ -12,6 +12,7 @@
       <ProjectReference Include="..\ShuKnow.Domain\ShuKnow.Domain.csproj" />
       <ProjectReference Include="..\ShuKnow.Infrastructure\ShuKnow.Infrastructure.csproj" />
       <ProjectReference Include="..\ShuKnow.WebAPI\ShuKnow.WebAPI.csproj" />
+      <ProjectReference Include="..\ShuKnow.Metrics\ShuKnow.Metrics.csproj" />
     </ItemGroup>
     
     <ItemGroup>

@@ -44,7 +44,7 @@ public static class ServiceCollectionExtensions
                 Info = new Info("ShuKnow AsyncAPI", "1.0.0")
             };
         });
-
+        
         services.AddAuth();
 
         services.AddScoped<ICurrentUserService, CurrentUserService>();

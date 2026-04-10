@@ -3,6 +3,7 @@ using ShuKnow.Application.Configuration;
 using ShuKnow.Domain.Configuration;
 using ShuKnow.Infrastructure.Configuration;
 using ShuKnow.WebAPI.Configuration;
+using ShuKnow.Metrics.Configuration;
 
 namespace ShuKnow.Host;
 
@@ -26,6 +27,7 @@ public static class Program
         services.AddDomain();
         services.AddInfrastructure(configuration);
         services.AddApplication();
+        services.AddMetrics(configuration);
         services.AddWeb(configuration);
     }
 

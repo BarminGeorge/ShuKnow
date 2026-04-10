@@ -17,6 +17,7 @@
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.24" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.23" />
+        <PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.15.2-beta.1" />
         <PackageReference Include="Saunter" Version="0.13.0" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.4" />
     </ItemGroup>

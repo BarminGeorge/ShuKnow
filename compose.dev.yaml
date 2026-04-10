@@ -1,8 +1,10 @@
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: shuknow-postgres-dev
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: shuknow
+      POSTGRES_DB: shuknow_dev
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
@@ -24,6 +26,45 @@ services:
     volumes:
       - rustfs-data:/data
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: shuknow-prometheus-dev
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - shuknow-dev
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: shuknow-grafana-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - shuknow-dev
+    depends_on:
+      - prometheus
+
 volumes:
   postgres-data:
   rustfs-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  shuknow-dev:
+    driver: bridge
