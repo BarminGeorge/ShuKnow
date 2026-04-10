@@ -16,9 +16,8 @@ public class ChatMessageRepositoryTests : BaseRepositoryTests
         sut = new ChatMessageRepository(Context);
     }
 
-    // Verifies pagination and correct sorting (NULLs vs values) when messages have Index = null
     [Test]
-    public async Task GetPageAsync_WithMixedNullAndNonNullIndexes_ShouldReturnCorrectOrderAndPages()
+    public async Task WithMixedNullAndNonNullIndexes_ShouldReturnCorrectOrderAndPages()
     {
         var user = await SeedUserAsync();
         var session = await SeedSessionAsync(user.Id);
@@ -38,9 +37,8 @@ public class ChatMessageRepositoryTests : BaseRepositoryTests
         page2.Value.NextCursor.Should().BeNull();
     }
 
-    // Verifies deterministic sorting using Id as a tie-breaker when Index values are duplicated
     [Test]
-    public async Task GetPageAsync_WithDuplicateIndexes_ShouldUseIdAsTieBreaker()
+    public async Task WithDuplicateIndexes_ShouldUseIdAsTieBreaker()
     {
         var user = await SeedUserAsync();
         var session = await SeedSessionAsync(user.Id);
@@ -60,9 +58,8 @@ public class ChatMessageRepositoryTests : BaseRepositoryTests
         page3.Value.NextCursor.Should().BeNull();
     }
 
-    // Ensures messages are not dropped or duplicated across page limits
     [Test]
-    public async Task GetPageAsync_TransitionBetweenPagesLimitBoundary_ShouldNotDropOrDuplicate()
+    public async Task AtPageBoundary_ShouldNotDropOrDuplicate()
     {
         var user = await SeedUserAsync();
         var session = await SeedSessionAsync(user.Id);
@@ -81,9 +78,8 @@ public class ChatMessageRepositoryTests : BaseRepositoryTests
         page2.Value.NextCursor.Should().BeNull();
     }
     
-    // Validates cursor security by rejecting attempts to use an opaque token generated for another session
     [Test]
-    public async Task GetPageAsync_WithForeignCursor_ShouldReturnInvalid()
+    public async Task WithForeignCursor_ShouldReturnInvalid()
     {
         var user1 = await SeedUserAsync();
         var session1 = await SeedSessionAsync(user1.Id);
@@ -101,9 +97,8 @@ public class ChatMessageRepositoryTests : BaseRepositoryTests
         s2Page.Status.Should().Be(ResultStatus.Invalid);
     }
     
-    // Validates API safety by returning an error when given a tampered or invalid Base64 cursor
     [Test]
-    public async Task GetPageAsync_WithMalformedCursor_ShouldReturnInvalid()
+    public async Task WithMalformedCursor_ShouldReturnInvalid()
     {
         var user = await SeedUserAsync();
         var session = await SeedSessionAsync(user.Id);
