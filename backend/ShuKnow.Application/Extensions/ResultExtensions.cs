@@ -46,26 +46,4 @@ public static class ResultExtensions
             return Task.FromResult(source);
         });
     }
-
-    public static Result<T> ToTypedResult<T>(this Result result)
-    {
-        return result.Status switch
-        {
-            ResultStatus.Unauthorized => Result<T>.Unauthorized(),
-            ResultStatus.NotFound => Result<T>.NotFound(),
-            ResultStatus.Conflict => Result<T>.Conflict(),
-            _ => Result<T>.Error()
-        };
-    }
-
-    public static Result<TDestination> ToTypedResult<TSource, TDestination>(this Result<TSource> result)
-    {
-        return result.Status switch
-        {
-            ResultStatus.Unauthorized => Result<TDestination>.Unauthorized(),
-            ResultStatus.NotFound => Result<TDestination>.NotFound(),
-            ResultStatus.Conflict => Result<TDestination>.Conflict(),
-            _ => Result<TDestination>.Error()
-        };
-    }
 }
