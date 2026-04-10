@@ -18,7 +18,7 @@ public class ChatMessageRepository(AppDbContext context) : IChatMessageRepositor
         string? cursor,
         int limit)
     {
-        var query = GetBaseQuery(sessionId);
+        var query = GetOrderedSessionMessagesQuery(sessionId);
 
         if (!string.IsNullOrWhiteSpace(cursor))
         {
@@ -53,7 +53,7 @@ public class ChatMessageRepository(AppDbContext context) : IChatMessageRepositor
         return Result.Success();
     }
 
-    private IQueryable<ChatMessage> GetBaseQuery(Guid sessionId) =>
+    private IQueryable<ChatMessage> GetOrderedSessionMessagesQuery(Guid sessionId) =>
         context.ChatMessages
             .AsNoTracking()
             .Where(m => m.SessionId == sessionId)
