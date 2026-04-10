@@ -2,6 +2,8 @@ using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using ShuKnow.Application.Interfaces;
+using ShuKnow.Metrics.Services;
 using ShuKnow.WebAPI.Dto.Files;
 using ShuKnow.WebAPI.Requests.Files;
 
@@ -10,7 +12,10 @@ namespace ShuKnow.WebAPI.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class FilesController : ControllerBase
+public class FilesController(
+    MetricsRegistry metricsRegistry,
+    ICurrentUserService currentUserService)
+    : ControllerBase
 {
     private static readonly Guid MockFolderId = Guid.Parse("6ef7d767-88fb-4d3a-b52c-9586d304f022");
     private static readonly DateTimeOffset MockCreatedAt = new(2026, 1, 15, 10, 30, 0, TimeSpan.Zero);
@@ -44,6 +49,7 @@ public class FilesController : ControllerBase
         [FromHeader(Name = "Range")] string? range = null)
     {
         // TODO: implement
+        metricsRegistry.RecordContentOpened(fileId);
         var mockContent = "Mock file content"u8.ToArray();
         return File(mockContent, "application/octet-stream", "report.pdf");
     }
@@ -52,6 +58,7 @@ public class FilesController : ControllerBase
     public async Task<ActionResult<FileDto>> ReplaceFileContent(Guid fileId, IFormFile file)
     {
         // TODO: implement
+        metricsRegistry.RecordContentSaved(currentUserService.UserId, fileId);
         return new FileDto(fileId, MockFolderId, "Documents", file.FileName, string.Empty,
             file.ContentType, file.Length, 1, null, 0, MockCreatedAt);
     }
@@ -61,6 +68,7 @@ public class FilesController : ControllerBase
         [FromBody] UpdateTextContentRequest request)
     {
         // TODO: implement
+        metricsRegistry.RecordContentSaved(currentUserService.UserId, fileId);
         var contentBytes = Encoding.UTF8.GetByteCount(request.Content);
         return new FileDto(fileId, MockFolderId, "Documents", "note.md", string.Empty,
             "text/markdown", contentBytes, 2, null, 0, MockCreatedAt);
@@ -70,6 +78,7 @@ public class FilesController : ControllerBase
     public async Task<ActionResult<FileDto>> MoveFile(Guid fileId, [FromBody] MoveFileRequest request)
     {
         // TODO: implement
+        metricsRegistry.RecordManualMove(fileId);
         return new FileDto(fileId, request.TargetFolderId, "Target Folder",
             "report.pdf", "Annual report", "application/pdf", 204_800, 1, null, 0, MockCreatedAt);
     }

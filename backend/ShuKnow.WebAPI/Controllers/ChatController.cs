@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using ShuKnow.Application.Interfaces;
+using ShuKnow.Metrics.Services;
 using ShuKnow.WebAPI.Dto.Enums;
 using ShuKnow.WebAPI.Dto.Chat;
 
@@ -9,7 +11,10 @@ namespace ShuKnow.WebAPI.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class ChatController : ControllerBase
+public class ChatController(
+    MetricsRegistry metricsRegistry,
+    ICurrentUserService currentUserService)
+    : ControllerBase
 {
     private static readonly Guid MockSessionId = Guid.Parse("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
 
@@ -43,6 +48,9 @@ public class ChatController : ControllerBase
         var attachments = files
             .Select(f => new AttachmentDto(Guid.NewGuid(), f.FileName, f.ContentType, f.Length))
             .ToList();
+
+        foreach (var attachment in attachments)
+            metricsRegistry.RecordContentSaved(currentUserService.UserId, attachment.Id);
 
         return Ok(attachments);
     }

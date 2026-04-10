@@ -26,6 +26,7 @@
     <ItemGroup>
         <ProjectReference Include="..\ShuKnow.Infrastructure\ShuKnow.Infrastructure.csproj" />
         <ProjectReference Include="..\ShuKnow.Domain\ShuKnow.Domain.csproj" />
+        <ProjectReference Include="..\ShuKnow.Metrics\ShuKnow.Metrics.csproj" />
     </ItemGroup>
 
 </Project>

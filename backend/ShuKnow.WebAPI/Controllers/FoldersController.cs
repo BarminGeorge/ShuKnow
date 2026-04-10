@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using ShuKnow.Application.Interfaces;
+using ShuKnow.Metrics.Services;
 using ShuKnow.WebAPI.Dto.Files;
 using ShuKnow.WebAPI.Dto.Folders;
 using ShuKnow.WebAPI.Requests.Folders;
@@ -10,7 +12,10 @@ namespace ShuKnow.WebAPI.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class FoldersController : ControllerBase
+public class FoldersController(
+    MetricsRegistry metricsRegistry,
+    ICurrentUserService currentUserService)
+    : ControllerBase
 {
     private static readonly Guid MockDocumentsId = Guid.Parse("6ef7d767-88fb-4d3a-b52c-9586d304f022");
     private static readonly Guid MockPhotosId = Guid.Parse("9605cb52-a7a0-4f7f-b5cb-be54f6e716f7");
@@ -98,6 +103,7 @@ public class FoldersController : ControllerBase
         // TODO: implement
         var fileDto = new FileDto(Guid.NewGuid(), folderId, "Folder",
             name ?? file.FileName, description ?? string.Empty, file.ContentType, file.Length, 1, null, 0, MockCreatedAt);
+        metricsRegistry.RecordContentSaved(currentUserService.UserId, fileDto.Id);
         return CreatedAtAction("GetFile", "Files", new { fileId = fileDto.Id }, fileDto);
     }
 }
