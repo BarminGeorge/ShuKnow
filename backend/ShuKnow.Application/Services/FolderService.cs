@@ -79,18 +79,13 @@ internal class FolderService(
 
                 return EnsureMoveIsValidAsync(existingFolder.Id, existingFolder.Name, newParentFolderId)
                     .BindAsync(_ => folderRepository.GetSiblingsAsync(newParentFolderId, CurrentUserId))
-                    .BindAsync(siblings =>
-                    {
-                        var movedFolder = UpdateFolder(
-                            existingFolder,
-                            newParentFolderId: newParentFolderId,
-                            updateParentFolderId: true,
-                            sortOrder: siblings.Count);
-
-                        return folderRepository.UpdateAsync(movedFolder)
-                            .SaveChangesAsync(unitOfWork)
-                            .MapAsync(() => movedFolder);
-                    });
+                    .MapAsync(siblings => UpdateFolder(
+                        existingFolder,
+                        newParentFolderId: newParentFolderId,
+                        updateParentFolderId: true,
+                        sortOrder: siblings.Count))
+                    .ActAsync(folderRepository.UpdateAsync)
+                    .SaveChangesAsync(unitOfWork);
             });
     }
 
