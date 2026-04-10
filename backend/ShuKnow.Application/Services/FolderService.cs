@@ -41,37 +41,27 @@ internal class FolderService(
         return await EnsureParentFolderExistsAsync(folder.ParentFolderId)
             .BindAsync(_ => EnsureFolderNameUniqueAsync(folder.Name, folder.ParentFolderId))
             .BindAsync(_ => folderRepository.GetSiblingsAsync(folder.ParentFolderId, CurrentUserId))
-            .BindAsync(siblings =>
-            {
-                var folderToCreate = new Folder(
-                    folder.Id,
-                    CurrentUserId,
-                    folder.Name,
-                    folder.Description,
-                    folder.ParentFolderId,
-                    siblings.Count);
-
-                return folderRepository.AddAsync(folderToCreate)
-                    .SaveChangesAsync(unitOfWork)
-                    .MapAsync(() => folderToCreate);
-            });
+            .MapAsync(siblings => new Folder(
+                folder.Id,
+                CurrentUserId,
+                folder.Name,
+                folder.Description,
+                folder.ParentFolderId,
+                siblings.Count))
+            .ActAsync(folderRepository.AddAsync)
+            .SaveChangesAsync(unitOfWork);
     }
 
     public async Task<Result<Folder>> UpdateAsync(Folder folder, CancellationToken ct = default)
     {
         return await GetByIdAsync(folder.Id, ct)
             .ActAsync(existingFolder => EnsureFolderNameUniqueAsync(folder.Name, existingFolder.ParentFolderId, existingFolder.Id))
-            .BindAsync(existingFolder =>
-            {
-                var updatedFolder = UpdateFolder(
-                    existingFolder,
-                    name: folder.Name,
-                    description: folder.Description);
-
-                return folderRepository.UpdateAsync(updatedFolder)
-                    .SaveChangesAsync(unitOfWork)
-                    .MapAsync(() => updatedFolder);
-            });
+            .MapAsync(existingFolder => UpdateFolder(
+                existingFolder,
+                name: folder.Name,
+                description: folder.Description))
+            .ActAsync(folderRepository.UpdateAsync)
+            .SaveChangesAsync(unitOfWork);
     }
 
     public Task<Result> DeleteAsync(Guid folderId, CancellationToken ct = default) =>
