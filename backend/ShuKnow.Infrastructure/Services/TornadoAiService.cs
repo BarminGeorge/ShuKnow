@@ -28,12 +28,6 @@ public class TornadoAiService(
     {
         return await chatService.GetOrCreateActiveSessionAsync(ct)
             .BindAsync(session => conversationFactory.CreateConversation(settings, toolsService.Tools, temperature)
-                // .ActAsync(conversation => promptBuilder.CreateSystemInstructions(ct)
-                //     .Act(conversation.PrependSystemMessage))
-                // .ActAsync(conversation => promptBuilder.GetPreviousMessages(ct)
-                //     .Act(conversation.AddMessages))
-                // .ActAsync(conversation => promptBuilder.CreateUserMessages(content, attachmentIds, ct)
-                //     .Act(conversation.AddUserMessage))
                 .ActAsync(conversation => PrepareConversation(conversation, content, attachmentIds, ct))
                 .BindAsync(conversation => RunWithTools(conversation, ct))
                 .ActAsync(_ => attachmentIds is null or { Count: 0 }
