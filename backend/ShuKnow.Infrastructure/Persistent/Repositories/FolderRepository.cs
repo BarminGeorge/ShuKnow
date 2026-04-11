@@ -164,6 +164,23 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
         return Task.FromResult(Result.Success());
     }
 
+    public Task<Result> UpdateRangeAsync(IReadOnlyList<Folder> folders)
+    {
+        foreach (var folder in folders)
+        {
+            var trackedFolder = context.ChangeTracker
+                .Entries<Folder>()
+                .SingleOrDefault(entry => entry.Entity.Id == folder.Id);
+
+            if (trackedFolder is not null)
+                trackedFolder.CurrentValues.SetValues(folder);
+            else
+                context.Folders.Update(folder);
+        }
+
+        return Task.FromResult(Result.Success());
+    }
+
     public async Task<Result> DeleteAsync(Guid folderId, Guid userId)
     {
         var trackedFolder = GetTrackedFolder(folderId, userId);

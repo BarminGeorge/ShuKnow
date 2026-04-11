@@ -61,12 +61,11 @@ public class BaseRepositoryTests
     {
         await using var resetContext = CreateDbContext();
         
-        resetContext.RemoveRange(resetContext.Users);
-        resetContext.RemoveRange(resetContext.IdentityUsers);
-        resetContext.RemoveRange(resetContext.ChatSessions);
-        resetContext.RemoveRange(resetContext.UserAiSettings);
-        resetContext.RemoveRange(resetContext.ChatAttachments);
         await resetContext.Folders.ExecuteDeleteAsync();
-        await resetContext.SaveChangesAsync();
+        await resetContext.UserAiSettings.ExecuteDeleteAsync();
+        await resetContext.ChatSessions.ExecuteDeleteAsync();
+        await resetContext.Users.ExecuteDeleteAsync();
+        await resetContext.IdentityUsers.ExecuteDeleteAsync();
+        await resetContext.ChatAttachments.ExecuteDeleteAsync();
     }
 }

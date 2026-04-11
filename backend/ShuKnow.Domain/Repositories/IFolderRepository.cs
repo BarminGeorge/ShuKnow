@@ -25,6 +25,8 @@ public interface IFolderRepository
 
     Task<Result> UpdateAsync(Folder folder);
 
+    Task<Result> UpdateRangeAsync(IReadOnlyList<Folder> folders);
+
     Task<Result> DeleteAsync(Guid folderId, Guid userId);
 
     Task<Result> DeleteSubtreeAsync(Guid folderId, Guid userId);

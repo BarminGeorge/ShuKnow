@@ -1,4 +1,4 @@
-﻿using Ardalis.Result;
+using Ardalis.Result;
 using ShuKnow.Application.Interfaces;
 
 namespace ShuKnow.Application.Extensions;
