@@ -28,18 +28,19 @@ public class TornadoAiService(
     {
         return await chatService.GetOrCreateActiveSessionAsync(ct)
             .BindAsync(session => conversationFactory.CreateConversation(settings, toolsService.Tools, temperature)
-                .ActAsync(conversation => promptBuilder.CreateSystemInstructions(ct)
-                    .Act(conversation.PrependSystemMessage))
-                .ActAsync(conversation => promptBuilder.GetPreviousMessages(ct)
-                    .Act(conversation.AddMessages))
-                .ActAsync(conversation => promptBuilder.CreateUserMessages(content, attachmentIds, ct)
-                    .Act(conversation.AddUserMessage))
+                // .ActAsync(conversation => promptBuilder.CreateSystemInstructions(ct)
+                //     .Act(conversation.PrependSystemMessage))
+                // .ActAsync(conversation => promptBuilder.GetPreviousMessages(ct)
+                //     .Act(conversation.AddMessages))
+                // .ActAsync(conversation => promptBuilder.CreateUserMessages(content, attachmentIds, ct)
+                //     .Act(conversation.AddUserMessage))
+                .ActAsync(conversation => PrepareConversation(conversation, content, attachmentIds, ct))
                 .BindAsync(conversation => RunWithTools(conversation, ct))
                 .ActAsync(_ => attachmentIds is null or { Count: 0 }
                     ? Task.FromResult(Result.Success())
                     : attachmentService.MarkConsumedAsync(attachmentIds, ct))
                 .ActAsync(_ => chatService.PersistMessageAsync(ChatMessage.CreateUserMessage(session.Id, content), ct))
-                .ActAsync(response 
+                .ActAsync(response
                     => chatService.PersistMessageAsync(ChatMessage.CreateAiMessage(session.Id, response), ct))
             )
             .BindAsync(_ => Result.Success());
@@ -55,6 +56,22 @@ public class TornadoAiService(
 
         settings.UpdateTestResult(testResult.IsSuccess, latency, error);
         return settings;
+    }
+
+    private async Task<Result> PrepareConversation<T>(T conversation, string content,
+        IReadOnlyCollection<Guid>? attachmentIds, CancellationToken ct = default) where T : ITornadoConversation
+    {
+        var systemTask = promptBuilder.CreateSystemInstructions(ct);
+        var historyTask = promptBuilder.GetPreviousMessages(ct);
+        var userTask = promptBuilder.CreateUserMessages(content, attachmentIds, ct);
+
+        await Task.WhenAll(systemTask, historyTask, userTask);
+
+        return systemTask.Result
+            .Act(conversation.PrependSystemMessage)
+            .Act(_ => historyTask.Result.Act(conversation.AddMessages))
+            .Act(_ => userTask.Result.Act(conversation.AddUserMessage))
+            .Map();
     }
 
     private async Task<Result<string>> RunWithTools(ITornadoConversation conversation, CancellationToken ct = default)

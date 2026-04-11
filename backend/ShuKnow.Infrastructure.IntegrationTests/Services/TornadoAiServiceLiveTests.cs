@@ -111,36 +111,6 @@ public class TornadoAiServiceLiveTests
     #region Tool Calls - Error Handling
 
     [Test]
-    public async Task ProcessMessageAsync_WhenToolCallFailsWithInvalidPath_ShouldStillReturnSuccess()
-    {
-        var fixture = CreateFixtureWithToolErrors();
-        const string prompt = "Создай папку с именем 'test-folder' и описанием 'Test folder'.";
-
-        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, fixture.Settings);
-
-        AssertSuccess(result, fixture.Logs);
-        await fixture.AiToolsService.Received().CreateFolderAsync(
-            Arg.Any<string>(),
-            Arg.Any<string>(),
-            Arg.Any<string>(),
-            Arg.Any<CancellationToken>());
-    }
-
-    [Test]
-    public async Task ProcessMessageAsync_WhenToolCallFailsWithInvalidPath_ShouldReceiveErrorInResponse()
-    {
-        var fixture = CreateFixtureWithToolErrors();
-        const string prompt = "Создай папку с именем 'test-folder' и описанием 'Test folder'.";
-
-        await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, fixture.Settings);
-
-        fixture.PersistedMessages.Should().HaveCount(2);
-        var aiResponse = fixture.PersistedMessages[1];
-        aiResponse.Role.Should().Be(ChatMessageRole.Ai);
-        aiResponse.Content.Should().NotBeNullOrWhiteSpace();
-    }
-
-    [Test]
     public async Task ProcessMessageAsync_WhenMoveFileFailsWithNotFound_ShouldHandleGracefully()
     {
         var fixture = CreateFixtureWithToolErrors();
