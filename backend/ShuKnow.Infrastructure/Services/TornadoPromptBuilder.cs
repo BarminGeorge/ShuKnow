@@ -62,7 +62,7 @@ public class TornadoPromptBuilder(
         return prefix switch
         {
             "image" => new ChatMessagePart(base64Data, ImageDetail.Auto, attachment.ContentType),
-            "application" => new ChatMessagePart(new ChatDocument(base64Data)),
+            "application" or "text" => new ChatMessagePart(new ChatDocument(base64Data)),
             _ => Result.Invalid(new ValidationError($"Unsupported attachment type '{attachment.ContentType}'"))
         };
     }
