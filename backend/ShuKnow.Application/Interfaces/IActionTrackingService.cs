@@ -19,15 +19,15 @@ public interface IActionTrackingService
     Task<Result> RecordFileCreatedAsync(
         Guid actionId,
         Guid fileId,
-        Guid folderId,
+        Guid? folderId,
         string fileName,
         CancellationToken ct = default);
 
     Task<Result> RecordFileMovedAsync(
         Guid actionId,
         Guid fileId,
-        Guid sourceFolderId,
-        Guid targetFolderId,
+        Guid? sourceFolderId,
+        Guid? targetFolderId,
         CancellationToken ct = default);
 
     Task<Result> MarkRolledBackAsync(

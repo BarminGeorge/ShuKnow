@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ShuKnow.Infrastructure.Persistent;
@@ -11,9 +12,11 @@ using ShuKnow.Infrastructure.Persistent;
 namespace ShuKnow.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260408092713_AddFileRepository")]
+    partial class AddFileRepository
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,96 +24,6 @@ namespace ShuKnow.Infrastructure.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("ShuKnow.Domain.Entities.ChatAttachment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<Guid>("BlobId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("blob_id");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("content_type");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("file_name");
-
-                    b.Property<bool>("IsConsumed")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_consumed");
-
-                    b.Property<long>("SizeBytes")
-                        .HasColumnType("bigint")
-                        .HasColumnName("size_bytes");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_chat_attachments");
-
-                    b.HasIndex("BlobId")
-                        .HasDatabaseName("ix_chat_attachments_blob_id");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_chat_attachments_user_id");
-
-                    b.HasIndex("CreatedAt", "IsConsumed")
-                        .HasDatabaseName("ix_chat_attachments_created_at_is_consumed");
-
-                    b.ToTable("chat_attachments", (string)null);
-                });
-
-            modelBuilder.Entity("ShuKnow.Domain.Entities.ChatMessage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("content");
-
-                    b.Property<int?>("Index")
-                        .HasColumnType("integer")
-                        .HasColumnName("index");
-
-                    b.Property<int>("Role")
-                        .HasColumnType("integer")
-                        .HasColumnName("role");
-
-                    b.Property<Guid>("SessionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("session_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_chat_messages");
-
-                    b.HasIndex("SessionId", "Index", "Id")
-                        .HasDatabaseName("ix_chat_messages_session_id_index_id");
-
-                    b.ToTable("chat_messages", (string)null);
-                });
 
             modelBuilder.Entity("ShuKnow.Domain.Entities.ChatSession", b =>
                 {
@@ -337,26 +250,6 @@ namespace ShuKnow.Infrastructure.Migrations
                     b.ToTable("identity_users", (string)null);
                 });
 
-            modelBuilder.Entity("ShuKnow.Domain.Entities.ChatAttachment", b =>
-                {
-                    b.HasOne("ShuKnow.Domain.Entities.User", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_chat_attachments_users_user_id");
-                });
-
-            modelBuilder.Entity("ShuKnow.Domain.Entities.ChatMessage", b =>
-                {
-                    b.HasOne("ShuKnow.Domain.Entities.ChatSession", null)
-                        .WithMany("Messages")
-                        .HasForeignKey("SessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_chat_messages_chat_sessions_session_id");
-                });
-
             modelBuilder.Entity("ShuKnow.Domain.Entities.ChatSession", b =>
                 {
                     b.HasOne("ShuKnow.Domain.Entities.User", null)
@@ -412,11 +305,6 @@ namespace ShuKnow.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_identity_users_users_id");
-                });
-
-            modelBuilder.Entity("ShuKnow.Domain.Entities.ChatSession", b =>
-                {
-                    b.Navigation("Messages");
                 });
 #pragma warning restore 612, 618
         }

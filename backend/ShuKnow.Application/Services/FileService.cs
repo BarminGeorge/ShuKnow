@@ -26,7 +26,7 @@ public class FileService(
     }
 
     public async Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
-        Guid folderId, int page, int pageSize, CancellationToken ct = default)
+        Guid? folderId, int page, int pageSize, CancellationToken ct = default)
     {
         return await fileRepository.ListByFolderAsync(folderId, CurrentUserId, page, pageSize);
     }
@@ -55,7 +55,7 @@ public class FileService(
     public async Task<Result> DeleteAsync(Guid fileId, CancellationToken ct = default)
     {
         return await fileRepository.GetByIdAsync(fileId, CurrentUserId)
-            .ActAsync(file => fileRepository.DeleteAsync(file.Id))
+            .ActAsync(file => fileRepository.DeleteAsync(file.Id, CurrentUserId))
             .SaveChangesAsync(unitOfWork)
             .ActAsync(file => blobDeletionQueue.EnqueueDeleteAsync(file.BlobId).AsTask())
             .BindAsync(_ => Result.Success());
@@ -92,7 +92,7 @@ public class FileService(
             .Map(pair => pair.File);
     }
 
-    public async Task<Result<File>> MoveAsync(Guid fileId, Guid targetFolderId, CancellationToken ct = default)
+    public async Task<Result<File>> MoveAsync(Guid fileId, Guid? targetFolderId, CancellationToken ct = default)
     {
         return await EnsureFolderExistsAsync(targetFolderId)
             .BindAsync(_ => fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId))
@@ -101,10 +101,10 @@ public class FileService(
             .SaveChangesAsync(unitOfWork);
     }
 
-    public async Task<Result> DeleteByFolderAsync(Guid folderId, CancellationToken ct = default)
+    public async Task<Result> DeleteByFolderAsync(Guid? folderId, CancellationToken ct = default)
     {
         return await EnsureFolderExistsAsync(folderId)
-            .BindAsync(_ => fileRepository.DeleteByFolderAsync(folderId))
+            .BindAsync(_ => fileRepository.DeleteByFolderAsync(folderId, CurrentUserId))
             .SaveChangesAsync(unitOfWork)
             .ActAsync(files => EnqueueDeletesAsync(files.Select(file => file.BlobId)))
             .BindAsync(_ => Result.Success());
@@ -113,8 +113,8 @@ public class FileService(
     public async Task<Result> ReorderAsync(Guid fileId, int position, CancellationToken ct = default)
     {
         return await fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId)
-            .BindAsync(file => fileRepository.GetByFolderAsync(file.FolderId)
-                .BindAsync(files => folderRepository.GetChildrenAsync(file.FolderId, CurrentUserId)
+            .BindAsync(file => fileRepository.GetByFolderAsync(file.FolderId, CurrentUserId)
+                .BindAsync(files => GetChildrenFoldersAsync(file.FolderId)
                     .BindAsync(folders => ApplyReorder(file, files, folders, position))))
             .SaveChangesAsync(unitOfWork);
     }
@@ -150,16 +150,26 @@ public class FileService(
             : Result.Invalid(new ValidationError("File is not a text-based file."));
     }
 
-    private async Task<Result> EnsureFileNameUnique(string name, Guid folderId, Guid fileId)
+    private async Task<Result> EnsureFileNameUnique(string name, Guid? folderId, Guid fileId)
     {
         return await fileRepository.ExistsByNameInFolderAsync(name, folderId, CurrentUserId, fileId)
             .BindAsync(exists => exists ? Result.Conflict() : Result.Success());
     }
 
-    private async Task<Result> EnsureFolderExistsAsync(Guid folderId)
+    private async Task<Result> EnsureFolderExistsAsync(Guid? folderId)
     {
-        return await folderRepository.ExistsByIdAsync(folderId, CurrentUserId)
+        if (folderId is null)
+            return Result.Success();
+
+        return await folderRepository.ExistsByIdAsync(folderId.Value, CurrentUserId)
             .BindAsync(exists => exists ? Result.Success() : Result.NotFound());
+    }
+
+    private async Task<Result<IReadOnlyList<Folder>>> GetChildrenFoldersAsync(Guid? folderId)
+    {
+        return folderId.HasValue
+            ? await folderRepository.GetChildrenAsync(folderId.Value, CurrentUserId)
+            : await folderRepository.GetRootFoldersAsync(CurrentUserId);
     }
 
     private async Task<Result<Stream>> GetStreamAsync(

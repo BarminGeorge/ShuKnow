@@ -42,7 +42,7 @@ internal class FolderService(
     {
         return await EnsureParentFolderExistsAsync(folder.ParentFolderId)
             .BindAsync(_ => EnsureFolderNameUniqueAsync(folder.Name, folder.ParentFolderId))
-            .BindAsync(_ => folderRepository.GetSiblingsAsync(folder.ParentFolderId, CurrentUserId))
+            .BindAsync(_ => folderRepository.GetChildrenAsync(folder.ParentFolderId, CurrentUserId))
             .MapAsync(siblings => new Folder(
                 folder.Id,
                 CurrentUserId,
@@ -82,7 +82,7 @@ internal class FolderService(
                     return Task.FromResult(Result.Success(existingFolder));
 
                 return EnsureMoveIsValidAsync(existingFolder.Id, existingFolder.Name, newParentFolderId)
-                    .BindAsync(_ => folderRepository.GetSiblingsAsync(newParentFolderId, CurrentUserId))
+                    .BindAsync(_ => folderRepository.GetChildrenAsync(newParentFolderId, CurrentUserId))
                     .MapAsync(siblings => UpdateFolder(
                         existingFolder,
                         newParentFolderId: newParentFolderId,
@@ -97,7 +97,7 @@ internal class FolderService(
     {
         return await EnsurePositionValidAsync(position)
             .BindAsync(_ => GetByIdAsync(folderId, ct))
-            .BindAsync(folder => folderRepository.GetSiblingsAsync(folder.ParentFolderId, CurrentUserId))
+            .BindAsync(folder => folderRepository.GetChildrenAsync(folder.ParentFolderId, CurrentUserId))
             .BindAsync(siblings => ApplyReorderAsync(siblings, folderId, position));
     }
 
