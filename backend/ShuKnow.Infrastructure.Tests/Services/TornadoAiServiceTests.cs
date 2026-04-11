@@ -50,7 +50,7 @@ public class TornadoAiServiceTests
 
         var promptBuilder = new TornadoPromptBuilder(attachmentService, blobStorageService, chatService);
         var toolsService = new TornadoToolsService(aiToolsService);
-        sut = new TornadoAiService(promptBuilder, chatService, toolsService, conversationFactory, options, logger);
+        sut = new TornadoAiService(promptBuilder, attachmentService, chatService, toolsService, conversationFactory, options, logger);
     }
 
     #region ProcessMessageAsync - Session Handling
@@ -372,6 +372,58 @@ public class TornadoAiServiceTests
         result.Errors.Should().ContainSingle().Which.Should().Be("blob not found");
     }
 
+    [Test]
+    public async Task ProcessMessageAsync_WhenAttachmentsProvided_ShouldMarkAttachmentsAsConsumed()
+    {
+        var attachmentId = Guid.NewGuid();
+        var attachment = CreateImageAttachment(attachmentId);
+        ConfigureAttachment(attachmentId, attachment);
+
+        await sut.ProcessMessageAsync("hello", [attachmentId], settings);
+
+        await attachmentService.Received(1).MarkConsumedAsync(
+            Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { attachmentId })),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task ProcessMessageAsync_WhenMultipleAttachmentsProvided_ShouldMarkAllAsConsumed()
+    {
+        var attachmentId1 = Guid.NewGuid();
+        var attachmentId2 = Guid.NewGuid();
+        var attachment1 = CreateImageAttachment(attachmentId1, "file1.png", "image/png");
+        var attachment2 = CreateImageAttachment(attachmentId2, "file2.png", "image/png");
+
+        attachmentService.GetByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(Success<IReadOnlyList<ChatAttachment>>([attachment1, attachment2]));
+        blobStorageService.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo => Success<Stream>(new MemoryStream([1, 2, 3])));
+
+        await sut.ProcessMessageAsync("hello", [attachmentId1, attachmentId2], settings);
+
+        await attachmentService.Received(1).MarkConsumedAsync(
+            Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Count == 2 && ids.Contains(attachmentId1) && ids.Contains(attachmentId2)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task ProcessMessageAsync_WhenAttachmentsNull_ShouldNotMarkConsumed()
+    {
+        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings);
+
+        await attachmentService.DidNotReceive()
+            .MarkConsumedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task ProcessMessageAsync_WhenAttachmentsEmpty_ShouldNotMarkConsumed()
+    {
+        await sut.ProcessMessageAsync("hello", [], settings);
+
+        await attachmentService.DidNotReceive()
+            .MarkConsumedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+    }
+
     #endregion
 
     #region ProcessMessageAsync - Tool Calls
@@ -632,6 +684,8 @@ public class TornadoAiServiceTests
 
         attachmentService.GetByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(Success<IReadOnlyList<ChatAttachment>>([]));
+        attachmentService.MarkConsumedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(Success());
     }
 
     private void ConfigureAttachment(Guid attachmentId, ChatAttachment attachment)

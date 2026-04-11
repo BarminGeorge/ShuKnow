@@ -284,6 +284,8 @@ public class TornadoAiServiceLiveTests
         var attachmentService = Substitute.For<IAttachmentService>();
         attachmentService.GetByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success<IReadOnlyList<ChatAttachment>>(attachments)));
+        attachmentService.MarkConsumedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
 
         var blobStorageService = Substitute.For<IBlobStorageService>();
         blobStorageService.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
@@ -319,7 +321,7 @@ public class TornadoAiServiceLiveTests
         var conversationFactory = new TornadoConversationFactory(encryptionService);
         var logger = new TestLogger<TornadoAiService>();
         var options = Options.Create(new TornadoAiOptions { Temperature = 0.3, MaxTurns = 10 });
-        var sut = new TornadoAiService(promptBuilder, chatService, toolsService, conversationFactory, options, logger);
+        var sut = new TornadoAiService(promptBuilder, attachmentService, chatService, toolsService, conversationFactory, options, logger);
 
         return new TornadoAiLiveFixture(
             sut,

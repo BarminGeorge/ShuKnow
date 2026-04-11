@@ -13,6 +13,7 @@ namespace ShuKnow.Infrastructure.Services;
 
 public class TornadoAiService(
     TornadoPromptBuilder promptBuilder,
+    IAttachmentService attachmentService,
     IChatService chatService,
     TornadoToolsService toolsService,
     ITornadoConversationFactory conversationFactory,
@@ -34,9 +35,12 @@ public class TornadoAiService(
                 .ActAsync(conversation => promptBuilder.CreateUserMessages(content, attachmentIds, ct)
                     .Act(conversation.AddUserMessage))
                 .BindAsync(conversation => RunWithTools(conversation, ct))
+                .ActAsync(_ => attachmentIds is null or { Count: 0 }
+                    ? Task.FromResult(Result.Success())
+                    : attachmentService.MarkConsumedAsync(attachmentIds, ct))
                 .ActAsync(_ => chatService.PersistMessageAsync(ChatMessage.CreateUserMessage(session.Id, content), ct))
-                .ActAsync(response =>
-                    chatService.PersistMessageAsync(ChatMessage.CreateAiMessage(session.Id, response), ct))
+                .ActAsync(response 
+                    => chatService.PersistMessageAsync(ChatMessage.CreateAiMessage(session.Id, response), ct))
             )
             .BindAsync(_ => Result.Success());
     }
@@ -48,7 +52,7 @@ public class TornadoAiService(
 
         var latency = testResult.IsSuccess ? (int?)testResult.Value : null;
         var error = testResult.IsSuccess ? null : testResult.Errors.FirstOrDefault();
-        
+
         settings.UpdateTestResult(testResult.IsSuccess, latency, error);
         return settings;
     }
@@ -73,13 +77,14 @@ public class TornadoAiService(
         return Result.Error($"Agent did not converge after {maxTurns} iterations");
     }
 
-    private async Task<Result<string>> RunConnectionTest(ITornadoConversation conversation, CancellationToken ct = default)
+    private async Task<Result<string>> RunConnectionTest(ITornadoConversation conversation,
+        CancellationToken ct = default)
     {
         conversation.AddUserMessage([new ChatMessagePart("Say 'ok' to confirm the connection works.")]);
         var response = await conversation.GetResponseAsync(ct);
         if (response.Exception is null && response.HasData)
             return Result.Success(response.Text ?? string.Empty);
-        
+
         logger.LogError(response.Exception, "Error while processing message with Tornado API");
         return Result.Error("Error while processing message");
     }
