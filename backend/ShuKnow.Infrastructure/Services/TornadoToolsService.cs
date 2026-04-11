@@ -31,7 +31,7 @@ public class TornadoToolsService
 
     public async ValueTask DispatchToolCalls(List<FunctionCall> calls, CancellationToken ct = default)
     {
-        await Task.WhenAll(calls.Select(async call =>
+        foreach (var call in calls)
         {
             var result = await HandleFunctionCall(call, ct);
             call.Result = result.IsSuccess
@@ -39,7 +39,7 @@ public class TornadoToolsService
                 : new FunctionResult(call,
                     result.Errors.FirstOrDefault() ?? result.ValidationErrors.FirstOrDefault()?.ErrorMessage ??
                     "One or more error occured", false);
-        }));
+        }
     }
 
     private async Task<Result<string>> HandleFunctionCall(FunctionCall call, CancellationToken ct = default)
