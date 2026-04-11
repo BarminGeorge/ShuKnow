@@ -21,13 +21,7 @@ public interface IChatNotificationService
 
     Task SendAttachmentSavedAsync(ChatAttachment attachment, CancellationToken ct = default);
 
-    Task SendProcessingCompletedAsync(
-        Guid operationId,
-        Guid actionId,
-        string summary,
-        int filesCreated,
-        int filesMoved,
-        CancellationToken ct = default);
+    Task SendProcessingCompletedAsync(Guid operationId, CancellationToken ct = default);
 
     Task SendProcessingFailedAsync(
         Guid operationId,

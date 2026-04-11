@@ -217,20 +217,12 @@ public class ChatNotificationServiceTests
     public async Task SendProcessingCompletedAsync_WhenCalled_ShouldSendProcessingCompletedEvent()
     {
         var operationId = Guid.NewGuid();
-        var actionId = Guid.NewGuid();
 
-        await sut.SendProcessingCompletedAsync(operationId, actionId, "Done", 2, 1);
+        await sut.SendProcessingCompletedAsync(operationId);
 
         AssertSentEvent<ProcessingCompletedEvent>(
             nameof(ChatHub.OnProcessingCompleted),
-            @event =>
-            {
-                @event.OperationId.Should().Be(operationId);
-                @event.ActionId.Should().Be(actionId);
-                @event.Summary.Should().Be("Done");
-                @event.FilesCreated.Should().Be(2);
-                @event.FilesMoved.Should().Be(1);
-            });
+            @event => @event.OperationId.Should().Be(operationId));
     }
 
     [Test]

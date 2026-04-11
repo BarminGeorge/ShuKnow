@@ -38,16 +38,10 @@ public class ChatNotificationService(
     public Task SendAttachmentSavedAsync(ChatAttachment attachment, CancellationToken ct = default)
         => SendEventAsync(nameof(ChatHub.OnAttachmentSaved), attachment.ToAttachmentSavedEvent(), ct);
 
-    public Task SendProcessingCompletedAsync(
-        Guid operationId,
-        Guid actionId,
-        string summary,
-        int filesCreated,
-        int filesMoved,
-        CancellationToken ct = default)
+    public Task SendProcessingCompletedAsync(Guid operationId, CancellationToken ct = default)
         => SendEventAsync(
             nameof(ChatHub.OnProcessingCompleted),
-            new ProcessingCompletedEvent(operationId, actionId, summary, filesCreated, filesMoved),
+            new ProcessingCompletedEvent(operationId),
             ct);
 
     public Task SendProcessingFailedAsync(
