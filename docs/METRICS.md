@@ -38,10 +38,17 @@ Prefix: `metrics:*`
 - `shuknow_ai_items_processed_total`
 - `shuknow_ai_items_manually_moved_total`
 - `shuknow_content_items_saved_total`
-- `shuknow_content_access_total{access_type=...}`
+- `shuknow_content_access_total{access_type=...}` (currently emitted: `access_type="opened"`)
 - `shuknow_content_retrieved_30d_total`
 - `shuknow_retention_cohort_total`
 - `shuknow_retention_returned_total`
+
+Current `event_type` labels in runtime:
+
+- `content_saved`
+- `ai_processed`
+- `manual_move`
+- `content_opened`
 
 ## KPI calculations in PromQL
 
@@ -62,6 +69,13 @@ sum(increase(shuknow_content_retrieved_30d_total[30d]))
 /
 clamp_min(sum(increase(shuknow_content_items_saved_total[30d])), 1)
 ```
+
+Important: in current implementation, `shuknow_content_items_saved_total` is incremented by both:
+
+- `RecordContentSavedAsync` (`content_saved`)
+- `RecordAiItemProcessedAsync` (`ai_processed`)
+
+So this KPI currently reflects retrieval rate for all tracked items in that denominator, not only explicit user save events.
 
 3. Retention 1-week (week-2 return over previous week cohort)
 

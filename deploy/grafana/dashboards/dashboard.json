@@ -140,7 +140,7 @@
           "refId": "A"
         }
       ],
-      "title": "Content Retrieval Rate",
+      "title": "Content Retrieval Rate (current denominator)",
       "type": "timeseries"
     },
     {
