@@ -1,4 +1,9 @@
-﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Saunter;
 using ShuKnow.WebAPI.Hubs;
 
@@ -8,9 +13,12 @@ public static class WebApplicationExtensions
 {
     public static void UseWeb(this WebApplication app)
     {
+        app.UseHttpsRedirection();
+        
         app.UseExceptionHandler();
         
-        app.UseHttpsRedirection();
+        app.UseForwardedHeaders();
+        
         app.UseAuthentication();
         app.UseAuthorization();
         

@@ -26,7 +26,7 @@ public static class ServiceCollectionExtensions
         services.AddWebOptions();
         services.AddExceptionHandler<GlobalExceptionHandler>();
         services.AddProblemDetails();
-        
+
         services.AddControllers().AddApplicationPart(typeof(ServiceCollectionExtensions).Assembly);
         services.AddSignalR();
 
@@ -67,7 +67,8 @@ public static class ServiceCollectionExtensions
             .AddJwtBearer();
 
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-            .Configure<IOptions<JwtOptions>, IOptions<AuthCookieOptions>>((options, jwtOptionsAccessor, authCookieOptionsAccessor) =>
+            .Configure<IOptions<JwtOptions>, IOptions<AuthCookieOptions>>((options, jwtOptionsAccessor,
+                authCookieOptionsAccessor) =>
             {
                 var jwtOptions = jwtOptionsAccessor.Value;
                 var authCookieOptions = authCookieOptionsAccessor.Value;
@@ -112,6 +113,12 @@ public static class ServiceCollectionExtensions
             .BindConfiguration(AuthCookieOptions.SectionName)
             .ValidateDataAnnotations()
             .ValidateOnStart();
+
+        services.AddOptions<ForwardedHeadersConfig>()
+            .BindConfiguration(ForwardedHeadersConfig.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.ConfigureOptions<ConfigureForwardedHeadersOptions>();
     }
 
     private static void AddSwagger(this IServiceCollection services)
