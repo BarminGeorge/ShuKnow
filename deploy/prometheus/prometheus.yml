@@ -7,6 +7,6 @@ global:
 scrape_configs:
   - job_name: 'backend'
     static_configs:
-      - targets: ['host.docker.internal:5209']
+      - targets: ['backend:8080']
     metrics_path: '/metrics'
     scrape_interval: 30s

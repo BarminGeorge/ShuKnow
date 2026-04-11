@@ -12,7 +12,7 @@ namespace ShuKnow.WebAPI.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 public class ChatController(
-    MetricsRegistry metricsRegistry,
+    IMetricsService metricsService,
     ICurrentUserService currentUserService)
     : ControllerBase
 {
@@ -50,7 +50,7 @@ public class ChatController(
             .ToList();
 
         foreach (var attachment in attachments)
-            metricsRegistry.RecordContentSaved(currentUserService.UserId, attachment.Id);
+            await metricsService.RecordContentSavedAsync(currentUserService.UserId, attachment.Id);
 
         return Ok(attachments);
     }

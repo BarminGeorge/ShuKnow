@@ -1,4 +1,25 @@
 services:
+  backend:
+    container_name: shuknow-api-dev
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Username=postgres;Password=postgres;Database=shuknow_dev
+      ConnectionStrings__Redis: redis:6379
+      BlobStorage__S3__ServiceUrl: http://rustfs:9000
+    ports:
+      - "5209:8080"
+    depends_on:
+      - postgres
+      - redis
+      - rustfs
+    networks:
+      - shuknow-dev
+
   postgres:
     image: postgres:16-alpine
     container_name: shuknow-postgres-dev
@@ -11,6 +32,19 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    networks:
+      - shuknow-dev
+
+  redis:
+    image: redis:7-alpine
+    container_name: shuknow-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - shuknow-dev
 
   rustfs:
     image: rustfs/rustfs:latest
@@ -25,6 +59,8 @@ services:
       - "9001:9001"
     volumes:
       - rustfs-data:/data
+    networks:
+      - shuknow-dev
 
   prometheus:
     image: prom/prometheus:latest
@@ -40,6 +76,8 @@ services:
       - '--storage.tsdb.path=/prometheus'
     networks:
       - shuknow-dev
+    depends_on:
+      - backend
 
   grafana:
     image: grafana/grafana:latest

@@ -1,95 +1,81 @@
-# Метрики продукта в Prometheus (`/metrics`)
+# Metrics collection approach
 
-## Что реализовано
+## Overview
 
-Кастомные метрики встроены в существующий OpenTelemetry pipeline и отдаются тем же endpoint'ом:
+ShuKnow exposes a single Prometheus scrape endpoint:
 
-- `GET /metrics` — базовые runtime/http метрики + продуктовые метрики ShuKnow.
+- `/metrics`
 
-Отдельный endpoint для метрик не добавлялся.
+Product events are recorded in application code through `IMetricsService`, then exported as counters via OpenTelemetry.  
+Redis is used as **ephemeral state storage** between events to deduplicate and attribute events correctly (it is not a long-term metrics storage).
 
-## События и где они фиксируются
+## Event model
 
-### Сохранение контента
+Domain event type is standardized with `EventType` enum (`ShuKnow.Metrics/Events/EventType.cs`):
 
-Вызывает `RecordContentSaved(userId, itemId)`:
+- `Unknown`
+- `ContentSaved`
+- `AiItemProcessed`
+- `ManualMove`
+- `ContentOpened`
 
-- `POST /api/folders/{folderId}/files` (`FoldersController.UploadFile`)
-- `POST /api/chat/attachments` (`ChatController.UploadChatAttachments`)
-- `PUT /api/files/{fileId}/content` (`FilesController.ReplaceFileContent`)
-- `PATCH /api/files/{fileId}/content` (`FilesController.UpdateTextContent`)
+Only these event types are currently used in runtime flow.
 
-### Доступ к контенту (Retrieval)
+## Redis state (for metric correctness)
 
-Вызывает `RecordContentOpened(itemId)`:
+Prefix: `metrics:*`
 
-- `GET /api/files/{fileId}/content` (`FilesController.DownloadFileContent`)
+- `metrics:item:{itemId}` -> item save timestamp (TTL = `Metrics:RetrievalWindow`, default 30d)
+- `metrics:item:{itemId}:ai` -> marker that item was AI-processed (TTL = retrieval window)
+- `metrics:item:{itemId}:moved` -> first manual move marker (TTL = retrieval window)
+- `metrics:item:{itemId}:retrieved` -> first retrieval marker within window (TTL = retrieval window)
+- `metrics:user:{userId}:first_save` -> first save timestamp for retention cohort (TTL = `Metrics:RetentionWeekEnd`, default 14d)
+- `metrics:user:{userId}:returned` -> marker that user returned in week 2 (TTL = retention week end)
 
-### Ручное перемещение пользователем
+## Exported counters
 
-Вызывает `RecordManualMove(itemId)`:
-
-- `PATCH /api/files/{fileId}/move` (`FilesController.MoveFile`)
-
-### AI-обработка элемента
-
-Вызывает `RecordAiItemProcessed(userId, itemId)`:
-
-- `ChatHub.OnFileCreated(FileDto file)`
-- `ChatHub.OnFileMoved(FileMovedEvent event)`
-
-## Экспортируемые метрики
-
-### Основные счетчики
-
+- `shuknow_events_total{event_type=...}`
 - `shuknow_ai_items_processed_total`
-- `shuknow_ai_items_manually_moved_after_processing_total`
+- `shuknow_ai_items_manually_moved_total`
 - `shuknow_content_items_saved_total`
-- `shuknow_content_items_retrieved_within_30d_total`
+- `shuknow_content_access_total{access_type=...}`
+- `shuknow_content_retrieved_30d_total`
+- `shuknow_retention_cohort_total`
+- `shuknow_retention_returned_total`
 
-### Дополнительные счетчики
+## KPI calculations in PromQL
 
-- `shuknow_retention_week1_cohort_users_total`
-- `shuknow_retention_week2_returned_users_total`
-
-### Технические счетчики событий
-
-- `shuknow_metric_events_total{event_type=...}`
-- `shuknow_content_access_events_total{access_type="opened|copied|link_followed"}`
-
-## PromQL формулы
-
-### 1) AI Success Rate
+1. AI Success Rate
 
 ```promql
-clamp_min(
-  (
-    shuknow_ai_items_processed_total
-    - shuknow_ai_items_manually_moved_after_processing_total
-  )
+1 - (
+  sum(increase(shuknow_ai_items_manually_moved_total[30d]))
   /
-  clamp_min(shuknow_ai_items_processed_total, 1),
-  0
+  clamp_min(sum(increase(shuknow_ai_items_processed_total[30d])), 1)
 )
 ```
 
-### 2) Content Retrieval Rate (30d)
+2. Content Retrieval Rate
 
 ```promql
-shuknow_content_items_retrieved_within_30d_total
+sum(increase(shuknow_content_retrieved_30d_total[30d]))
 /
-clamp_min(shuknow_content_items_saved_total, 1)
+clamp_min(sum(increase(shuknow_content_items_saved_total[30d])), 1)
 ```
 
-### 3) Retention 1-week
+3. Retention 1-week (week-2 return over previous week cohort)
 
 ```promql
-shuknow_retention_week2_returned_users_total
+sum(increase(shuknow_retention_returned_total[7d]))
 /
-clamp_min(shuknow_retention_week1_cohort_users_total, 1)
+clamp_min(sum(increase(shuknow_retention_cohort_total[7d] offset 7d)), 1)
 ```
 
-## Важное ограничение текущей реализации
+## Configuration
 
-Для корреляции событий по элементам и пользователям используется in-memory состояние процесса.
-После перезапуска сервиса состояние сбрасывается, а Prometheus продолжит хранить уже собранные значения счётчиков.
+`backend/ShuKnow.Host/appsettings*.json`:
+
+- `Metrics:RetrievalWindow` (default `30.00:00:00`)
+- `Metrics:RetentionWeekStart` (default `7.00:00:00`)
+- `Metrics:RetentionWeekEnd` (default `14.00:00:00`)
+

@@ -13,7 +13,7 @@ namespace ShuKnow.WebAPI.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 public class FilesController(
-    MetricsRegistry metricsRegistry,
+    IMetricsService metricsService,
     ICurrentUserService currentUserService)
     : ControllerBase
 {
@@ -49,7 +49,7 @@ public class FilesController(
         [FromHeader(Name = "Range")] string? range = null)
     {
         // TODO: implement
-        metricsRegistry.RecordContentOpened(fileId);
+        await metricsService.RecordContentOpenedAsync(fileId);
         var mockContent = "Mock file content"u8.ToArray();
         return File(mockContent, "application/octet-stream", "report.pdf");
     }
@@ -58,7 +58,7 @@ public class FilesController(
     public async Task<ActionResult<FileDto>> ReplaceFileContent(Guid fileId, IFormFile file)
     {
         // TODO: implement
-        metricsRegistry.RecordContentSaved(currentUserService.UserId, fileId);
+        await metricsService.RecordContentSavedAsync(currentUserService.UserId, fileId);
         return new FileDto(fileId, MockFolderId, "Documents", file.FileName, string.Empty,
             file.ContentType, file.Length, 1, null, 0, MockCreatedAt);
     }
@@ -68,7 +68,7 @@ public class FilesController(
         [FromBody] UpdateTextContentRequest request)
     {
         // TODO: implement
-        metricsRegistry.RecordContentSaved(currentUserService.UserId, fileId);
+        await metricsService.RecordContentSavedAsync(currentUserService.UserId, fileId);
         var contentBytes = Encoding.UTF8.GetByteCount(request.Content);
         return new FileDto(fileId, MockFolderId, "Documents", "note.md", string.Empty,
             "text/markdown", contentBytes, 2, null, 0, MockCreatedAt);
@@ -78,7 +78,7 @@ public class FilesController(
     public async Task<ActionResult<FileDto>> MoveFile(Guid fileId, [FromBody] MoveFileRequest request)
     {
         // TODO: implement
-        metricsRegistry.RecordManualMove(fileId);
+        await metricsService.RecordManualMoveAsync(fileId);
         return new FileDto(fileId, request.TargetFolderId, "Target Folder",
             "report.pdf", "Annual report", "application/pdf", 204_800, 1, null, 0, MockCreatedAt);
     }

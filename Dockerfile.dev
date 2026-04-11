@@ -1,0 +1,26 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS development
+WORKDIR /src
+
+ENV DOTNET_WATCH_RESTART_ON_RUDE_EDIT=true
+ENV DOTNET_USE_POLLING_FILE_WATCHER=true
+ENV ASPNETCORE_ENVIRONMENT=Development
+
+COPY backend/ShuKnow.sln ./backend/
+
+COPY backend/ShuKnow.Host/ShuKnow.Host.csproj ./backend/ShuKnow.Host/
+COPY backend/ShuKnow.Application/ShuKnow.Application.csproj ./backend/ShuKnow.Application/
+COPY backend/ShuKnow.Domain/ShuKnow.Domain.csproj ./backend/ShuKnow.Domain/
+COPY backend/ShuKnow.Infrastructure/ShuKnow.Infrastructure.csproj ./backend/ShuKnow.Infrastructure/
+COPY backend/ShuKnow.Metrics/ShuKnow.Metrics.csproj ./backend/ShuKnow.Metrics/
+COPY backend/ShuKnow.WebAPI/ShuKnow.WebAPI.csproj ./backend/ShuKnow.WebAPI/
+
+COPY backend/ShuKnow.Application.Tests/ShuKnow.Application.Tests.csproj ./backend/ShuKnow.Application.Tests/
+COPY backend/ShuKnow.Infrastructure.Tests/ShuKnow.Infrastructure.Tests.csproj ./backend/ShuKnow.Infrastructure.Tests/
+COPY backend/ShuKnow.Infrastructure.IntegrationTests/ShuKnow.Infrastructure.IntegrationTests.csproj ./backend/ShuKnow.Infrastructure.IntegrationTests/
+
+RUN dotnet restore backend/ShuKnow.sln
+
+COPY backend/. ./backend/
+
+WORKDIR /src/backend/ShuKnow.Host
+ENTRYPOINT ["dotnet", "watch", "run", "--no-launch-profile", "--no-restore"]

@@ -13,7 +13,7 @@ namespace ShuKnow.WebAPI.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 public class FoldersController(
-    MetricsRegistry metricsRegistry,
+    IMetricsService metricsService,
     ICurrentUserService currentUserService)
     : ControllerBase
 {
@@ -103,7 +103,7 @@ public class FoldersController(
         // TODO: implement
         var fileDto = new FileDto(Guid.NewGuid(), folderId, "Folder",
             name ?? file.FileName, description ?? string.Empty, file.ContentType, file.Length, 1, null, 0, MockCreatedAt);
-        metricsRegistry.RecordContentSaved(currentUserService.UserId, fileDto.Id);
+        await metricsService.RecordContentSavedAsync(currentUserService.UserId, fileDto.Id);
         return CreatedAtAction("GetFile", "Files", new { fileId = fileDto.Id }, fileDto);
     }
 }

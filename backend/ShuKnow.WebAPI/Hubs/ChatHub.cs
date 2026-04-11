@@ -13,7 +13,7 @@ namespace ShuKnow.WebAPI.Hubs;
 [AsyncApi]
 [Authorize]
 public class ChatHub(
-    MetricsRegistry metricsRegistry,
+    IMetricsService metricsService,
     ICurrentUserService currentUserService)
     : Hub
 {
@@ -73,16 +73,16 @@ public class ChatHub(
 
     [Channel(nameof(OnFileCreated))]
     [SubscribeOperation(typeof(FileDto), Summary = "A file was created by AI classification")]
-    public void OnFileCreated(FileDto file)
+    public async Task OnFileCreated(FileDto file)
     {
-        metricsRegistry.RecordAiItemProcessed(currentUserService.UserId, file.Id);
+        await metricsService.RecordAiItemProcessedAsync(currentUserService.UserId, file.Id);
     }
 
     [Channel(nameof(OnFileMoved))]
     [SubscribeOperation(typeof(FileMovedEvent), Summary = "A file was moved by AI classification")]
-    public void OnFileMoved(FileMovedEvent @event)
+    public async Task OnFileMoved(FileMovedEvent @event)
     {
-        metricsRegistry.RecordAiItemProcessed(currentUserService.UserId, @event.FileId);
+        await metricsService.RecordAiItemProcessedAsync(currentUserService.UserId, @event.FileId);
     }
 
     [Channel(nameof(OnFolderCreated))]
