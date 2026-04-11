@@ -23,7 +23,9 @@ internal class ChatSessionConfiguration : IEntityTypeConfiguration<ChatSession>
             .HasForeignKey(session => session.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // TODO: убрать после реализации ChatMessageRepository
-        builder.Ignore(session => session.Messages);
+        builder.HasMany(session => session.Messages)
+            .WithOne()
+            .HasForeignKey(message => message.SessionId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
