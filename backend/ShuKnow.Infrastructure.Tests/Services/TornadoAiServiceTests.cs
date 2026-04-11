@@ -5,7 +5,9 @@ using LlmTornado.ChatFunctions;
 using LlmTornado.Code;
 using LlmTornado.Common;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NSubstitute;
+using ShuKnow.Application.Common;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Enums;
@@ -24,6 +26,7 @@ public class TornadoAiServiceTests
     private ITornadoConversationFactory conversationFactory = null!;
     private ITornadoConversation conversation = null!;
     private ILogger<TornadoAiService> logger = null!;
+    private IOptions<TornadoAiOptions> options = null!;
     private TornadoAiService sut = null!;
     private ChatSession session = null!;
     private UserAiSettings settings = null!;
@@ -38,6 +41,7 @@ public class TornadoAiServiceTests
         conversationFactory = Substitute.For<ITornadoConversationFactory>();
         conversation = Substitute.For<ITornadoConversation>();
         logger = Substitute.For<ILogger<TornadoAiService>>();
+        options = Options.Create(new TornadoAiOptions { Temperature = 0.3, MaxTurns = 10 });
 
         session = new ChatSession(Guid.NewGuid(), Guid.NewGuid());
         settings = CreateSettings();
@@ -46,7 +50,7 @@ public class TornadoAiServiceTests
 
         var promptBuilder = new TornadoPromptBuilder(attachmentService, blobStorageService, chatService);
         var toolsService = new TornadoToolsService(aiToolsService);
-        sut = new TornadoAiService(promptBuilder, chatService, toolsService, conversationFactory, logger);
+        sut = new TornadoAiService(promptBuilder, chatService, toolsService, conversationFactory, options, logger);
     }
 
     #region ProcessMessageAsync - Session Handling

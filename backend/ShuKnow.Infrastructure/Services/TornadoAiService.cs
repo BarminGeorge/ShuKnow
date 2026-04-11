@@ -1,6 +1,8 @@
 ﻿using Ardalis.Result;
 using LlmTornado.Chat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using ShuKnow.Application.Common;
 using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Domain.Entities;
@@ -14,16 +16,17 @@ public class TornadoAiService(
     IChatService chatService,
     TornadoToolsService toolsService,
     ITornadoConversationFactory conversationFactory,
+    IOptions<TornadoAiOptions> options,
     ILogger<TornadoAiService> logger) : IAiService
 {
-    private const double Temperature = 0.3;
-    private const int MaxTurns = 10;
+    private readonly double temperature = options.Value.Temperature;
+    private readonly int maxTurns = options.Value.MaxTurns;
 
     public async Task<Result> ProcessMessageAsync(string content, IReadOnlyCollection<Guid>? attachmentIds,
         UserAiSettings settings, CancellationToken ct = default)
     {
         return await chatService.GetOrCreateActiveSessionAsync(ct)
-            .BindAsync(session => conversationFactory.CreateConversation(settings, toolsService.Tools, Temperature)
+            .BindAsync(session => conversationFactory.CreateConversation(settings, toolsService.Tools, temperature)
                 .ActAsync(conversation => promptBuilder.CreateSystemInstructions(ct)
                     .Act(conversation.PrependSystemMessage))
                 .ActAsync(conversation => promptBuilder.GetPreviousMessages(ct)
@@ -52,7 +55,7 @@ public class TornadoAiService(
 
     private async Task<Result<string>> RunWithTools(ITornadoConversation conversation, CancellationToken ct = default)
     {
-        for (var _ = 0; _ < MaxTurns; _++)
+        for (var _ = 0; _ < maxTurns; _++)
         {
             var response = await conversation.GetResponseWithToolsAsync(
                 (calls, callbackCt) => toolsService.DispatchToolCalls(calls, callbackCt),
@@ -67,7 +70,7 @@ public class TornadoAiService(
                 return Result.Success(response.Text ?? string.Empty);
         }
 
-        return Result.Error($"Agent did not converge after {MaxTurns} iterations");
+        return Result.Error($"Agent did not converge after {maxTurns} iterations");
     }
 
     private async Task<Result<string>> RunConnectionTest(ITornadoConversation conversation, CancellationToken ct = default)

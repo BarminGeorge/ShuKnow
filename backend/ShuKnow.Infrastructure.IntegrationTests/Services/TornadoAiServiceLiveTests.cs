@@ -318,7 +318,8 @@ public class TornadoAiServiceLiveTests
         var toolsService = new TornadoToolsService(aiToolsService);
         var conversationFactory = new TornadoConversationFactory(encryptionService);
         var logger = new TestLogger<TornadoAiService>();
-        var sut = new TornadoAiService(promptBuilder, chatService, toolsService, conversationFactory, logger);
+        var options = Options.Create(new TornadoAiOptions { Temperature = 0.3, MaxTurns = 10 });
+        var sut = new TornadoAiService(promptBuilder, chatService, toolsService, conversationFactory, options, logger);
 
         return new TornadoAiLiveFixture(
             sut,

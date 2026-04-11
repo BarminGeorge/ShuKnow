@@ -134,9 +134,14 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<IValidateOptions<FileSystemBlobStorageOptions>, FileSystemBlobStorageOptionsValidation>();
         services.AddSingleton<IValidateOptions<S3BlobStorageOptions>, S3BlobStorageOptionsValidation>();
-        
+
         services.AddOptions<EncryptionOptions>()
             .BindConfiguration(EncryptionOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddOptions<TornadoAiOptions>()
+            .BindConfiguration(TornadoAiOptions.SectionName)
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
