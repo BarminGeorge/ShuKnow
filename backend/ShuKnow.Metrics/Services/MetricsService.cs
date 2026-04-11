@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ShuKnow.Metrics.Configuration;
 using ShuKnow.Metrics.Events;
@@ -10,8 +9,7 @@ namespace ShuKnow.Metrics.Services;
 public class MetricsService(
     MetricsInstruments instruments,
     IMetricsRepository redisRepository,
-    IOptions<MetricsOptions> options,
-    ILogger<MetricsService> logger) : IMetricsService
+    IOptions<MetricsOptions> options) : IMetricsService
 {
     private readonly MetricsOptions options = options.Value;
 
@@ -22,8 +20,6 @@ public class MetricsService(
 
         await redisRepository.TrySaveItemAsync(itemId, DateTimeOffset.UtcNow, options.RetrievalWindow);
         await TrackRetentionAsync(userId);
-
-        logger.LogDebug("Content saved: user={UserId}, item={ItemId}", userId, itemId);
     }
 
     public async Task RecordAiItemProcessedAsync(Guid userId, Guid itemId)
@@ -37,8 +33,6 @@ public class MetricsService(
         await redisRepository.TrySaveItemAsync(itemId, now, options.RetrievalWindow);
         await redisRepository.MarkItemAiProcessedAsync(itemId, options.RetrievalWindow);
         await TrackRetentionAsync(userId);
-
-        logger.LogDebug("AI item processed: user={UserId}, item={ItemId}", userId, itemId);
     }
 
     public async Task RecordManualMoveAsync(Guid itemId)
@@ -52,10 +46,7 @@ public class MetricsService(
         var isFirstMove = await redisRepository.TryMarkItemManuallyMovedAsync(itemId, options.RetrievalWindow);
 
         if (isFirstMove)
-        {
             instruments.AiItemsManuallyMoved.Add(1);
-            logger.LogDebug("AI item manually moved: item={ItemId}", itemId);
-        }
     }
 
     public async Task RecordContentOpenedAsync(Guid itemId)
@@ -78,10 +69,7 @@ public class MetricsService(
         var isFirstRetrieval = await redisRepository.TryMarkItemRetrievedAsync(itemId, options.RetrievalWindow);
 
         if (isFirstRetrieval)
-        {
             instruments.ContentRetrievedWithin30Days.Add(1);
-            logger.LogDebug("Content retrieved within 30d: item={ItemId}", itemId);
-        }
     }
 
     private async Task TrackRetentionAsync(Guid userId)
@@ -93,7 +81,6 @@ public class MetricsService(
         if (isFirstSave)
         {
             instruments.RetentionCohortUsers.Add(1);
-            logger.LogDebug("New cohort user: user={UserId}", userId);
             return;
         }
 
@@ -108,10 +95,7 @@ public class MetricsService(
         var isFirstReturn = await redisRepository.TryMarkUserReturnedAsync(userId, options.RetentionWeekEnd);
 
         if (isFirstReturn)
-        {
             instruments.RetentionReturnedUsers.Add(1);
-            logger.LogDebug("User returned week 2: user={UserId}", userId);
-        }
     }
 
     private void RecordEvent(EventType eventType)

@@ -13,10 +13,9 @@ public static class ServiceCollectionExtensions
 {
     public static void AddMetrics(this IServiceCollection services, IConfiguration configuration)
     {
-        services.Configure<MetricsOptions>(
-            configuration.GetSection(MetricsOptions.SectionName));
+        services.Configure<MetricsOptions>(configuration.GetSection(MetricsOptions.SectionName));
 
-        services.AddSingleton<IConnectionMultiplexer>(sp =>
+        services.AddSingleton<IConnectionMultiplexer>(_ =>
         {
             var connectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
             return ConnectionMultiplexer.Connect(connectionString);
