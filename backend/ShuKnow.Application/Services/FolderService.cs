@@ -32,9 +32,11 @@ internal class FolderService(
     public Task<Result<Folder>> GetByIdAsync(Guid folderId, CancellationToken ct = default) =>
         folderRepository.GetByIdAsync(folderId, CurrentUserId);
 
-    public Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid folderId, CancellationToken ct = default) =>
-        EnsureFolderExistsAsync(folderId)
+    public async Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid folderId, CancellationToken ct = default)
+    {
+        return await EnsureFolderExistsAsync(folderId)
             .BindAsync(_ => folderRepository.GetChildrenAsync(folderId, CurrentUserId));
+    }
 
     public async Task<Result<Folder>> CreateAsync(Folder folder, CancellationToken ct = default)
     {
