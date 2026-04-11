@@ -153,7 +153,7 @@ public class FolderServiceTests
 
         folderRepository.ExistsByIdAsync(parentId, currentUserId).Returns(Success(true));
         folderRepository.ExistsByNameInParentAsync(folder.Name, parentId, currentUserId, null).Returns(Success(false));
-        folderRepository.GetSiblingsAsync(parentId, currentUserId).Returns(Success(siblings));
+        folderRepository.GetChildrenAsync(parentId, currentUserId).Returns(Success(siblings));
 
         var result = await sut.CreateAsync(folder);
 
@@ -295,7 +295,7 @@ public class FolderServiceTests
         folderRepository.ExistsByIdAsync(targetParentId, currentUserId).Returns(Success(true));
         folderRepository.ExistsByNameInParentAsync(folder.Name, targetParentId, currentUserId, folder.Id).Returns(Success(false));
         folderRepository.GetAncestorIdsAsync(targetParentId, currentUserId).Returns(Success<IReadOnlyList<Guid>>([]));
-        folderRepository.GetSiblingsAsync(targetParentId, currentUserId).Returns(Success(targetSiblings));
+        folderRepository.GetChildrenAsync(targetParentId, currentUserId).Returns(Success(targetSiblings));
 
         var result = await sut.MoveAsync(folder.Id, targetParentId);
 
@@ -329,7 +329,7 @@ public class FolderServiceTests
         IReadOnlyList<Folder> siblings = [firstFolder, secondFolder, thirdFolder];
 
         folderRepository.GetByIdAsync(secondFolder.Id, currentUserId).Returns(Success(secondFolder));
-        folderRepository.GetSiblingsAsync(parentId, currentUserId).Returns(Success(siblings));
+        folderRepository.GetChildrenAsync(parentId, currentUserId).Returns(Success(siblings));
 
         var result = await sut.ReorderAsync(secondFolder.Id, 0);
 
@@ -346,8 +346,7 @@ public class FolderServiceTests
         unitOfWork.SaveChangesAsync().Returns(Success());
         folderRepository.GetTreeAsync(Arg.Any<Guid>()).Returns(Success<IReadOnlyList<Folder>>([]));
         folderRepository.GetRootFoldersAsync(Arg.Any<Guid>()).Returns(Success<IReadOnlyList<Folder>>([]));
-        folderRepository.GetChildrenAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<Folder>>([]));
-        folderRepository.GetSiblingsAsync(Arg.Any<Guid?>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<Folder>>([]));
+        folderRepository.GetChildrenAsync(Arg.Any<Guid?>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<Folder>>([]));
         folderRepository.GetAncestorIdsAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<Guid>>([]));
         folderRepository.ExistsByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success(true));
         folderRepository.ExistsByNameInParentAsync(Arg.Any<string>(), Arg.Any<Guid?>(), Arg.Any<Guid>(), Arg.Any<Guid?>())

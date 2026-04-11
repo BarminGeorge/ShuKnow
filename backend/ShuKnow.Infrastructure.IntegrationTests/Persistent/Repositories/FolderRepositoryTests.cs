@@ -97,6 +97,24 @@ public class FolderRepositoryTests : BaseRepositoryTests
     }
 
     [Test]
+    public async Task GetChildrenAsync_WhenParentIsNull_ShouldReturnRootFolders()
+    {
+        var user = await SeedUserAsync();
+        var otherUser = await SeedUserAsync();
+        var rootA = await SeedFolderAsync(user.Id, "B-root", sortOrder: 2);
+        var rootB = await SeedFolderAsync(user.Id, "A-root", sortOrder: 1);
+        await SeedFolderAsync(user.Id, "child", parentFolderId: rootB.Id, sortOrder: 1);
+        await SeedFolderAsync(otherUser.Id, "foreign");
+
+        var result = await sut.GetChildrenAsync(null, user.Id);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Select(folder => folder.Id).Should().BeEquivalentTo(
+            [rootB.Id, rootA.Id],
+            options => options.WithStrictOrdering());
+    }
+
+    [Test]
     public async Task GetAncestorIdsAsync_ShouldReturnParentChainFromClosestToFarthest()
     {
         var user = await SeedUserAsync();

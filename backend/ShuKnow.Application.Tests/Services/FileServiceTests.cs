@@ -604,7 +604,7 @@ public class FileServiceTests
         fileB.SortOrder.Should().Be(0);
         rootFolder.SortOrder.Should().Be(1);
         fileA.SortOrder.Should().Be(2);
-        await folderRepository.DidNotReceive().GetChildrenAsync(Arg.Any<Guid>(), Arg.Any<Guid>());
+        await folderRepository.DidNotReceive().GetChildrenAsync(Arg.Any<Guid?>(), Arg.Any<Guid>());
         await unitOfWork.Received(1).SaveChangesAsync();
     }
 
@@ -728,7 +728,7 @@ public class FileServiceTests
         blobStorageService
             .GetRangeAsync(Arg.Any<Guid>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
             .Returns(_ => Success<Stream>(new MemoryStream()));
-        folderRepository.GetChildrenAsync(Arg.Any<Guid>(), Arg.Any<Guid>())
+        folderRepository.GetChildrenAsync(Arg.Any<Guid?>(), Arg.Any<Guid>())
             .Returns(Success<IReadOnlyList<Folder>>([]));
         folderRepository.GetRootFoldersAsync(Arg.Any<Guid>())
             .Returns(Success<IReadOnlyList<Folder>>([]));
