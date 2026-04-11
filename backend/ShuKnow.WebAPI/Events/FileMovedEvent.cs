@@ -7,5 +7,4 @@ public record FileMovedEvent(
     Guid FileId,
     string FileName,
     Guid FromFolderId,
-    Guid ToFolderId,
-    int Version);
+    Guid ToFolderId);

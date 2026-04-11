@@ -21,8 +21,7 @@ public static class ModelToEventMappers
             file.Id,
             file.Name,
             fromFolderId,
-            file.FolderId,
-            file.Version);
+            file.FolderId);
     }
 
     public static FolderCreatedEvent ToFolderCreatedEvent(this Folder folder)
@@ -40,16 +39,14 @@ public static class ModelToEventMappers
     {
         return new TextAppendedEvent(
             file.Id,
-            text,
-            file.Version);
+            text);
     }
 
     public static TextPrependedEvent ToTextPrependedEvent(this FileEntity file, string text)
     {
         return new TextPrependedEvent(
             file.Id,
-            text,
-            file.Version);
+            text);
     }
 
     public static AttachmentSavedEvent ToAttachmentSavedEvent(this ChatAttachment attachment)

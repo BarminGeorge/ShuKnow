@@ -5,5 +5,4 @@ namespace ShuKnow.WebAPI.Events;
 /// </summary>
 public record TextPrependedEvent(
     Guid FileId,
-    string Text,
-    int Version);
+    string Text);

@@ -114,7 +114,6 @@ public class ChatNotificationServiceTests
                 @event.FileName.Should().Be(file.Name);
                 @event.FromFolderId.Should().Be(fromFolderId);
                 @event.ToFolderId.Should().Be(toFolderId);
-                @event.Version.Should().Be(file.Version);
             });
     }
 
@@ -160,7 +159,6 @@ public class ChatNotificationServiceTests
             {
                 @event.FileId.Should().Be(file.Id);
                 @event.Text.Should().Be(text);
-                @event.Version.Should().Be(file.Version);
             });
     }
 
@@ -178,7 +176,6 @@ public class ChatNotificationServiceTests
             {
                 @event.FileId.Should().Be(file.Id);
                 @event.Text.Should().Be(text);
-                @event.Version.Should().Be(file.Version);
             });
     }
 
