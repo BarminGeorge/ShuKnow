@@ -2,6 +2,7 @@ using AwesomeAssertions;
 using Microsoft.AspNetCore.SignalR;
 using NSubstitute;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.Application.Models.Notifications;
 using ShuKnow.Domain.Entities;
 using ShuKnow.WebAPI.Events;
 using ShuKnow.WebAPI.Hubs;
@@ -215,11 +216,11 @@ public class ChatNotificationServiceTests
     }
 
     [Test]
-    public async Task SendProcessingFailedAsync_WhenErrorCodeIsKnown_ShouldParseAndSendMatchedCode()
+    public async Task SendProcessingFailedAsync_WhenErrorCodeIsKnown_ShouldMapAndSendMatchedCode()
     {
         var operationId = Guid.NewGuid();
 
-        await sut.SendProcessingFailedAsync(operationId, "rate limited", "llmratelimited");
+        await sut.SendProcessingFailedAsync(operationId, "rate limited", ChatProcessingErrorCode.LlmRateLimited);
 
         AssertSentEvent<ProcessingFailedEvent>(
             nameof(ChatHub.OnProcessingFailed),
@@ -232,11 +233,11 @@ public class ChatNotificationServiceTests
     }
 
     [Test]
-    public async Task SendProcessingFailedAsync_WhenErrorCodeIsUnknown_ShouldFallbackToInternalError()
+    public async Task SendProcessingFailedAsync_WhenErrorCodeIsNotProvided_ShouldSendInternalError()
     {
         var operationId = Guid.NewGuid();
 
-        await sut.SendProcessingFailedAsync(operationId, "boom", "something_else");
+        await sut.SendProcessingFailedAsync(operationId, "boom");
 
         AssertSentEvent<ProcessingFailedEvent>(
             nameof(ChatHub.OnProcessingFailed),

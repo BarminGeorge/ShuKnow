@@ -1,4 +1,5 @@
 using ShuKnow.Domain.Entities;
+using ShuKnow.Application.Models.Notifications;
 using FileEntity = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.Application.Interfaces;
@@ -26,6 +27,6 @@ public interface IChatNotificationService
     Task SendProcessingFailedAsync(
         Guid operationId,
         string error,
-        string? errorCode = null,
+        ChatProcessingErrorCode errorCode = ChatProcessingErrorCode.InternalError,
         CancellationToken ct = default);
 }

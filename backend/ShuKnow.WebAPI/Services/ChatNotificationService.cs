@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.Application.Models.Notifications;
 using ShuKnow.Domain.Entities;
 using FileEntity = ShuKnow.Domain.Entities.File;
 using ShuKnow.WebAPI.Events;
@@ -47,19 +48,29 @@ public class ChatNotificationService(
     public Task SendProcessingFailedAsync(
         Guid operationId,
         string error,
-        string? errorCode = null,
+        ChatProcessingErrorCode errorCode = ChatProcessingErrorCode.InternalError,
         CancellationToken ct = default)
     {
-        var parsedErrorCode = Enum.TryParse<ProcessingErrorCode>(errorCode, true, out var parsed)
-            ? parsed
-            : ProcessingErrorCode.InternalError;
-
         return SendEventAsync(
             nameof(ChatHub.OnProcessingFailed),
-            new ProcessingFailedEvent(operationId, error, parsedErrorCode),
+            new ProcessingFailedEvent(operationId, error, MapProcessingErrorCode(errorCode)),
             ct);
     }
 
     private Task SendEventAsync<TEvent>(string methodName, TEvent @event, CancellationToken ct)
         => Client.SendAsync(methodName, @event, cancellationToken: ct);
+
+    private static ProcessingErrorCode MapProcessingErrorCode(ChatProcessingErrorCode errorCode)
+    {
+        return errorCode switch
+        {
+            ChatProcessingErrorCode.LlmConnectionFailed => ProcessingErrorCode.LlmConnectionFailed,
+            ChatProcessingErrorCode.LlmRateLimited => ProcessingErrorCode.LlmRateLimited,
+            ChatProcessingErrorCode.LlmInvalidResponse => ProcessingErrorCode.LlmInvalidResponse,
+            ChatProcessingErrorCode.ClassificationParseError => ProcessingErrorCode.ClassificationParseError,
+            ChatProcessingErrorCode.FileOperationFailed => ProcessingErrorCode.FileOperationFailed,
+            ChatProcessingErrorCode.InternalError => ProcessingErrorCode.InternalError,
+            _ => ProcessingErrorCode.InternalError
+        };
+    }
 }
