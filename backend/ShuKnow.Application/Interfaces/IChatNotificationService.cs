@@ -1,6 +1,5 @@
-using ChatAttachmentEntity = ShuKnow.Domain.Entities.ChatAttachment;
+using ShuKnow.Domain.Entities;
 using FileEntity = ShuKnow.Domain.Entities.File;
-using FolderEntity = ShuKnow.Domain.Entities.Folder;
 
 namespace ShuKnow.Application.Interfaces;
 
@@ -14,13 +13,13 @@ public interface IChatNotificationService
 
     Task SendFileMovedAsync(FileEntity file, Guid fromFolderId, CancellationToken ct = default);
 
-    Task SendFolderCreatedAsync(FolderEntity folder, CancellationToken ct = default);
+    Task SendFolderCreatedAsync(Folder folder, CancellationToken ct = default);
 
     Task SendTextAppendedAsync(FileEntity file, string text, CancellationToken ct = default);
 
     Task SendTextPrependedAsync(FileEntity file, string text, CancellationToken ct = default);
 
-    Task SendAttachmentSavedAsync(ChatAttachmentEntity attachment, CancellationToken ct = default);
+    Task SendAttachmentSavedAsync(ChatAttachment attachment, CancellationToken ct = default);
 
     Task SendProcessingCompletedAsync(
         Guid operationId,

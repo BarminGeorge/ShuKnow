@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using ShuKnow.Application.Interfaces;
-using ChatAttachmentEntity = ShuKnow.Domain.Entities.ChatAttachment;
+using ShuKnow.Domain.Entities;
 using FileEntity = ShuKnow.Domain.Entities.File;
-using FolderEntity = ShuKnow.Domain.Entities.Folder;
 using ShuKnow.WebAPI.Events;
 using ShuKnow.WebAPI.Hubs;
 using ShuKnow.WebAPI.Mappers;
@@ -27,7 +26,7 @@ public class ChatNotificationService(
     public Task SendFileMovedAsync(FileEntity file, Guid fromFolderId, CancellationToken ct = default)
         => SendEventAsync(nameof(ChatHub.OnFileMoved), file.ToFileMovedEvent(fromFolderId), ct);
 
-    public Task SendFolderCreatedAsync(FolderEntity folder, CancellationToken ct = default)
+    public Task SendFolderCreatedAsync(Folder folder, CancellationToken ct = default)
         => SendEventAsync(nameof(ChatHub.OnFolderCreated), folder.ToFolderCreatedEvent(), ct);
 
     public Task SendTextAppendedAsync(FileEntity file, string text, CancellationToken ct = default)
@@ -36,7 +35,7 @@ public class ChatNotificationService(
     public Task SendTextPrependedAsync(FileEntity file, string text, CancellationToken ct = default)
         => SendEventAsync(nameof(ChatHub.OnTextPrepended), file.ToTextPrependedEvent(text), ct);
 
-    public Task SendAttachmentSavedAsync(ChatAttachmentEntity attachment, CancellationToken ct = default)
+    public Task SendAttachmentSavedAsync(ChatAttachment attachment, CancellationToken ct = default)
         => SendEventAsync(nameof(ChatHub.OnAttachmentSaved), attachment.ToAttachmentSavedEvent(), ct);
 
     public Task SendProcessingCompletedAsync(

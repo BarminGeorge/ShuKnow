@@ -1,6 +1,5 @@
-using ChatAttachmentEntity = ShuKnow.Domain.Entities.ChatAttachment;
+using ShuKnow.Domain.Entities;
 using FileEntity = ShuKnow.Domain.Entities.File;
-using FolderEntity = ShuKnow.Domain.Entities.Folder;
 using ShuKnow.WebAPI.Events;
 
 namespace ShuKnow.WebAPI.Mappers;
@@ -32,7 +31,7 @@ public static class ModelToEventMappers
             file.Version);
     }
 
-    public static FolderCreatedEvent ToFolderCreatedEvent(this FolderEntity folder)
+    public static FolderCreatedEvent ToFolderCreatedEvent(this Folder folder)
     {
         return new FolderCreatedEvent(
             folder.Id,
@@ -59,7 +58,7 @@ public static class ModelToEventMappers
             file.Version);
     }
 
-    public static AttachmentSavedEvent ToAttachmentSavedEvent(this ChatAttachmentEntity attachment)
+    public static AttachmentSavedEvent ToAttachmentSavedEvent(this ChatAttachment attachment)
     {
         return new AttachmentSavedEvent(
             attachment.Id,
