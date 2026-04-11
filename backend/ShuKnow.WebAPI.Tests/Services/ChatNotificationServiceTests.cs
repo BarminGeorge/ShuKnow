@@ -74,7 +74,6 @@ public class ChatNotificationServiceTests
     [Test]
     public async Task SendFileCreatedAsync_WhenCalled_ShouldSendMappedFileCreatedEvent()
     {
-        var createdAt = new DateTimeOffset(2026, 4, 10, 12, 30, 0, TimeSpan.Zero);
         var file = CreateFile(
             folderId: Guid.NewGuid(),
             name: "report.pdf",
@@ -83,8 +82,7 @@ public class ChatNotificationServiceTests
             sizeBytes: 2048,
             version: 3,
             checksumSha256: "abc123",
-            sortOrder: 7,
-            createdAt: createdAt);
+            sortOrder: 7);
 
         await sut.SendFileCreatedAsync(file);
 
@@ -92,16 +90,10 @@ public class ChatNotificationServiceTests
             nameof(ChatHub.OnFileCreated),
             @event =>
             {
-                @event.FolderId.Should().Be(file.FolderId);
+                @event.FileId.Should().Be(file.Id);
                 @event.Name.Should().Be(file.Name);
                 @event.Description.Should().Be(file.Description);
                 @event.ContentType.Should().Be(file.ContentType);
-                @event.SizeBytes.Should().Be(file.SizeBytes);
-                @event.Version.Should().Be(file.Version);
-                @event.ChecksumSha256.Should().Be(file.ChecksumSha256);
-                @event.SortOrder.Should().Be(file.SortOrder);
-                @event.CreatedAt.Should().Be(createdAt);
-                @event.FileId.Should().Be(file.Id);
             });
     }
 

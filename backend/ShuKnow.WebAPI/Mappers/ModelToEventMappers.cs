@@ -10,15 +10,9 @@ public static class ModelToEventMappers
     {
         return new FileCreatedEvent(
             file.Id,
-            file.FolderId,
             file.Name,
             file.Description,
-            file.ContentType,
-            file.SizeBytes,
-            file.Version,
-            file.ChecksumSha256,
-            file.SortOrder,
-            file.CreatedAt);
+            file.ContentType);
     }
 
     public static FileMovedEvent ToFileMovedEvent(this FileEntity file, Guid fromFolderId)
