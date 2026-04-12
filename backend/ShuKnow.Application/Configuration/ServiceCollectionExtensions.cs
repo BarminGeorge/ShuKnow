@@ -10,6 +10,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<IFolderService, FolderService>();
         services.AddScoped<IFileService, FileService>();
+        services.AddScoped<IWorkspacePathService, WorkspacePathService>();
         services.AddScoped<IChatService, ChatService>();
         services.AddScoped<IAttachmentService, AttachmentService>();
         services.AddScoped<IAiToolsService, AiToolsService>();

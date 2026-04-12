@@ -39,6 +39,7 @@ public interface IFileService
     Task<Result<File>> MoveAsync(
         Guid fileId,
         Guid? targetFolderId,
+        string? targetFileName = null,
         CancellationToken ct = default);
 
     Task<Result> DeleteByFolderAsync(Guid? folderId, CancellationToken ct = default);

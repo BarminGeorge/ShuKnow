@@ -2,6 +2,7 @@ using System.Text;
 using Ardalis.Result;
 using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.Application.Models;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Interfaces;
 using ShuKnow.Domain.Repositories;
@@ -12,12 +13,15 @@ namespace ShuKnow.Application.Services;
 public class FileService(
     IFileRepository fileRepository,
     IFolderRepository folderRepository,
+    IWorkspacePathService workspacePathService,
     IBlobStorageService blobStorageService,
     IBlobDeletionQueue blobDeletionQueue,
     ICurrentUserService currentUserService,
     IUnitOfWork unitOfWork)
     : IFileService
 {
+    private static readonly StringComparison NameComparison = StringComparison.OrdinalIgnoreCase;
+
     private Guid CurrentUserId => currentUserService.UserId;
 
     public async Task<Result<File>> GetByIdAsync(Guid fileId, CancellationToken ct = default)
@@ -25,9 +29,10 @@ public class FileService(
         return await fileRepository.GetByIdAsync(fileId, CurrentUserId);
     }
 
-    public Task<Result<File>> GetByPathAsync(string filePath, CancellationToken ct = default)
+    public async Task<Result<File>> GetByPathAsync(string filePath, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await workspacePathService.ResolveFilePathAsync(filePath, ct)
+            .BindAsync(FindByPathAsync);
     }
 
     public async Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
@@ -97,13 +102,34 @@ public class FileService(
             .Map(pair => pair.File);
     }
 
-    public async Task<Result<File>> MoveAsync(Guid fileId, Guid? targetFolderId, CancellationToken ct = default)
+    public async Task<Result<File>> MoveAsync(
+        Guid fileId,
+        Guid? targetFolderId,
+        string? targetFileName = null,
+        CancellationToken ct = default)
     {
         return await EnsureFolderExistsAsync(targetFolderId)
             .BindAsync(_ => fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId))
-            .ActAsync(existingFile => EnsureFileNameUnique(existingFile.Name, targetFolderId, existingFile.Id))
-            .Act(existingFile => existingFile.MoveTo(targetFolderId))
-            .SaveChangesAsync(unitOfWork);
+            .BindAsync(async existingFile =>
+            {
+                var destinationName = string.IsNullOrWhiteSpace(targetFileName) ? existingFile.Name : targetFileName;
+                var uniqueNameResult = await EnsureFileNameUnique(destinationName, targetFolderId, existingFile.Id);
+                if (!uniqueNameResult.IsSuccess)
+                    return uniqueNameResult.Map(() => existingFile);
+
+                var requiresRename = !NamesEqual(existingFile.Name, destinationName);
+                var requiresMove = existingFile.FolderId != targetFolderId;
+                if (!requiresRename && !requiresMove)
+                    return Result.Success(existingFile);
+
+                if (requiresRename)
+                    existingFile.UpdateMetadata(destinationName, existingFile.Description);
+
+                if (requiresMove)
+                    existingFile.MoveTo(targetFolderId);
+
+                return await Result.Success(existingFile).SaveChangesAsync(unitOfWork);
+            });
     }
 
     public async Task<Result> DeleteByFolderAsync(Guid? folderId, CancellationToken ct = default)
@@ -161,6 +187,14 @@ public class FileService(
             .BindAsync(exists => exists ? Result.Conflict() : Result.Success());
     }
 
+    private async Task<Result<File>> FindByPathAsync(ResolvedFilePath path)
+    {
+        return await fileRepository.GetByFolderAsync(path.FolderId, CurrentUserId)
+            .BindAsync(files => files.FirstOrDefault(file => NamesEqual(file.Name, path.FileName)) is { } file
+                ? Result.Success(file)
+                : Result<File>.NotFound($"File '{path.FullPath}' was not found."));
+    }
+
     private async Task<Result> EnsureFolderExistsAsync(Guid? folderId)
     {
         if (folderId is null)
@@ -193,6 +227,11 @@ public class FileService(
     {
         foreach (var blobId in blobIds)
             await blobDeletionQueue.EnqueueDeleteAsync(blobId);
+    }
+
+    private static bool NamesEqual(string left, string right)
+    {
+        return string.Equals(left, right, NameComparison);
     }
 
     private static async Task<PreparedUpload> PrepareUploadAsync(Stream content, CancellationToken ct)
