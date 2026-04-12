@@ -47,7 +47,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IUnitOfWork, PostgresUnitOfWork>();
-        services.AddScoped<IAiService, AiService>();
         services.AddSingleton<IBlobStorageService, BlobStorageService>();
         services.AddSingleton<BlobDeletionQueue>();
         services.AddSingleton<IBlobDeletionQueue>(static serviceProvider =>
@@ -55,6 +54,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IHostedService>(static serviceProvider =>
             serviceProvider.GetRequiredService<BlobDeletionQueue>());
         services.AddScoped<IEncryptionService, EncryptionService>();
+        services.AddScoped<IAiService, TornadoAiService>();
+        services.AddScoped<TornadoPromptBuilder>();
+        services.AddScoped<TornadoToolsService>();
+        services.AddScoped<ITornadoConversationFactory, TornadoConversationFactory>();
     }
 
     private static void AddBlobStorage(this IServiceCollection services, IConfiguration configuration)
@@ -131,9 +134,14 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<IValidateOptions<FileSystemBlobStorageOptions>, FileSystemBlobStorageOptionsValidation>();
         services.AddSingleton<IValidateOptions<S3BlobStorageOptions>, S3BlobStorageOptionsValidation>();
-        
+
         services.AddOptions<EncryptionOptions>()
             .BindConfiguration(EncryptionOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddOptions<TornadoAiOptions>()
+            .BindConfiguration(TornadoAiOptions.SectionName)
             .ValidateDataAnnotations()
             .ValidateOnStart();
 

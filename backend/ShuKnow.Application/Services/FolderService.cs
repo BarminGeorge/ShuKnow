@@ -31,7 +31,12 @@ internal class FolderService(
 
     public Task<Result<Folder>> GetByIdAsync(Guid folderId, CancellationToken ct = default) =>
         folderRepository.GetByIdAsync(folderId, CurrentUserId);
-
+    
+    public Task<Result<Folder>> GetByPathAsync(string folderPath, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
+    
     public async Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid folderId, CancellationToken ct = default)
     {
         return await EnsureFolderExistsAsync(folderId)
@@ -52,6 +57,11 @@ internal class FolderService(
                 siblings.Count))
             .ActAsync(folderRepository.AddAsync)
             .SaveChangesAsync(unitOfWork);
+    }
+    
+    public Task<Result<Folder>> CreateByPathAsync(string folderPath, string description, string emoji, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
     }
 
     public async Task<Result<Folder>> UpdateAsync(Folder folder, CancellationToken ct = default)

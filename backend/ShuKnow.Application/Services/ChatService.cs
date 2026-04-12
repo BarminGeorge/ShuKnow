@@ -45,32 +45,20 @@ public class ChatService(
         return await GetOrCreateActiveSessionAsync(ct)
             .BindAsync(session => chatMessageRepository.GetPageAsync(session.Id, cursor, limit));
     }
-
-    public async Task<Result<ChatMessage>> PersistUserMessageAsync(ChatMessage message,
-        IReadOnlyCollection<Guid>? attachmentIds = null, CancellationToken ct = default)
+    
+    public async Task<Result<IReadOnlyCollection<ChatMessage>>> GetMessagesAsync(CancellationToken ct = default)
     {
-        return await PersistMessageAsync(message);
+        return await GetOrCreateActiveSessionAsync(ct)
+            .MapAsync(session => session.Messages);
     }
 
-    public async Task<Result<ChatMessage>> PersistAiMessageAsync(ChatMessage message, CancellationToken ct = default)
-    {
-        return await PersistMessageAsync(message);
-    }
-
-    public async Task<Result<ChatMessage>> PersistCancellationRecordAsync(
-        ChatMessage message, CancellationToken ct = default)
-    {
-        return await PersistMessageAsync(message);
-    }
-
-    private async Task<Result<ChatMessage>> PersistMessageAsync(ChatMessage message)
+    public async Task<Result<ChatMessage>> PersistMessageAsync(ChatMessage message, CancellationToken ct = default)
     {
         return await chatSessionRepository.GetActiveAsync(CurrentUserId)
             .BindAsync(session => Task.FromResult(
                 session.Id == message.SessionId
                     ? Result.Success(session)
                     : Result<ChatSession>.NotFound()))
-            .Act(session => session.AddMessage(message))
             .BindAsync(_ => chatMessageRepository.AddAsync(message))
             .SaveChangesAsync(unitOfWork)
             .MapAsync(() => message);

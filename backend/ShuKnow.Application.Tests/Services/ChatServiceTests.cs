@@ -136,12 +136,12 @@ public class ChatServiceTests
     }
 
     [Test]
-    public async Task PersistUserMessageAsync_WhenSessionDoesNotExist_ShouldReturnNotFound()
+    public async Task PersistMessageAsync_WhenSessionDoesNotExist_ShouldReturnNotFound()
     {
         var session = CreateSession();
         var message = ChatMessage.CreateUserMessage(session.Id, "hello");
 
-        var result = await sut.PersistUserMessageAsync(message);
+        var result = await sut.PersistMessageAsync(message);
 
         result.Status.Should().Be(ResultStatus.NotFound);
         await chatMessageRepository.DidNotReceive().AddAsync(Arg.Any<ChatMessage>());
@@ -149,7 +149,7 @@ public class ChatServiceTests
     }
 
     [Test]
-    public async Task PersistAiMessageAsync_WhenMessageTargetsDifferentSession_ShouldReturnNotFound()
+    public async Task PersistMessageAsync_WhenMessageTargetsDifferentSession_ShouldReturnNotFound()
     {
         var activeSession = CreateSession();
         var anotherSessionId = Guid.NewGuid();
@@ -157,28 +157,11 @@ public class ChatServiceTests
 
         chatSessionRepository.GetActiveAsync(currentUserId).Returns(Success(activeSession));
 
-        var result = await sut.PersistAiMessageAsync(message);
+        var result = await sut.PersistMessageAsync(message);
 
         result.Status.Should().Be(ResultStatus.NotFound);
         await chatMessageRepository.DidNotReceive().AddAsync(Arg.Any<ChatMessage>());
         await unitOfWork.DidNotReceive().SaveChangesAsync();
-    }
-
-    [Test]
-    public async Task PersistCancellationRecordAsync_WhenSessionExists_ShouldPersistMessage()
-    {
-        var session = CreateSession();
-        var message = ChatMessage.CreateSystemMessage(session.Id, "cancelled");
-
-        chatSessionRepository.GetActiveAsync(currentUserId).Returns(Success(session));
-
-        var result = await sut.PersistCancellationRecordAsync(message);
-
-        result.Status.Should().Be(ResultStatus.Ok);
-        result.Value.Should().BeSameAs(message);
-        session.Messages.Should().Contain(message);
-        await chatMessageRepository.Received(1).AddAsync(message);
-        await unitOfWork.Received(1).SaveChangesAsync();
     }
 
     private void ConfigureDefaults()

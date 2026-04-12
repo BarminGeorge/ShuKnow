@@ -25,6 +25,11 @@ public class FileService(
         return await fileRepository.GetByIdAsync(fileId, CurrentUserId);
     }
 
+    public Task<Result<File>> GetByPathAsync(string filePath, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
+
     public async Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
         Guid? folderId, int page, int pageSize, CancellationToken ct = default)
     {
