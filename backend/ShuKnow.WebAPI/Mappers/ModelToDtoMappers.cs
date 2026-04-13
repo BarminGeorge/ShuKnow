@@ -1,4 +1,4 @@
-﻿using ShuKnow.Domain.Entities;
+using ShuKnow.Domain.Entities;
 using ShuKnow.WebAPI.Dto.Auth;
 
 namespace ShuKnow.WebAPI.Mappers;

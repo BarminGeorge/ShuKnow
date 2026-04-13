@@ -1,27 +1,32 @@
 using ShuKnow.Domain.Entities;
-using File = ShuKnow.Domain.Entities.File;
+using ShuKnow.Application.Models.Notifications;
+using FileEntity = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.Application.Interfaces;
 
 public interface IChatNotificationService
 {
-    Task SendProcessingStartedAsync(UserAction action, CancellationToken ct = default);
+    Task SendProcessingStartedAsync(Guid operationId, CancellationToken ct = default);
 
-    Task SendMessageChunkAsync(ChatMessage message, string chunk, CancellationToken ct = default);
+    Task SendMessageChunkAsync(Guid operationId, Guid messageId, string chunk, CancellationToken ct = default);
 
-    Task SendMessageCompletedAsync(ChatMessage message, CancellationToken ct = default);
+    Task SendFileCreatedAsync(FileEntity file, CancellationToken ct = default);
 
-    Task SendClassificationResultAsync(IReadOnlyCollection<ActionItem> decisions, CancellationToken ct = default);
-
-    Task SendFileCreatedAsync(File file, CancellationToken ct = default);
-
-    Task SendFileMovedAsync(ActionItemFileMoved movedFile, CancellationToken ct = default);
+    Task SendFileMovedAsync(FileEntity file, Guid fromFolderId, CancellationToken ct = default);
 
     Task SendFolderCreatedAsync(Folder folder, CancellationToken ct = default);
 
-    Task SendProcessingCompletedAsync(UserAction action, CancellationToken ct = default);
+    Task SendTextAppendedAsync(FileEntity file, string text, CancellationToken ct = default);
 
-    Task SendProcessingFailedAsync(UserAction action, string error, CancellationToken ct = default);
+    Task SendTextPrependedAsync(FileEntity file, string text, CancellationToken ct = default);
 
-    Task SendProcessingCancelledAsync(ChatMessage cancellationRecord, CancellationToken ct = default);
+    Task SendAttachmentSavedAsync(ChatAttachment attachment, CancellationToken ct = default);
+
+    Task SendProcessingCompletedAsync(Guid operationId, CancellationToken ct = default);
+
+    Task SendProcessingFailedAsync(
+        Guid operationId,
+        string error,
+        ChatProcessingErrorCode errorCode = ChatProcessingErrorCode.InternalError,
+        CancellationToken ct = default);
 }
