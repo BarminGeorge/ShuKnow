@@ -59,6 +59,7 @@ public class AiToolsServiceTests
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().Be("Created folder 'notes'.");
         await folderService.Received(1).CreateByPathAsync("notes", "My notes", "📝", Arg.Any<CancellationToken>());
+        await notificationService.Received(1).SendFolderCreatedAsync(folder, Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -71,6 +72,7 @@ public class AiToolsServiceTests
 
         result.Status.Should().Be(ResultStatus.NotFound);
         result.Errors.Should().ContainSingle().Which.Should().Contain("notes");
+        await notificationService.DidNotReceive().SendFolderCreatedAsync(Arg.Any<Folder>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -106,6 +108,7 @@ public class AiToolsServiceTests
         uploadedFile.ContentType.Should().Be("text/plain");
         uploadedFile.SizeBytes.Should().Be(expectedBytes.Length);
         uploadedBytes.Should().Equal(expectedBytes);
+        await notificationService.Received(1).SendFileCreatedAsync(uploadedFile!, Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -139,6 +142,8 @@ public class AiToolsServiceTests
         result.Value.Should().Be("Saved attachment to 'notes/export.md'.");
         await attachmentFileService.Received(1).SaveAttachmentToFileAsync(
             attachment, path, Arg.Any<CancellationToken>());
+        await notificationService.Received(1).SendAttachmentSavedAsync(
+            attachment, uploadedFile.Name, Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -151,6 +156,8 @@ public class AiToolsServiceTests
         await attachmentService.DidNotReceive()
             .GetByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
         await workspacePathService.DidNotReceive().ResolveFilePathAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await notificationService.DidNotReceive().SendAttachmentSavedAsync(
+            Arg.Any<ChatAttachment>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -171,6 +178,7 @@ public class AiToolsServiceTests
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().Be("Appended text to 'notes/readme.txt'.");
         updatedContent.Should().Be("Hello world");
+        await notificationService.Received(1).SendTextAppendedAsync(file, " world", Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -187,6 +195,8 @@ public class AiToolsServiceTests
             .GetContentAsync(Arg.Any<Guid>(), Arg.Any<long?>(), Arg.Any<long?>(), Arg.Any<CancellationToken>());
         await fileService.DidNotReceive()
             .UpdateTextContentAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await notificationService.DidNotReceive().SendTextPrependedAsync(
+            Arg.Any<File>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -212,6 +222,7 @@ public class AiToolsServiceTests
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().Be("Moved file from 'notes/readme.txt' to 'archive/guide.txt'.");
         await fileService.Received(1).MoveAsync(file.Id, destination.FolderId, destination.FileName, Arg.Any<CancellationToken>());
+        await notificationService.Received(1).SendFileMovedAsync(movedFile, file.FolderId, Arg.Any<CancellationToken>());
     }
 
     private void ConfigureDefaults()
