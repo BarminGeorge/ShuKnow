@@ -77,14 +77,11 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
         return Result.Success();
     }
 
-    public Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid parentId, Guid userId) =>
+    public Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid? parentId, Guid userId) =>
         GetFoldersByParentIdAsync(parentId, userId);
 
     public Task<Result<IReadOnlyList<Folder>>> GetRootFoldersAsync(Guid userId) =>
         GetFoldersByParentIdAsync(null, userId);
-
-    public Task<Result<IReadOnlyList<Folder>>> GetSiblingsAsync(Guid? parentId, Guid userId) =>
-        GetFoldersByParentIdAsync(parentId, userId);
 
     private async Task<Result<IReadOnlyList<Folder>>> GetFoldersByParentIdAsync(Guid? parentId, Guid userId)
     {
@@ -161,6 +158,23 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
         }
 
         context.Folders.Update(folder);
+        return Task.FromResult(Result.Success());
+    }
+
+    public Task<Result> UpdateRangeAsync(IReadOnlyList<Folder> folders)
+    {
+        foreach (var folder in folders)
+        {
+            var trackedFolder = context.ChangeTracker
+                .Entries<Folder>()
+                .SingleOrDefault(entry => entry.Entity.Id == folder.Id);
+
+            if (trackedFolder is not null)
+                trackedFolder.CurrentValues.SetValues(folder);
+            else
+                context.Folders.Update(folder);
+        }
+
         return Task.FromResult(Result.Success());
     }
 

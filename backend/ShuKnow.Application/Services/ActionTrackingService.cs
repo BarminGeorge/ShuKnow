@@ -27,7 +27,7 @@ internal class ActionTrackingService(
     public Task<Result> RecordFileCreatedAsync(
         Guid actionId,
         Guid fileId,
-        Guid folderId,
+        Guid? folderId,
         string fileName,
         CancellationToken ct = default)
     {
@@ -37,8 +37,8 @@ internal class ActionTrackingService(
     public Task<Result> RecordFileMovedAsync(
         Guid actionId,
         Guid fileId,
-        Guid sourceFolderId,
-        Guid targetFolderId,
+        Guid? sourceFolderId,
+        Guid? targetFolderId,
         CancellationToken ct = default)
     {
         throw new NotImplementedException();

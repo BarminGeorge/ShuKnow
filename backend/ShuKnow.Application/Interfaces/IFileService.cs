@@ -7,8 +7,10 @@ public interface IFileService
 {
     Task<Result<File>> GetByIdAsync(Guid fileId, CancellationToken ct = default);
 
+    Task<Result<File>> GetByPathAsync(string filePath, CancellationToken ct = default);
+
     Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
-        Guid folderId,
+        Guid? folderId,
         int page,
         int pageSize,
         CancellationToken ct = default);
@@ -36,10 +38,10 @@ public interface IFileService
 
     Task<Result<File>> MoveAsync(
         Guid fileId,
-        Guid targetFolderId,
+        Guid? targetFolderId,
         CancellationToken ct = default);
 
-    Task<Result> DeleteByFolderAsync(Guid folderId, CancellationToken ct = default);
+    Task<Result> DeleteByFolderAsync(Guid? folderId, CancellationToken ct = default);
 
     Task<Result> ReorderAsync(Guid fileId, int position, CancellationToken ct = default);
 

@@ -44,7 +44,7 @@ internal class SettingsService(
         CancellationToken ct = default)
     {
         return settingsRepository.GetByUserAsync(currentUserService.UserId)
-            .BindAsync(settings => aiService.TestConnectionAsync(settings, ct))
+            .MapAsync(settings => aiService.TestConnectionAsync(settings, ct))
             .ActAsync(settingsRepository.UpsertAsync)
             .SaveChangesAsync(unitOfWork)
             .MapAsync(tested => (tested.LastTestSuccess ?? false, tested.LastTestLatencyMs, tested.LastTestError));

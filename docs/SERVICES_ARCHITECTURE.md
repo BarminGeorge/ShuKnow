@@ -1,704 +1,263 @@
 # ShuKnow MVP — Архитектура сервисов
 
----
+## Область действия
 
-## 1. Слой Application: интерфейсы сервисов
+Этот документ отражает текущее состояние ветки `66-aiservice` относительно `main`.
 
-Это основные единицы бизнес-логики. Каждый сервис определяется как интерфейс в `ShuKnow.Application`, внедряется в контроллеры или хаб и реализуется в том же слое, при этом инфраструктурные зависимости передаются через порты.
+- `docs/openapi.yaml` и `docs/asyncapi.yaml` по-прежнему описывают внешние REST- и SignalR-контракты.
+- Этот документ описывает текущий граф сервисов и появившиеся на ветке implementation gaps.
+- Для реально реализованного поведения источником истины остаётся код в `backend/ShuKnow.*`.
 
----
+## 1. Интерфейсы сервисов слоя Application
 
-### 1.1 ICurrentUserService (реализован)
+Таблица ниже концентрируется на интерфейсах, которые изменились на этой ветке или получили другую runtime-роль.
 
-**Назначение.** Предоставляет identity вызывающего пользователя всем остальным сервисам, не связывая их с деталями транспорта HTTP или SignalR. Каждый сервис, который проверяет владение ресурсом (а это почти все сервисы), зависит именно от него, а не читает `HttpContext` напрямую.
+| Интерфейс | Статус на ветке | Примечание |
+|---|---|---|
+| `ICurrentUserService` | Реализован | По-прежнему задаёт ownership-boundary для application-сервисов. |
+| `IIdentityService` | Реализован | Изменений по ветке нет. |
+| `ICurrentConnectionService` | Зарегистрирован в WebAPI | По-прежнему доступен для адресных SignalR-уведомлений, но новый AI-path его сейчас не использует. |
+| `IFolderService` | Частично реализован | Добавлены path-based методы `GetByPathAsync()` и `CreateByPathAsync()`. Текущий `FolderService` всё ещё бросает `NotImplementedException` для ряда методов, включая новые path-based. |
+| `IFileService` | Частично реализован | Добавлен `GetByPathAsync()`. Текущий `FileService` по-прежнему бросает `NotImplementedException` для этого метода. |
+| `ITextFileService` | Добавлен, не подключён | Новый application-port для создания текстовых файлов и операций prepend/append. Реализации и DI-регистрации пока нет. |
+| `IAttachmentService` | Реализован | Теперь используется напрямую в `TornadoPromptBuilder` для преобразования staged-вложений в multimodal message parts. |
+| `IChatService` | Изменён и частично реализован | Добавлен `GetMessagesAsync(ct)` для полной истории активной сессии и унифицирована запись сообщений через `PersistMessageAsync()`. |
+| `ISettingsService` | Реализован | `TestConnectionAsync()` теперь сохраняет экземпляр `UserAiSettings`, возвращённый из `IAiService.TestConnectionAsync()`. |
+| `IAiService` | Контракт заменён, реализация в Infrastructure | Старый streaming-only интерфейс удалён. Новый контракт владеет обработкой целого сообщения и тестом соединения. |
+| `IAiToolsService` | Добавлен, не подключён | Новый port для AI-triggered операций (`create_folder`, `create_text_file`, `save_attachment`, `append_text`, `prepend_text`, `move_file`). Реализации и DI-регистрации пока нет. |
+| `IActionQueryService` | Реализован | Изменений по ветке нет. |
+| `IActionTrackingService` | Реализован | Изменений по ветке нет, но новый AI-path его сейчас не использует. |
+| `IRollbackService` | Реализован | Изменений по ветке нет. |
+| `IChatNotificationService` | Реализован в WebAPI | Сервис по-прежнему существует, но текущий AI-path не отправляет через него события. |
 
-**Методы**
+## 2. Ключевые изменения сервисов
 
-| Метод | Описание |
+### 2.1 `IChatService`
+
+Теперь у чат-сервиса две read-ветки и одна write-ветка:
+
+| Метод | Текущая роль |
 |---|---|
-| `UserId: Guid` | Возвращает ID аутентифицированного пользователя, извлечённый из claim `sub` / `nameidentifier` в JWT. |
-| `IsAuthenticated: bool` | Показывает, содержит ли текущий контекст запроса валидную пользовательскую identity. |
+| `GetOrCreateActiveSessionAsync()` | Разрешает единственную активную сессию текущего пользователя. |
+| `DeleteSessionAsync()` | Удаляет активную сессию и её сообщения. |
+| `GetMessagesAsync(cursor, limit)` | Курсорно-пагинированное чтение для публичного chat-history API. |
+| `GetMessagesAsync(ct)` | Возвращает in-memory коллекцию сообщений активной сессии. Используется `TornadoPromptBuilder` для гидрации истории разговора. |
+| `PersistMessageAsync(message)` | Унифицированная точка записи и для user-, и для AI-сообщений. |
 
----
+Примечания по реализации:
 
-### 1.2 IIdentityService (реализован)
+- `ChatService` больше не предоставляет отдельные `PersistUserMessageAsync`, `PersistAiMessageAsync` и `PersistCancellationRecordAsync`.
+- В текущей реализации сохранение идёт через `IChatMessageRepository`, но в коде остаётся комментарий `// TODO: add index increment`.
+- `ChatSession.Messages` теперь представлен как `IReadOnlyCollection<ChatMessage>` и используется как источник для non-paginated history path.
 
-**Назначение.** Обрабатывает аутентификацию пользователей: регистрацию новых пользователей и вход существующих. Координирует создание identity между доменной сущностью `User` и инфраструктурной записью `IdentityUser`, возвращая JWT-токены при успехе.
+### 2.2 `IAiService`
 
-**Методы**
+`IAiService` был переработан из низкоуровневого streaming-адаптера в более высокий AI workflow boundary:
 
-| Метод | Описание |
+| Метод | Текущая роль |
 |---|---|
-| `RegisterAsync(login, password)` → `Result<string>` | Создаёт новый аккаунт пользователя. Проверяет уникальность логина, хеширует пароль, создаёт записи `IdentityUser` и `User`, возвращает JWT-токен. Возвращает `Conflict`, если логин уже существует. |
-| `LoginAsync(login, password)` → `Result<string>` | Аутентифицирует существующего пользователя. Проверяет учётные данные по сохранённому хешу и возвращает JWT-токен при успехе. Возвращает `Unauthorized` при неверных учётных данных. |
+| `ProcessMessageAsync(content, attachmentIds, settings)` | Создаёт conversation, загружает предыдущие сообщения, разрешает вложения, исполняет tool calls и сохраняет финальные user/AI сообщения. |
+| `TestConnectionAsync(settings)` | Выполняет минимальный conversation round-trip, измеряет latency и мутирует переданный `UserAiSettings` актуальным результатом теста. |
 
-**Зависимости**
+Этот интерфейс теперь реализуется [`TornadoAiService`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Infrastructure\Services\TornadoAiService.cs), а не удалённым `AiService`.
 
-| Зависимость | Зачем нужна |
+### 2.3 `IAiToolsService`
+
+Это новый application-port, введённый для исполнения model tools:
+
+| Метод | Ожидаемое поведение |
 |---|---|
-| `IIdentityUserRepository` | Сохранение и запрос identity-записей (логин/хеш пароля). |
-| `IUserRepository` | Сохранение доменных сущностей пользователей. |
-| `IUnitOfWork` | Координация транзакционного сохранения между репозиториями. |
-| `IJwtService` | Генерация JWT-токенов при успешной аутентификации. |
-| `IPasswordHasher` | Хеширование паролей при регистрации и проверка при входе. |
+| `CreateFolderAsync(folderPath, description, emoji)` | Создание папки по пути. |
+| `CreateTextFileAsync(filePath, content)` | Создание текстового файла по пути. |
+| `SaveAttachment(attachmentId, filePath)` | Сохранение staged-вложения в файловый путь. |
+| `AppendTextAsync(filePath, text)` | Добавление текста в конец существующего файла. |
+| `PrependTextAsync(filePath, text)` | Добавление текста в начало существующего файла. |
+| `MoveFileAsync(sourcePath, destinationPath)` | Перемещение файла между путями. |
 
----
+Текущее состояние ветки:
 
-### 1.3 ICurrentConnectionService (реализован)
+- [`TornadoToolsService`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Infrastructure\Services\TornadoToolsService.cs) регистрирует эти методы как LLM tools.
+- Конкретной реализации `IAiToolsService` в ветке нет.
+- DI-регистрации `IAiToolsService` тоже нет, поэтому runtime-разрешение `TornadoAiService` сейчас завершится ошибкой, пока этот port не будет реализован и зарегистрирован.
 
-**Назначение.** Предоставляет текущий ID SignalR-соединения сервисам, которым нужно отправлять адресные real-time-события. Используется `IAIOrchestrationService` для отправки событий прогресса правильному клиентскому соединению.
+### 2.4 Удалённые сервисы
 
-**Методы**
+На этой ветке удалены следующие интерфейсы и реализации:
 
-| Метод | Описание |
-|---|---|
-| `connectionId: string` | Возвращает текущий ID SignalR-соединения из контекста хаба. |
+- `IAIOrchestrationService`
+- `IPromptPreparationService`
+- `IPromptBuilder`
+- `IClassificationParser`
+- `AiOrchestrationService`
+- `PromptPreparationService`
+- `PromptBuilder`
+- `ClassificationParser`
+- `AiService`
 
----
+Их обязанности заменены infrastructure-side компонентами Tornado:
 
-### 1.4 IFolderService
+- [`TornadoAiService`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Infrastructure\Services\TornadoAiService.cs)
+- [`TornadoPromptBuilder`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Infrastructure\Services\TornadoPromptBuilder.cs)
+- [`TornadoToolsService`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Infrastructure\Services\TornadoToolsService.cs)
+- [`ITornadoConversationFactory`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Infrastructure\Services\ITornadoConversationFactory.cs)
 
-**Назначение.** Управляет полным жизненным циклом виртуальной иерархии папок. Следит за всеми инвариантами на уровне папок: уникальность имени в пределах одного родителя и предотвращение циклов при перемещении.
+## 3. Infrastructure-адаптеры нового AI-path
 
-**Методы**
+### 3.1 `TornadoAiService`
 
-| Метод | Описание |
-|---|---|
-| `GetTreeAsync()` → `List<Folder>` | Возвращает полную иерархию папок текущего пользователя. Формирование дерева для UI выполняется на уровне маппинга WebAPI. |
-| `GetFolderTreeForPromptAsync()` → `List<FolderSummary>` | Возвращает лёгкие проекции (id, name, description, parent), пригодные для построения AI-промпта. Не загружает полные сущности. Используется `IPromptPreparationService`. |
-| `ListAsync(parentId?)` → `List<Folder>` | Плоский список папок на указанном уровне (`root`, если `parentId` равен `null`). Облегчённая альтернатива полному дереву. |
-| `GetByIdAsync(folderId)` → `Folder` | Возвращает одну папку с метаданными и массивом `path` с breadcrumb от корня до текущего узла. |
-| `GetChildrenAsync(folderId)` → `List<Folder>` | Возвращает прямые дочерние папки. Поддерживает ленивую загрузку раскрытых узлов дерева. |
-| `CreateAsync(folder)` → `Folder` | Создаёт сущность папки. Проверяет уникальность имени среди соседних папок. |
-| `UpdateAsync(folderId, folder)` → `Folder` | Обновляет изменяемые метаданные папки (имя/описание). Проверяет уникальность имени среди соседних папок. |
-| `DeleteAsync(folderId, recursive)` | Удаляет папку. Если `recursive=false` и у папки есть дочерние папки или файлы, возвращает ошибку `409`. |
-| `MoveAsync(folderId, newParentId?)` → `Folder` | Перемещает папку к новому родителю или в корень. Проверяет, что не возникает цикл (папка не может стать потомком самой себя) и что имя уникально в целевой области. |
-| `ReorderAsync(folderId, position)` | Устанавливает для папки `SortOrder` в указанную позицию с нуля и переиндексирует всех соседей. |
+Обязанности:
 
-**Зависимости**
+1. Разрешить активную chat-сессию.
+2. Создать Tornado conversation с зарегистрированными tools.
+3. Добавить system instructions.
+4. Подгрузить историю из `IChatService`.
+5. Развернуть вложения в `ChatMessagePart`.
+6. Выполнять LLM conversation до сходимости или до `MaxTurns = 10`.
+7. Диспетчеризовать tool calls через `TornadoToolsService`.
+8. Сохранить финальное пользовательское сообщение и финальный AI-ответ через `IChatService`.
 
-| Зависимость | Зачем нужна |
-|---|---|
-| `IFolderRepository` | Все операции сохранения и чтения сущностей папок. |
-| `IFileRepository` | Нужен для рекурсивного удаления (каскад по файлам) и обогащения данными о количестве файлов. |
-| `ICurrentUserService` | Ограничение по владельцу: каждый запрос и каждая мутация фильтруются по текущему пользователю. |
+Замечания по поведению:
 
----
+- Финальное пользовательское сообщение сохраняется после успешной сходимости, а не до начала tool execution.
+- Ошибки conversation приводят к `Result.Error("Error while processing message")`.
+- Несходящиеся tool loops возвращают `Result.Error("Agent did not converge after 10 iterations")`.
 
-### 1.5 IFileService
+### 3.2 `TornadoPromptBuilder`
 
-**Назначение.** Управляет CRUD-операциями над метаданными файлов, загрузкой/скачиванием/заменой бинарного содержимого, обновлением текстового содержимого, переупорядочиванием и перемещением файлов между папками. Файлы имеют `SortOrder`, разделяющий общее пространство порядка с соседними папками, что обеспечивает смешанное перетаскивание файлов и папок. Проверяет уникальность имени в пределах папки, применяет ограничения по размеру и делегирует хранение бинарных данных абстракции blob-хранилища. Бинарное содержимое адресуется отдельным `File.BlobId`, а не ID сущности, поэтому потоки replace/delete опираются на orphan cleanup, а не на изменение blob-а "на месте".
+Обязанности:
 
-**Методы**
+- Построить строку system instructions.
+- Загрузить предыдущие сообщения и смаппить их в Tornado chat messages.
+- Загрузить метаданные вложений и blob-данные.
+- Преобразовать вложения в text-, image-, audio- или document-parts.
 
-| Метод | Описание |
-|---|---|
-| `GetByIdAsync(fileId)` → `File` | Метаданные файла, включая имя папки-владельца. |
-| `ListByFolderAsync(folderId, page, pageSize)` → `(List<File> Files, int TotalCount)` | Пагинированный список файлов внутри папки по offset-схеме. |
-| `UploadAsync(file, stream)` → `File` | Назначает новый `BlobId`, сохраняет бинарное содержимое через `IBlobStorageService`, затем сохраняет сущность метаданных файла. Если DB commit завершается ошибкой, blob остаётся orphan и будет удалён GC. |
-| `UpdateMetadataAsync(file)` → `File` | Обновляет изменяемые метаданные файла (имя/описание). Проверяет уникальность имени в текущей папке файла. |
-| `DeleteAsync(fileId)` | Удаляет запись метаданных, коммитит это удаление, затем ставит best-effort очистку blob-а в `IBlobDeletionQueue`. |
-| `GetContentAsync(fileId, rangeStart?, rangeEnd?)` → `(Stream Content, string ContentType, long SizeBytes)` | Стримит бинарное содержимое. Возвращает content type и поддерживает HTTP Range для частичных загрузок. |
-| `ReplaceContentAsync(fileId, stream, contentType)` → `File` | Сохраняет новое содержимое под новым `BlobId`, обновляет метаданные только после успешной загрузки blob-а, коммитит изменения и ставит старый blob в очередь на удаление. Это исключает перезапись "на месте" и сохраняет старый blob нетронутым при ошибке загрузки. |
-| `MoveAsync(fileId, targetFolderId)` → `File` | Меняет `FolderId` файла. Проверяет уникальность имени в целевой папке. |
-| `ReorderAsync(fileId, position)` | Устанавливает для файла `SortOrder` в указанную позицию с нуля и переиндексирует всех соседей (файлы и папки) внутри родительской папки. |
-| `UpdateTextContentAsync(fileId, text)` → `File` | Заменяет содержимое текстового файла, записывая новый blob под новым `BlobId`, затем обновляет `sizeBytes` и ставит старый blob в очередь на очистку. |
-| `DeleteByFolderAsync(folderId)` | Удаляет все файлы в папке. Используется при рекурсивном удалении папки; очистка blob-ов ставится в очередь после commit. |
+Текущий gap:
 
-**Зависимости**
+- `CreateSystemInstructions()` пока возвращает placeholder-строку на русском и ещё не инжектит folder-tree context.
 
-| Зависимость | Зачем нужна |
-|---|---|
-| `IFileRepository` | Хранение и чтение метаданных. |
-| `IFolderRepository` | Проверка существования целевой папки при загрузке и перемещении. |
-| `IBlobStorageService` | Хранение и получение бинарного содержимого файлов. |
-| `IBlobDeletionQueue` | Сериализует post-commit удаление blob-ов через hosted background worker. |
-| `ICurrentUserService` | Ограничение по владельцу. |
-| `IUnitOfWork` | Сохраняет изменения метаданных после успешной записи blob-а. |
+### 3.3 `ITornadoConversationFactory` и `ITornadoConversation`
 
----
+Эти infrastructure-абстракции изолируют SDK `LlmTornado`:
 
-### 1.6 IChatService
+- `ITornadoConversationFactory` создаёт либо tool-enabled conversation, либо simple conversation для теста соединения.
+- `ITornadoConversation` скрывает конкретный тип Tornado `Conversation` за testable interface.
+- `TornadoConversationFactory` расшифровывает API key, маппит `AiProvider` в `LlmTornado` provider-ы, валидирует optional base URL и собирает conversation request.
 
-**Назначение.** Управляет моделью одной активной сессии, сохраняет сообщения (пользовательские, AI и сообщения об отмене) и отдаёт историю сообщений с курсорной пагинацией.
+### 3.4 Вспомогательные утилиты
 
-**Методы**
+- [`TornadoMappers`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Infrastructure\Extensions\TornadoMappers.cs) маппит provider enum, chat roles и audio MIME types в типы Tornado SDK.
+- [`LatencyMeasureUtil`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Infrastructure\Misc\LatencyMeasureUtil.cs) измеряет latency успешного connection test.
+- [`UserAiSettingsExtensions.ParseBaseUrl()`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Domain\Extensions\UserAiSettingsExtensions.cs) валидирует optional absolute base URL до использования conversation factory.
 
-| Метод | Описание |
-|---|---|
-| `GetOrCreateActiveSessionAsync()` → `ChatSession` | Возвращает активную сессию пользователя. Если её нет, создаёт новую. Операция идемпотентна. |
-| `DeleteSessionAsync()` | Закрывает/удаляет активную сессию и все её сообщения. Следующий вызов `GetOrCreate` начнёт с чистого листа. |
-| `GetMessagesAsync(cursor?, limit)` → `(List<ChatMessage> Messages, string? NextCursor)` | История сообщений с курсорной пагинацией, сначала новые. Курсор непрозрачный (кодирует `CreatedAt` + `Id` для keyset pagination). |
-| `PersistUserMessageAsync(sessionId, message, attachmentIds?)` → `ChatMessage` | Сохраняет сущность сообщения пользователя и привязывает подготовленные вложения по ID. Возвращает сохранённую сущность с ID и timestamp, назначенными сервером. |
-| `PersistAiMessageAsync(sessionId, message)` → `ChatMessage` | Сохраняет финальный текст AI-ответа. Вызывается сервисом orchestration после завершения стриминга. |
-| `PersistCancellationRecordAsync(sessionId, message)` → `ChatMessage` | Сохраняет системное сообщение о том, что AI-ответ был отменён. Это сохраняет целостность таймлайна. |
+## 4. Поток зависимостей
 
-**Зависимости**
-
-| Зависимость | Зачем нужна |
-|---|---|
-| `IChatSessionRepository` | CRUD-операции над сессией. |
-| `IChatMessageRepository` | Сохранение сообщений и курсорно-пагинированные запросы. |
-| `ICurrentUserService` | Ограничение по владельцу. |
-
----
-
-### 1.7 IAttachmentService
-
-**Назначение.** Подготавливает загрузки файлов, которые будут использованы в будущем вызове `SendMessage` через хаб. Вложения представляют собой временную staging-зону — они существуют потому, что стандартный лимит сообщения SignalR в 32 КБ делает его непригодным для передачи бинарных данных, поэтому файлы должны сначала приходить через REST, а уже затем упоминаться в сообщении чата по ID. Каждое вложение получает собственный `BlobId`, а сами загрузки передаются как упорядоченный список пар `(ChatAttachment Attachment, Stream Content)`, чтобы метаданные и поток содержимого не расходились.
-
-**Методы**
-
-| Метод | Описание |
-|---|---|
-| `UploadAsync(uploads)` → `IReadOnlyList<ChatAttachment>` | Назначает `BlobId`, сохраняет каждый blob, затем сохраняет коллекцию метаданных вложений. WebAPI маппит multipart-загрузки в этот упорядоченный контракт. |
-| `GetByIdsAsync(attachmentIds)` → `IReadOnlyList<ChatAttachment>` | Получает сущности вложений вместе с их `BlobId`. Используется orchestration-сервисом для построения AI-prompts. Проверяет, что все ID принадлежат текущему пользователю и ещё не были использованы. |
-| `MarkConsumedAsync(attachmentIds)` | Помечает вложения как использованные, чтобы их нельзя было повторно использовать или удалить как просроченные. Вызывается после успешной привязки к сообщению чата. |
-| `PurgeExpiredAsync()` → `IReadOnlyList<ChatAttachment>` | Удаляет вложения старше 1 часа, которые так и не были использованы, затем ставит blob-ы удалённых записей в очередь на очистку. Предназначен для вызова фоновой задачей или hosted service. |
-
-**Зависимости**
-
-| Зависимость | Зачем нужна |
-|---|---|
-| `IAttachmentRepository` | Хранение и чтение метаданных вложений. |
-| `IBlobStorageService` | Хранение бинарного содержимого. |
-| `IBlobDeletionQueue` | Ставит в очередь best-effort удаление blob-ов для просроченных вложений после DB commit. |
-| `ICurrentUserService` | Проверка владельца. |
-| `IUnitOfWork` | Координация сохранения (метаданные + blob). |
-
----
-
-### 1.8 ISettingsService
-
-**Назначение.** Управляет пользовательской конфигурацией AI/LLM-провайдера (base URL, API key, провайдер как enum `AiProvider` и ID модели). Поддерживает частичное обновление — любое поле может быть опущено, чтобы сохранить текущее значение. Предоставляет проверку соединения.
-
-**Методы**
-
-| Метод | Описание |
-|---|---|
-| `GetOrCreateAsync()` → `UserAiSettings` | Возвращает текущую конфигурацию пользователя. Если настройки ещё не были заданы, создаёт запись с значениями по умолчанию и сохраняет её. Операция идемпотентна. |
-| `UpdateAsync(input)` → `UserAiSettings` | Принимает `UpdateAiSettingsInput` (все поля nullable для частичного обновления). Получает существующие настройки через `GetOrCreateAsync` (или создаёт новые, если настроек ещё нет). Шифрует API key, если он указан. Делегирует мутацию в доменный метод `UserAiSettings.UpdateSettings`, который сбрасывает предыдущие результаты тестов. Явно вызывает `UpsertAsync` для сохранения изменений. |
-| `TestConnectionAsync()` → `(bool Success, int? LatencyMs, string? ErrorMessage)` | Отправляет минимальный probe-запрос к настроенному LLM endpoint через `IAIService`, сохраняет обновлённые результаты теста через `UpsertAsync` и возвращает итог. Возвращает `NotFound`, если настройки ещё не заданы. |
-
-**Зависимости**
-
-| Зависимость | Зачем нужна |
-|---|---|
-| `ISettingsRepository` | Хранение `UserAiSettings`. Все операции используют явный `UpsertAsync` для сохранения изменений. |
-| `IEncryptionService` | Шифрование строк API key перед сохранением. Расшифровка выполняется в `IAIService`. |
-| `IAIService` | Отправка probe-запроса при `TestConnectionAsync`. |
-| `ICurrentUserService` | Ограничение по владельцу. |
-| `IUnitOfWork` | Сохранение изменений после обновления или проверки соединения. |
-
----
-
-### 1.9 IAIOrchestrationService
-
-**Назначение.** Это центральный оркестратор AI-пайплайна классификации — самый сложный сервис в системе. Вызывается исключительно из `ChatHub`.
-
-**Методы**
-
-| Метод | Описание |
-|---|---|
-| `ProcessMessageAsync(content, context?, attachmentIds?, callerConnectionId, cancellationToken)` | Выполняет полный pipeline классификации (описан ниже). Возвращает статус операции (`Result`), а весь пользовательский вывод отправляется как события через `IChatNotificationService`. `CancellationToken` проверяется на каждой асинхронной границе, чтобы `CancelProcessing` мог корректно прервать поток. |
-
-**Внутренний pipeline (один метод, несколько стадий):**
-
-1. **Разрешение сессии.** Загружает или создаёт активную chat-сессию через `IChatService`.
-2. **Сохранение пользовательского сообщения.** Сохраняет сущность сообщения пользователя и привязывает вложения по ID через `IChatService`.
-3. **Отправка `OnProcessingStarted`.** Генерирует `operationId` (GUID), который связывает все последующие события этого запуска.
-4. **Получение настроек.** Загружает AI-конфигурацию пользователя через `ISettingsService`. Если она не настроена, завершается ошибкой `LLM_CONNECTION_FAILED`.
-5. **Построение prompt.** Делегирует в `IPromptPreparationService.PrepareAsync()`, который внутри:
-   - Загружает дерево папок пользователя (через `IFolderService.GetFolderTreeForPromptAsync()`), чтобы AI видел существующие категории.
-   - Разрешает содержимое вложений по ID (через `IAttachmentService`), чтобы предоставить материал для классификации.
-   - Собирает финальный текст промпта (через `IPromptBuilder`).
-6. **Потоковый вызов LLM.** Вызывает `IAIService.StreamCompletionAsync()` с prompt и пользовательскими настройками. `IAIService` расшифровывает API key самостоятельно. Для каждого полученного token chunk отправляет `OnMessageChunk`. Полный текст ответа накапливается.
-7. **Парсинг классификации.** Передаёт полный ответ в `IClassificationParser`, чтобы извлечь структурированные решения (имя файла → целевая папка, флаг создания новой папки). Отправляет `OnClassificationResult`.
-8. **Создание записи действия.** Создаёт запись действия через `IActionTrackingService.BeginActionAsync()`, чтобы начать записывать мутации.
-9. **Цикл исполнения решений.** Для каждого решения классификации:
-   - Если целевая папка не существует, создаёт её через `IFolderService`, отправляет `OnFolderCreated`, записывает через `IActionTrackingService.RecordFolderCreatedAsync()`.
-   - Создаёт файл в целевой папке (из содержимого вложения) через `IFileService`, отправляет `OnFileCreated`, записывает через `IActionTrackingService.RecordFileCreatedAsync()`.
-   - Или, если решение означает перенос существующего файла, перемещает его через `IFileService`, отправляет `OnFileMoved`, записывает через `IActionTrackingService.RecordFileMovedAsync()` (с записью исходной папки для отката).
-10. **Сохранение AI-сообщения.** Сохраняет полный текст AI-ответа через `IChatService`. Отправляет `OnMessageCompleted`.
-11. **Финализация.** Отправляет `OnProcessingCompleted` с `actionId`, summary и количеством объектов.
-
-**Обработка ошибок:** Любое исключение после `OnProcessingStarted` приводит к отправке `OnProcessingFailed` с подходящим кодом ошибки (`LLM_CONNECTION_FAILED`, `LLM_RATE_LIMITED`, `LLM_INVALID_RESPONSE`, `CLASSIFICATION_PARSE_ERROR`, `FILE_OPERATION_FAILED`, `INTERNAL_ERROR`). Частичные мутации, которые уже успели произойти, остаются как есть (пользователь может выполнить rollback через action, если оно уже было создано).
-
-**Обработка отмены:** Когда токен отменяется, сервис прерывает LLM HTTP-запрос, отбрасывает частичное состояние результата, сохраняет запись об отмене в chat-сессии и отправляет `OnProcessingCancelled`.
-
-**Зависимости (10 всего)**
-
-| Зависимость | Зачем нужна |
-|---|---|
-| `IChatService` | Разрешение сессии, сохранение сообщений. |
-| `IPromptPreparationService` | Консолидирует построение промпта: загрузку дерева папок, разрешение вложений и сборку промпта. |
-| `ISettingsService` | Загрузка пользовательских LLM-настроек. |
-| `IFolderService` | Создание папок во время исполнения решений. |
-| `IFileService` | Создание и перемещение файлов во время исполнения решений. |
-| `IAIService` | Потоковое получение ответа от LLM. |
-| `IActionTrackingService` | Создание действия, запись action items (создание папки, создание файла, перемещение файла). |
-| `IClassificationParser` | Преобразование текста LLM в структурированные решения. |
-| `IChatNotificationService` | Отправка всех real-time-событий вызывающему клиенту. |
-| `ICurrentUserService` | Контекст владельца. |
-
----
-
-### 1.10 IActionQueryService
-
-**Назначение.** Предоставляет доступ только на чтение к истории AI-действий. Выделен отдельно от `IRollbackService`, потому что просмотр истории действий — это query-задача со своей пагинацией, тогда как rollback — это команда с нетривиальными побочными эффектами.
-
-**Методы**
-
-| Метод | Описание |
-|---|---|
-| `ListAsync(page, pageSize)` → `(List<Action> Actions, int TotalCount)` | Пагинированный список действий по offset-схеме, сначала новые. Каждый элемент включает summary, количество items и флаг `canRollback`. |
-| `GetByIdAsync(actionId)` → `(Action Action, List<ActionItem> Items)` | Полная детализация одного действия, включая все дочерние `ActionItem` (созданные файлы, перемещённые файлы, созданные папки). |
-
-**Зависимости**
-
-| Зависимость | Зачем нужна |
-|---|---|
-| `IActionRepository` | Чтение action и данных action-item. |
-| `ICurrentUserService` | Ограничение по владельцу. |
-
----
-
-### 1.11 IRollbackService
-
-**Назначение.** Отменяет записанное AI-действие, проходя по его action items в обратном порядке и откатывая каждую мутацию.
-
-**Методы**
-
-| Метод | Описание |
-|---|---|
-| `RollbackAsync(actionId)` → `UserAction` | Загружает действие, проверяет, что его можно откатить (оно ещё не откатано, а файлы не были изменены после выполнения), разворачивает каждый item в обратном порядке, помечает действие как откатанное и возвращает обновлённый агрегат действия. |
-| `RollbackLastAsync()` → `UserAction` | Находит последнее действие, доступное для отката, и делегирует выполнение в `RollbackAsync`. Возвращает `404`, если такого действия нет. |
-
-**Зависимости**
-
-| Зависимость | Зачем нужна |
-|---|---|
-| `IActionRepository` | Загрузка действия вместе с items для выполнения отката. |
-| `IActionTrackingService` | Пометка действия как откатанного после успешного отката. |
-| `IFileService` | Удаление и перемещение файлов. |
-| `IFolderService` | Удаление папок. |
-| `ICurrentUserService` | Проверка владельца. |
-
----
-
-### 1.12 IPromptPreparationService
-
-**Назначение.** Консолидирует весь пайплайн подготовки промпта в один сервис. Внутри зависит от `IFolderService` (для дерева папок через `GetFolderTreeForPromptAsync`), `IAttachmentService` (для разрешения staged-файлов по ID) и `IPromptBuilder` (для сборки текста). Это снижает количество зависимостей оркестратора с трёх до одной.
-
-**Методы**
-
-| Метод | Описание |
-|---|---|
-| `PrepareAsync(userMessage, attachmentIds?, contextSession?)` → `PreparedPrompt` | Загружает дерево папок, разрешает вложения по ID, собирает полный LLM-промпт и возвращает `PreparedPrompt` с текстом промпта и списком использованных ID вложений. |
-
-**Зависимости**
-
-| Зависимость | Зачем нужна |
-|---|---|
-| `IFolderService` | Загрузка дерева папок для контекста промпта через `GetFolderTreeForPromptAsync()`. |
-| `IAttachmentService` | Разрешение staged-вложений и их содержимого. |
-| `IPromptBuilder` | Сборка финального текста промпта из компонентов. |
-
----
-
-### 1.13 IPromptBuilder
-
-**Назначение.** Строит LLM prompt из контекстных входных данных. Используется внутри `IPromptPreparationService` — не вызывается оркестратором напрямую.
-
-**Методы**
-
-| Метод | Описание |
-|---|---|
-| `BuildClassificationPrompt(folderTree, userMessage, attachmentDescriptions, context?)` → `string` | Собирает структурированный prompt, который включает: (1) существующую иерархию папок пользователя с описаниями, (2) сообщение пользователя, (3) метаданные/summary содержимого для каждого вложения, (4) необязательную подсказку контекста и (5) инструкции для AI, чтобы он вернул пригодный для парсинга ответ классификации. |
-
----
-
-### 1.14 IActionTrackingService
-
-**Назначение.** Управляет жизненным циклом отслеживания действий во время AI-оркестрации. Инкапсулирует write-операции `IActionRepository`, чтобы оркестратор и rollback-сервис не управляли переходами состояний сущностей напрямую.
-
-**Методы**
-
-| Метод | Описание |
-|---|---|
-| `BeginActionAsync(sessionId, summary)` → `Guid` | Создаёт новую запись действия для указанной chat-сессии. Возвращает ID действия. |
-| `RecordFolderCreatedAsync(actionId, folderId, folderName, parentFolderId?)` | Фиксирует, что папка была создана в рамках действия. |
-| `RecordFileCreatedAsync(actionId, fileId, folderId, fileName)` | Фиксирует, что файл был создан в рамках действия. |
-| `RecordFileMovedAsync(actionId, fileId, sourceFolderId, targetFolderId)` | Фиксирует, что файл был перемещён в рамках действия. |
-| `MarkRolledBackAsync(actionId)` | Помечает существующее действие как откатанное. Используется `IRollbackService` после успешного отката. |
-
-**Зависимости**
-
-| Зависимость | Зачем нужна |
-|---|---|
-| `IActionRepository` | Хранение сущностей action и action-item. |
-| `ICurrentUserService` | Контекст владельца при создании действия. |
-
----
-
-### 1.15 IClassificationParser
-
-**Назначение.** Разбирает текстовый ответ LLM в структурированный список элементов действий. LLM инструктируется (через prompt) использовать определённые tools; этот сервис извлекает и валидирует вызовы этих tools.
-
-**Методы**
-
-| Метод | Описание |
-|---|---|
-| `Parse(llmResponseText)` → `List<ActionItem>` | Извлекает структурированные элементы действий из текста ответа. |
-
----
-
-### 1.16 IChatNotificationService
-
-**Назначение.** Абстрагирует транспортный механизм отправки real-time-событий из слоя Application клиенту. Интерфейс определён в Application; реализация находится в WebAPI и использует `IHubContext<ChatHub>`. Эта граница не позволяет типам SignalR утекать в слой Application.
-
-**Методы**
-
-| Метод | Описание |
-|---|---|
-| `SendProcessingStartedAsync(connectionId, event)` | Сообщает, что AI-обработка началась. |
-| `SendMessageChunkAsync(connectionId, event)` | Стримит chunk токенов клиенту. |
-| `SendMessageCompletedAsync(connectionId, message)` | Отправляет финальное сохранённое AI-сообщение. |
-| `SendClassificationResultAsync(connectionId, event)` | Отправляет план классификации. |
-| `SendFileCreatedAsync(connectionId, file)` | Сообщает, что файл был создан. |
-| `SendFileMovedAsync(connectionId, event)` | Сообщает, что файл был перемещён. |
-| `SendFolderCreatedAsync(connectionId, folder)` | Сообщает, что папка была создана. |
-| `SendProcessingCompletedAsync(connectionId, event)` | Сообщает, что все операции завершены. |
-| `SendProcessingFailedAsync(connectionId, event)` | Сообщает об ошибке. |
-| `SendProcessingCancelledAsync(connectionId, event)` | Подтверждает отмену. |
-
-Все методы принимают `connectionId` (`string`) для адресной отправки в конкретное SignalR-соединение.
-
-**Зависимости (реализация)**
-
-| Зависимость | Зачем нужна |
-|---|---|
-| `IHubContext<ChatHub>` | Отправка сообщений в конкретные SignalR-соединения. |
-
----
-
-## 2. Слой Application: интерфейсы портов (контракты инфраструктуры)
-
-Эти интерфейсы определены в `ShuKnow.Application` и реализуются в `ShuKnow.Infrastructure`. Они описывают, что именно приложению нужно от persistence-слоя и внешних систем, не задавая способ реализации.
-
----
-
-### 2.1 IUserRepository
-
-| Метод | Описание |
-|---|---|
-| `GetByIdAsync(userId)` → `User?` | Поиск по первичному ключу. |
-| `AddAsync(user)` | Сохраняет нового пользователя. |
-
----
-
-### 2.2 IFolderRepository
-
-| Метод | Описание |
-|---|---|
-| `GetByIdAsync(folderId, userId)` → `Folder?` | Одна папка с ограничением по владельцу. |
-| `GetTreeAsync(userId)` → `List<Folder>` | Все папки пользователя, загруженные плоским списком (дерево строит сервис). |
-| `GetChildrenAsync(parentId, userId)` → `List<Folder>` | Прямые дочерние папки. |
-| `GetRootFoldersAsync(userId)` → `List<Folder>` | Папки корневого уровня. |
-| `GetSiblingsAsync(parentId?, userId)` → `List<Folder>` | Все соседние папки на одном уровне (для переупорядочивания и проверки уникальности). |
-| `GetAncestorIdsAsync(folderId)` → `List<Guid>` | Цепочка предков (для проверки циклов при перемещении). |
-| `ExistsByNameInParentAsync(name, parentId?, userId, excludeId?)` → `bool` | Проверка уникальности имени в пределах одного родителя. |
-| `AddAsync(folder)` | Сохраняет новую папку. |
-| `UpdateAsync(folder)` | Обновляет существующую папку. |
-| `DeleteAsync(folderId)` | Удаляет одну папку. |
-| `DeleteSubtreeAsync(folderId)` | Рекурсивно удаляет папку и всех её потомков. |
-| `CountByUserAsync(userId)` → `int` | Возвращает общее количество папок пользователя. |
-
----
-
-### 2.3 IFileRepository
-
-| Метод | Описание |
-|---|---|
-| `GetByIdAsync(fileId, userId)` → `File?` | Один файл с ограничением по владельцу. |
-| `ListByFolderAsync(folderId, userId, page, pageSize)` → `(List<File>, int totalCount)` | Пагинированный список файлов в папке. |
-| `ExistsByNameInFolderAsync(name, folderId, userId, excludeId?)` → `bool` | Проверка уникальности имени в пределах папки. |
-| `CountByFolderAsync(folderId)` → `int` | Количество файлов в папке. |
-| `AddAsync(file)` | Сохраняет новую файловую сущность. |
-| `UpdateAsync(file)` | Обновляет метаданные. |
-| `DeleteAsync(fileId)` | Удаляет файловую сущность. |
-| `DeleteByFolderAsync(folderId)` | Удаляет все файлы в папке (для рекурсивного удаления папки). |
-| `GetByFolderAsync(folderId)` → `List<File>` | Все файлы в папке (для рекурсивного удаления папки — нужны storage keys для удаления blob-объектов). |
-| `GetExistingBlobIdsAsync(blobIds, cancellationToken)` → `IReadOnlySet<Guid>` | Возвращает, какие candidate blob IDs всё ещё привязаны к файлам. Используется orphan cleanup в batch-режиме с поддержкой отмены. |
-
----
-
-### 2.4 IChatSessionRepository
-
-| Метод | Описание |
-|---|---|
-| `GetActiveAsync(userId)` → `ChatSession?` | Возвращает активную сессию пользователя или `null`. |
-| `AddAsync(session)` | Сохраняет новую сессию. |
-| `DeleteAsync(sessionId)` | Удаляет сессию. |
-
----
-
-### 2.5 IChatMessageRepository
-
-| Метод | Описание |
-|---|---|
-| `AddAsync(message)` | Сохраняет сообщение. |
-| `GetPageAsync(sessionId, cursor?, limit)` → `(List<ChatMessage>, string? nextCursor)` | Курсорно-пагинированный запрос, сначала новые. Курсор кодирует `(CreatedAt, Id)`. |
-| `DeleteBySessionAsync(sessionId)` | Удаляет все сообщения сессии. |
-
----
-
-### 2.6 IActionRepository
-
-| Метод | Описание |
-|---|---|
-| `GetByIdWithItemsAsync(actionId, userId)` → `Action?` | Загружает действие вместе со всеми дочерними элементами. |
-| `ListAsync(userId, page, pageSize)` → `(List<Action>, int totalCount)` | Пагинированный список действий, сначала новые. |
-| `GetLastEligibleAsync(userId)` → `Action?` | Самое последнее действие, для которого `IsRolledBack == false`. |
-| `AddAsync(action)` | Сохраняет новое действие (вместе с item-элементами через EF navigation). |
-| `AddItemAsync(actionId, item)` | Добавляет элемент действия во время orchestration. |
-| `MarkRolledBackAsync(actionId)` | Устанавливает флаг `IsRolledBack`. |
-
----
-
-### 2.7 ISettingsRepository
-
-| Метод | Описание |
-|---|---|
-| `GetByUserAsync(userId, noTracking?)` → `UserAiSettings?` | Загружает настройки пользователя. По умолчанию без отслеживания изменений (`noTracking = true`). |
-| `UpsertAsync(settings)` → `UserAiSettings` | Выполняет insert или update настроек. Возвращает переданную сущность для цепочки вызовов. |
-
----
-
-### 2.8 IAttachmentRepository
-
-**Назначение.** Хранение сущностей staged-вложений.
-
-| Метод | Описание |
-|---|---|
-| `GetByIdsAsync(ids, userId)` → `List<Attachment>` | Получает несколько вложений по ID с ограничением по владельцу. |
-| `AddRangeAsync(attachments)` | Сохраняет несколько вложений. |
-| `MarkConsumedAsync(ids)` | Обновляет статус на consumed. |
-| `GetExpiredUnconsumedAsync(olderThan)` → `List<Attachment>` | Используется purge-задачей. |
-| `DeleteRangeAsync(ids)` | Удаляет записи вложений. |
-| `GetExistingBlobIdsAsync(blobIds, cancellationToken)` → `IReadOnlySet<Guid>` | Возвращает, какие candidate blob IDs всё ещё привязаны к вложениям. Используется orphan cleanup в batch-режиме с поддержкой отмены. |
-
----
-
-### 2.9 IAIService
-
-**Назначение.** Низкоуровневое взаимодействие с LLM-провайдером. Это инфраструктурный адаптер, который умеет выполнять HTTP-запросы к OpenAI-совместимым API. Отвечает за расшифровку API-ключей из `UserAiSettings` перед отправкой запросов.
-
-| Метод | Описание |
-|---|---|
-| `StreamCompletionAsync(prompt, settings, cancellationToken)` → `IAsyncEnumerable<string>` | Отправляет completion-запрос с использованием переданных `UserAiSettings` и по мере поступления SSE-потока отдаёт чанки токенов. |
-| `TestConnectionAsync(settings, cancellationToken)` → `Result<UserAiSettings>` | Отправляет минимальный запрос (например, список моделей), чтобы проверить соединение и валидность учётных данных. Возвращает обновлённый `UserAiSettings` с заполненными полями `LastTestSuccess`, `LastTestLatencyMs` и `LastTestError`. |
-
-**Зависимости**
-
-| Зависимость | Зачем нужна |
-|---|---|
-| `IHttpClientFactory` | Создание HTTP-клиентов для вызовов LLM API. |
-| `IEncryptionService` | Расшифровка сохранённого API key перед отправкой запросов к LLM. |
-
----
-
-### 2.10 IBlobStorageService
-
-**Назначение.** Абстракция хранилища бинарных файлов. Отвязывает приложение от физического механизма хранения. Текущая реализация основана на `blobId`, не хранит состояние и делегирует работу внутреннему провайдеру (`FileSystem` или `S3`) без staging и без транзакционной координации с базой данных.
-
-| Метод | Описание |
-|---|---|
-| `SaveAsync(content, blobId)` | Сохраняет бинарное содержимое по `blobId`. Используется и для файлов, и для chat attachments. |
-| `GetAsync(blobId)` → `Stream` | Получает всё бинарное содержимое по `blobId`. |
-| `GetRangeAsync(blobId, rangeStart, rangeEnd)` → `Stream` | Получает диапазон байтов по `blobId`. Общая валидация отклоняет отрицательные и инвертированные диапазоны до вызова провайдера. |
-| `DeleteAsync(blobId)` | Удаляет бинарное содержимое по `blobId`. Используется для eager cleanup и orphan cleanup. |
-| `GetSizeAsync(blobId)` → `long` | Возвращает размер сохранённого содержимого по `blobId` (для Range/Content-Length). |
-
----
-
-### 2.11 IBlobDeletionQueue
-
-**Назначение.** Ставит post-commit удаление blob-ов в очередь на одиночный hosted background worker. Это убирает best-effort cleanup из request scope и исключает fire-and-forget работу на scoped-сервисах.
-
-| Метод | Описание |
-|---|---|
-| `EnqueueDeleteAsync(blobId)` | Добавляет `blobId` в bounded-очередь удаления. Реальное удаление выполняет hosted worker через `IBlobStorageService.DeleteAsync`. |
-
----
-
-### 2.12 IEncryptionService
-
-**Назначение.** Шифрует и расшифровывает чувствительные данные в покое, в частности API keys для LLM.
-
-| Метод | Описание |
-|---|---|
-| `Encrypt(plainText)` → `string` | Возвращает зашифрованный ciphertext (например, AES-256-GCM в base64). |
-| `Decrypt(cipherText)` → `string` | Возвращает исходный plaintext. |
-
-**Зависимости.** Ключ шифрования (из `IOptions<EncryptionSettings>` или из key vault).
-
----
-
-## 3. Поток зависимостей
-
-Эту архитектуру удобнее понимать в двух дополняющих друг друга представлениях: как application-сервисы координируются во время выполнения и где завершаются инфраструктурные порты.
-
-### 3.1 Взаимодействие сервисов во время выполнения
+### 4.1 Runtime AI interaction на этой ветке
 
 ```mermaid
 flowchart LR
     classDef entry fill:#F4F1DE,stroke:#6B705C,color:#1F2937,stroke-width:1.5px;
     classDef core fill:#E0F2FE,stroke:#1D4ED8,color:#1F2937,stroke-width:1.5px;
     classDef support fill:#FEF3C7,stroke:#B45309,color:#1F2937,stroke-width:1.2px;
-    classDef recovery fill:#ECFCCB,stroke:#4D7C0F,color:#1F2937,stroke-width:1.2px;
     classDef transport fill:#FEE2E2,stroke:#B91C1C,color:#1F2937,stroke-width:1.2px;
+    classDef external fill:#F3F4F6,stroke:#6B7280,color:#111827,stroke-width:1.2px,stroke-dasharray: 5 3;
 
-    Client["Контроллеры / ChatHub"]:::entry
+    Caller["REST-контроллер или будущее wiring в ChatHub"]:::entry
 
     subgraph App["Слой Application"]
         direction TB
-
-        subgraph Workflow["AI-поток классификации"]
-            direction LR
-            ChatService["IChatService"]:::core
-            SettingsService["ISettingsService"]:::core
-            AIOrchestration["IAIOrchestrationService"]:::core
-            PromptPrep["IPromptPreparationService"]:::support
-            ClassificationParser["IClassificationParser"]:::support
-            ActionTracking["IActionTrackingService"]:::support
-            ChatNotification["IChatNotificationService"]:::transport
-        end
-
-        subgraph PromptInternals["Внутренности подготовки промпта"]
-            direction LR
-            AttachmentService["IAttachmentService"]:::core
-            PromptBuilder["IPromptBuilder"]:::support
-        end
-
-        subgraph Content["Организация контента и восстановление"]
-            direction LR
-            FolderService["IFolderService"]:::core
-            FileService["IFileService"]:::core
-            ActionQueryService["IActionQueryService"]:::recovery
-            RollbackService["IRollbackService"]:::recovery
-        end
-
-        subgraph Identity["Identity и контекст запроса"]
-            direction LR
-            IdentityService["IIdentityService"]:::support
-            CurrentUser["ICurrentUserService"]:::support
-            CurrentConnection["ICurrentConnectionService"]:::support
-        end
+        Settings["ISettingsService"]:::core
+        Chat["IChatService"]:::core
+        Attachments["IAttachmentService"]:::core
+        Files["IFileService"]:::core
+        Folders["IFolderService"]:::core
+        TextFiles["ITextFileService"]:::support
+        AiTools["IAiToolsService"]:::support
     end
 
-    Client -->|авторизация| IdentityService
-    Client -->|CRUD папок| FolderService
-    Client -->|CRUD файлов| FileService
-    Client -->|история чата| ChatService
-    Client -->|AI-запрос| AIOrchestration
-    Client -->|история действий| ActionQueryService
-    Client -->|откат| RollbackService
+    subgraph Infra["Infrastructure AI adapters"]
+        direction TB
+        Ai["TornadoAiService / IAiService"]:::core
+        Prompt["TornadoPromptBuilder"]:::support
+        Tools["TornadoToolsService"]:::support
+        Factory["ITornadoConversationFactory"]:::support
+    end
 
-    AIOrchestration -->|жизненный цикл сессии и сообщений| ChatService
-    AIOrchestration -->|подготовка промпта| PromptPrep
-    AIOrchestration -->|получение LLM-настроек| SettingsService
-    AIOrchestration -->|парсинг ответа модели| ClassificationParser
-    AIOrchestration -->|отслеживание action items| ActionTracking
-    AIOrchestration -->|создание папок| FolderService
-    AIOrchestration -->|создание или перенос файлов| FileService
-    AIOrchestration -->|стриминг прогресса и результатов| ChatNotification
+    LLM["LLM provider via LlmTornado"]:::external
+    BlobStore["Blob storage"]:::external
 
-    PromptPrep -->|загрузка дерева папок| FolderService
-    PromptPrep -->|разрешение вложений| AttachmentService
-    PromptPrep -->|сборка текста промпта| PromptBuilder
-
-    RollbackService -->|откат файловых мутаций| FileService
-    RollbackService -->|откат мутаций папок| FolderService
-    RollbackService -->|пометка откатанным| ActionTracking
-
-    CurrentUser -. identity вызывающего и ownership scope .-> AIOrchestration
-    CurrentUser -. identity вызывающего и ownership scope .-> FolderService
-    CurrentUser -. identity вызывающего и ownership scope .-> FileService
-    CurrentUser -. identity вызывающего и ownership scope .-> ChatService
-
-    ChatNotification -->|адресные SignalR-события| Client
+    Caller --> Settings
+    Caller --> Ai
+    Ai --> Chat
+    Ai --> Prompt
+    Ai --> Tools
+    Ai --> Factory
+    Prompt --> Chat
+    Prompt --> Attachments
+    Prompt --> BlobStore
+    Tools --> AiTools
+    AiTools --> Files
+    AiTools --> Folders
+    AiTools --> TextFiles
+    Factory --> LLM
 ```
 
-### 3.2 Связь портов и инфраструктуры
+### 4.2 Связь портов и реализаций
 
 ```mermaid
 flowchart LR
     classDef repo fill:#E0F2FE,stroke:#1D4ED8,color:#1F2937,stroke-width:1.3px;
     classDef port fill:#DBEAFE,stroke:#2563EB,color:#1F2937,stroke-width:1.3px;
     classDef helper fill:#FEF3C7,stroke:#B45309,color:#1F2937,stroke-width:1.2px;
-    classDef transport fill:#FEE2E2,stroke:#B91C1C,color:#1F2937,stroke-width:1.2px;
     classDef external fill:#F3F4F6,stroke:#6B7280,color:#111827,stroke-width:1.2px,stroke-dasharray: 5 3;
 
-    subgraph Persistence["Порты persistence-слоя"]
+    subgraph Ports["Порты"]
         direction TB
-        UserRepo["IUserRepository"]:::repo
-        IdentityUserRepo["IIdentityUserRepository"]:::repo
-        FolderRepo["IFolderRepository"]:::repo
-        FileRepo["IFileRepository"]:::repo
-        ChatSessionRepo["IChatSessionRepository"]:::repo
-        ChatMessageRepo["IChatMessageRepository"]:::repo
-        AttachmentRepo["IAttachmentRepository"]:::repo
-        SettingsRepo["ISettingsRepository"]:::repo
-        ActionRepo["IActionRepository"]:::repo
-        UnitOfWork["IUnitOfWork"]:::repo
-    end
-
-    subgraph Integrations["Интеграционные порты и вспомогательные сервисы"]
-        direction TB
-        AIService["IAIService"]:::port
-        BlobStorage["IBlobStorageService"]:::port
-        BlobDeletionQueue["IBlobDeletionQueue"]:::helper
+        ChatPort["IChatService"]:::repo
+        AttachmentPort["IAttachmentService"]:::repo
+        SettingsPort["ISettingsRepository"]:::repo
+        FilePort["IFileService"]:::repo
+        FolderPort["IFolderService"]:::repo
+        TextFilePort["ITextFileService"]:::port
+        AiPort["IAiService"]:::port
+        AiToolsPort["IAiToolsService"]:::port
         Encryption["IEncryptionService"]:::port
-        JwtService["IJwtService"]:::port
-        PasswordHasher["IPasswordHasher"]:::helper
-        ChatNotificationPort["IChatNotificationService"]:::transport
+        Blob["IBlobStorageService"]:::port
     end
 
-    subgraph Systems["Инфраструктурные реализации / внешние системы"]
+    subgraph Implementations["Текущие реализации или адаптеры"]
+        direction TB
+        TornadoAi["TornadoAiService"]:::helper
+        Prompt["TornadoPromptBuilder"]:::helper
+        ToolRegistry["TornadoToolsService"]:::helper
+        ConvFactory["TornadoConversationFactory"]:::helper
+    end
+
+    subgraph Systems["Внешние системы"]
         direction TB
         DB[(PostgreSQL)]:::external
-        LLM["LLM-провайдер"]:::external
         BlobStore["Файловая система или S3-compatible blob storage"]:::external
-        HostedWorkers["Hosted background workers"]:::external
-        KeyConfig["Ключи, секреты, конфигурация"]:::external
-        SignalR["Контекст SignalR-хаба"]:::external
+        LLM["LLM provider"]:::external
     end
 
-    UserRepo --> DB
-    IdentityUserRepo --> DB
-    FolderRepo --> DB
-    FileRepo --> DB
-    ChatSessionRepo --> DB
-    ChatMessageRepo --> DB
-    AttachmentRepo --> DB
-    SettingsRepo --> DB
-    ActionRepo --> DB
-
-    AIService --> LLM
-    BlobStorage --> BlobStore
-    BlobDeletionQueue --> HostedWorkers
-    HostedWorkers --> BlobStore
-    Encryption --> KeyConfig
-    JwtService --> KeyConfig
-    PasswordHasher --> KeyConfig
-    ChatNotificationPort --> SignalR
+    ChatPort --> DB
+    AttachmentPort --> DB
+    SettingsPort --> DB
+    Blob --> BlobStore
+    AiPort --> TornadoAi
+    TornadoAi --> Prompt
+    TornadoAi --> ToolRegistry
+    TornadoAi --> ConvFactory
+    ConvFactory --> Encryption
+    ConvFactory --> LLM
+    ToolRegistry --> AiToolsPort
 ```
 
-### 3.3 Примечания по runtime blob storage
+## 5. Основные gaps текущей ветки
 
-- `File.BlobId` и `ChatAttachment.BlobId` являются устойчивыми storage keys. Потоки replace и delete намеренно создают orphan blob-ы, а не пытаются координировать blob state внутри DB transaction.
-- `IBlobStorageService`, `IBlobStorageProvider` и `IAmazonS3` зарегистрированы как singleton-safe компоненты. `PostgresUnitOfWork` остаётся scoped, потому что оборачивает `AppDbContext`.
-- Best-effort eager delete выполняется через `IBlobDeletionQueue`, то есть через bounded single-reader background worker, а не через fire-and-forget задачи вида `_ = DeleteAsync(...)`.
-- `BlobOrphanCleanupService` выполняет один cleanup cycle сразу при старте, а затем повторяет его по настроенному интервалу. Очистка обрабатывает candidate blob-ы пакетами, передаёт `CancellationToken` в repository lookups и удаляет только blob-ы старше grace period, которые больше не привязаны к данным.
-- При выборе провайдера `S3` на старте также запускается `S3BucketInitializationService`, который валидирует наличие настроенного bucket-а и создаёт его, если bucket отсутствует.
+Это ключевые documentation-relevant gaps, которые появились на ветке:
+
+1. [`ChatHub`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.WebAPI\Hubs\ChatHub.cs) всё ещё содержит placeholder-реализации `SendMessage()` и `CancelProcessing()`. AsyncAPI-контракт пока опережает реальную runtime-интеграцию.
+2. `IAiToolsService` требуется `TornadoToolsService`, но реализации и DI-регистрации для него пока нет.
+3. `ITextFileService` объявлен, но не реализован и не зарегистрирован.
+4. `IFolderService.GetByPathAsync()`, `IFolderService.CreateByPathAsync()` и `IFileService.GetByPathAsync()` объявлены, но сейчас бросают `NotImplementedException`.
+5. Новый AI-path не использует `IActionTrackingService`, `IActionQueryService`, `IRollbackService` и `IChatNotificationService`. Эти сервисы по-прежнему существуют, но они больше не являются частью активного AI-flow на этой ветке.

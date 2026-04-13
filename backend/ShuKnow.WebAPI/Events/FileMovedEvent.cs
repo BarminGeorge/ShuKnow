@@ -5,5 +5,6 @@ namespace ShuKnow.WebAPI.Events;
 /// </summary>
 public record FileMovedEvent(
     Guid FileId,
-    Guid FromFolderId,
-    Guid ToFolderId);
+    string FileName,
+    Guid? FromFolderId,
+    Guid? ToFolderId);

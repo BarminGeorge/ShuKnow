@@ -1,4 +1,4 @@
-﻿using Ardalis.Result;
+using Ardalis.Result;
 using ShuKnow.Application.Interfaces;
 
 namespace ShuKnow.Application.Extensions;
@@ -35,6 +35,18 @@ public static class ResultExtensions
         this Result<TSource> result, Func<TSource, Task<Result>> actFunc)
     {
         return await result.BindAsync(source => actFunc(source).MapAsync(() => source));
+    }
+    
+    public static async Task<Result<TSource>> ActAsync<TSource, TDestination>(
+        this Result<TSource> result, Func<TSource, Task<Result<TDestination>>> actFunc)
+    {
+        return await result.BindAsync(source => actFunc(source).MapAsync(_ => source));
+    }
+    
+    public static async Task<Result<TSource>> ActAsync<TSource, TDestination>(
+        this Task<Result<TSource>> result, Func<TSource, Task<Result<TDestination>>> actFunc)
+    {
+        return await result.BindAsync(source => actFunc(source).MapAsync(_ => source));
     }
 
     public static async Task<Result<TSource>> ActAsync<TSource>(

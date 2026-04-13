@@ -1,58 +1,76 @@
+using Microsoft.AspNetCore.SignalR;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.Application.Models.Notifications;
 using ShuKnow.Domain.Entities;
-using File = ShuKnow.Domain.Entities.File;
+using FileEntity = ShuKnow.Domain.Entities.File;
+using ShuKnow.WebAPI.Events;
+using ShuKnow.WebAPI.Hubs;
+using ShuKnow.WebAPI.Mappers;
 
 namespace ShuKnow.WebAPI.Services;
 
-public class ChatNotificationService(ICurrentConnectionService currentConnection) : IChatNotificationService
+public class ChatNotificationService(
+    ICurrentConnectionService currentConnection,
+    IHubContext<ChatHub> hubContext) : IChatNotificationService
 {
-    public Task SendProcessingStartedAsync(UserAction action, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
-    }
+    private IClientProxy Client => hubContext.Clients.Client(currentConnection.connectionId);
 
-    public Task SendMessageChunkAsync(ChatMessage message, string chunk, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
-    }
+    public Task SendProcessingStartedAsync(Guid operationId, CancellationToken ct = default)
+        => SendEventAsync(nameof(ChatHub.OnProcessingStarted), new ProcessingStartedEvent(operationId), ct);
 
-    public Task SendMessageCompletedAsync(ChatMessage message, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
-    }
+    public Task SendMessageChunkAsync(Guid operationId, Guid messageId, string chunk, CancellationToken ct = default)
+        => SendEventAsync(nameof(ChatHub.OnMessageChunk), new MessageChunkEvent(operationId, messageId, chunk), ct);
 
-    public Task SendClassificationResultAsync(IReadOnlyCollection<ActionItem> decisions, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
-    }
+    public Task SendFileCreatedAsync(FileEntity file, CancellationToken ct = default)
+        => SendEventAsync(nameof(ChatHub.OnFileCreated), file.ToFileCreatedEvent(), ct);
 
-    public Task SendFileCreatedAsync(File file, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task SendFileMovedAsync(ActionItemFileMoved movedFile, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
-    }
+    public Task SendFileMovedAsync(FileEntity file, Guid fromFolderId, CancellationToken ct = default)
+        => SendEventAsync(nameof(ChatHub.OnFileMoved), file.ToFileMovedEvent(fromFolderId), ct);
 
     public Task SendFolderCreatedAsync(Folder folder, CancellationToken ct = default)
+        => SendEventAsync(nameof(ChatHub.OnFolderCreated), folder.ToFolderCreatedEvent(), ct);
+
+    public Task SendTextAppendedAsync(FileEntity file, string text, CancellationToken ct = default)
+        => SendEventAsync(nameof(ChatHub.OnTextAppended), file.ToTextAppendedEvent(text), ct);
+
+    public Task SendTextPrependedAsync(FileEntity file, string text, CancellationToken ct = default)
+        => SendEventAsync(nameof(ChatHub.OnTextPrepended), file.ToTextPrependedEvent(text), ct);
+
+    public Task SendAttachmentSavedAsync(ChatAttachment attachment, CancellationToken ct = default)
+        => SendEventAsync(nameof(ChatHub.OnAttachmentSaved), attachment.ToAttachmentSavedEvent(), ct);
+
+    public Task SendProcessingCompletedAsync(Guid operationId, CancellationToken ct = default)
+        => SendEventAsync(
+            nameof(ChatHub.OnProcessingCompleted),
+            new ProcessingCompletedEvent(operationId),
+            ct);
+
+    public Task SendProcessingFailedAsync(
+        Guid operationId,
+        string error,
+        ChatProcessingErrorCode errorCode = ChatProcessingErrorCode.InternalError,
+        CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return SendEventAsync(
+            nameof(ChatHub.OnProcessingFailed),
+            new ProcessingFailedEvent(operationId, error, MapProcessingErrorCode(errorCode)),
+            ct);
     }
 
-    public Task SendProcessingCompletedAsync(UserAction action, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
-    }
+    private Task SendEventAsync<TEvent>(string methodName, TEvent @event, CancellationToken ct)
+        => Client.SendAsync(methodName, @event, cancellationToken: ct);
 
-    public Task SendProcessingFailedAsync(UserAction action, string error, CancellationToken ct = default)
+    private static ProcessingErrorCode MapProcessingErrorCode(ChatProcessingErrorCode errorCode)
     {
-        throw new NotImplementedException();
-    }
-
-    public Task SendProcessingCancelledAsync(ChatMessage cancellationRecord, CancellationToken ct = default)
-    {
-        throw new NotImplementedException();
+        return errorCode switch
+        {
+            ChatProcessingErrorCode.LlmConnectionFailed => ProcessingErrorCode.LlmConnectionFailed,
+            ChatProcessingErrorCode.LlmRateLimited => ProcessingErrorCode.LlmRateLimited,
+            ChatProcessingErrorCode.LlmInvalidResponse => ProcessingErrorCode.LlmInvalidResponse,
+            ChatProcessingErrorCode.ClassificationParseError => ProcessingErrorCode.ClassificationParseError,
+            ChatProcessingErrorCode.FileOperationFailed => ProcessingErrorCode.FileOperationFailed,
+            ChatProcessingErrorCode.InternalError => ProcessingErrorCode.InternalError,
+            _ => ProcessingErrorCode.InternalError
+        };
     }
 }

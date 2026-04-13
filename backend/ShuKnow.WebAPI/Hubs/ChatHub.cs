@@ -3,9 +3,7 @@ using Microsoft.AspNetCore.SignalR;
 using Saunter.Attributes;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Metrics.Services;
-using ShuKnow.WebAPI.Dto.Chat;
 using ShuKnow.WebAPI.Dto.Files;
-using ShuKnow.WebAPI.Dto.Folders;
 using ShuKnow.WebAPI.Events;
 
 namespace ShuKnow.WebAPI.Hubs;
@@ -30,11 +28,10 @@ public class ChatHub(
 
     [Channel(nameof(CancelProcessing))]
     [PublishOperation(typeof(void), Summary = "Cancel in-flight AI processing")]
-    public async Task CancelProcessing()
+    public Task CancelProcessing()
     {
         // TODO: implement
-        var operationId = Guid.NewGuid();
-        await Clients.Caller.SendAsync(nameof(OnProcessingCancelled), new ProcessingCancelledEvent(operationId));
+        return Task.FromResult(Task.CompletedTask);
     }
 
     #endregion
@@ -54,20 +51,8 @@ public class ChatHub(
     }
 
     [Channel(nameof(OnMessageChunk))]
-    [SubscribeOperation(typeof(MessageChunkEvent), Summary = "Streaming LLM response token chunk")]
+    [SubscribeOperation(typeof(MessageChunkEvent), Summary = "Streaming LLM response chunk or full message payload")]
     public void OnMessageChunk(MessageChunkEvent @event)
-    {
-    }
-
-    [Channel(nameof(OnMessageCompleted))]
-    [SubscribeOperation(typeof(ChatMessageDto), Summary = "Full AI message received and persisted")]
-    public void OnMessageCompleted(ChatMessageDto message)
-    {
-    }
-
-    [Channel(nameof(OnClassificationResult))]
-    [SubscribeOperation(typeof(ClassificationResultEvent), Summary = "AI classification plan before execution")]
-    public void OnClassificationResult(ClassificationResultEvent @event)
     {
     }
 
@@ -86,8 +71,26 @@ public class ChatHub(
     }
 
     [Channel(nameof(OnFolderCreated))]
-    [SubscribeOperation(typeof(FolderDto), Summary = "A new folder was created by AI classification")]
-    public void OnFolderCreated(FolderDto folder)
+    [SubscribeOperation(typeof(FolderCreatedEvent), Summary = "A new folder was created by AI tools")]
+    public void OnFolderCreated(FolderCreatedEvent @event)
+    {
+    }
+
+    [Channel(nameof(OnTextAppended))]
+    [SubscribeOperation(typeof(TextAppendedEvent), Summary = "Text was appended to a file by AI tools")]
+    public void OnTextAppended(TextAppendedEvent @event)
+    {
+    }
+
+    [Channel(nameof(OnTextPrepended))]
+    [SubscribeOperation(typeof(TextPrependedEvent), Summary = "Text was prepended to a file by AI tools")]
+    public void OnTextPrepended(TextPrependedEvent @event)
+    {
+    }
+
+    [Channel(nameof(OnAttachmentSaved))]
+    [SubscribeOperation(typeof(AttachmentSavedEvent), Summary = "A chat attachment was stored and is ready to use")]
+    public void OnAttachmentSaved(AttachmentSavedEvent @event)
     {
     }
 
@@ -100,12 +103,6 @@ public class ChatHub(
     [Channel(nameof(OnProcessingFailed))]
     [SubscribeOperation(typeof(ProcessingFailedEvent), Summary = "AI processing failed")]
     public void OnProcessingFailed(ProcessingFailedEvent @event)
-    {
-    }
-
-    [Channel(nameof(OnProcessingCancelled))]
-    [SubscribeOperation(typeof(ProcessingCancelledEvent), Summary = "AI processing was cancelled")]
-    public void OnProcessingCancelled(ProcessingCancelledEvent @event)
     {
     }
 

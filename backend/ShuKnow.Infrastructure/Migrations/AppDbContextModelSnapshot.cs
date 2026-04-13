@@ -67,10 +67,49 @@ namespace ShuKnow.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_chat_attachments");
 
+                    b.HasIndex("BlobId")
+                        .HasDatabaseName("ix_chat_attachments_blob_id");
+
                     b.HasIndex("UserId")
                         .HasDatabaseName("ix_chat_attachments_user_id");
 
+                    b.HasIndex("CreatedAt", "IsConsumed")
+                        .HasDatabaseName("ix_chat_attachments_created_at_is_consumed");
+
                     b.ToTable("chat_attachments", (string)null);
+                });
+
+            modelBuilder.Entity("ShuKnow.Domain.Entities.ChatMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("content");
+
+                    b.Property<int?>("Index")
+                        .HasColumnType("integer")
+                        .HasColumnName("index");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer")
+                        .HasColumnName("role");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_chat_messages");
+
+                    b.HasIndex("SessionId", "Index", "Id")
+                        .HasDatabaseName("ix_chat_messages_session_id_index_id");
+
+                    b.ToTable("chat_messages", (string)null);
                 });
 
             modelBuilder.Entity("ShuKnow.Domain.Entities.ChatSession", b =>
@@ -97,6 +136,69 @@ namespace ShuKnow.Infrastructure.Migrations
                         .HasFilter("\"status\" = 1");
 
                     b.ToTable("chat_sessions", (string)null);
+                });
+
+            modelBuilder.Entity("ShuKnow.Domain.Entities.File", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("BlobId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("blob_id");
+
+                    b.Property<string>("ChecksumSha256")
+                        .HasColumnType("text")
+                        .HasColumnName("checksum_sha256");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<Guid?>("FolderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("folder_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size_bytes");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_files");
+
+                    b.HasIndex("FolderId")
+                        .HasDatabaseName("ix_files_folder_id");
+
+                    b.ToTable("files", (string)null);
                 });
 
             modelBuilder.Entity("ShuKnow.Domain.Entities.Folder", b =>
@@ -245,6 +347,16 @@ namespace ShuKnow.Infrastructure.Migrations
                         .HasConstraintName("fk_chat_attachments_users_user_id");
                 });
 
+            modelBuilder.Entity("ShuKnow.Domain.Entities.ChatMessage", b =>
+                {
+                    b.HasOne("ShuKnow.Domain.Entities.ChatSession", null)
+                        .WithMany("Messages")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_chat_messages_chat_sessions_session_id");
+                });
+
             modelBuilder.Entity("ShuKnow.Domain.Entities.ChatSession", b =>
                 {
                     b.HasOne("ShuKnow.Domain.Entities.User", null)
@@ -253,6 +365,17 @@ namespace ShuKnow.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_chat_sessions_users_user_id");
+                });
+
+            modelBuilder.Entity("ShuKnow.Domain.Entities.File", b =>
+                {
+                    b.HasOne("ShuKnow.Domain.Entities.Folder", "Folder")
+                        .WithMany()
+                        .HasForeignKey("FolderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_files_folders_folder_id");
+
+                    b.Navigation("Folder");
                 });
 
             modelBuilder.Entity("ShuKnow.Domain.Entities.Folder", b =>
@@ -289,6 +412,11 @@ namespace ShuKnow.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_identity_users_users_id");
+                });
+
+            modelBuilder.Entity("ShuKnow.Domain.Entities.ChatSession", b =>
+                {
+                    b.Navigation("Messages");
                 });
 #pragma warning restore 612, 618
         }
