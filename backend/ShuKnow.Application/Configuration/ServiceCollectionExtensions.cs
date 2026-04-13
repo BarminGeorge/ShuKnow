@@ -13,6 +13,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWorkspacePathService, WorkspacePathService>();
         services.AddScoped<IChatService, ChatService>();
         services.AddScoped<IAttachmentService, AttachmentService>();
+        services.AddScoped<IAttachmentFileService, AttachmentFileService>();
         services.AddScoped<IAiToolsService, AiToolsService>();
         services.AddScoped<ISettingsService, SettingsService>();
         services.AddScoped<IActionQueryService, ActionQueryService>();

@@ -16,7 +16,7 @@ public class AiToolsServiceTests
     private IFileService fileService = null!;
     private IWorkspacePathService workspacePathService = null!;
     private IAttachmentService attachmentService = null!;
-    private IBlobStorageService blobStorageService = null!;
+    private IAttachmentFileService attachmentFileService = null!;
     private IChatNotificationService notificationService = null!;
     private ICurrentUserService currentUserService = null!;
     private Guid currentUserId;
@@ -29,7 +29,7 @@ public class AiToolsServiceTests
         fileService = Substitute.For<IFileService>();
         workspacePathService = Substitute.For<IWorkspacePathService>();
         attachmentService = Substitute.For<IAttachmentService>();
-        blobStorageService = Substitute.For<IBlobStorageService>();
+        attachmentFileService = Substitute.For<IAttachmentFileService>();
         notificationService = Substitute.For<IChatNotificationService>();
         currentUserService = Substitute.For<ICurrentUserService>();
         currentUserId = Guid.NewGuid();
@@ -42,7 +42,7 @@ public class AiToolsServiceTests
             fileService,
             workspacePathService,
             attachmentService,
-            blobStorageService,
+            attachmentFileService,
             notificationService,
             currentUserService);
     }
@@ -118,8 +118,11 @@ public class AiToolsServiceTests
             fileName: "draft.md",
             contentType: "text/markdown",
             sizeBytes: 7);
-        File? uploadedFile = null;
-        byte[]? uploadedBytes = null;
+        var uploadedFile = CreateFile(
+            folderId: path.FolderId,
+            name: path.FileName,
+            contentType: "text/markdown",
+            sizeBytes: 7);
 
         workspacePathService.ResolveFilePathAsync("notes/export.md", Arg.Any<CancellationToken>())
             .Returns(Success(path));
@@ -127,33 +130,15 @@ public class AiToolsServiceTests
                 Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Single() == attachmentId),
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success<IReadOnlyList<ChatAttachment>>([attachment])));
-        blobStorageService.GetAsync(attachment.BlobId, Arg.Any<CancellationToken>())
-            .Returns(Success<Stream>(new MemoryStream("payload"u8.ToArray())));
-        fileService.UploadAsync(
-                Arg.Do<File>(file => uploadedFile = file),
-                Arg.Do<Stream>(stream =>
-                {
-                    using var copy = new MemoryStream();
-                    stream.CopyTo(copy);
-                    uploadedBytes = copy.ToArray();
-                    stream.Position = 0;
-                }),
-                Arg.Any<CancellationToken>())
-            .Returns(call => Success(call.Arg<File>()));
+        attachmentFileService.SaveAttachmentToFileAsync(attachment, path, Arg.Any<CancellationToken>())
+            .Returns(Success(uploadedFile));
 
         var result = await sut.SaveAttachment(attachmentId.ToString(), "notes/export.md");
 
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().Be("Saved attachment to 'notes/export.md'.");
-        uploadedFile.Should().NotBeNull();
-        uploadedFile!.FolderId.Should().Be(path.FolderId);
-        uploadedFile.Name.Should().Be(path.FileName);
-        uploadedFile.ContentType.Should().Be("text/markdown");
-        uploadedFile.SizeBytes.Should().Be(7);
-        uploadedBytes.Should().Equal("payload"u8.ToArray());
-        await attachmentService.Received(1).MarkConsumedAsync(
-            Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Single() == attachmentId),
-            Arg.Any<CancellationToken>());
+        await attachmentFileService.Received(1).SaveAttachmentToFileAsync(
+            attachment, path, Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -250,8 +235,10 @@ public class AiToolsServiceTests
             .Returns(Task.FromResult(Result.Success<IReadOnlyList<ChatAttachment>>([])));
         attachmentService.MarkConsumedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(Success());
-        blobStorageService.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(Success<Stream>(new MemoryStream()));
+        attachmentFileService.SaveAttachmentToFileAsync(Arg.Any<ChatAttachment>(), Arg.Any<ResolvedFilePath>(), Arg.Any<CancellationToken>())
+            .Returns(call => Success(CreateFile(
+                folderId: call.Arg<ResolvedFilePath>().FolderId,
+                name: call.Arg<ResolvedFilePath>().FileName)));
     }
 
     private static Folder CreateFolder(

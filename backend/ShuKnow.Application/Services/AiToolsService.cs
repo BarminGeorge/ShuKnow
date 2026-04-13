@@ -13,7 +13,7 @@ public class AiToolsService(
     IFileService fileService,
     IWorkspacePathService workspacePathService,
     IAttachmentService attachmentService,
-    IBlobStorageService blobStorageService,
+    IAttachmentFileService attachmentFileService,
     IChatNotificationService notificationService,
     ICurrentUserService currentUserService)
     : IAiToolsService
@@ -50,8 +50,8 @@ public class AiToolsService(
         return await ParseAttachmentId(attachmentId)
             .BindAsync(id => GetAttachmentAsync(id, ct))
             .BindAsync(attachment => workspacePathService.ResolveFilePathAsync(filePath, ct)
-                .ActAsync(path => SaveAttachmentAsync(attachment, path, ct))
-                .ActAsync(path => notificationService.SendAttachmentSavedAsync(attachment, path.FileName, ct)))
+                .BindAsync(path => attachmentFileService.SaveAttachmentToFileAsync(attachment, path, ct))
+                .ActAsync(file => notificationService.SendAttachmentSavedAsync(attachment, file.Name, ct)))
             .Map(_ => $"Saved attachment to '{filePath}'.");
     }
 
@@ -114,23 +114,6 @@ public class AiToolsService(
 
         return await fileService.UploadAsync(file, stream, ct);
     }
-    
-    // TODO: вынести куда-то отдельно
-    private async Task<Result<File>> SaveAttachmentAsync(
-        ChatAttachment attachment,
-        ResolvedFilePath path,
-        CancellationToken ct)
-    {
-        var contentResult = await blobStorageService.GetAsync(attachment.BlobId, ct);
-        if (!contentResult.IsSuccess)
-            return contentResult.Map(_ => BuildAttachmentFile(attachment, path));
-
-        await using var content = contentResult.Value;
-        var file = BuildAttachmentFile(attachment, path);
-
-        return await fileService.UploadAsync(file, content, ct)
-            .ActAsync(_ => attachmentService.MarkConsumedAsync([attachment.Id], ct));
-    }
 
     private async Task<Result<string>> ReadTextAsync(Guid fileId, CancellationToken ct)
     {
@@ -148,18 +131,6 @@ public class AiToolsService(
             .BindAsync(attachments => attachments.SingleOrDefault() is { } attachment
                 ? Result.Success(attachment)
                 : Result<ChatAttachment>.NotFound($"Attachment '{attachmentId}' was not found."));
-    }
-
-    private File BuildAttachmentFile(ChatAttachment attachment, ResolvedFilePath path)
-    {
-        return new File(
-            Guid.NewGuid(),
-            CurrentUserId,
-            path.FolderId,
-            path.FileName,
-            string.Empty,
-            attachment.ContentType,
-            attachment.SizeBytes);
     }
 
     private static Result EnsureTextFile(File file, string filePath)
