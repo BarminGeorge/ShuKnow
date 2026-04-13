@@ -1,8 +1,11 @@
-using System.Text;
+using Ardalis.Result;
+using Ardalis.Result.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using ShuKnow.Application.Interfaces;
 using ShuKnow.WebAPI.Dto.Files;
+using ShuKnow.WebAPI.Mappers;
 using ShuKnow.WebAPI.Requests.Files;
 
 namespace ShuKnow.WebAPI.Controllers;
@@ -10,74 +13,150 @@ namespace ShuKnow.WebAPI.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class FilesController : ControllerBase
+public class FilesController(IFileService fileService) : ControllerBase
 {
-    private static readonly Guid MockFolderId = Guid.Parse("6ef7d767-88fb-4d3a-b52c-9586d304f022");
-    private static readonly DateTimeOffset MockCreatedAt = new(2026, 1, 15, 10, 30, 0, TimeSpan.Zero);
-
     [HttpGet("{fileId}")]
-    public async Task<ActionResult<FileDto>> GetFile(Guid fileId)
+    public async Task<ActionResult<FileDto>> GetFile(Guid fileId, CancellationToken ct)
     {
-        // TODO: implement
-        return new FileDto(fileId, MockFolderId, "Documents", "report.pdf",
-            "Annual report", "application/pdf", 204_800, 1, null, 0, MockCreatedAt);
+        var result = await fileService.GetByIdAsync(fileId, ct);
+        return result
+            .Map(file => file.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpPut("{fileId}")]
-    public async Task<ActionResult<FileDto>> UpdateFile(Guid fileId, [FromBody] UpdateFileRequest request)
+    public async Task<ActionResult<FileDto>> UpdateFile(
+        Guid fileId,
+        [FromBody] UpdateFileRequest request,
+        CancellationToken ct)
     {
-        // TODO: implement
-        return new FileDto(fileId, MockFolderId, "Documents",
-            request.Name ?? "report.pdf", request.Description ?? "Annual report",
-            "application/pdf", 204_800, 1, null, 0, MockCreatedAt);
+        var fileResult = await fileService.GetByIdAsync(fileId, ct);
+        if (!fileResult.IsSuccess)
+            return fileResult.Map(file => file.ToDto()).ToActionResult(this);
+
+        var file = fileResult.Value;
+        file.UpdateMetadata(request.Name ?? file.Name, request.Description ?? file.Description);
+
+        var result = await fileService.UpdateMetadataAsync(file, ct);
+        return result
+            .Map(updatedFile => updatedFile.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpDelete("{fileId}")]
-    public async Task<ActionResult> DeleteFile(Guid fileId)
+    public async Task<ActionResult> DeleteFile(Guid fileId, CancellationToken ct)
     {
-        // TODO: implement
-        return NoContent();
+        var result = await fileService.DeleteAsync(fileId, ct);
+        return result.ToActionResult(this);
     }
 
     [HttpGet("{fileId}/content")]
     public async Task<ActionResult> DownloadFileContent(Guid fileId,
-        [FromHeader(Name = "Range")] string? range = null)
+        [FromHeader(Name = "Range")] string? range = null,
+        CancellationToken ct = default)
     {
-        // TODO: implement
-        var mockContent = "Mock file content"u8.ToArray();
-        return File(mockContent, "application/octet-stream", "report.pdf");
+        if (!TryParseRange(range, out var rangeStart, out var rangeEnd))
+            return BadRequest("Only single byte ranges in the format 'bytes=start-end' are supported.");
+
+        var fileResult = await fileService.GetByIdAsync(fileId, ct);
+        if (!fileResult.IsSuccess)
+            return ToFailureActionResult(fileResult);
+
+        var contentResult = await fileService.GetContentAsync(fileId, rangeStart, rangeEnd, ct);
+        if (!contentResult.IsSuccess)
+            return ToFailureActionResult(contentResult);
+
+        var content = contentResult.Value;
+        return File(content.Content, content.ContentType, fileResult.Value.Name);
     }
 
     [HttpPut("{fileId}/content")]
-    public async Task<ActionResult<FileDto>> ReplaceFileContent(Guid fileId, IFormFile file)
+    public async Task<ActionResult<FileDto>> ReplaceFileContent(
+        Guid fileId,
+        IFormFile file,
+        CancellationToken ct)
     {
-        // TODO: implement
-        return new FileDto(fileId, MockFolderId, "Documents", file.FileName, string.Empty,
-            file.ContentType, file.Length, 1, null, 0, MockCreatedAt);
+        await using var stream = file.OpenReadStream();
+
+        var result = await fileService.ReplaceContentAsync(fileId, stream, file.ContentType, ct);
+        return result
+            .Map(updatedFile => updatedFile.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpPatch("{fileId}/content")]
     public async Task<ActionResult<FileDto>> UpdateTextContent(Guid fileId,
-        [FromBody] UpdateTextContentRequest request)
+        [FromBody] UpdateTextContentRequest request,
+        CancellationToken ct)
     {
-        // TODO: implement
-        var contentBytes = Encoding.UTF8.GetByteCount(request.Content);
-        return new FileDto(fileId, MockFolderId, "Documents", "note.md", string.Empty,
-            "text/markdown", contentBytes, 2, null, 0, MockCreatedAt);
+        var result = await fileService.UpdateTextContentAsync(fileId, request.Content, ct);
+        return result
+            .Map(file => file.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpPatch("{fileId}/move")]
-    public async Task<ActionResult<FileDto>> MoveFile(Guid fileId, [FromBody] MoveFileRequest request)
+    public async Task<ActionResult<FileDto>> MoveFile(
+        Guid fileId,
+        [FromBody] MoveFileRequest request,
+        CancellationToken ct)
     {
-        // TODO: implement
-        return new FileDto(fileId, request.TargetFolderId, "Target Folder",
-            "report.pdf", "Annual report", "application/pdf", 204_800, 1, null, 0, MockCreatedAt);
+        var result = await fileService.MoveAsync(fileId, request.TargetFolderId, ct);
+        return result
+            .Map(file => file.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpPatch("{fileId}/reorder")]
-    public async Task<ActionResult> ReorderFile(Guid fileId, [FromBody] ReorderFileRequest request)
+    public async Task<ActionResult> ReorderFile(
+        Guid fileId,
+        [FromBody] ReorderFileRequest request,
+        CancellationToken ct)
     {
-        // TODO: implement
-        return NoContent();
+        var result = await fileService.ReorderAsync(fileId, request.Position, ct);
+        return result.ToActionResult(this);
+    }
+
+    private ActionResult ToFailureActionResult<T>(Result<T> result)
+    {
+        return result.Status switch
+        {
+            ResultStatus.NotFound => NotFound(),
+            ResultStatus.Invalid => BadRequest(result.ValidationErrors),
+            ResultStatus.Conflict => Conflict(result.Errors),
+            ResultStatus.Unauthorized => Unauthorized(),
+            ResultStatus.Forbidden => Forbid(),
+            _ => Problem(string.Join(Environment.NewLine, result.Errors))
+        };
+    }
+
+    private static bool TryParseRange(string? range, out long? rangeStart, out long? rangeEnd)
+    {
+        rangeStart = null;
+        rangeEnd = null;
+
+        if (string.IsNullOrWhiteSpace(range))
+            return true;
+
+        if (!range.StartsWith("bytes=", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var parts = range["bytes=".Length..].Split('-', 2);
+        if (parts.Length != 2 || string.IsNullOrEmpty(parts[0]))
+            return false;
+
+        if (!long.TryParse(parts[0], out var start))
+            return false;
+
+        rangeStart = start;
+
+        if (string.IsNullOrEmpty(parts[1]))
+            return true;
+
+        if (!long.TryParse(parts[1], out var inclusiveEnd))
+            return false;
+
+        rangeEnd = inclusiveEnd + 1;
+        return true;
     }
 }

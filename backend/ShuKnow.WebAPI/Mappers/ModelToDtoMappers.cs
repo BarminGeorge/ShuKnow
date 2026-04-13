@@ -1,8 +1,10 @@
 using ShuKnow.Domain.Entities;
 using ShuKnow.WebAPI.Dto.Auth;
 using ShuKnow.WebAPI.Dto.Chat;
+using ShuKnow.WebAPI.Dto.Files;
 using ApiChatMessageRole = ShuKnow.WebAPI.Dto.Enums.ChatMessageRole;
 using ApiChatSessionStatus = ShuKnow.WebAPI.Dto.Enums.ChatSessionStatus;
+using DomainFile = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.WebAPI.Mappers;
 
@@ -30,5 +32,21 @@ public static class ModelToDtoMappers
             message.Content,
             message.Index,
             null);
+    }
+
+    public static FileDto ToDto(this DomainFile file)
+    {
+        return new FileDto(
+            file.Id,
+            file.FolderId,
+            file.Folder?.Name,
+            file.Name,
+            file.Description,
+            file.ContentType,
+            file.SizeBytes,
+            file.Version,
+            file.ChecksumSha256,
+            file.SortOrder,
+            file.CreatedAt);
     }
 }
