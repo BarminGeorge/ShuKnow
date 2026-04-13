@@ -25,9 +25,26 @@ public class FileService(
         return await fileRepository.GetByIdAsync(fileId, CurrentUserId);
     }
 
-    public Task<Result<File>> GetByPathAsync(string filePath, CancellationToken ct = default)
+    public async Task<Result<File>> GetByPathAsync(string filePath, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        var parts = SplitPath(filePath);
+        if (parts.Length == 0)
+            return Result.NotFound();
+
+        var folderIdResult = await ResolveFolderPathAsync(parts[..^1]);
+        if (!folderIdResult.IsSuccess)
+            return folderIdResult.Map(_ => default(File)!);
+
+        var fileName = parts[^1];
+
+        return await fileRepository.ListByFolderAsync(folderIdResult.Value, CurrentUserId, 1, int.MaxValue)
+            .BindAsync(page =>
+            {
+                var file = page.Files.SingleOrDefault(file => file.Name == fileName);
+                return Task.FromResult(file is null
+                    ? Result.NotFound()
+                    : Result.Success(file));
+            });
     }
 
     public async Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
@@ -177,6 +194,29 @@ public class FileService(
             : await folderRepository.GetRootFoldersAsync(CurrentUserId);
     }
 
+    private async Task<Result<Guid?>> ResolveFolderPathAsync(string[] folderPathParts)
+    {
+        Guid? folderId = null;
+
+        foreach (var folderName in folderPathParts)
+        {
+            var childrenResult = folderId.HasValue
+                ? await folderRepository.GetChildrenAsync(folderId.Value, CurrentUserId)
+                : await folderRepository.GetRootFoldersAsync(CurrentUserId);
+
+            if (!childrenResult.IsSuccess)
+                return childrenResult.Map(_ => (Guid?)null);
+
+            var folder = childrenResult.Value.SingleOrDefault(folder => folder.Name == folderName);
+            if (folder is null)
+                return Result.NotFound();
+
+            folderId = folder.Id;
+        }
+
+        return Result.Success(folderId);
+    }
+
     private async Task<Result<Stream>> GetStreamAsync(
         File file, long? rangeStart = null, long? rangeEnd = null, CancellationToken ct = default)
     {
@@ -233,6 +273,13 @@ public class FileService(
     {
         for (var i = 0; i < items.Count; i++)
             items[i].SortOrder = i;
+    }
+
+    private static string[] SplitPath(string path)
+    {
+        return path.Split(
+            ['/', '\\'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
     private sealed class PreparedUpload(Stream content, long sizeBytes, IAsyncDisposable? disposable = null)
