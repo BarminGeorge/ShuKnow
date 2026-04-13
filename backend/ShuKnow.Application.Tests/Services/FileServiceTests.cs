@@ -78,6 +78,26 @@ public class FileServiceTests
     }
 
     [Test]
+    public async Task ListByFolderAsync_WhenPageIsLessThanOne_ShouldReturnInvalid()
+    {
+        var result = await sut.ListByFolderAsync(Guid.NewGuid(), 0, 50);
+
+        result.Status.Should().Be(ResultStatus.Invalid);
+        await fileRepository.DidNotReceive()
+            .ListByFolderAsync(Arg.Any<Guid?>(), Arg.Any<Guid>(), Arg.Any<int>(), Arg.Any<int>());
+    }
+
+    [Test]
+    public async Task ListByFolderAsync_WhenPageSizeIsLessThanOne_ShouldReturnInvalid()
+    {
+        var result = await sut.ListByFolderAsync(Guid.NewGuid(), 1, 0);
+
+        result.Status.Should().Be(ResultStatus.Invalid);
+        await fileRepository.DidNotReceive()
+            .ListByFolderAsync(Arg.Any<Guid?>(), Arg.Any<Guid>(), Arg.Any<int>(), Arg.Any<int>());
+    }
+
+    [Test]
     public async Task UploadAsync_WhenFolderDoesNotExist_ShouldReturnNotFound()
     {
         var file = CreateFile();
@@ -562,6 +582,13 @@ public class FileServiceTests
         fileA.SortOrder.Should().Be(1);
         fileB.SortOrder.Should().Be(2);
         subfolder.SortOrder.Should().Be(3);
+        await fileRepository.Received(1).UpdateRangeAsync(Arg.Is<IReadOnlyList<File>>(files =>
+            files.Count == 3 &&
+            files.Any(file => file.Id == fileC.Id && file.SortOrder == 0) &&
+            files.Any(file => file.Id == fileA.Id && file.SortOrder == 1) &&
+            files.Any(file => file.Id == fileB.Id && file.SortOrder == 2)));
+        await folderRepository.Received(1).UpdateRangeAsync(Arg.Is<IReadOnlyList<Folder>>(folders =>
+            folders.Count == 0));
         await unitOfWork.Received(1).SaveChangesAsync();
     }
 
@@ -584,6 +611,13 @@ public class FileServiceTests
         fileB.SortOrder.Should().Be(0);
         subfolder.SortOrder.Should().Be(1);
         fileA.SortOrder.Should().Be(2);
+        await fileRepository.Received(1).UpdateRangeAsync(Arg.Is<IReadOnlyList<File>>(files =>
+            files.Count == 2 &&
+            files.Any(file => file.Id == fileB.Id && file.SortOrder == 0) &&
+            files.Any(file => file.Id == fileA.Id && file.SortOrder == 2)));
+        await folderRepository.Received(1).UpdateRangeAsync(Arg.Is<IReadOnlyList<Folder>>(folders =>
+            folders.Count == 1 &&
+            folders.Any(folder => folder.Id == subfolder.Id && folder.SortOrder == 1)));
         await unitOfWork.Received(1).SaveChangesAsync();
     }
 
@@ -604,6 +638,13 @@ public class FileServiceTests
         fileB.SortOrder.Should().Be(0);
         rootFolder.SortOrder.Should().Be(1);
         fileA.SortOrder.Should().Be(2);
+        await fileRepository.Received(1).UpdateRangeAsync(Arg.Is<IReadOnlyList<File>>(files =>
+            files.Count == 2 &&
+            files.Any(file => file.Id == fileB.Id && file.SortOrder == 0) &&
+            files.Any(file => file.Id == fileA.Id && file.SortOrder == 2)));
+        await folderRepository.Received(1).UpdateRangeAsync(Arg.Is<IReadOnlyList<Folder>>(folders =>
+            folders.Count == 1 &&
+            folders.Any(folder => folder.Id == rootFolder.Id && folder.SortOrder == 1)));
         await folderRepository.DidNotReceive().GetChildrenAsync(Arg.Any<Guid?>(), Arg.Any<Guid>());
         await unitOfWork.Received(1).SaveChangesAsync();
     }
@@ -717,6 +758,7 @@ public class FileServiceTests
         fileRepository.AddAsync(Arg.Any<File>()).Returns(Success());
         fileRepository.DeleteAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success());
         fileRepository.DeleteByFolderAsync(Arg.Any<Guid?>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
+        fileRepository.UpdateRangeAsync(Arg.Any<IReadOnlyList<File>>()).Returns(Success());
         fileRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<File>());
         fileRepository.GetByIdForUpdateAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<File>());
         fileRepository.GetByFolderAsync(Arg.Any<Guid?>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
@@ -732,6 +774,7 @@ public class FileServiceTests
             .Returns(Success<IReadOnlyList<Folder>>([]));
         folderRepository.GetRootFoldersAsync(Arg.Any<Guid>())
             .Returns(Success<IReadOnlyList<Folder>>([]));
+        folderRepository.UpdateRangeAsync(Arg.Any<IReadOnlyList<Folder>>()).Returns(Success());
     }
 
     private void ReturnsFolderExists(Guid? folderId, bool exists = true)

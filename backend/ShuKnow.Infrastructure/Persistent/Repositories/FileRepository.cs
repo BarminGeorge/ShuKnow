@@ -67,6 +67,23 @@ public class FileRepository(AppDbContext context) : IFileRepository
         return Task.FromResult(Result.Success());
     }
 
+    public Task<Result> UpdateRangeAsync(IReadOnlyList<File> files)
+    {
+        foreach (var file in files)
+        {
+            var trackedFile = context.ChangeTracker
+                .Entries<File>()
+                .SingleOrDefault(entry => entry.Entity.Id == file.Id);
+
+            if (trackedFile is not null)
+                trackedFile.CurrentValues.SetValues(file);
+            else
+                context.Files.Update(file);
+        }
+
+        return Task.FromResult(Result.Success());
+    }
+
     public async Task<Result> DeleteAsync(Guid fileId, Guid userId)
     {
         var deleted = await context.Files

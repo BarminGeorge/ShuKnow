@@ -9,6 +9,8 @@ namespace ShuKnow.Application.Services;
 
 internal class FolderService(
     IFolderRepository folderRepository,
+    IFileRepository fileRepository,
+    IBlobDeletionQueue blobDeletionQueue,
     ICurrentUserService currentUserService,
     IUnitOfWork unitOfWork)
     : IFolderService
@@ -79,10 +81,39 @@ internal class FolderService(
             .SaveChangesAsync(unitOfWork);
     }
 
-    public Task<Result> DeleteAsync(Guid folderId, CancellationToken ct = default) =>
-        GetByIdAsync(folderId, ct)
-            .BindAsync(_ => folderRepository.DeleteSubtreeAsync(folderId, CurrentUserId))
-            .SaveChangesAsync(unitOfWork);
+    public async Task<Result> DeleteAsync(Guid folderId, CancellationToken ct = default)
+    {
+        var folderResult = await GetByIdAsync(folderId, ct);
+        if (!folderResult.IsSuccess)
+            return folderResult.Map();
+
+        var subtreeFolderIdsResult = await GetSubtreeFolderIdsAsync(folderId);
+        if (!subtreeFolderIdsResult.IsSuccess)
+            return subtreeFolderIdsResult.Map();
+
+        var deletedBlobIds = new List<Guid>();
+        foreach (var subtreeFolderId in subtreeFolderIdsResult.Value)
+        {
+            var deleteFilesResult = await fileRepository.DeleteByFolderAsync(subtreeFolderId, CurrentUserId);
+            if (!deleteFilesResult.IsSuccess)
+                return deleteFilesResult.Map();
+
+            deletedBlobIds.AddRange(deleteFilesResult.Value.Select(file => file.BlobId));
+        }
+
+        var deleteFolderResult = await folderRepository.DeleteSubtreeAsync(folderId, CurrentUserId);
+        if (!deleteFolderResult.IsSuccess)
+            return deleteFolderResult;
+
+        var saveResult = await unitOfWork.SaveChangesAsync();
+        if (!saveResult.IsSuccess)
+            return saveResult;
+
+        foreach (var blobId in deletedBlobIds)
+            await blobDeletionQueue.EnqueueDeleteAsync(blobId);
+
+        return Result.Success();
+    }
 
     public async Task<Result<Folder>> MoveAsync(Guid folderId, Guid? newParentFolderId = null,
         CancellationToken ct = default)
@@ -212,6 +243,32 @@ internal class FolderService(
             .BindAsync(ancestorIds => Task.FromResult(ancestorIds.Contains(folderId)
                 ? Result.Conflict("A folder cannot be moved into its own subtree.")
                 : Result.Success()));
+    }
+
+    private async Task<Result<IReadOnlyList<Guid>>> GetSubtreeFolderIdsAsync(Guid folderId)
+    {
+        return await folderRepository.GetTreeAsync(CurrentUserId)
+            .MapAsync(folders => GetSubtreeFolderIds(folderId, folders));
+    }
+
+    private static IReadOnlyList<Guid> GetSubtreeFolderIds(Guid folderId, IReadOnlyList<Folder> folders)
+    {
+        var foldersByParentId = folders.ToLookup(folder => folder.ParentFolderId);
+        var subtreeFolderIds = new List<Guid> { folderId };
+        AppendDescendantFolderIds(folderId, foldersByParentId, subtreeFolderIds);
+        return subtreeFolderIds;
+    }
+
+    private static void AppendDescendantFolderIds(
+        Guid folderId,
+        ILookup<Guid?, Folder> foldersByParentId,
+        ICollection<Guid> subtreeFolderIds)
+    {
+        foreach (var child in foldersByParentId[folderId])
+        {
+            subtreeFolderIds.Add(child.Id);
+            AppendDescendantFolderIds(child.Id, foldersByParentId, subtreeFolderIds);
+        }
     }
 
     private static Folder UpdateFolder(

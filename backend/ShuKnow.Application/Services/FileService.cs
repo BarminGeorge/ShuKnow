@@ -50,6 +50,12 @@ public class FileService(
     public async Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
         Guid? folderId, int page, int pageSize, CancellationToken ct = default)
     {
+        if (page < 1)
+            return Result.Invalid(new ValidationError("Page must be greater than or equal to 1."));
+
+        if (pageSize < 1)
+            return Result.Invalid(new ValidationError("Page size must be greater than or equal to 1."));
+
         return await fileRepository.ListByFolderAsync(folderId, CurrentUserId, page, pageSize);
     }
 
@@ -137,7 +143,7 @@ public class FileService(
         return await fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId)
             .BindAsync(file => fileRepository.GetByFolderAsync(file.FolderId, CurrentUserId)
                 .BindAsync(files => GetChildrenFoldersAsync(file.FolderId)
-                    .BindAsync(folders => ApplyReorder(file, files, folders, position))))
+                    .BindAsync(folders => ApplyReorderAsync(file, files, folders, position))))
             .SaveChangesAsync(unitOfWork);
     }
 
@@ -246,7 +252,7 @@ public class FileService(
         return new PreparedUpload(bufferedContent, bufferedContent.Length, bufferedContent);
     }
 
-    private static Result ApplyReorder(
+    private async Task<Result> ApplyReorderAsync(
         File file, IReadOnlyList<File> files, IReadOnlyList<Folder> folders, int position)
     {
         var siblings = BuildSortedSiblingList(files, folders);
@@ -254,11 +260,30 @@ public class FileService(
         if (position < 0 || position >= siblings.Count)
             return Result.Invalid(new ValidationError("Position is out of range."));
 
-        siblings.Remove(file);
+        var currentIndex = siblings.FindIndex(item => item is File siblingFile && siblingFile.Id == file.Id);
+        if (currentIndex < 0)
+            return Result.NotFound();
+
+        siblings.RemoveAt(currentIndex);
         siblings.Insert(position, file);
+
+        var originalSortOrders = siblings.ToDictionary(GetOrderedItemKey, item => item.SortOrder);
         ApplySortOrder(siblings);
 
-        return Result.Success();
+        var updatedFiles = siblings
+            .OfType<File>()
+            .Where(updatedFile => originalSortOrders[GetOrderedItemKey(updatedFile)] != updatedFile.SortOrder)
+            .ToList();
+        var updatedFolders = siblings
+            .OfType<Folder>()
+            .Where(updatedFolder => originalSortOrders[GetOrderedItemKey(updatedFolder)] != updatedFolder.SortOrder)
+            .ToList();
+
+        var updateFilesResult = await fileRepository.UpdateRangeAsync(updatedFiles);
+        if (!updateFilesResult.IsSuccess)
+            return updateFilesResult;
+
+        return await folderRepository.UpdateRangeAsync(updatedFolders);
     }
 
     private static List<IOrderedItem> BuildSortedSiblingList(IReadOnlyList<File> files, IReadOnlyList<Folder> folders)
@@ -273,6 +298,16 @@ public class FileService(
     {
         for (var i = 0; i < items.Count; i++)
             items[i].SortOrder = i;
+    }
+
+    private static (Type Type, Guid Id) GetOrderedItemKey(IOrderedItem item)
+    {
+        return item switch
+        {
+            File file => (typeof(File), file.Id),
+            Folder folder => (typeof(Folder), folder.Id),
+            _ => throw new InvalidOperationException("Unsupported ordered item type.")
+        };
     }
 
     private static string[] SplitPath(string path)
