@@ -17,6 +17,7 @@ public class AiToolsServiceTests
     private IWorkspacePathService workspacePathService = null!;
     private IAttachmentService attachmentService = null!;
     private IBlobStorageService blobStorageService = null!;
+    private IChatNotificationService notificationService = null!;
     private ICurrentUserService currentUserService = null!;
     private Guid currentUserId;
     private AiToolsService sut = null!;
@@ -29,6 +30,7 @@ public class AiToolsServiceTests
         workspacePathService = Substitute.For<IWorkspacePathService>();
         attachmentService = Substitute.For<IAttachmentService>();
         blobStorageService = Substitute.For<IBlobStorageService>();
+        notificationService = Substitute.For<IChatNotificationService>();
         currentUserService = Substitute.For<ICurrentUserService>();
         currentUserId = Guid.NewGuid();
 
@@ -41,6 +43,7 @@ public class AiToolsServiceTests
             workspacePathService,
             attachmentService,
             blobStorageService,
+            notificationService,
             currentUserService);
     }
 

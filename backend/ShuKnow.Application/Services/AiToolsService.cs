@@ -14,6 +14,7 @@ public class AiToolsService(
     IWorkspacePathService workspacePathService,
     IAttachmentService attachmentService,
     IBlobStorageService blobStorageService,
+    IChatNotificationService notificationService,
     ICurrentUserService currentUserService)
     : IAiToolsService
 {
@@ -25,15 +26,9 @@ public class AiToolsService(
         string emoji,
         CancellationToken ct = default)
     {
-        var result = await folderService.CreateByPathAsync(folderPath, description, emoji, ct)
-            .ActAsync(async _ =>
-            {
-                // Keep notification hooks inline: the upcoming contract needs tool-specific metadata.
-                await Task.CompletedTask;
-                return Result.Success();
-            });
-
-        return result.Map(_ => $"Created folder '{folderPath}'.");
+        return await folderService.CreateByPathAsync(folderPath, description, emoji, ct)
+            .ActAsync(folder => notificationService.SendFolderCreatedAsync(folder, ct))
+            .Map(_ => $"Created folder '{folderPath}'.");
     }
 
     public async Task<Result<string>> CreateTextFileAsync(
@@ -41,16 +36,10 @@ public class AiToolsService(
         string content,
         CancellationToken ct = default)
     {
-        var result = await workspacePathService.ResolveFilePathAsync(filePath, ct)
+        return await workspacePathService.ResolveFilePathAsync(filePath, ct)
             .BindAsync(path => CreateTextFileAsync(path, content, ct))
-            .ActAsync(async _ =>
-            {
-                // Keep notification hooks inline: the upcoming contract needs tool-specific metadata.
-                await Task.CompletedTask;
-                return Result.Success();
-            });
-
-        return result.Map(_ => $"Created text file '{filePath}'.");
+            .ActAsync(file => notificationService.SendFileCreatedAsync(file, ct))
+            .Map(_ => $"Created text file '{filePath}'.");
     }
 
     public async Task<Result<string>> SaveAttachment(
@@ -58,18 +47,12 @@ public class AiToolsService(
         string filePath,
         CancellationToken ct = default)
     {
-        var result = await ParseAttachmentId(attachmentId)
+        return await ParseAttachmentId(attachmentId)
             .BindAsync(id => GetAttachmentAsync(id, ct))
             .BindAsync(attachment => workspacePathService.ResolveFilePathAsync(filePath, ct)
-                .BindAsync(path => SaveAttachmentAsync(attachment, path, ct)))
-            .ActAsync(async _ =>
-            {
-                // Keep notification hooks inline: the upcoming contract needs tool-specific metadata.
-                await Task.CompletedTask;
-                return Result.Success();
-            });
-
-        return result.Map(_ => $"Saved attachment to '{filePath}'.");
+                .ActAsync(path => SaveAttachmentAsync(attachment, path, ct))
+                .ActAsync(path => notificationService.SendAttachmentSavedAsync(attachment, path.FileName, ct)))
+            .Map(_ => $"Saved attachment to '{filePath}'.");
     }
 
     public async Task<Result<string>> AppendTextAsync(
@@ -77,15 +60,9 @@ public class AiToolsService(
         string text,
         CancellationToken ct = default)
     {
-        var result = await UpdateTextAsync(filePath, text, static (current, extra) => current + extra, ct)
-            .ActAsync(async _ =>
-            {
-                // Keep notification hooks inline: the upcoming contract needs tool-specific metadata.
-                await Task.CompletedTask;
-                return Result.Success();
-            });
-
-        return result.Map(_ => $"Appended text to '{filePath}'.");
+        return await UpdateTextAsync(filePath, text, static (current, extra) => current + extra, ct)
+            .ActAsync(file => notificationService.SendTextAppendedAsync(file, text, ct))
+            .Map(_ => $"Appended text to '{filePath}'.");
     }
 
     public async Task<Result<string>> PrependTextAsync(
@@ -93,15 +70,9 @@ public class AiToolsService(
         string text,
         CancellationToken ct = default)
     {
-        var result = await UpdateTextAsync(filePath, text, static (current, extra) => extra + current, ct)
-            .ActAsync(async _ =>
-            {
-                // Keep notification hooks inline: the upcoming contract needs tool-specific metadata.
-                await Task.CompletedTask;
-                return Result.Success();
-            });
-
-        return result.Map(_ => $"Prepended text to '{filePath}'.");
+        return await UpdateTextAsync(filePath, text, static (current, extra) => extra + current, ct)
+            .ActAsync(file => notificationService.SendTextPrependedAsync(file, text, ct))
+            .Map(_ => $"Prepended text to '{filePath}'.");
     }
 
     public async Task<Result<string>> MoveFileAsync(
@@ -109,17 +80,15 @@ public class AiToolsService(
         string destinationPath,
         CancellationToken ct = default)
     {
-        var result = await fileService.GetByPathAsync(sourcePath, ct)
-            .BindAsync(file => workspacePathService.ResolveFilePathAsync(destinationPath, ct)
-                .BindAsync(path => fileService.MoveAsync(file.Id, path.FolderId, path.FileName, ct)))
-            .ActAsync(async _ =>
+        return await fileService.GetByPathAsync(sourcePath, ct)
+            .BindAsync(file =>
             {
-                // Keep notification hooks inline: the upcoming contract needs tool-specific metadata.
-                await Task.CompletedTask;
-                return Result.Success();
-            });
-
-        return result.Map(_ => $"Moved file from '{sourcePath}' to '{destinationPath}'.");
+                var fromFolderId = file.FolderId;
+                return workspacePathService.ResolveFilePathAsync(destinationPath, ct)
+                    .BindAsync(path => fileService.MoveAsync(file.Id, path.FolderId, path.FileName, ct))
+                    .ActAsync(movedFile => notificationService.SendFileMovedAsync(movedFile, fromFolderId, ct));
+            })
+            .Map(_ => $"Moved file from '{sourcePath}' to '{destinationPath}'.");
     }
 
     private async Task<Result<File>> UpdateTextAsync(
@@ -145,7 +114,8 @@ public class AiToolsService(
 
         return await fileService.UploadAsync(file, stream, ct);
     }
-
+    
+    // TODO: вынести куда-то отдельно
     private async Task<Result<File>> SaveAttachmentAsync(
         ChatAttachment attachment,
         ResolvedFilePath path,

@@ -1,6 +1,6 @@
 using ShuKnow.Domain.Entities;
-using FileEntity = ShuKnow.Domain.Entities.File;
 using ShuKnow.WebAPI.Events;
+using FileEntity = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.WebAPI.Mappers;
 
@@ -15,7 +15,7 @@ public static class ModelToEventMappers
             file.ContentType);
     }
 
-    public static FileMovedEvent ToFileMovedEvent(this FileEntity file, Guid fromFolderId)
+    public static FileMovedEvent ToFileMovedEvent(this FileEntity file, Guid? fromFolderId)
     {
         return new FileMovedEvent(
             file.Id,
@@ -49,11 +49,11 @@ public static class ModelToEventMappers
             text);
     }
 
-    public static AttachmentSavedEvent ToAttachmentSavedEvent(this ChatAttachment attachment)
+    public static AttachmentSavedEvent ToAttachmentSavedEvent(this ChatAttachment attachment, string fileName)
     {
         return new AttachmentSavedEvent(
             attachment.Id,
-            attachment.FileName,
+            fileName,
             attachment.ContentType,
             attachment.SizeBytes);
     }

@@ -191,7 +191,7 @@ public class ChatNotificationServiceTests
             "text/plain",
             256);
 
-        await sut.SendAttachmentSavedAsync(attachment);
+        await sut.SendAttachmentSavedAsync(attachment, attachment.FileName);
 
         AssertSentEvent<AttachmentSavedEvent>(
             nameof(ChatHub.OnAttachmentSaved),
