@@ -30,7 +30,19 @@ public class AttachmentRepository(AppDbContext context) : IAttachmentRepository
 
         foreach (var attachment in attachments)
             attachment.MarkAsConsumed();
-        
+
+        return Result.Success();
+    }
+
+    public async Task<Result> MarkConsumedAsync(Guid id)
+    {
+        var attachment = await context.ChatAttachments
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (attachment is null)
+            return Result.NotFound($"Attachment {id} not found");
+
+        attachment.MarkAsConsumed();
         return Result.Success();
     }
 

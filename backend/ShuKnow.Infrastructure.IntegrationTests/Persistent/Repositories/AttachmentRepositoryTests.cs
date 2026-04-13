@@ -127,6 +127,30 @@ public class AttachmentRepositoryTests : BaseRepositoryTests
     }
 
     [Test]
+    public async Task MarkConsumedAsync_SingleId_WhenAttachmentExists_ShouldMarkAsConsumed()
+    {
+        var user = await SeedUserAsync();
+        var attachment = await SeedAttachmentAsync(user.Id);
+
+        var result = await sut.MarkConsumedAsync(attachment.Id);
+        await Context.SaveChangesAsync();
+
+        result.Status.Should().Be(ResultStatus.Ok);
+
+        await using var assertContext = CreateDbContext();
+        var persisted = await assertContext.ChatAttachments.FindAsync(attachment.Id);
+        persisted!.IsConsumed.Should().BeTrue();
+    }
+
+    [Test]
+    public async Task MarkConsumedAsync_SingleId_WhenAttachmentDoesNotExist_ShouldReturnNotFound()
+    {
+        var result = await sut.MarkConsumedAsync(Guid.NewGuid());
+
+        result.Status.Should().Be(ResultStatus.NotFound);
+    }
+
+    [Test]
     public async Task GetExpiredUnconsumedAsync_ShouldReturnOnlyExpiredUnconsumed()
     {
         var user = await SeedUserAsync();

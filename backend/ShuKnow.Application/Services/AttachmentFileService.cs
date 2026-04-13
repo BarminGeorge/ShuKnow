@@ -28,9 +28,9 @@ public class AttachmentFileService(
         var file = BuildAttachmentFile(attachment, path);
 
         var uploadResult = await fileService.UploadAsync(file, content, ct);
-        
+
         if (uploadResult.IsSuccess)
-            await attachmentService.MarkConsumedAsync([attachment.Id], ct);
+            await attachmentService.MarkConsumedAsync(attachment.Id, ct);
 
         return uploadResult;
     }

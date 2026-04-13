@@ -75,7 +75,7 @@ public class AttachmentFileServiceTests
         uploadedFile.SizeBytes.Should().Be(attachment.SizeBytes);
         uploadedBytes.Should().Equal("payload"u8.ToArray());
         await attachmentService.Received(1).MarkConsumedAsync(
-            Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Single() == attachment.Id),
+            attachment.Id,
             Arg.Any<CancellationToken>());
     }
 
@@ -96,7 +96,7 @@ public class AttachmentFileServiceTests
 
         result.Status.Should().Be(ResultStatus.NotFound);
         await fileService.DidNotReceive().UploadAsync(Arg.Any<File>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>());
-        await attachmentService.DidNotReceive().MarkConsumedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+        await attachmentService.DidNotReceive().MarkConsumedAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -118,7 +118,7 @@ public class AttachmentFileServiceTests
         var result = await sut.SaveAttachmentToFileAsync(attachment, path);
 
         result.Status.Should().Be(ResultStatus.Error);
-        await attachmentService.DidNotReceive().MarkConsumedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+        await attachmentService.DidNotReceive().MarkConsumedAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -197,8 +197,7 @@ public class AttachmentFileServiceTests
         await sut.SaveAttachmentToFileAsync(attachment, path);
 
         await attachmentService.Received(1).MarkConsumedAsync(
-            Arg.Is<IReadOnlyCollection<Guid>>(ids =>
-                ids.Count == 1 && ids.Single() == attachment.Id),
+            attachment.Id,
             Arg.Any<CancellationToken>());
     }
 
@@ -222,7 +221,7 @@ public class AttachmentFileServiceTests
 
         result.Status.Should().Be(ResultStatus.Invalid);
         result.ValidationErrors.Should().ContainSingle().Which.ErrorMessage.Should().Be("File already exists");
-        await attachmentService.DidNotReceive().MarkConsumedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+        await attachmentService.DidNotReceive().MarkConsumedAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -259,14 +258,14 @@ public class AttachmentFileServiceTests
             .Returns(Success<Stream>(blobContent));
         fileService.UploadAsync(Arg.Any<File>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>())
             .Returns(call => Success(call.Arg<File>()));
-        attachmentService.MarkConsumedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+        attachmentService.MarkConsumedAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Error("Attachment already consumed")));
 
         var result = await sut.SaveAttachmentToFileAsync(attachment, path);
 
         result.Status.Should().Be(ResultStatus.Ok);
         await attachmentService.Received(1).MarkConsumedAsync(
-            Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Single() == attachment.Id),
+            attachment.Id,
             Arg.Any<CancellationToken>());
     }
 
@@ -302,7 +301,7 @@ public class AttachmentFileServiceTests
             .Returns(Success<Stream>(new MemoryStream()));
         fileService.UploadAsync(Arg.Any<File>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>())
             .Returns(call => Success(call.Arg<File>()));
-        attachmentService.MarkConsumedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+        attachmentService.MarkConsumedAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Success());
     }
 }
