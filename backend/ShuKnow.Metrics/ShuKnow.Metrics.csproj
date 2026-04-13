@@ -13,7 +13,12 @@
       <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.2" />
       <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.1" />
       <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.0" />
-      <PackageReference Include="StackExchange.Redis" Version="3.0.2-preview" />
+      <PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.15.2-beta.1" />
+      <PackageReference Include="StackExchange.Redis" Version="2.12.14" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Include="Scripts\SaveItem.lua" LogicalName="ShuKnow.Metrics.Scripts.SaveItem.lua" />
     </ItemGroup>
 
 </Project>

@@ -1,8 +1,9 @@
+using System.Reflection;
 using StackExchange.Redis;
 
 namespace ShuKnow.Metrics.Repositories;
 
-public class RedisMetricsRepository(IConnectionMultiplexer redis) : IMetricsRepository
+public class RedisMetricsRepository(Lazy<IConnectionMultiplexer> lazyMultiplexer) : IMetricsRepository
 {
     private const string Prefix = "metrics";
     private static string ItemKey(Guid id) => $"{Prefix}:item:{id}";
@@ -11,14 +12,30 @@ public class RedisMetricsRepository(IConnectionMultiplexer redis) : IMetricsRepo
     private static string ItemRetrievedKey(Guid id) => $"{Prefix}:item:{id}:retrieved";
     private static string UserFirstSaveKey(Guid id) => $"{Prefix}:user:{id}:first_save";
     private static string UserReturnedKey(Guid id) => $"{Prefix}:user:{id}:returned";
-    private readonly IDatabase db = redis.GetDatabase();
+    private readonly IDatabase db = lazyMultiplexer.Value.GetDatabase();
+
+    private static readonly string saveItemScriptText = LoadScript("ShuKnow.Metrics.Scripts.SaveItem.lua");
+    private static readonly LuaScript saveItemScript = LuaScript.Prepare(saveItemScriptText);
+
+    private static string LoadScript(string resourceName)
+    {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
+        using var reader = new StreamReader(stream!);
+        return reader.ReadToEnd();
+    }
 
     public async Task<bool> TrySaveItemAsync(Guid itemId, DateTimeOffset savedAt, TimeSpan ttl)
     {
-        var key = ItemKey(itemId);
-        var unixSeconds = savedAt.ToUnixTimeSeconds();
+        var result = (int)(long)await db.ScriptEvaluateAsync(
+            saveItemScript,
+            new
+            {
+                key = (RedisKey)ItemKey(itemId),
+                value = savedAt.ToUnixTimeSeconds(),
+                ttlMilliseconds = (long)ttl.TotalMilliseconds
+            });
 
-        return await db.StringSetAsync(key, unixSeconds, ttl, When.NotExists);
+        return result == 1;
     }
 
     public async Task MarkItemAiProcessedAsync(Guid itemId, TimeSpan ttl)

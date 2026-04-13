@@ -9,9 +9,9 @@ namespace ShuKnow.Metrics.Services;
 public class MetricsService(
     MetricsInstruments instruments,
     IMetricsRepository redisRepository,
-    IOptions<MetricsOptions> options) : IMetricsService
+    IOptions<MetricsOptions> metricOptions) : IMetricsService
 {
-    private readonly MetricsOptions options = options.Value;
+    private readonly MetricsOptions options = metricOptions.Value;
 
     public async Task RecordContentSavedAsync(Guid userId, Guid itemId)
     {

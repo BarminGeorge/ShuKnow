@@ -15,13 +15,22 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<MetricsOptions>(configuration.GetSection(MetricsOptions.SectionName));
 
-        services.AddSingleton<IConnectionMultiplexer>(_ =>
+        services.AddSingleton<Lazy<IConnectionMultiplexer>>(sp =>
         {
-            var connectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
-            return ConnectionMultiplexer.Connect(connectionString);
+            return new Lazy<IConnectionMultiplexer>(() =>
+            {
+                var connectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
+                var configOptions = ConfigurationOptions.Parse(connectionString);
+                configOptions.AbortOnConnectFail = false;
+                return ConnectionMultiplexer.Connect(configOptions);
+            });
         });
 
-        services.AddSingleton<MetricsInstruments>();
+        services.AddSingleton<IMetricsRepository>(sp =>
+        {
+            var lazyMultiplexer = sp.GetRequiredService<Lazy<IConnectionMultiplexer>>();
+            return new RedisMetricsRepository(lazyMultiplexer);
+        });
         services.AddSingleton<IMetricsRepository, RedisMetricsRepository>();
         services.AddSingleton<IMetricsService, MetricsService>();
 
