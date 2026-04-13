@@ -2,6 +2,7 @@ using ShuKnow.Domain.Entities;
 using ShuKnow.WebAPI.Dto.Auth;
 using ShuKnow.WebAPI.Dto.Chat;
 using ShuKnow.WebAPI.Dto.Files;
+using ShuKnow.WebAPI.Dto.Folders;
 using ApiChatMessageRole = ShuKnow.WebAPI.Dto.Enums.ChatMessageRole;
 using ApiChatSessionStatus = ShuKnow.WebAPI.Dto.Enums.ChatSessionStatus;
 using DomainFile = ShuKnow.Domain.Entities.File;
@@ -48,5 +49,43 @@ public static class ModelToDtoMappers
             file.ChecksumSha256,
             file.SortOrder,
             file.CreatedAt);
+    }
+
+    public static FolderDto ToDto(this Folder folder)
+    {
+        return new FolderDto(
+            folder.Id,
+            folder.Name,
+            folder.Description,
+            folder.Emoji,
+            folder.ParentFolderId,
+            folder.SortOrder,
+            0,
+            false,
+            null);
+    }
+
+    public static IReadOnlyList<FolderTreeNodeDto> ToTree(this IReadOnlyList<Folder> folders)
+    {
+        var foldersByParentId = folders.ToLookup(folder => folder.ParentFolderId);
+        return foldersByParentId[null]
+            .Select(folder => folder.ToTreeNode(foldersByParentId))
+            .ToList();
+    }
+
+    private static FolderTreeNodeDto ToTreeNode(this Folder folder, ILookup<Guid?, Folder> foldersByParentId)
+    {
+        var children = foldersByParentId[folder.Id]
+            .Select(child => child.ToTreeNode(foldersByParentId))
+            .ToList();
+
+        return new FolderTreeNodeDto(
+            folder.Id,
+            folder.Name,
+            folder.Description,
+            folder.Emoji,
+            folder.SortOrder,
+            0,
+            children);
     }
 }
