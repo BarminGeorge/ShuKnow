@@ -1,38 +1,46 @@
+using Ardalis.Result;
+using Ardalis.Result.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using ShuKnow.WebAPI.Dto.Enums;
+using ShuKnow.Application.Interfaces;
 using ShuKnow.WebAPI.Dto.Chat;
+using ShuKnow.WebAPI.Mappers;
 
 namespace ShuKnow.WebAPI.Controllers;
 
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class ChatController : ControllerBase
+public class ChatController(IChatService chatService) : ControllerBase
 {
-    private static readonly Guid MockSessionId = Guid.Parse("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
-
     [HttpGet("session")]
-    public async Task<ActionResult<ChatSessionDto>> GetChatSession()
+    public async Task<ActionResult<ChatSessionDto>> GetChatSession(CancellationToken ct)
     {
-        // TODO: implement
-        return new ChatSessionDto(MockSessionId, ChatSessionStatus.Active, 0, false);
+        var result = await chatService.GetOrCreateActiveSessionAsync(ct);
+        return result
+            .Map(session => session.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpDelete("session")]
-    public async Task<ActionResult> DeleteChatSession()
+    public async Task<ActionResult> DeleteChatSession(CancellationToken ct)
     {
-        // TODO: implement
-        return NoContent();
+        var result = await chatService.DeleteSessionAsync(ct);
+        return result.ToActionResult(this);
     }
 
     [HttpGet("session/messages")]
     public async Task<ActionResult<CursorPagedChatMessageResult>> GetChatMessages(
-        [FromQuery] string? cursor = null, [FromQuery] int limit = 50)
+        [FromQuery] string? cursor = null, [FromQuery] int limit = 50, CancellationToken ct = default)
     {
-        // TODO: implement
-        return new CursorPagedChatMessageResult([], null, false);
+        var result = await chatService.GetMessagesAsync(cursor, limit, ct);
+        return result
+            .Map(page => new CursorPagedChatMessageResult(
+                page.Messages.Select(message => message.ToDto()).ToList(),
+                page.NextCursor,
+                page.NextCursor is not null))
+            .ToActionResult(this);
     }
 
     [HttpPost("attachments")]
