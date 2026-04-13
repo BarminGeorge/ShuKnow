@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.Domain.Entities;
 using ShuKnow.WebAPI.Dto.Chat;
 using ShuKnow.WebAPI.Mappers;
 
@@ -12,7 +13,11 @@ namespace ShuKnow.WebAPI.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class ChatController(IChatService chatService) : ControllerBase
+public class ChatController(
+    IChatService chatService,
+    IAttachmentService attachmentService,
+    ICurrentUserService currentUser)
+    : ControllerBase
 {
     [HttpGet("session")]
     public async Task<ActionResult<ChatSessionDto>> GetChatSession(CancellationToken ct)
@@ -45,13 +50,34 @@ public class ChatController(IChatService chatService) : ControllerBase
 
     [HttpPost("attachments")]
     public async Task<ActionResult<IReadOnlyList<AttachmentDto>>> UploadChatAttachments(
-        [FromForm] IFormFileCollection files)
+        [FromForm] IFormFileCollection files,
+        CancellationToken ct)
     {
-        // TODO: implement
-        var attachments = files
-            .Select(f => new AttachmentDto(Guid.NewGuid(), f.FileName, f.ContentType, f.Length))
+        var uploads = files
+            .Select(file => (
+                Attachment: new ChatAttachment(
+                    Guid.NewGuid(),
+                    currentUser.UserId,
+                    Guid.Empty,
+                    file.FileName,
+                    file.ContentType,
+                    file.Length),
+                Content: file.OpenReadStream()))
             .ToList();
 
-        return Ok(attachments);
+        try
+        {
+            var result = await attachmentService.UploadAsync(uploads, ct);
+            return result
+                .Map(attachments => (IReadOnlyList<AttachmentDto>)attachments
+                    .Select(attachment => attachment.ToDto())
+                    .ToList())
+                .ToActionResult(this);
+        }
+        finally
+        {
+            foreach (var upload in uploads)
+                await upload.Content.DisposeAsync();
+        }
     }
 }

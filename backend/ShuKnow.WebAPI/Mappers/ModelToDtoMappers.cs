@@ -37,6 +37,15 @@ public static class ModelToDtoMappers
             null);
     }
 
+    public static AttachmentDto ToDto(this ChatAttachment attachment)
+    {
+        return new AttachmentDto(
+            attachment.Id,
+            attachment.FileName,
+            attachment.ContentType,
+            attachment.SizeBytes);
+    }
+
     public static FileDto ToDto(this DomainFile file)
     {
         return new FileDto(
