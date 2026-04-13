@@ -99,7 +99,6 @@ public class FoldersController(
     [HttpDelete("{folderId}")]
     public async Task<ActionResult> DeleteFolder(
         Guid folderId,
-        [FromQuery] bool recursive = false,
         CancellationToken ct = default)
     {
         var result = await folderService.DeleteAsync(folderId, ct);
