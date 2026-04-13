@@ -3,6 +3,8 @@ using ShuKnow.WebAPI.Dto.Auth;
 using ShuKnow.WebAPI.Dto.Chat;
 using ShuKnow.WebAPI.Dto.Files;
 using ShuKnow.WebAPI.Dto.Folders;
+using ShuKnow.WebAPI.Dto.Settings;
+using ApiAiProvider = ShuKnow.WebAPI.Dto.Enums.AiProvider;
 using ApiChatMessageRole = ShuKnow.WebAPI.Dto.Enums.ChatMessageRole;
 using ApiChatSessionStatus = ShuKnow.WebAPI.Dto.Enums.ChatSessionStatus;
 using DomainFile = ShuKnow.Domain.Entities.File;
@@ -73,6 +75,19 @@ public static class ModelToDtoMappers
             .ToList();
     }
 
+    public static AiSettingsDto ToDto(this UserAiSettings settings)
+    {
+        return new AiSettingsDto(
+            settings.BaseUrl,
+            MaskApiKey(settings.ApiKeyEncrypted),
+            (ApiAiProvider)settings.Provider,
+            settings.ModelId,
+            !string.IsNullOrWhiteSpace(settings.BaseUrl)
+            && !string.IsNullOrWhiteSpace(settings.ApiKeyEncrypted)
+            && settings.Provider != Domain.Enums.AiProvider.Unknown
+            && !string.IsNullOrWhiteSpace(settings.ModelId));
+    }
+
     private static FolderTreeNodeDto ToTreeNode(this Folder folder, ILookup<Guid?, Folder> foldersByParentId)
     {
         var children = foldersByParentId[folder.Id]
@@ -87,5 +102,15 @@ public static class ModelToDtoMappers
             folder.SortOrder,
             0,
             children);
+    }
+
+    private static string MaskApiKey(string apiKey)
+    {
+        if (string.IsNullOrWhiteSpace(apiKey))
+            return string.Empty;
+
+        return apiKey.Length > 4
+            ? "****" + apiKey[^4..]
+            : "****";
     }
 }

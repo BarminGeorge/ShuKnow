@@ -1,39 +1,53 @@
+using Ardalis.Result;
+using Ardalis.Result.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ShuKnow.WebAPI.Dto.Enums;
+using ShuKnow.Application.Interfaces;
+using ShuKnow.Domain.VO;
 using ShuKnow.WebAPI.Dto.Settings;
+using ShuKnow.WebAPI.Mappers;
 using ShuKnow.WebAPI.Requests.Settings;
+using DomainAiProvider = ShuKnow.Domain.Enums.AiProvider;
 
 namespace ShuKnow.WebAPI.Controllers;
 
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class SettingsController : ControllerBase
+public class SettingsController(ISettingsService settingsService) : ControllerBase
 {
     [HttpGet("ai")]
-    public async Task<ActionResult<AiSettingsDto>> GetAiSettings()
+    public async Task<ActionResult<AiSettingsDto>> GetAiSettings(CancellationToken ct)
     {
-        // TODO: implement
-        return new AiSettingsDto("https://api.openai.com/v1", "sk-****abc1", AiProvider.OpenAI, "gpt-4o", true);
+        var result = await settingsService.GetOrCreateAsync(ct);
+        return result
+            .Map(settings => settings.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpPut("ai")]
     public async Task<ActionResult<AiSettingsDto>> UpdateAiSettings(
-        [FromBody] UpdateAiSettingsRequest request)
+        [FromBody] UpdateAiSettingsRequest request,
+        CancellationToken ct)
     {
-        // TODO: implement
-        var masked = request.ApiKey.Length > 4
-            ? "sk-****" + request.ApiKey[^4..]
-            : "sk-****";
+        var input = new UpdateAiSettingsInput(
+            request.BaseUrl,
+            request.ApiKey,
+            request.Provider is null ? null : (DomainAiProvider)request.Provider,
+            request.ModelId);
 
-        return new AiSettingsDto(request.BaseUrl, masked, request.Provider, request.ModelId, true);
+        var result = await settingsService.UpdateAsync(input, ct);
+        return result
+            .Map(settings => settings.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpPost("ai/test")]
-    public async Task<ActionResult<AiConnectionTestDto>> TestAiConnection()
+    public async Task<ActionResult<AiConnectionTestDto>> TestAiConnection(CancellationToken ct)
     {
-        // TODO: implement
-        return new AiConnectionTestDto(true, 342, null);
+        var result = await settingsService.TestConnectionAsync(ct);
+        return result
+            .Map(test => new AiConnectionTestDto(test.Success, test.LatencyMs, test.ErrorMessage))
+            .ToActionResult(this);
     }
 }
