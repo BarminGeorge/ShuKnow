@@ -11,8 +11,6 @@ public interface IAttachmentRepository
 
     Task<Result> MarkConsumedAsync(IReadOnlyCollection<Guid> ids);
 
-    Task<Result> MarkConsumedAsync(Guid id);
-
     Task<Result<IReadOnlyList<ChatAttachment>>> GetExpiredUnconsumedAsync(DateTimeOffset olderThan);
 
     Task<Result> DeleteRangeAsync(IReadOnlyCollection<Guid> ids);

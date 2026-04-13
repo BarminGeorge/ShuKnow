@@ -156,32 +156,6 @@ public class AttachmentServiceTests
     }
 
     [Test]
-    public async Task MarkConsumedAsync_SingleId_WhenCalled_ShouldMarkAndSaveChanges()
-    {
-        var id = Guid.NewGuid();
-        attachmentRepository.MarkConsumedAsync(id).Returns(Success());
-
-        var result = await sut.MarkConsumedAsync(id);
-
-        result.Status.Should().Be(ResultStatus.Ok);
-        await attachmentRepository.Received(1).MarkConsumedAsync(id);
-        await unitOfWork.Received(1).SaveChangesAsync();
-    }
-
-    [Test]
-    public async Task MarkConsumedAsync_SingleId_WhenRepositoryFails_ShouldReturnFailureWithoutSaving()
-    {
-        var id = Guid.NewGuid();
-        attachmentRepository.MarkConsumedAsync(id)
-            .Returns(Task.FromResult(Result.NotFound("not found")));
-
-        var result = await sut.MarkConsumedAsync(id);
-
-        result.Status.Should().Be(ResultStatus.NotFound);
-        await unitOfWork.DidNotReceive().SaveChangesAsync();
-    }
-
-    [Test]
     public async Task PurgeExpiredAsync_WhenNoExpiredAttachments_ShouldReturnEmptyListWithoutDeleting()
     {
         IReadOnlyList<ChatAttachment> empty = [];

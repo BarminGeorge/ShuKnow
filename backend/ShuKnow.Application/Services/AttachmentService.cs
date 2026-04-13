@@ -46,13 +46,6 @@ public class AttachmentService(
             .SaveChangesAsync(unitOfWork);
     }
 
-    public async Task<Result> MarkConsumedAsync(
-        Guid attachmentId, CancellationToken ct = default)
-    {
-        return await attachmentRepository.MarkConsumedAsync(attachmentId)
-            .SaveChangesAsync(unitOfWork);
-    }
-
     public async Task<Result<IReadOnlyList<ChatAttachment>>> PurgeExpiredAsync(CancellationToken ct = default)
     {
         var cutoff = DateTimeOffset.UtcNow - ExpirationThreshold;
