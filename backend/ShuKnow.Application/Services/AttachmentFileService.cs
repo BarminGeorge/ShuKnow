@@ -9,7 +9,6 @@ namespace ShuKnow.Application.Services;
 public class AttachmentFileService(
     IFileService fileService,
     IBlobStorageService blobStorageService,
-    IAttachmentService attachmentService,
     ICurrentUserService currentUserService)
     : IAttachmentFileService
 {
@@ -27,12 +26,7 @@ public class AttachmentFileService(
         await using var content = contentResult.Value;
         var file = BuildAttachmentFile(attachment, path);
 
-        var uploadResult = await fileService.UploadAsync(file, content, ct);
-        
-        if (uploadResult.IsSuccess)
-            await attachmentService.MarkConsumedAsync([attachment.Id], ct);
-
-        return uploadResult;
+        return await fileService.UploadAsync(file, content, ct);
     }
 
     private File BuildAttachmentFile(ChatAttachment attachment, ResolvedFilePath path)
