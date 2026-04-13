@@ -4,6 +4,7 @@ using NSubstitute;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Models.Notifications;
 using ShuKnow.Domain.Entities;
+using ShuKnow.Metrics.Services;
 using ShuKnow.WebAPI.Events;
 using ShuKnow.WebAPI.Hubs;
 using ShuKnow.WebAPI.Services;
@@ -16,6 +17,8 @@ public class ChatNotificationServiceTests
     private const string ConnectionId = "connection-42";
 
     private ICurrentConnectionService currentConnection = null!;
+    private ICurrentUserService currentUserService = null!;
+    private IMetricsService metricsService = null!;
     private IHubContext<ChatHub> hubContext = null!;
     private IHubClients hubClients = null!;
     private ISingleClientProxy clientProxy = null!;
@@ -25,17 +28,20 @@ public class ChatNotificationServiceTests
     public void SetUp()
     {
         currentConnection = Substitute.For<ICurrentConnectionService>();
+        currentUserService = Substitute.For<ICurrentUserService>();
+        metricsService = Substitute.For<IMetricsService>();
         hubContext = Substitute.For<IHubContext<ChatHub>>();
         hubClients = Substitute.For<IHubClients>();
         clientProxy = Substitute.For<ISingleClientProxy>();
 
         currentConnection.connectionId.Returns(ConnectionId);
+        currentUserService.UserId.Returns(Guid.NewGuid());
         hubContext.Clients.Returns(hubClients);
         hubClients.Client(ConnectionId).Returns(clientProxy);
         clientProxy.SendCoreAsync(Arg.Any<string>(), Arg.Any<object?[]>(), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
 
-        sut = new ChatNotificationService(currentConnection, hubContext);
+        sut = new ChatNotificationService(currentConnection, currentUserService, metricsService, hubContext);
     }
 
     [Test]
@@ -87,6 +93,7 @@ public class ChatNotificationServiceTests
 
         await sut.SendFileCreatedAsync(file);
 
+        await metricsService.Received(1).RecordAiItemProcessedAsync(currentUserService.UserId, file.Id);
         AssertSentEvent<FileCreatedEvent>(
             nameof(ChatHub.OnFileCreated),
             @event =>
@@ -107,6 +114,7 @@ public class ChatNotificationServiceTests
 
         await sut.SendFileMovedAsync(file, fromFolderId);
 
+        await metricsService.Received(1).RecordAiItemProcessedAsync(currentUserService.UserId, file.Id);
         AssertSentEvent<FileMovedEvent>(
             nameof(ChatHub.OnFileMoved),
             @event =>

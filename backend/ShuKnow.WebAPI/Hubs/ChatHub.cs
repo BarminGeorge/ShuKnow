@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Saunter.Attributes;
-using ShuKnow.Application.Interfaces;
-using ShuKnow.Metrics.Services;
 using ShuKnow.WebAPI.Dto.Files;
 using ShuKnow.WebAPI.Events;
 
@@ -10,10 +8,7 @@ namespace ShuKnow.WebAPI.Hubs;
 
 [AsyncApi]
 [Authorize]
-public class ChatHub(
-    IMetricsService metricsService,
-    ICurrentUserService currentUserService)
-    : Hub
+public class ChatHub : Hub
 {
     #region Client -> Server Operations
 
@@ -58,16 +53,14 @@ public class ChatHub(
 
     [Channel(nameof(OnFileCreated))]
     [SubscribeOperation(typeof(FileDto), Summary = "A file was created by AI classification")]
-    public async Task OnFileCreated(FileDto file)
+    public void OnFileCreated(FileDto file)
     {
-        await metricsService.RecordAiItemProcessedAsync(currentUserService.UserId, file.Id);
     }
 
     [Channel(nameof(OnFileMoved))]
     [SubscribeOperation(typeof(FileMovedEvent), Summary = "A file was moved by AI classification")]
-    public async Task OnFileMoved(FileMovedEvent @event)
+    public void OnFileMoved(FileMovedEvent @event)
     {
-        await metricsService.RecordAiItemProcessedAsync(currentUserService.UserId, @event.FileId);
     }
 
     [Channel(nameof(OnFolderCreated))]

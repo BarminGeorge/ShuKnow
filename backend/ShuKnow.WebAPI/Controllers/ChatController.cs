@@ -49,8 +49,8 @@ public class ChatController(
             .Select(f => new AttachmentDto(Guid.NewGuid(), f.FileName, f.ContentType, f.Length))
             .ToList();
 
-        foreach (var attachment in attachments)
-            await metricsService.RecordContentSavedAsync(currentUserService.UserId, attachment.Id);
+        await Task.WhenAll(attachments.Select(attachment 
+            => metricsService.RecordContentSavedAsync(currentUserService.UserId, attachment.Id)));
 
         return Ok(attachments);
     }

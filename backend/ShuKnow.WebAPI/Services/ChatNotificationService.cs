@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Models.Notifications;
 using ShuKnow.Domain.Entities;
+using ShuKnow.Metrics.Services;
 using FileEntity = ShuKnow.Domain.Entities.File;
 using ShuKnow.WebAPI.Events;
 using ShuKnow.WebAPI.Hubs;
@@ -11,6 +12,8 @@ namespace ShuKnow.WebAPI.Services;
 
 public class ChatNotificationService(
     ICurrentConnectionService currentConnection,
+    ICurrentUserService currentUserService,
+    IMetricsService metricsService,
     IHubContext<ChatHub> hubContext) : IChatNotificationService
 {
     private IClientProxy Client => hubContext.Clients.Client(currentConnection.connectionId);
@@ -21,11 +24,17 @@ public class ChatNotificationService(
     public Task SendMessageChunkAsync(Guid operationId, Guid messageId, string chunk, CancellationToken ct = default)
         => SendEventAsync(nameof(ChatHub.OnMessageChunk), new MessageChunkEvent(operationId, messageId, chunk), ct);
 
-    public Task SendFileCreatedAsync(FileEntity file, CancellationToken ct = default)
-        => SendEventAsync(nameof(ChatHub.OnFileCreated), file.ToFileCreatedEvent(), ct);
+    public async Task SendFileCreatedAsync(FileEntity file, CancellationToken ct = default)
+    {
+        await metricsService.RecordAiItemProcessedAsync(currentUserService.UserId, file.Id);
+        await SendEventAsync(nameof(ChatHub.OnFileCreated), file.ToFileCreatedEvent(), ct);
+    }
 
-    public Task SendFileMovedAsync(FileEntity file, Guid fromFolderId, CancellationToken ct = default)
-        => SendEventAsync(nameof(ChatHub.OnFileMoved), file.ToFileMovedEvent(fromFolderId), ct);
+    public async Task SendFileMovedAsync(FileEntity file, Guid fromFolderId, CancellationToken ct = default)
+    {
+        await metricsService.RecordAiItemProcessedAsync(currentUserService.UserId, file.Id);
+        await SendEventAsync(nameof(ChatHub.OnFileMoved), file.ToFileMovedEvent(fromFolderId), ct);
+    }
 
     public Task SendFolderCreatedAsync(Folder folder, CancellationToken ct = default)
         => SendEventAsync(nameof(ChatHub.OnFolderCreated), folder.ToFolderCreatedEvent(), ct);

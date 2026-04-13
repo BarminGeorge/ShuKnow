@@ -36,7 +36,7 @@ services:
       - shuknow-dev
 
   redis:
-    image: redis:7-alpine
+    image: redis:8.6.2-alpine
     container_name: shuknow-redis-dev
     restart: unless-stopped
     ports:
@@ -47,7 +47,7 @@ services:
       - shuknow-dev
 
   rustfs:
-    image: rustfs/rustfs:latest
+    image: rustfs/rustfs:1.0.0-alpha.80
     command: /data
     environment:
       RUSTFS_ADDRESS: ":9000"
@@ -63,7 +63,7 @@ services:
       - shuknow-dev
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.11.0
     container_name: shuknow-prometheus-dev
     restart: unless-stopped
     ports:
@@ -80,7 +80,7 @@ services:
       - backend
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:12.5.0
     container_name: shuknow-grafana-dev
     restart: unless-stopped
     ports:
