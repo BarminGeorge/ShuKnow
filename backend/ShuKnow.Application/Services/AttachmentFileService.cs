@@ -21,7 +21,7 @@ public class AttachmentFileService(
     {
         var contentResult = await blobStorageService.GetAsync(attachment.BlobId, ct);
         if (!contentResult.IsSuccess)
-            return contentResult.Map(_ => BuildAttachmentFile(attachment, path));
+            return contentResult.Map();
 
         await using var content = contentResult.Value;
         var file = BuildAttachmentFile(attachment, path);
