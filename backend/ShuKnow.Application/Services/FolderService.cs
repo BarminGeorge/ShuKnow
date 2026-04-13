@@ -54,7 +54,8 @@ internal class FolderService(
                 folder.Name,
                 folder.Description,
                 folder.ParentFolderId,
-                siblings.Count))
+                siblings.Count,
+                folder.Emoji))
             .ActAsync(folderRepository.AddAsync)
             .SaveChangesAsync(unitOfWork);
     }
@@ -72,7 +73,8 @@ internal class FolderService(
             .MapAsync(existingFolder => UpdateFolder(
                 existingFolder,
                 name: folder.Name,
-                description: folder.Description))
+                description: folder.Description,
+                emoji: folder.Emoji))
             .ActAsync(folderRepository.UpdateAsync)
             .SaveChangesAsync(unitOfWork);
     }
@@ -218,7 +220,8 @@ internal class FolderService(
         string? description = null,
         Guid? newParentFolderId = null,
         bool updateParentFolderId = false,
-        int? sortOrder = null)
+        int? sortOrder = null,
+        string? emoji = null)
     {
         return new Folder(
             source.Id,
@@ -226,6 +229,7 @@ internal class FolderService(
             name ?? source.Name,
             description ?? source.Description,
             updateParentFolderId ? newParentFolderId : source.ParentFolderId,
-            sortOrder ?? source.SortOrder);
+            sortOrder ?? source.SortOrder,
+            emoji ?? source.Emoji);
     }
 }
