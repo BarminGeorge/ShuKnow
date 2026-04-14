@@ -30,14 +30,13 @@ public class FilesController(IFileService fileService) : ControllerBase
         [FromBody] UpdateFileMetadataRequest request,
         CancellationToken ct)
     {
-        var fileResult = await fileService.GetByIdAsync(fileId, ct);
-        if (!fileResult.IsSuccess)
-            return fileResult.Map(file => file.ToDto()).ToActionResult(this);
+        var result = await fileService.GetByIdAsync(fileId, ct)
+            .BindAsync(file =>
+            {
+                file.UpdateMetadata(request.Name ?? file.Name, request.Description ?? file.Description);
+                return fileService.UpdateMetadataAsync(file, ct);
+            });
 
-        var file = fileResult.Value;
-        file.UpdateMetadata(request.Name ?? file.Name, request.Description ?? file.Description);
-
-        var result = await fileService.UpdateMetadataAsync(file, ct);
         return result
             .Map(updatedFile => updatedFile.ToDto())
             .ToActionResult(this);
