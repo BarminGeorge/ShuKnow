@@ -53,15 +53,13 @@ public class ChatController(
 
         try
         {
-            var result = await attachmentService.UploadAsync(uploads, ct);
-            return result
+            return (await attachmentService.UploadAsync(uploads, ct))
                 .Map(attachments => attachments.ToDto())
                 .ToActionResult(this);
         }
         finally
         {
-            foreach (var upload in uploads)
-                await upload.Content.DisposeAsync();
+            await uploads.DisposeContentsAsync();
         }
     }
 }
