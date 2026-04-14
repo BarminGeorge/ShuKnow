@@ -38,7 +38,7 @@ public class FoldersController(
     {
         var result = await folderService.ListAsync(parentId, ct);
         return result
-            .Map(folders => (IReadOnlyList<FolderDto>)folders.Select(folder => folder.ToDto()).ToList())
+            .Map(folders => folders.ToDto())
             .ToActionResult(this);
     }
 
@@ -134,7 +134,7 @@ public class FoldersController(
     {
         var result = await folderService.GetChildrenAsync(folderId, ct);
         return result
-            .Map(folders => (IReadOnlyList<FolderDto>)folders.Select(folder => folder.ToDto()).ToList())
+            .Map(folders => folders.ToDto())
             .ToActionResult(this);
     }
 
@@ -146,12 +146,7 @@ public class FoldersController(
     {
         var result = await fileService.ListByFolderAsync(folderId, page, pageSize, ct);
         return result
-            .Map(filePage => new PagedFileResult(
-                filePage.Files.Select(file => file.ToDto()).ToList(),
-                filePage.TotalCount,
-                page,
-                pageSize,
-                page * pageSize < filePage.TotalCount))
+            .Map(filePage => filePage.ToDto(page, pageSize))
             .ToActionResult(this);
     }
 

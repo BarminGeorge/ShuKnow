@@ -33,11 +33,10 @@ public static class ChatAttachmentMappers
             .ToList();
     }
 
-    public static async ValueTask DisposeContentsAsync(
+    public static Task DisposeContentsAsync(
         this IEnumerable<(ChatAttachment Attachment, Stream Content)> uploads)
     {
-        foreach (var upload in uploads)
-            await upload.Content.DisposeAsync();
+        return Task.WhenAll(uploads.Select(upload => upload.Content.DisposeAsync().AsTask()));
     }
 
     private static ChatAttachment ToChatAttachment(this IFormFile file, Guid userId)

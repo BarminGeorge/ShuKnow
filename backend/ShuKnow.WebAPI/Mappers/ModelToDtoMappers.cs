@@ -62,6 +62,19 @@ public static class ModelToDtoMappers
             file.CreatedAt);
     }
 
+    public static PagedFileResult ToDto(
+        this (IReadOnlyList<DomainFile> Files, int TotalCount) page,
+        int pageNumber,
+        int pageSize)
+    {
+        return new PagedFileResult(
+            page.Files.Select(file => file.ToDto()).ToList(),
+            page.TotalCount,
+            pageNumber,
+            pageSize,
+            pageNumber * pageSize < page.TotalCount);
+    }
+
     public static FolderDto ToDto(this Folder folder)
     {
         return new FolderDto(
@@ -74,6 +87,13 @@ public static class ModelToDtoMappers
             0,
             false,
             null);
+    }
+
+    public static IReadOnlyList<FolderDto> ToDto(this IReadOnlyList<Folder> folders)
+    {
+        return folders
+            .Select(folder => folder.ToDto())
+            .ToList();
     }
 
     public static IReadOnlyList<FolderTreeNodeDto> ToTree(this IReadOnlyList<Folder> folders)
@@ -95,6 +115,12 @@ public static class ModelToDtoMappers
             && !string.IsNullOrWhiteSpace(settings.ApiKeyEncrypted)
             && settings.Provider != Domain.Enums.AiProvider.Unknown
             && !string.IsNullOrWhiteSpace(settings.ModelId));
+    }
+
+    public static AiConnectionTestDto ToDto(
+        this (bool Success, int? LatencyMs, string? ErrorMessage) test)
+    {
+        return new AiConnectionTestDto(test.Success, test.LatencyMs, test.ErrorMessage);
     }
 
     private static FolderTreeNodeDto ToTreeNode(this Folder folder, ILookup<Guid?, Folder> foldersByParentId)

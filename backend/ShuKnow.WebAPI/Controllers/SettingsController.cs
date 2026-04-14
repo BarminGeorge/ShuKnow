@@ -47,7 +47,7 @@ public class SettingsController(ISettingsService settingsService) : ControllerBa
     {
         var result = await settingsService.TestConnectionAsync(ct);
         return result
-            .Map(test => new AiConnectionTestDto(test.Success, test.LatencyMs, test.ErrorMessage))
+            .Map(test => test.ToDto())
             .ToActionResult(this);
     }
 }
