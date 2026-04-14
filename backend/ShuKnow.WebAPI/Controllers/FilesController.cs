@@ -25,9 +25,9 @@ public class FilesController(IFileService fileService) : ControllerBase
     }
 
     [HttpPut("{fileId}")]
-    public async Task<ActionResult<FileDto>> UpdateFile(
+    public async Task<ActionResult<FileDto>> UpdateFileMetadata(
         Guid fileId,
-        [FromBody] UpdateFileRequest request,
+        [FromBody] UpdateFileMetadataRequest request,
         CancellationToken ct)
     {
         var fileResult = await fileService.GetByIdAsync(fileId, ct);

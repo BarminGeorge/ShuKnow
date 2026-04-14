@@ -43,7 +43,7 @@ public class FilesControllerTests
     }
 
     [Test]
-    public async Task UpdateFile_WhenFileExists_ShouldPatchMetadataAndSave()
+    public async Task UpdateFileMetadata_WhenFileExists_ShouldPatchMetadataAndSave()
     {
         var file = CreateFile(name: "old.txt", description: "old description");
         DomainFile? capturedFile = null;
@@ -54,9 +54,9 @@ public class FilesControllerTests
                 Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(Result.Success(call.Arg<DomainFile>())));
 
-        var response = await sut.UpdateFile(
+        var response = await sut.UpdateFileMetadata(
             file.Id,
-            new UpdateFileRequest(Name: "new.txt"),
+            new UpdateFileMetadataRequest(Name: "new.txt"),
             CancellationToken.None);
 
         var dto = GetOkValue<FileDto>(response);
@@ -69,15 +69,15 @@ public class FilesControllerTests
     }
 
     [Test]
-    public async Task UpdateFile_WhenFileDoesNotExist_ShouldReturnNotFoundAndSkipSave()
+    public async Task UpdateFileMetadata_WhenFileDoesNotExist_ShouldReturnNotFoundAndSkipSave()
     {
         var fileId = Guid.NewGuid();
         fileService.GetByIdAsync(fileId, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result<DomainFile>.NotFound()));
 
-        var response = await sut.UpdateFile(
+        var response = await sut.UpdateFileMetadata(
             fileId,
-            new UpdateFileRequest(Name: "new.txt"),
+            new UpdateFileMetadataRequest(Name: "new.txt"),
             CancellationToken.None);
 
         GetStatusCode(response.Result).Should().Be(StatusCodes.Status404NotFound);
