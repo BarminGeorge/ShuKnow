@@ -66,18 +66,37 @@ public class FileServiceTests
     {
         var folderId = Guid.NewGuid();
         var path = new ResolvedFilePath("readme.txt", folderId, "notes/readme.txt");
-        var file = CreateFile(folderId: folderId, name: "README.txt");
+        var file = CreateFile(folderId: folderId, name: "readme.txt");
 
         workspacePathService.ResolveFilePathAsync("notes/readme.txt", Arg.Any<CancellationToken>())
             .Returns(Success(path));
-        fileRepository.GetByFolderAsync(folderId, currentUserId).Returns(Success<IReadOnlyList<File>>([file]));
+        fileRepository.GetByFolderAndFileNameAsync(folderId, currentUserId, "readme.txt")
+            .Returns(Success(file));
 
         var result = await sut.GetByPathAsync("notes/readme.txt");
 
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().BeSameAs(file);
         await workspacePathService.Received(1).ResolveFilePathAsync("notes/readme.txt", Arg.Any<CancellationToken>());
-        await fileRepository.Received(1).GetByFolderAsync(folderId, currentUserId);
+        await fileRepository.Received(1).GetByFolderAndFileNameAsync(folderId, currentUserId, "readme.txt");
+    }
+
+    [Test]
+    public async Task GetByPathAsync_WhenFileDoesNotExist_ShouldReturnNotFound()
+    {
+        var folderId = Guid.NewGuid();
+        var path = new ResolvedFilePath("missing.txt", folderId, "notes/missing.txt");
+
+        workspacePathService.ResolveFilePathAsync("notes/missing.txt", Arg.Any<CancellationToken>())
+            .Returns(Success(path));
+        fileRepository.GetByFolderAndFileNameAsync(folderId, currentUserId, "missing.txt")
+            .Returns(NotFound<File>());
+
+        var result = await sut.GetByPathAsync("notes/missing.txt");
+
+        result.Status.Should().Be(ResultStatus.NotFound);
+        await workspacePathService.Received(1).ResolveFilePathAsync("notes/missing.txt", Arg.Any<CancellationToken>());
+        await fileRepository.Received(1).GetByFolderAndFileNameAsync(folderId, currentUserId, "missing.txt");
     }
 
     [Test]
@@ -784,6 +803,8 @@ public class FileServiceTests
         fileRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<File>());
         fileRepository.GetByIdForUpdateAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<File>());
         fileRepository.GetByFolderAsync(Arg.Any<Guid?>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
+        fileRepository.GetByFolderAndFileNameAsync(Arg.Any<Guid?>(), Arg.Any<Guid>(), Arg.Any<string>())
+            .Returns(NotFound<File>());
         blobStorageService.SaveAsync(Arg.Any<Stream>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Success());
         blobDeletionQueue.EnqueueDeleteAsync(Arg.Any<Guid>()).Returns(ValueTask.CompletedTask);

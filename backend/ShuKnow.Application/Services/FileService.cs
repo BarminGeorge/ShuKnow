@@ -187,12 +187,9 @@ public class FileService(
             .BindAsync(exists => exists ? Result.Conflict() : Result.Success());
     }
 
-    private async Task<Result<File>> FindByPathAsync(ResolvedFilePath path)
+    private Task<Result<File>> FindByPathAsync(ResolvedFilePath path)
     {
-        return await fileRepository.GetByFolderAsync(path.FolderId, CurrentUserId)
-            .BindAsync(files => files.FirstOrDefault(file => NamesEqual(file.Name, path.FileName)) is { } file
-                ? Result.Success(file)
-                : Result<File>.NotFound($"File '{path.FullPath}' was not found."));
+        return fileRepository.GetByFolderAndFileNameAsync(path.FolderId, CurrentUserId, path.FileName);
     }
 
     private async Task<Result> EnsureFolderExistsAsync(Guid? folderId)

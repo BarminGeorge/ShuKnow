@@ -100,6 +100,21 @@ public class FileRepository(AppDbContext context) : IFileRepository
             .ToListAsync();
     }
 
+    public async Task<Result<File>> GetByFolderAndFileNameAsync(
+        Guid? folderId, Guid userId, string fileName)
+    {
+        var file = await context.Files
+            .AsNoTracking()
+            .FirstOrDefaultAsync(file =>
+                file.FolderId == folderId &&
+                file.UserId == userId &&
+                file.Name == fileName);
+
+        return file is not null
+            ? Result.Success(file)
+            : Result<File>.NotFound($"File '{fileName}' was not found in the folder '{folderId}'");
+    }
+
     public async Task<Result<IReadOnlySet<Guid>>> GetExistingBlobIdsAsync(
         IReadOnlyCollection<Guid> blobIds,
         CancellationToken ct = default)
