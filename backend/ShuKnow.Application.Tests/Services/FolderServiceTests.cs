@@ -162,7 +162,7 @@ public class FolderServiceTests
 
         var result = await sut.CreateAsync(folder);
 
-        result.Status.Should().Be(ResultStatus.Ok);
+        result.Status.Should().Be(ResultStatus.Created);
         result.Value.Id.Should().Be(folder.Id);
         result.Value.UserId.Should().Be(currentUserId);
         result.Value.ParentFolderId.Should().Be(parentId);

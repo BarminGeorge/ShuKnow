@@ -136,7 +136,7 @@ public class FileServiceTests
 
         var result = await sut.UploadAsync(file, content);
 
-        result.Status.Should().Be(ResultStatus.Ok);
+        result.Status.Should().Be(ResultStatus.Created);
         result.Value.Should().BeSameAs(file);
         file.BlobId.Should().NotBe(Guid.Empty);
         await fileRepository.Received(1).AddAsync(file);
@@ -155,7 +155,7 @@ public class FileServiceTests
 
         var result = await sut.UploadAsync(file, content);
 
-        result.Status.Should().Be(ResultStatus.Ok);
+        result.Status.Should().Be(ResultStatus.Created);
         result.Value.Should().BeSameAs(file);
         file.FolderId.Should().BeNull();
         await folderRepository.DidNotReceive().ExistsByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>());

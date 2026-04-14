@@ -69,7 +69,8 @@ public class FileService(
             .BindAsync(_ => blobStorageService.SaveAsync(content, file.BlobId, ct))
             .BindAsync(_ => fileRepository.AddAsync(file))
             .SaveChangesAsync(unitOfWork)
-            .MapAsync(() => file);
+            .MapAsync(() => file)
+            .ToCreatedAsync();
     }
 
     public async Task<Result<File>> UpdateMetadataAsync(File file, CancellationToken ct = default)

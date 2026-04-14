@@ -59,7 +59,8 @@ internal class FolderService(
                 siblings.Count,
                 folder.Emoji))
             .ActAsync(folderRepository.AddAsync)
-            .SaveChangesAsync(unitOfWork);
+            .SaveChangesAsync(unitOfWork)
+            .ToCreatedAsync();
     }
     
     public Task<Result<Folder>> CreateByPathAsync(string folderPath, string description, string emoji, CancellationToken ct = default)

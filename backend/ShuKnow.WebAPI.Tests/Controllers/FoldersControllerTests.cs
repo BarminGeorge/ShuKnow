@@ -77,15 +77,13 @@ public class FoldersControllerTests
         folderService.CreateAsync(
                 Arg.Do<Folder>(folder => capturedFolder = folder),
                 Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult(Result.Success(call.Arg<Folder>())));
+            .Returns(call => Task.FromResult(Result.Created(call.Arg<Folder>())));
 
         var response = await sut.CreateFolder(
             new CreateFolderRequest("Invoices", Emoji: "I", ParentFolderId: parentId),
             CancellationToken.None);
 
-        var createdAt = response.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
-        createdAt.ActionName.Should().Be(nameof(FoldersController.GetFolder));
-        var dto = createdAt.Value.Should().BeOfType<FolderDto>().Subject;
+        var dto = GetCreatedValue<FolderDto>(response);
         dto.Name.Should().Be("Invoices");
         dto.Description.Should().BeEmpty();
         dto.Emoji.Should().Be("I");
@@ -255,7 +253,7 @@ public class FoldersControllerTests
                 Arg.Do<DomainFile>(file => capturedFile = file),
                 Arg.Any<Stream>(),
                 Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult(Result.Success(call.Arg<DomainFile>())));
+            .Returns(call => Task.FromResult(Result.Created(call.Arg<DomainFile>())));
 
         var response = await sut.UploadFile(
             folderId,
@@ -264,10 +262,7 @@ public class FoldersControllerTests
             description: "description",
             CancellationToken.None);
 
-        var createdAt = response.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
-        createdAt.ActionName.Should().Be("GetFile");
-        createdAt.ControllerName.Should().Be("Files");
-        var dto = createdAt.Value.Should().BeOfType<FileDto>().Subject;
+        var dto = GetCreatedValue<FileDto>(response);
         dto.Name.Should().Be("display.txt");
         dto.Description.Should().Be("description");
         dto.FolderId.Should().Be(folderId);
@@ -329,6 +324,13 @@ public class FoldersControllerTests
         var objectResult = response.Result.Should().BeOfType<ObjectResult>().Subject;
         objectResult.StatusCode.Should().Be(StatusCodes.Status200OK);
         return objectResult.Value.Should().BeAssignableTo<T>().Subject;
+    }
+
+    private static T GetCreatedValue<T>(ActionResult<T> response)
+    {
+        var createdResult = response.Result.Should().BeOfType<CreatedResult>().Subject;
+        createdResult.StatusCode.Should().Be(StatusCodes.Status201Created);
+        return createdResult.Value.Should().BeAssignableTo<T>().Subject;
     }
 
     private static int? GetStatusCode(IActionResult? result)

@@ -8,8 +8,6 @@ using ShuKnow.WebAPI.Dto.Files;
 using ShuKnow.WebAPI.Dto.Folders;
 using ShuKnow.WebAPI.Mappers;
 using ShuKnow.WebAPI.Requests.Folders;
-using DomainFile = ShuKnow.Domain.Entities.File;
-using Folder = ShuKnow.Domain.Entities.Folder;
 
 namespace ShuKnow.WebAPI.Controllers;
 
@@ -45,18 +43,9 @@ public class FoldersController(
         [FromBody] CreateFolderRequest request,
         CancellationToken ct)
     {
-        var folder = new Folder(
-            Guid.NewGuid(),
-            currentUser.UserId,
-            request.Name,
-            request.Description ?? string.Empty,
-            request.ParentFolderId,
-            emoji: request.Emoji);
-
-        var result = await folderService.CreateAsync(folder, ct);
-        return result.IsSuccess
-            ? CreatedAtAction(nameof(GetFolder), new { folderId = result.Value.Id }, result.Value.ToDto())
-            : result.Map(createdFolder => createdFolder.ToDto()).ToActionResult(this);
+        return (await folderService.CreateAsync(request.ToModel(currentUser.UserId), ct))
+            .Map(createdFolder => createdFolder.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpGet("{folderId}")]
@@ -77,17 +66,7 @@ public class FoldersController(
         if (!folderResult.IsSuccess)
             return folderResult.Map(folder => folder.ToDto()).ToActionResult(this);
 
-        var folder = folderResult.Value;
-        var updatedFolder = new Folder(
-            folder.Id,
-            folder.UserId,
-            request.Name ?? folder.Name,
-            request.Description ?? folder.Description,
-            folder.ParentFolderId,
-            folder.SortOrder,
-            request.Emoji ?? folder.Emoji);
-
-        return (await folderService.UpdateAsync(updatedFolder, ct))
+        return (await folderService.UpdateAsync(request.ToUpdatedModel(folderResult.Value), ct))
             .Map(savedFolder => savedFolder.ToDto())
             .ToActionResult(this);
     }
@@ -148,20 +127,10 @@ public class FoldersController(
         [FromForm] string? description = null,
         CancellationToken ct = default)
     {
-        var domainFile = new DomainFile(
-            Guid.NewGuid(),
-            currentUser.UserId,
-            folderId,
-            name ?? file.FileName,
-            description ?? string.Empty,
-            file.ContentType,
-            file.Length);
-
         await using var stream = file.OpenReadStream();
 
-        var result = await fileService.UploadAsync(domainFile, stream, ct);
-        return result.IsSuccess
-            ? CreatedAtAction("GetFile", "Files", new { fileId = result.Value.Id }, result.Value.ToDto())
-            : result.Map(uploadedFile => uploadedFile.ToDto()).ToActionResult(this);
+        return (await fileService.UploadAsync(file.ToModel(currentUser.UserId, folderId, name, description), stream, ct))
+            .Map(uploadedFile => uploadedFile.ToDto())
+            .ToActionResult(this);
     }
 }

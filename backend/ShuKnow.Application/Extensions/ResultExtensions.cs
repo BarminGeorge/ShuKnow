@@ -20,6 +20,12 @@ public static class ResultExtensions
         return await result.ActAsync(_ => unitOfWork.SaveChangesAsync());
     }
 
+    public static async Task<Result<T>> ToCreatedAsync<T>(this Task<Result<T>> resultTask)
+    {
+        var result = await resultTask;
+        return result.Status == ResultStatus.Ok ? Result.Created(result.Value) : result;
+    }
+
     public static async Task<Result> BindAsync<TSource>(
         this Task<Result<TSource>> resultTask, Func<TSource, Result> bindFunc)
     {
