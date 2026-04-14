@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ShuKnow.Application.Interfaces;
-using ShuKnow.Domain.Entities;
 using ShuKnow.WebAPI.Dto.Chat;
 using ShuKnow.WebAPI.Mappers;
 
@@ -41,10 +40,7 @@ public class ChatController(
     {
         var result = await chatService.GetMessagesAsync(cursor, limit, ct);
         return result
-            .Map(page => new CursorPagedChatMessageResult(
-                page.Messages.Select(message => message.ToDto()).ToList(),
-                page.NextCursor,
-                page.NextCursor is not null))
+            .Map(page => page.ToDto())
             .ToActionResult(this);
     }
 
@@ -53,25 +49,13 @@ public class ChatController(
         [FromForm] IFormFileCollection files,
         CancellationToken ct)
     {
-        var uploads = files
-            .Select(file => (
-                Attachment: new ChatAttachment(
-                    Guid.NewGuid(),
-                    currentUser.UserId,
-                    Guid.Empty,
-                    file.FileName,
-                    file.ContentType,
-                    file.Length),
-                Content: file.OpenReadStream()))
-            .ToList();
+        var uploads = files.ToUploads(currentUser.UserId);
 
         try
         {
             var result = await attachmentService.UploadAsync(uploads, ct);
             return result
-                .Map(attachments => (IReadOnlyList<AttachmentDto>)attachments
-                    .Select(attachment => attachment.ToDto())
-                    .ToList())
+                .Map(attachments => attachments.ToDto())
                 .ToActionResult(this);
         }
         finally

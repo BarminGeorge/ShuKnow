@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using ShuKnow.Domain.Entities;
 using ShuKnow.WebAPI.Dto.Auth;
 using ShuKnow.WebAPI.Dto.Chat;
@@ -37,6 +38,15 @@ public static class ModelToDtoMappers
             null);
     }
 
+    public static CursorPagedChatMessageResult ToDto(
+        this (IReadOnlyList<ChatMessage> Messages, string? NextCursor) page)
+    {
+        return new CursorPagedChatMessageResult(
+            page.Messages.Select(message => message.ToDto()).ToList(),
+            page.NextCursor,
+            page.NextCursor is not null);
+    }
+
     public static AttachmentDto ToDto(this ChatAttachment attachment)
     {
         return new AttachmentDto(
@@ -44,6 +54,30 @@ public static class ModelToDtoMappers
             attachment.FileName,
             attachment.ContentType,
             attachment.SizeBytes);
+    }
+
+    public static IReadOnlyList<AttachmentDto> ToDto(this IReadOnlyList<ChatAttachment> attachments)
+    {
+        return attachments
+            .Select(attachment => attachment.ToDto())
+            .ToList();
+    }
+
+    public static IReadOnlyList<(ChatAttachment Attachment, Stream Content)> ToUploads(
+        this IFormFileCollection files,
+        Guid userId)
+    {
+        return files
+            .Select(file => (
+                Attachment: new ChatAttachment(
+                    Guid.NewGuid(),
+                    userId,
+                    Guid.Empty,
+                    file.FileName,
+                    file.ContentType,
+                    file.Length),
+                Content: file.OpenReadStream()))
+            .ToList();
     }
 
     public static FileDto ToDto(this DomainFile file)
