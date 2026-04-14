@@ -1,6 +1,7 @@
 using AwesomeAssertions;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using ShuKnow.WebAPI.Controllers;
-using ShuKnow.WebAPI.Dto.Actions;
 
 namespace ShuKnow.WebAPI.Tests.Controllers;
 
@@ -15,52 +16,42 @@ public class ActionsControllerTests
     }
 
     [Test]
-    public async Task ListActions_ShouldReturnRequestedPagingValues()
+    public async Task ListActions_ShouldReturnNotImplemented()
     {
         var response = await sut.ListActions(page: 2, pageSize: 10);
 
-        var result = response.Value.Should().BeOfType<PagedActionResult>().Subject;
-        result.Items.Should().BeEmpty();
-        result.TotalCount.Should().Be(0);
-        result.Page.Should().Be(2);
-        result.PageSize.Should().Be(10);
-        result.HasNextPage.Should().BeFalse();
+        response.Result.Should().BeOfType<StatusCodeResult>()
+            .Which.StatusCode.Should().Be(StatusCodes.Status501NotImplemented);
     }
 
     [Test]
-    public async Task GetAction_ShouldReturnRequestedActionId()
+    public async Task GetAction_ShouldReturnNotImplemented()
     {
         var actionId = Guid.NewGuid();
 
         var response = await sut.GetAction(actionId);
 
-        var result = response.Value.Should().BeOfType<ActionDetailDto>().Subject;
-        result.Id.Should().Be(actionId);
-        result.Summary.Should().NotBeNullOrWhiteSpace();
-        result.Items.Should().NotBeEmpty();
+        response.Result.Should().BeOfType<StatusCodeResult>()
+            .Which.StatusCode.Should().Be(StatusCodes.Status501NotImplemented);
     }
 
     [Test]
-    public async Task RollbackAction_ShouldReturnRequestedActionId()
+    public async Task RollbackAction_ShouldReturnNotImplemented()
     {
         var actionId = Guid.NewGuid();
 
         var response = await sut.RollbackAction(actionId);
 
-        var result = response.Value.Should().BeOfType<RollbackResultDto>().Subject;
-        result.ActionId.Should().Be(actionId);
-        result.RestoredItems.Should().NotBeEmpty();
-        result.FullyReverted.Should().BeTrue();
+        response.Result.Should().BeOfType<StatusCodeResult>()
+            .Which.StatusCode.Should().Be(StatusCodes.Status501NotImplemented);
     }
 
     [Test]
-    public async Task RollbackLastAction_ShouldReturnSuccessfulRollback()
+    public async Task RollbackLastAction_ShouldReturnNotImplemented()
     {
         var response = await sut.RollbackLastAction();
 
-        var result = response.Value.Should().BeOfType<RollbackResultDto>().Subject;
-        result.ActionId.Should().NotBeEmpty();
-        result.RestoredItems.Should().BeEmpty();
-        result.FullyReverted.Should().BeTrue();
+        response.Result.Should().BeOfType<StatusCodeResult>()
+            .Which.StatusCode.Should().Be(StatusCodes.Status501NotImplemented);
     }
 }
