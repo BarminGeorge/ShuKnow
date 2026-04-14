@@ -27,6 +27,9 @@ public interface IFileRepository
 
     Task<Result<IReadOnlyList<File>>> GetByFolderAsync(Guid? folderId, Guid userId);
 
+    Task<Result<File>> GetByFolderAndFileNameAsync(
+        Guid? folderId, Guid userId, string fileName);
+
     Task<Result<IReadOnlySet<Guid>>> GetExistingBlobIdsAsync(
         IReadOnlyCollection<Guid> blobIds,
         CancellationToken ct = default);

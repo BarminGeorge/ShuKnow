@@ -3,10 +3,10 @@ using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Models.Notifications;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Metrics.Services;
-using FileEntity = ShuKnow.Domain.Entities.File;
 using ShuKnow.WebAPI.Events;
 using ShuKnow.WebAPI.Hubs;
 using ShuKnow.WebAPI.Mappers;
+using FileEntity = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.WebAPI.Services;
 
@@ -30,7 +30,7 @@ public class ChatNotificationService(
         await SendEventAsync(nameof(ChatHub.OnFileCreated), file.ToFileCreatedEvent(), ct);
     }
 
-    public async Task SendFileMovedAsync(FileEntity file, Guid fromFolderId, CancellationToken ct = default)
+    public async Task SendFileMovedAsync(FileEntity file, Guid? fromFolderId, CancellationToken ct = default)
     {
         await metricsService.RecordAiItemProcessedAsync(currentUserService.UserId, file.Id);
         await SendEventAsync(nameof(ChatHub.OnFileMoved), file.ToFileMovedEvent(fromFolderId), ct);
@@ -45,8 +45,8 @@ public class ChatNotificationService(
     public Task SendTextPrependedAsync(FileEntity file, string text, CancellationToken ct = default)
         => SendEventAsync(nameof(ChatHub.OnTextPrepended), file.ToTextPrependedEvent(text), ct);
 
-    public Task SendAttachmentSavedAsync(ChatAttachment attachment, CancellationToken ct = default)
-        => SendEventAsync(nameof(ChatHub.OnAttachmentSaved), attachment.ToAttachmentSavedEvent(), ct);
+    public Task SendAttachmentSavedAsync(ChatAttachment attachment, string fileName, CancellationToken ct = default)
+        => SendEventAsync(nameof(ChatHub.OnAttachmentSaved), attachment.ToAttachmentSavedEvent(fileName), ct);
 
     public Task SendProcessingCompletedAsync(Guid operationId, CancellationToken ct = default)
         => SendEventAsync(
@@ -78,7 +78,6 @@ public class ChatNotificationService(
             ChatProcessingErrorCode.LlmInvalidResponse => ProcessingErrorCode.LlmInvalidResponse,
             ChatProcessingErrorCode.ClassificationParseError => ProcessingErrorCode.ClassificationParseError,
             ChatProcessingErrorCode.FileOperationFailed => ProcessingErrorCode.FileOperationFailed,
-            ChatProcessingErrorCode.InternalError => ProcessingErrorCode.InternalError,
             _ => ProcessingErrorCode.InternalError
         };
     }

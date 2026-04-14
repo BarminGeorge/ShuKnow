@@ -9,6 +9,7 @@ namespace ShuKnow.Application.Services;
 
 internal class FolderService(
     IFolderRepository folderRepository,
+    IWorkspacePathService workspacePathService,
     ICurrentUserService currentUserService,
     IUnitOfWork unitOfWork)
     : IFolderService
@@ -32,9 +33,9 @@ internal class FolderService(
     public Task<Result<Folder>> GetByIdAsync(Guid folderId, CancellationToken ct = default) =>
         folderRepository.GetByIdAsync(folderId, CurrentUserId);
     
-    public Task<Result<Folder>> GetByPathAsync(string folderPath, CancellationToken ct = default)
+    public async Task<Result<Folder>> GetByPathAsync(string folderPath, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await workspacePathService.ResolveFolderAsync(folderPath, ct);
     }
     
     public async Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid folderId, CancellationToken ct = default)
@@ -54,14 +55,27 @@ internal class FolderService(
                 folder.Name,
                 folder.Description,
                 folder.ParentFolderId,
-                siblings.Count))
+                siblings.Count,
+                folder.Emoji))
             .ActAsync(folderRepository.AddAsync)
             .SaveChangesAsync(unitOfWork);
     }
     
-    public Task<Result<Folder>> CreateByPathAsync(string folderPath, string description, string emoji, CancellationToken ct = default)
+    public async Task<Result<Folder>> CreateByPathAsync(
+        string folderPath,
+        string description,
+        string emoji,
+        CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        return await workspacePathService.ResolveFolderCreationPathAsync(folderPath, ct)
+            .MapAsync(path => new Folder(
+                Guid.NewGuid(),
+                CurrentUserId,
+                path.FolderName,
+                description,
+                path.ParentFolderId,
+                emoji: emoji))
+            .BindAsync(folder => CreateAsync(folder, ct));
     }
 
     public async Task<Result<Folder>> UpdateAsync(Folder folder, CancellationToken ct = default)

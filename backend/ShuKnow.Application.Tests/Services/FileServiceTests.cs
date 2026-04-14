@@ -3,6 +3,7 @@ using Ardalis.Result;
 using AwesomeAssertions;
 using NSubstitute;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.Application.Models;
 using ShuKnow.Application.Services;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Repositories;
@@ -14,6 +15,7 @@ public class FileServiceTests
 {
     private IFileRepository fileRepository = null!;
     private IFolderRepository folderRepository = null!;
+    private IWorkspacePathService workspacePathService = null!;
     private IBlobStorageService blobStorageService = null!;
     private IBlobDeletionQueue blobDeletionQueue = null!;
     private ICurrentUserService currentUserService = null!;
@@ -26,6 +28,7 @@ public class FileServiceTests
     {
         fileRepository = Substitute.For<IFileRepository>();
         folderRepository = Substitute.For<IFolderRepository>();
+        workspacePathService = Substitute.For<IWorkspacePathService>();
         blobStorageService = Substitute.For<IBlobStorageService>();
         blobDeletionQueue = Substitute.For<IBlobDeletionQueue>();
         currentUserService = Substitute.For<ICurrentUserService>();
@@ -38,6 +41,7 @@ public class FileServiceTests
         sut = new FileService(
             fileRepository,
             folderRepository,
+            workspacePathService,
             blobStorageService,
             blobDeletionQueue,
             currentUserService,
@@ -55,6 +59,44 @@ public class FileServiceTests
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().BeSameAs(file);
         await fileRepository.Received(1).GetByIdAsync(file.Id, currentUserId);
+    }
+
+    [Test]
+    public async Task GetByPathAsync_WhenFileExists_ShouldResolvePathAndReturnMatchingFile()
+    {
+        var folderId = Guid.NewGuid();
+        var path = new ResolvedFilePath("readme.txt", folderId, "notes/readme.txt");
+        var file = CreateFile(folderId: folderId, name: "readme.txt");
+
+        workspacePathService.ResolveFilePathAsync("notes/readme.txt", Arg.Any<CancellationToken>())
+            .Returns(Success(path));
+        fileRepository.GetByFolderAndFileNameAsync(folderId, currentUserId, "readme.txt")
+            .Returns(Success(file));
+
+        var result = await sut.GetByPathAsync("notes/readme.txt");
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().BeSameAs(file);
+        await workspacePathService.Received(1).ResolveFilePathAsync("notes/readme.txt", Arg.Any<CancellationToken>());
+        await fileRepository.Received(1).GetByFolderAndFileNameAsync(folderId, currentUserId, "readme.txt");
+    }
+
+    [Test]
+    public async Task GetByPathAsync_WhenFileDoesNotExist_ShouldReturnNotFound()
+    {
+        var folderId = Guid.NewGuid();
+        var path = new ResolvedFilePath("missing.txt", folderId, "notes/missing.txt");
+
+        workspacePathService.ResolveFilePathAsync("notes/missing.txt", Arg.Any<CancellationToken>())
+            .Returns(Success(path));
+        fileRepository.GetByFolderAndFileNameAsync(folderId, currentUserId, "missing.txt")
+            .Returns(NotFound<File>());
+
+        var result = await sut.GetByPathAsync("notes/missing.txt");
+
+        result.Status.Should().Be(ResultStatus.NotFound);
+        await workspacePathService.Received(1).ResolveFilePathAsync("notes/missing.txt", Arg.Any<CancellationToken>());
+        await fileRepository.Received(1).GetByFolderAndFileNameAsync(folderId, currentUserId, "missing.txt");
     }
 
     [Test]
@@ -422,6 +464,27 @@ public class FileServiceTests
     }
 
     [Test]
+    public async Task MoveAsync_WhenTargetFileNameIsProvided_ShouldRenameAndMoveFile()
+    {
+        var file = CreateFile(name: "report.pdf", description: "Quarterly report", version: 4);
+        var targetFolderId = Guid.NewGuid();
+
+        ReturnsFolderExists(targetFolderId);
+        ReturnsExistingFileForUpdate(file);
+        ReturnsFileNameAvailable("report-final.pdf", targetFolderId, file.Id);
+
+        var result = await sut.MoveAsync(file.Id, targetFolderId, "report-final.pdf");
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().BeSameAs(file);
+        file.Name.Should().Be("report-final.pdf");
+        file.Description.Should().Be("Quarterly report");
+        file.FolderId.Should().Be(targetFolderId);
+        file.Version.Should().Be(5);
+        await unitOfWork.Received(1).SaveChangesAsync();
+    }
+
+    [Test]
     public async Task MoveAsync_WhenTargetFolderIsRoot_ShouldMoveFileWithoutCheckingFolderExistence()
     {
         var file = CreateFile(name: "report.pdf", version: 4);
@@ -439,6 +502,24 @@ public class FileServiceTests
         originalFolderId.Should().NotBeNull();
         await folderRepository.DidNotReceive().ExistsByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>());
         await unitOfWork.Received(1).SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task MoveAsync_WhenTargetFolderAndNameAreUnchanged_ShouldReturnFileWithoutSaving()
+    {
+        var file = CreateFile(name: "report.pdf", version: 4);
+
+        ReturnsFolderExists(file.FolderId);
+        ReturnsExistingFileForUpdate(file);
+        ReturnsFileNameAvailable(file.Name, file.FolderId, file.Id);
+
+        var result = await sut.MoveAsync(file.Id, file.FolderId, file.Name);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().BeSameAs(file);
+        file.Name.Should().Be("report.pdf");
+        file.Version.Should().Be(4);
+        await unitOfWork.DidNotReceive().SaveChangesAsync();
     }
 
     [Test]
@@ -711,6 +792,8 @@ public class FileServiceTests
     private void ConfigureDefaults()
     {
         unitOfWork.SaveChangesAsync().Returns(Success());
+        workspacePathService.ResolveFilePathAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result<ResolvedFilePath>.NotFound()));
         folderRepository.ExistsByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success(true));
         fileRepository.ExistsByNameInFolderAsync(Arg.Any<string>(), Arg.Any<Guid?>(), Arg.Any<Guid>(), Arg.Any<Guid?>())
             .Returns(Success(false));
@@ -720,6 +803,8 @@ public class FileServiceTests
         fileRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<File>());
         fileRepository.GetByIdForUpdateAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<File>());
         fileRepository.GetByFolderAsync(Arg.Any<Guid?>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
+        fileRepository.GetByFolderAndFileNameAsync(Arg.Any<Guid?>(), Arg.Any<Guid>(), Arg.Any<string>())
+            .Returns(NotFound<File>());
         blobStorageService.SaveAsync(Arg.Any<Stream>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Success());
         blobDeletionQueue.EnqueueDeleteAsync(Arg.Any<Guid>()).Returns(ValueTask.CompletedTask);

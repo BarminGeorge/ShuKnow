@@ -7,6 +7,17 @@ namespace ShuKnow.Infrastructure.Persistent.Repositories;
 
 public class AttachmentRepository(AppDbContext context) : IAttachmentRepository
 {
+    public async Task<Result<ChatAttachment>> GetByIdAsync(Guid id, Guid userId)
+    {
+        var attachment = await context.ChatAttachments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId);
+
+        return attachment is not null
+            ? Result.Success(attachment)
+            : Result<ChatAttachment>.NotFound($"Attachment '{id}' was not found.");
+    }
+
     public async Task<Result<IReadOnlyList<ChatAttachment>>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, Guid userId)
     {
         var attachments = await context.ChatAttachments

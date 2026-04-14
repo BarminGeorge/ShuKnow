@@ -12,6 +12,7 @@ namespace ShuKnow.Application.Tests.Services;
 public class FolderServiceTests
 {
     private IFolderRepository folderRepository = null!;
+    private IWorkspacePathService workspacePathService = null!;
     private ICurrentUserService currentUserService = null!;
     private IUnitOfWork unitOfWork = null!;
     private Guid currentUserId;
@@ -21,6 +22,7 @@ public class FolderServiceTests
     public void SetUp()
     {
         folderRepository = Substitute.For<IFolderRepository>();
+        workspacePathService = Substitute.For<IWorkspacePathService>();
         currentUserService = Substitute.For<ICurrentUserService>();
         unitOfWork = Substitute.For<IUnitOfWork>();
         currentUserId = Guid.NewGuid();
@@ -103,6 +105,19 @@ public class FolderServiceTests
     }
 
     [Test]
+    public async Task GetByPathAsync_WhenCalled_ShouldDelegateToWorkspacePathService()
+    {
+        var folder = CreateFolder(name: "Docs");
+        workspacePathService.ResolveFolderAsync("Docs/Specs", Arg.Any<CancellationToken>()).Returns(Success(folder));
+
+        var result = await sut.GetByPathAsync("Docs/Specs");
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().BeSameAs(folder);
+        await workspacePathService.Received(1).ResolveFolderAsync("Docs/Specs", Arg.Any<CancellationToken>());
+    }
+
+    [Test]
     public async Task GetChildrenAsync_WhenFolderDoesNotExist_ShouldReturnNotFound()
     {
         var folderId = Guid.NewGuid();
@@ -170,6 +185,37 @@ public class FolderServiceTests
             added.ParentFolderId == parentId &&
             added.SortOrder == siblings.Count));
         await unitOfWork.Received(1).SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task CreateByPathAsync_WhenPathResolves_ShouldCreateFolderUsingResolvedParent()
+    {
+        var parentId = Guid.NewGuid();
+        var resolvedPath = new ResolvedFolderCreationPath("Invoices", parentId, "Docs/Invoices");
+        IReadOnlyList<Folder> siblings = [CreateFolder(parentFolderId: parentId, name: "A", sortOrder: 0)];
+
+        workspacePathService.ResolveFolderCreationPathAsync("Docs/Invoices", Arg.Any<CancellationToken>())
+            .Returns(Success(resolvedPath));
+        folderRepository.ExistsByIdAsync(parentId, currentUserId).Returns(Success(true));
+        folderRepository.ExistsByNameInParentAsync(resolvedPath.FolderName, parentId, currentUserId, null)
+            .Returns(Success(false));
+        folderRepository.GetChildrenAsync(parentId, currentUserId).Returns(Success(siblings));
+
+        var result = await sut.CreateByPathAsync("Docs/Invoices", "description", "📁");
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.UserId.Should().Be(currentUserId);
+        result.Value.Name.Should().Be(resolvedPath.FolderName);
+        result.Value.ParentFolderId.Should().Be(parentId);
+        result.Value.Description.Should().Be("description");
+        result.Value.Emoji.Should().Be("📁");
+        await workspacePathService.Received(1)
+            .ResolveFolderCreationPathAsync("Docs/Invoices", Arg.Any<CancellationToken>());
+        await folderRepository.Received(1).AddAsync(Arg.Is<Folder>(folder =>
+            folder.UserId == currentUserId &&
+            folder.ParentFolderId == parentId &&
+            folder.Name == resolvedPath.FolderName &&
+            folder.Emoji == "📁"));
     }
 
     [Test]
@@ -344,6 +390,10 @@ public class FolderServiceTests
     private void ConfigureDefaults()
     {
         unitOfWork.SaveChangesAsync().Returns(Success());
+        workspacePathService.ResolveFolderAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result<Folder>.NotFound()));
+        workspacePathService.ResolveFolderCreationPathAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result<ResolvedFolderCreationPath>.NotFound()));
         folderRepository.GetTreeAsync(Arg.Any<Guid>()).Returns(Success<IReadOnlyList<Folder>>([]));
         folderRepository.GetRootFoldersAsync(Arg.Any<Guid>()).Returns(Success<IReadOnlyList<Folder>>([]));
         folderRepository.GetChildrenAsync(Arg.Any<Guid?>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<Folder>>([]));
@@ -368,7 +418,7 @@ public class FolderServiceTests
         var constructor = folderServiceType.GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
             .Single();
 
-        return (IFolderService)constructor.Invoke([folderRepository, currentUserService, unitOfWork]);
+        return (IFolderService)constructor.Invoke([folderRepository, workspacePathService, currentUserService, unitOfWork]);
     }
 
     private Folder CreateFolder(
