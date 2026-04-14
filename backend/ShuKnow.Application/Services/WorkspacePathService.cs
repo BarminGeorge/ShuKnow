@@ -11,8 +11,6 @@ internal class WorkspacePathService(
     ICurrentUserService currentUserService)
     : IWorkspacePathService
 {
-    private static readonly StringComparison NameComparison = StringComparison.OrdinalIgnoreCase;
-
     private Guid CurrentUserId => currentUserService.UserId;
 
     public async Task<Result<Folder>> ResolveFolderAsync(string folderPath, CancellationToken ct = default)
@@ -52,20 +50,14 @@ internal class WorkspacePathService(
 
     private async Task<Result<Folder>> ResolveFolderAsync(IReadOnlyList<string> segments)
     {
-        var currentFoldersResult = await folderRepository.GetRootFoldersAsync(CurrentUserId);
-        if (!currentFoldersResult.IsSuccess)
-            return currentFoldersResult.Map(_ => default(Folder)!);
-
         Folder? currentFolder = null;
         foreach (var segment in segments)
         {
-            currentFolder = currentFoldersResult.Value.FirstOrDefault(folder => NamesEqual(folder.Name, segment));
-            if (currentFolder is null)
-                return Result<Folder>.NotFound($"Folder '{string.Join("/", segments)}' was not found.");
+            var result = await folderRepository.GetByNameInParentAsync(segment, currentFolder?.Id, CurrentUserId);
+            if (!result.IsSuccess)
+                return result;
 
-            currentFoldersResult = await folderRepository.GetChildrenAsync(currentFolder.Id, CurrentUserId);
-            if (!currentFoldersResult.IsSuccess)
-                return currentFoldersResult.Map(_ => currentFolder);
+            currentFolder = result.Value;
         }
 
         return Result.Success(currentFolder!);
@@ -106,11 +98,6 @@ internal class WorkspacePathService(
     private static bool HasRelativeSegments(IEnumerable<string> segments)
     {
         return segments.Any(segment => segment is "." or "..");
-    }
-
-    private static bool NamesEqual(string left, string right)
-    {
-        return string.Equals(left, right, NameComparison);
     }
 
     private sealed record FolderPathParts(string Name, IReadOnlyList<string> Segments);

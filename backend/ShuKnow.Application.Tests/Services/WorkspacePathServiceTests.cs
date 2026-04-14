@@ -23,8 +23,13 @@ public class WorkspacePathServiceTests
         currentUserId = Guid.NewGuid();
 
         currentUserService.UserId.Returns(currentUserId);
-        folderRepository.GetRootFoldersAsync(currentUserId).Returns(Success<IReadOnlyList<Folder>>([]));
-        folderRepository.GetChildrenAsync(Arg.Any<Guid?>(), currentUserId).Returns(Success<IReadOnlyList<Folder>>([]));
+        folderRepository.GetByNameInParentAsync(Arg.Any<string>(), Arg.Any<Guid?>(), currentUserId)
+            .Returns((callInfo) =>
+            {
+                var name = callInfo.Arg<string>();
+                var parentId = callInfo.Arg<Guid?>();
+                return Task.FromResult(Result<Folder>.NotFound($"Folder '{name}' not found."));
+            });
 
         sut = new WorkspacePathService(folderRepository, currentUserService);
     }
@@ -32,12 +37,11 @@ public class WorkspacePathServiceTests
     [Test]
     public async Task ResolveFolderAsync_WhenNestedPathExists_ShouldReturnFolder()
     {
-        var root = CreateFolder(name: "Docs");
-        var child = CreateFolder(name: "Specs", parentFolderId: root.Id);
+        var root = CreateFolder(name: "docs");
+        var child = CreateFolder(name: "specs", parentFolderId: root.Id);
 
-        folderRepository.GetRootFoldersAsync(currentUserId).Returns(Success<IReadOnlyList<Folder>>([root]));
-        folderRepository.GetChildrenAsync(root.Id, currentUserId).Returns(Success<IReadOnlyList<Folder>>([child]));
-        folderRepository.GetChildrenAsync(child.Id, currentUserId).Returns(Success<IReadOnlyList<Folder>>([]));
+        folderRepository.GetByNameInParentAsync("docs", null, currentUserId).Returns(Success(root));
+        folderRepository.GetByNameInParentAsync("specs", root.Id, currentUserId).Returns(Success(child));
 
         var result = await sut.ResolveFolderAsync("docs/specs");
 
@@ -70,6 +74,9 @@ public class WorkspacePathServiceTests
     [Test]
     public async Task ResolveFolderCreationPathAsync_WhenParentFolderIsMissing_ShouldReturnNotFound()
     {
+        folderRepository.GetByNameInParentAsync("docs", null, currentUserId)
+            .Returns(Task.FromResult(Result<Folder>.NotFound("Folder 'docs' not found.")));
+
         var result = await sut.ResolveFolderCreationPathAsync("docs/specs");
 
         result.Status.Should().Be(ResultStatus.NotFound);
@@ -79,12 +86,11 @@ public class WorkspacePathServiceTests
     [Test]
     public async Task ResolveFilePathAsync_WhenParentFolderExists_ShouldReturnFolderIdAndFileName()
     {
-        var root = CreateFolder(name: "Docs");
-        var child = CreateFolder(name: "Specs", parentFolderId: root.Id);
+        var root = CreateFolder(name: "docs");
+        var child = CreateFolder(name: "specs", parentFolderId: root.Id);
 
-        folderRepository.GetRootFoldersAsync(currentUserId).Returns(Success<IReadOnlyList<Folder>>([root]));
-        folderRepository.GetChildrenAsync(root.Id, currentUserId).Returns(Success<IReadOnlyList<Folder>>([child]));
-        folderRepository.GetChildrenAsync(child.Id, currentUserId).Returns(Success<IReadOnlyList<Folder>>([]));
+        folderRepository.GetByNameInParentAsync("docs", null, currentUserId).Returns(Success(root));
+        folderRepository.GetByNameInParentAsync("specs", root.Id, currentUserId).Returns(Success(child));
 
         var result = await sut.ResolveFilePathAsync("docs/specs/design.md");
 
@@ -97,10 +103,13 @@ public class WorkspacePathServiceTests
     [Test]
     public async Task ResolveFilePathAsync_WhenParentFolderIsMissing_ShouldReturnNotFound()
     {
+        folderRepository.GetByNameInParentAsync("docs", null, currentUserId)
+            .Returns(Task.FromResult(Result<Folder>.NotFound("Folder 'docs' not found.")));
+
         var result = await sut.ResolveFilePathAsync("docs/specs/design.md");
 
         result.Status.Should().Be(ResultStatus.NotFound);
-        result.Errors.Should().ContainSingle().Which.Should().Contain("docs/specs");
+        result.Errors.Should().ContainSingle().Which.Should().Contain("docs");
     }
 
     private Folder CreateFolder(

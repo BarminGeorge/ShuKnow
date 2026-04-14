@@ -49,10 +49,12 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
         var visitedFolderIds = new HashSet<Guid>();
         var pathFolderIds = new HashSet<Guid>();
 
-        var rootNodesResult = TryAppendNodes(childrenByParentId[null], childrenByParentId, orderedFolders, visitedFolderIds, pathFolderIds);
+        var rootNodesResult = TryAppendNodes(childrenByParentId[null], childrenByParentId, orderedFolders,
+            visitedFolderIds, pathFolderIds);
         if (!rootNodesResult.IsSuccess) return rootNodesResult.Map();
 
-        var remainingNodesResult = TryAppendNodes(folders, childrenByParentId, orderedFolders, visitedFolderIds, pathFolderIds);
+        var remainingNodesResult =
+            TryAppendNodes(folders, childrenByParentId, orderedFolders, visitedFolderIds, pathFolderIds);
         if (!remainingNodesResult.IsSuccess) return remainingNodesResult.Map();
 
         return Result.Success<IReadOnlyList<Folder>>(orderedFolders);
@@ -124,6 +126,18 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
         }
 
         return Result.Success<IReadOnlyList<Guid>>(ancestorIds);
+    }
+
+    public async Task<Result<Folder>> GetByNameInParentAsync(string name, Guid? parentId, Guid userId)
+    {
+        var folder = await context.Folders
+            .AsNoTracking()
+            .Where(folder => folder.UserId == userId && folder.ParentFolderId == parentId && folder.Name == name)
+            .FirstOrDefaultAsync();
+        
+        return folder is not null
+            ? Result.Success(folder)
+            : Result.NotFound($"Folder '{name}' with parent '{parentId}' was not found");
     }
 
     public async Task<Result<bool>> ExistsByNameInParentAsync(

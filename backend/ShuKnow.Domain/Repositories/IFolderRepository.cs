@@ -30,4 +30,5 @@ public interface IFolderRepository
     Task<Result> DeleteSubtreeAsync(Guid folderId, Guid userId);
 
     Task<Result<int>> CountByUserAsync(Guid userId);
+    Task<Result<Folder>> GetByNameInParentAsync(string name, Guid? parentId, Guid userId);
 }
