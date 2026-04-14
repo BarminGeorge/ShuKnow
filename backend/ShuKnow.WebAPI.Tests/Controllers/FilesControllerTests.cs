@@ -109,7 +109,7 @@ public class FilesControllerTests
             .Returns(Task.FromResult(Result.Success<(Stream Content, string ContentType, long SizeBytes)>(
                 (content, "application/pdf", content.Length))));
 
-        var response = await sut.DownloadFileContent(file.Id, "bytes=10-20", CancellationToken.None);
+        var response = await sut.DownloadFileContent(file.Id, "bytes= 10 - 20 ", CancellationToken.None);
 
         var fileResult = response.Should().BeOfType<FileStreamResult>().Subject;
         fileResult.FileDownloadName.Should().Be("report.pdf");
