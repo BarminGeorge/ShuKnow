@@ -9,6 +9,7 @@ using ShuKnow.WebAPI.Dto.Files;
 using ShuKnow.WebAPI.Dto.Folders;
 using ShuKnow.WebAPI.Mappers;
 using ShuKnow.WebAPI.Requests.Folders;
+using DomainFile = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.WebAPI.Controllers;
 
@@ -114,10 +115,13 @@ public class FoldersController(
         [FromQuery] int pageSize = 50,
         CancellationToken ct = default)
     {
+        PagedFileResult ToDto((IReadOnlyList<DomainFile> Files, int TotalCount) filePage) =>
+            filePage.ToDto(page, pageSize);
+
         return (await fileService.ListByFolderAsync(folderId, page, pageSize, ct))
-            .Map(filePage => filePage.ToDto(page, pageSize))
+            .Map(ToDto)
             .ToActionResult(this);
-    }
+    }   
 
     [HttpPost("{folderId}/files")]
     public async Task<ActionResult<FileDto>> UploadFile(Guid folderId,
