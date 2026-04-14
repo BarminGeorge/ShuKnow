@@ -112,7 +112,7 @@ public class AiToolsServiceTests
     }
 
     [Test]
-    public async Task SaveAttachment_WhenAttachmentExists_ShouldUploadBlobMarkConsumedAndReturnSpecificMessage()
+    public async Task SaveAttachment_WhenAttachmentExists_ShouldUploadBlobAndReturnSpecificMessage()
     {
         var attachmentId = Guid.NewGuid();
         var path = new ResolvedFilePath("export.md", Guid.NewGuid(), "notes/export.md");
