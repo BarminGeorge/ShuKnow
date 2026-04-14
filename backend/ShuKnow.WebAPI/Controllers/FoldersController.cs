@@ -132,8 +132,16 @@ public class FoldersController(
     {
         await using var stream = file.OpenReadStream();
 
-        return (await fileService.UploadAsync(file.ToModel(currentUser.UserId, folderId, name, description), stream, ct))
-            .Map(uploadedFile => uploadedFile.ToDto())
+        DomainFile ToModel(IFormFile upload) =>
+            upload.ToModel(currentUser.UserId, folderId, name, description);
+
+        FileDto ToDto(DomainFile uploadedFile) =>
+            uploadedFile.ToDto();
+
+        return (await Result.Success(file)
+            .Map(ToModel)
+            .BindAsync(model => fileService.UploadAsync(model, stream, ct)))
+            .Map(ToDto)
             .ToActionResult(this);
     }
 }
