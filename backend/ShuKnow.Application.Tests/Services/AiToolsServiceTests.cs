@@ -129,10 +129,8 @@ public class AiToolsServiceTests
 
         workspacePathService.ResolveFilePathAsync("notes/export.md", Arg.Any<CancellationToken>())
             .Returns(Success(path));
-        attachmentService.GetByIdsAsync(
-                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Single() == attachmentId),
-                Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Success<IReadOnlyList<ChatAttachment>>([attachment])));
+        attachmentService.GetByIdAsync(attachmentId, Arg.Any<CancellationToken>())
+            .Returns(Success(attachment));
         attachmentFileService.SaveAttachmentToFileAsync(attachment, path, Arg.Any<CancellationToken>())
             .Returns(Success(uploadedFile));
 
@@ -153,8 +151,7 @@ public class AiToolsServiceTests
 
         result.Status.Should().Be(ResultStatus.Invalid);
         result.ValidationErrors.Should().ContainSingle().Which.ErrorMessage.Should().Contain("GUID");
-        await attachmentService.DidNotReceive()
-            .GetByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+        await attachmentService.DidNotReceive().GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
         await workspacePathService.DidNotReceive().ResolveFilePathAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await notificationService.DidNotReceive().SendAttachmentSavedAsync(
             Arg.Any<ChatAttachment>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
@@ -242,6 +239,8 @@ public class AiToolsServiceTests
             .Returns(call => Success(CreateFile(fileId: call.Arg<Guid>())));
         fileService.MoveAsync(Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(call => Success(CreateFile(fileId: call.Arg<Guid>())));
+        attachmentService.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result<ChatAttachment>.NotFound()));
         attachmentService.GetByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success<IReadOnlyList<ChatAttachment>>([])));
         attachmentService.MarkConsumedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())

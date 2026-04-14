@@ -3,7 +3,6 @@ using Ardalis.Result;
 using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Models;
-using ShuKnow.Domain.Entities;
 using File = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.Application.Services;
@@ -48,7 +47,7 @@ public class AiToolsService(
         CancellationToken ct = default)
     {
         return await ParseAttachmentId(attachmentId)
-            .BindAsync(id => GetAttachmentAsync(id, ct))
+            .BindAsync(id => attachmentService.GetByIdAsync(id, ct))
             .BindAsync(attachment => workspacePathService.ResolveFilePathAsync(filePath, ct)
                 .BindAsync(path => attachmentFileService.SaveAttachmentToFileAsync(attachment, path, ct))
                 .ActAsync(file => notificationService.SendAttachmentSavedAsync(attachment, file.Name, ct)))
@@ -123,14 +122,6 @@ public class AiToolsService(
                 using var reader = new StreamReader(content.Content, Encoding.UTF8, leaveOpen: false);
                 return Result.Success(await reader.ReadToEndAsync(ct));
             });
-    }
-
-    private async Task<Result<ChatAttachment>> GetAttachmentAsync(Guid attachmentId, CancellationToken ct)
-    {
-        return await attachmentService.GetByIdsAsync([attachmentId], ct)
-            .BindAsync(attachments => attachments.SingleOrDefault() is { } attachment
-                ? Result.Success(attachment)
-                : Result<ChatAttachment>.NotFound($"Attachment '{attachmentId}' was not found."));
     }
 
     private static Result EnsureTextFile(File file, string filePath)

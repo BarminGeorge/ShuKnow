@@ -101,6 +101,33 @@ public class AttachmentServiceTests
     }
 
     [Test]
+    public async Task GetByIdAsync_WhenCalled_ShouldReturnRepositoryResultForCurrentUser()
+    {
+        var attachment = CreateAttachment();
+
+        attachmentRepository.GetByIdAsync(attachment.Id, currentUserId)
+            .Returns(Task.FromResult(Result.Success(attachment)));
+
+        var result = await sut.GetByIdAsync(attachment.Id);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().BeSameAs(attachment);
+        await attachmentRepository.Received(1).GetByIdAsync(attachment.Id, currentUserId);
+    }
+
+    [Test]
+    public async Task GetByIdAsync_WhenRepositoryReturnsNotFound_ShouldReturnNotFound()
+    {
+        var attachmentId = Guid.NewGuid();
+        attachmentRepository.GetByIdAsync(attachmentId, currentUserId)
+            .Returns(Task.FromResult(Result<ChatAttachment>.NotFound()));
+
+        var result = await sut.GetByIdAsync(attachmentId);
+
+        result.Status.Should().Be(ResultStatus.NotFound);
+    }
+
+    [Test]
     public async Task GetByIdsAsync_WhenCalled_ShouldReturnRepositoryResultForCurrentUser()
     {
         var attachment = CreateAttachment();

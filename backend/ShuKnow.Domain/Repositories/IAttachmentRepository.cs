@@ -5,6 +5,8 @@ namespace ShuKnow.Domain.Repositories;
 
 public interface IAttachmentRepository
 {
+    Task<Result<ChatAttachment>> GetByIdAsync(Guid id, Guid userId);
+
     Task<Result<IReadOnlyList<ChatAttachment>>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, Guid userId);
 
     Task<Result> AddRangeAsync(IReadOnlyCollection<ChatAttachment> attachments);

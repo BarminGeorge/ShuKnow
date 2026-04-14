@@ -18,6 +18,12 @@ public class AttachmentService(
 
     private Guid CurrentUserId => currentUserService.UserId;
 
+    public async Task<Result<ChatAttachment>> GetByIdAsync(
+        Guid attachmentId, CancellationToken ct = default)
+    {
+        return await attachmentRepository.GetByIdAsync(attachmentId, CurrentUserId);
+    }
+
     public async Task<Result<IReadOnlyList<ChatAttachment>>> UploadAsync(
         IReadOnlyList<(ChatAttachment Attachment, Stream Content)> uploads,
         CancellationToken ct = default)
