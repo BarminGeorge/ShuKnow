@@ -23,23 +23,20 @@ public class AuthController(
     [HttpPost("register")]
     public async Task<ActionResult<string>> Register([FromBody] RegisterRequest request)
     {
-        var result = await identityService.RegisterAsync(request.Login, request.Password);
-        return ToAuthActionResult(result);
+        return ToAuthActionResult(await identityService.RegisterAsync(request.Login, request.Password));
     }
 
     [HttpPost("login")]
     public async Task<ActionResult<string>> Login([FromBody] LoginRequest request)
     {
-        var result = await identityService.LoginAsync(request.Login, request.Password);
-        return ToAuthActionResult(result);
+        return ToAuthActionResult(await identityService.LoginAsync(request.Login, request.Password));
     }
 
     [Authorize]
     [HttpGet("me")]
     public async Task<ActionResult<UserDto>> Me()
     {
-        var userResult = await users.GetByIdAsync(currentUser.UserId);
-        return userResult
+        return (await users.GetByIdAsync(currentUser.UserId))
             .Map(user => user.ToDto())
             .ToActionResult(this);
     }

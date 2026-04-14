@@ -21,8 +21,7 @@ public class ChatController(
     [HttpGet("session")]
     public async Task<ActionResult<ChatSessionDto>> GetChatSession(CancellationToken ct)
     {
-        var result = await chatService.GetOrCreateActiveSessionAsync(ct);
-        return result
+        return (await chatService.GetOrCreateActiveSessionAsync(ct))
             .Map(session => session.ToDto())
             .ToActionResult(this);
     }
@@ -30,16 +29,14 @@ public class ChatController(
     [HttpDelete("session")]
     public async Task<ActionResult> DeleteChatSession(CancellationToken ct)
     {
-        var result = await chatService.DeleteSessionAsync(ct);
-        return result.ToActionResult(this);
+        return (await chatService.DeleteSessionAsync(ct)).ToActionResult(this);
     }
 
     [HttpGet("session/messages")]
     public async Task<ActionResult<CursorPagedChatMessageResult>> GetChatMessages(
         [FromQuery] string? cursor = null, [FromQuery] int limit = 50, CancellationToken ct = default)
     {
-        var result = await chatService.GetMessagesAsync(cursor, limit, ct);
-        return result
+        return (await chatService.GetMessagesAsync(cursor, limit, ct))
             .Map(page => page.ToDto())
             .ToActionResult(this);
     }

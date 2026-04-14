@@ -25,8 +25,7 @@ public class FoldersController(
     [HttpGet("tree")]
     public async Task<ActionResult<IReadOnlyList<FolderTreeNodeDto>>> GetFolderTree(CancellationToken ct)
     {
-        var result = await folderService.GetTreeAsync(ct);
-        return result
+        return (await folderService.GetTreeAsync(ct))
             .Map(folders => folders.ToTree())
             .ToActionResult(this);
     }
@@ -36,8 +35,7 @@ public class FoldersController(
         [FromQuery] Guid? parentId,
         CancellationToken ct)
     {
-        var result = await folderService.ListAsync(parentId, ct);
-        return result
+        return (await folderService.ListAsync(parentId, ct))
             .Map(folders => folders.ToDto())
             .ToActionResult(this);
     }
@@ -64,8 +62,7 @@ public class FoldersController(
     [HttpGet("{folderId}")]
     public async Task<ActionResult<FolderDto>> GetFolder(Guid folderId, CancellationToken ct)
     {
-        var result = await folderService.GetByIdAsync(folderId, ct);
-        return result
+        return (await folderService.GetByIdAsync(folderId, ct))
             .Map(folder => folder.ToDto())
             .ToActionResult(this);
     }
@@ -90,8 +87,7 @@ public class FoldersController(
             folder.SortOrder,
             request.Emoji ?? folder.Emoji);
 
-        var result = await folderService.UpdateAsync(updatedFolder, ct);
-        return result
+        return (await folderService.UpdateAsync(updatedFolder, ct))
             .Map(savedFolder => savedFolder.ToDto())
             .ToActionResult(this);
     }
@@ -101,8 +97,7 @@ public class FoldersController(
         Guid folderId,
         CancellationToken ct = default)
     {
-        var result = await folderService.DeleteAsync(folderId, ct);
-        return result.ToActionResult(this);
+        return (await folderService.DeleteAsync(folderId, ct)).ToActionResult(this);
     }
 
     [HttpPatch("{folderId}/move")]
@@ -111,8 +106,7 @@ public class FoldersController(
         [FromBody] MoveFolderRequest request,
         CancellationToken ct)
     {
-        var result = await folderService.MoveAsync(folderId, request.NewParentFolderId, ct);
-        return result
+        return (await folderService.MoveAsync(folderId, request.NewParentFolderId, ct))
             .Map(folder => folder.ToDto())
             .ToActionResult(this);
     }
@@ -123,8 +117,7 @@ public class FoldersController(
         [FromBody] ReorderFolderRequest request,
         CancellationToken ct)
     {
-        var result = await folderService.ReorderAsync(folderId, request.Position, ct);
-        return result.ToActionResult(this);
+        return (await folderService.ReorderAsync(folderId, request.Position, ct)).ToActionResult(this);
     }
 
     [HttpGet("{folderId}/children")]
@@ -132,8 +125,7 @@ public class FoldersController(
         Guid folderId,
         CancellationToken ct)
     {
-        var result = await folderService.GetChildrenAsync(folderId, ct);
-        return result
+        return (await folderService.GetChildrenAsync(folderId, ct))
             .Map(folders => folders.ToDto())
             .ToActionResult(this);
     }
@@ -144,8 +136,7 @@ public class FoldersController(
         [FromQuery] int pageSize = 50,
         CancellationToken ct = default)
     {
-        var result = await fileService.ListByFolderAsync(folderId, page, pageSize, ct);
-        return result
+        return (await fileService.ListByFolderAsync(folderId, page, pageSize, ct))
             .Map(filePage => filePage.ToDto(page, pageSize))
             .ToActionResult(this);
     }

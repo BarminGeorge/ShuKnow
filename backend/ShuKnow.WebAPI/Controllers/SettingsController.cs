@@ -19,8 +19,7 @@ public class SettingsController(ISettingsService settingsService) : ControllerBa
     [HttpGet("ai")]
     public async Task<ActionResult<AiSettingsDto>> GetAiSettings(CancellationToken ct)
     {
-        var result = await settingsService.GetOrCreateAsync(ct);
-        return result
+        return (await settingsService.GetOrCreateAsync(ct))
             .Map(settings => settings.ToDto())
             .ToActionResult(this);
     }
@@ -36,8 +35,7 @@ public class SettingsController(ISettingsService settingsService) : ControllerBa
             request.Provider is null ? null : (DomainAiProvider)request.Provider,
             request.ModelId);
 
-        var result = await settingsService.UpdateAsync(input, ct);
-        return result
+        return (await settingsService.UpdateAsync(input, ct))
             .Map(settings => settings.ToDto())
             .ToActionResult(this);
     }
@@ -45,8 +43,7 @@ public class SettingsController(ISettingsService settingsService) : ControllerBa
     [HttpPost("ai/test")]
     public async Task<ActionResult<AiConnectionTestDto>> TestAiConnection(CancellationToken ct)
     {
-        var result = await settingsService.TestConnectionAsync(ct);
-        return result
+        return (await settingsService.TestConnectionAsync(ct))
             .Map(test => test.ToDto())
             .ToActionResult(this);
     }

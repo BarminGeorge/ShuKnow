@@ -18,8 +18,7 @@ public class FilesController(IFileService fileService) : ControllerBase
     [HttpGet("{fileId}")]
     public async Task<ActionResult<FileDto>> GetFile(Guid fileId, CancellationToken ct)
     {
-        var result = await fileService.GetByIdAsync(fileId, ct);
-        return result
+        return (await fileService.GetByIdAsync(fileId, ct))
             .Map(file => file.ToDto())
             .ToActionResult(this);
     }
@@ -30,14 +29,12 @@ public class FilesController(IFileService fileService) : ControllerBase
         [FromBody] UpdateFileMetadataRequest request,
         CancellationToken ct)
     {
-        var result = await fileService.GetByIdAsync(fileId, ct)
+        return (await fileService.GetByIdAsync(fileId, ct)
             .BindAsync(file =>
             {
                 file.UpdateMetadata(request.Name ?? file.Name, request.Description ?? file.Description);
                 return fileService.UpdateMetadataAsync(file, ct);
-            });
-
-        return result
+            }))
             .Map(updatedFile => updatedFile.ToDto())
             .ToActionResult(this);
     }
@@ -45,8 +42,7 @@ public class FilesController(IFileService fileService) : ControllerBase
     [HttpDelete("{fileId}")]
     public async Task<ActionResult> DeleteFile(Guid fileId, CancellationToken ct)
     {
-        var result = await fileService.DeleteAsync(fileId, ct);
-        return result.ToActionResult(this);
+        return (await fileService.DeleteAsync(fileId, ct)).ToActionResult(this);
     }
 
     [HttpGet("{fileId}/content")]
@@ -74,8 +70,7 @@ public class FilesController(IFileService fileService) : ControllerBase
     {
         await using var stream = file.OpenReadStream();
 
-        var result = await fileService.ReplaceContentAsync(fileId, stream, file.ContentType, ct);
-        return result
+        return (await fileService.ReplaceContentAsync(fileId, stream, file.ContentType, ct))
             .Map(updatedFile => updatedFile.ToDto())
             .ToActionResult(this);
     }
@@ -85,8 +80,7 @@ public class FilesController(IFileService fileService) : ControllerBase
         [FromBody] UpdateTextContentRequest request,
         CancellationToken ct)
     {
-        var result = await fileService.UpdateTextContentAsync(fileId, request.Content, ct);
-        return result
+        return (await fileService.UpdateTextContentAsync(fileId, request.Content, ct))
             .Map(file => file.ToDto())
             .ToActionResult(this);
     }
@@ -97,8 +91,7 @@ public class FilesController(IFileService fileService) : ControllerBase
         [FromBody] MoveFileRequest request,
         CancellationToken ct)
     {
-        var result = await fileService.MoveAsync(fileId, request.TargetFolderId, ct);
-        return result
+        return (await fileService.MoveAsync(fileId, request.TargetFolderId, ct))
             .Map(file => file.ToDto())
             .ToActionResult(this);
     }
@@ -109,8 +102,7 @@ public class FilesController(IFileService fileService) : ControllerBase
         [FromBody] ReorderFileRequest request,
         CancellationToken ct)
     {
-        var result = await fileService.ReorderAsync(fileId, request.Position, ct);
-        return result.ToActionResult(this);
+        return (await fileService.ReorderAsync(fileId, request.Position, ct)).ToActionResult(this);
     }
 
     private static bool TryParseRange(string? range, out long? rangeStart, out long? rangeEnd)
