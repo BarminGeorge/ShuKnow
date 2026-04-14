@@ -57,16 +57,13 @@ public class FilesController(IFileService fileService) : ControllerBase
         if (!TryParseRange(range, out var rangeStart, out var rangeEnd))
             return BadRequest("Only single byte ranges in the format 'bytes=start-end' are supported.");
 
-        var fileResult = await fileService.GetByIdAsync(fileId, ct);
-        if (!fileResult.IsSuccess)
-            return ToFailureActionResult(fileResult);
+        var result = await fileService.GetByIdAsync(fileId, ct)
+            .BindAsync(file => fileService.GetContentAsync(fileId, rangeStart, rangeEnd, ct)
+                .MapAsync(content => (content.Content, content.ContentType, file.Name)));
 
-        var contentResult = await fileService.GetContentAsync(fileId, rangeStart, rangeEnd, ct);
-        if (!contentResult.IsSuccess)
-            return ToFailureActionResult(contentResult);
-
-        var content = contentResult.Value;
-        return File(content.Content, content.ContentType, fileResult.Value.Name);
+        return result.IsSuccess
+            ? File(result.Value.Content, result.Value.ContentType, result.Value.Name)
+            : result.Map().ToActionResult(this);
     }
 
     [HttpPut("{fileId}/content")]
@@ -114,19 +111,6 @@ public class FilesController(IFileService fileService) : ControllerBase
     {
         var result = await fileService.ReorderAsync(fileId, request.Position, ct);
         return result.ToActionResult(this);
-    }
-
-    private ActionResult ToFailureActionResult<T>(Result<T> result)
-    {
-        return result.Status switch
-        {
-            ResultStatus.NotFound => NotFound(),
-            ResultStatus.Invalid => BadRequest(result.ValidationErrors),
-            ResultStatus.Conflict => Conflict(result.Errors),
-            ResultStatus.Unauthorized => Unauthorized(),
-            ResultStatus.Forbidden => Forbid(),
-            _ => Problem(string.Join(Environment.NewLine, result.Errors))
-        };
     }
 
     private static bool TryParseRange(string? range, out long? rangeStart, out long? rangeEnd)
