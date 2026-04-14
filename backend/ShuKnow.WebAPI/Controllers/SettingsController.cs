@@ -2,12 +2,11 @@ using Ardalis.Result;
 using Ardalis.Result.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
-using ShuKnow.Domain.VO;
 using ShuKnow.WebAPI.Dto.Settings;
 using ShuKnow.WebAPI.Mappers;
 using ShuKnow.WebAPI.Requests.Settings;
-using DomainAiProvider = ShuKnow.Domain.Enums.AiProvider;
 
 namespace ShuKnow.WebAPI.Controllers;
 
@@ -29,13 +28,9 @@ public class SettingsController(ISettingsService settingsService) : ControllerBa
         [FromBody] UpdateAiSettingsRequest request,
         CancellationToken ct)
     {
-        var input = new UpdateAiSettingsInput(
-            request.BaseUrl,
-            request.ApiKey,
-            request.Provider is null ? null : (DomainAiProvider)request.Provider,
-            request.ModelId);
-
-        return (await settingsService.UpdateAsync(input, ct))
+        return (await Result.Success(request)
+            .Map(settings => settings.ToInput())
+            .BindAsync(input => settingsService.UpdateAsync(input, ct)))
             .Map(settings => settings.ToDto())
             .ToActionResult(this);
     }
