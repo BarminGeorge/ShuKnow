@@ -3,6 +3,7 @@ using Ardalis.Result.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.WebAPI.Dto.Files;
 using ShuKnow.WebAPI.Dto.Folders;
@@ -62,11 +63,9 @@ public class FoldersController(
         [FromBody] UpdateFolderRequest request,
         CancellationToken ct)
     {
-        var folderResult = await folderService.GetByIdAsync(folderId, ct);
-        if (!folderResult.IsSuccess)
-            return folderResult.Map(folder => folder.ToDto()).ToActionResult(this);
-
-        return (await folderService.UpdateAsync(request.ToUpdatedModel(folderResult.Value), ct))
+        return (await folderService.GetByIdAsync(folderId, ct)
+            .Map(folder => request.ToUpdatedModel(folder))
+            .BindAsync(folder => folderService.UpdateAsync(folder, ct)))
             .Map(savedFolder => savedFolder.ToDto())
             .ToActionResult(this);
     }
