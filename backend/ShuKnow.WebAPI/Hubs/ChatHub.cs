@@ -7,7 +7,6 @@ using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Models.Notifications;
 using ShuKnow.WebAPI.Dto.Files;
 using ShuKnow.WebAPI.Events;
-using ShuKnow.WebAPI.Services;
 
 namespace ShuKnow.WebAPI.Hubs;
 
@@ -18,7 +17,7 @@ public class ChatHub(
     IChatNotificationService chatNotificationService,
     ISettingsService settingsService,
     IProcessingOperationService operationService,
-    CurrentConnectionService currentConnectionService,
+    ICurrentConnectionService currentConnectionService,
     ILogger<ChatHub> logger) : Hub
 {
     private string ConnectionId => currentConnectionService.connectionId;
@@ -58,7 +57,8 @@ public class ChatHub(
     {
         await chatNotificationService.SendProcessingStartedAsync(operationId, ct);
         var processingResult = await settingsService.GetOrCreateAsync(ct)
-            .BindAsync(settings => aiService.ProcessMessageAsync(command.Content, command.AttachmentIds, settings, ct));
+            .BindAsync(settings
+                => aiService.ProcessMessageAsync(command.Content, command.AttachmentIds, settings, operationId, ct));
 
         if (processingResult.IsSuccess)
         {

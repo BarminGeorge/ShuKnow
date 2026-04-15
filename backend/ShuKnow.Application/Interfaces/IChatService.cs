@@ -17,4 +17,8 @@ public interface IChatService
     Task<Result<IReadOnlyCollection<ChatMessage>>> GetMessagesAsync(CancellationToken ct = default);
 
     Task<Result<ChatMessage>> PersistMessageAsync(ChatMessage message, CancellationToken ct = default);
+    
+    Task<Result> PersistMessagesAsync(
+        IReadOnlyCollection<ChatMessage> messages, 
+        CancellationToken ct = default);
 }

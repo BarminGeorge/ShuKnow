@@ -16,6 +16,7 @@ public class TornadoAiService(
     IAttachmentService attachmentService,
     IChatService chatService,
     TornadoToolsService toolsService,
+    IChatNotificationService notificationService,
     ITornadoConversationFactory conversationFactory,
     IOptions<TornadoAiOptions> options,
     ILogger<TornadoAiService> logger) : IAiService
@@ -24,18 +25,17 @@ public class TornadoAiService(
     private readonly int maxTurns = options.Value.MaxTurns;
 
     public async Task<Result> ProcessMessageAsync(string content, IReadOnlyCollection<Guid>? attachmentIds,
-        UserAiSettings settings, CancellationToken ct = default)
+        UserAiSettings settings, Guid operationId, CancellationToken ct = default)
     {
         return await chatService.GetOrCreateActiveSessionAsync(ct)
             .BindAsync(session => conversationFactory.CreateConversation(settings, toolsService.Tools, temperature)
                 .ActAsync(conversation => PrepareConversation(conversation, content, attachmentIds, ct))
-                .BindAsync(conversation => RunWithTools(conversation, ct))
+                .BindAsync(conversation => RunWithTools(conversation, session.Id, operationId, ct))
                 .ActAsync(_ => attachmentIds is null or { Count: 0 }
                     ? Task.FromResult(Result.Success())
                     : attachmentService.MarkConsumedAsync(attachmentIds, ct))
                 .ActAsync(_ => chatService.PersistMessageAsync(ChatMessage.CreateUserMessage(session.Id, content), ct))
-                .ActAsync(response
-                    => chatService.PersistMessageAsync(ChatMessage.CreateAiMessage(session.Id, response), ct))
+                .ActAsync(messages => chatService.PersistMessagesAsync(messages, ct))
             )
             .BindAsync(_ => Result.Success());
     }
@@ -68,12 +68,15 @@ public class TornadoAiService(
             .Map();
     }
 
-    private async Task<Result<string>> RunWithTools(ITornadoConversation conversation, CancellationToken ct = default)
+    private async Task<Result<List<ChatMessage>>> RunWithTools(
+        ITornadoConversation conversation, Guid sessionId, Guid operationId, CancellationToken ct = default)
     {
+        var aiMessages = new List<ChatMessage>();
+        
         for (var _ = 0; _ < maxTurns; _++)
         {
             var response = await conversation.GetResponseWithToolsAsync(
-                (calls, callbackCt) => toolsService.DispatchToolCalls(calls, callbackCt),
+                toolsService.DispatchToolCalls,
                 ct);
             if (response.Exception is not null || !response.HasData)
             {
@@ -81,8 +84,13 @@ public class TornadoAiService(
                 return Result.Error("Error while processing message");
             }
 
+            var message = ChatMessage.CreateAiMessage(sessionId, response.Text ?? string.Empty);
+            aiMessages.Add(message);
+            await notificationService.SendMessageChunkAsync(operationId, message.Id, response.Text ?? "", ct);
+            await notificationService.SendMessageCompletedAsync(operationId, message.Id, ct);
+
             if (!response.ContainsFunctionCalls)
-                return Result.Success(response.Text ?? string.Empty);
+                return aiMessages;
         }
 
         return Result.Error($"Agent did not converge after {maxTurns} iterations");
