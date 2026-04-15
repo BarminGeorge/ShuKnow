@@ -6,9 +6,7 @@ namespace ShuKnow.WebAPI.Events;
 public enum ProcessingErrorCode
 {
     LlmConnectionFailed,
-    LlmRateLimited,
     LlmInvalidResponse,
-    ClassificationParseError,
     FileOperationFailed,
     InternalError
 }

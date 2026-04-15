@@ -1,5 +1,6 @@
 using Ardalis.Result;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.Application.Models.Notifications;
 
 namespace ShuKnow.Application.Extensions;
 
@@ -105,5 +106,20 @@ public static class ResultExtensions
         this Task<Result<TSource>> result, Func<TSource, Result<TDestination>> actFunc)
     {
         return await result.BindAsync(source => actFunc(source).Map(_ => source));
+    }
+
+    public static Result Invalid(string errorMessage, ChatProcessingErrorCode chatErrorCode)
+    {
+        return Result.Invalid(CreateChatError(errorMessage, chatErrorCode));
+    }
+    
+    public static Result<T> Invalid<T>(string errorMessage, ChatProcessingErrorCode chatErrorCode)
+    {
+        return Result<T>.Invalid(CreateChatError(errorMessage, chatErrorCode));
+    }
+
+    private static ValidationError CreateChatError(string errorMessage, ChatProcessingErrorCode chatErrorCode)
+    {
+        return new ValidationError("id", errorMessage, chatErrorCode.ToString(), ValidationSeverity.Error);
     }
 }

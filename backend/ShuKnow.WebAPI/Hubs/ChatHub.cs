@@ -1,32 +1,85 @@
+using Ardalis.Result;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 using Saunter.Attributes;
+using ShuKnow.Application.Interfaces;
+using ShuKnow.Application.Models.Notifications;
 using ShuKnow.WebAPI.Dto.Files;
 using ShuKnow.WebAPI.Events;
+using ShuKnow.WebAPI.Services;
 
 namespace ShuKnow.WebAPI.Hubs;
 
 [AsyncApi]
 [Authorize]
-public class ChatHub : Hub
+public class ChatHub(
+    IAiService aiService,
+    IChatNotificationService chatNotificationService,
+    ISettingsService settingsService,
+    IProcessingOperationService operationService,
+    CurrentConnectionService currentConnectionService,
+    ILogger<ChatHub> logger) : Hub
 {
+    private string ConnectionId => currentConnectionService.connectionId;
+
     #region Client -> Server Operations
 
     [Channel(nameof(SendMessage))]
     [PublishOperation(typeof(SendMessageCommand), Summary = "Submit user content for AI classification")]
     public async Task SendMessage(SendMessageCommand command)
     {
-        // TODO: implement
-        var operationId = Guid.NewGuid();
-        await Clients.Caller.SendAsync(nameof(OnProcessingStarted), new ProcessingStartedEvent(operationId));
+        var (operationId, ctSource) = operationService.BeginOperation(ConnectionId);
+        var ct = ctSource.Token;
+
+        try
+        {
+            await TryProcessMessage(command, operationId, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            logger.LogInformation("Chat processing cancelled for connection {ConnectionId}", ConnectionId);
+        }
+        finally
+        {
+            operationService.CompleteOperation(ConnectionId);
+        }
     }
 
     [Channel(nameof(CancelProcessing))]
     [PublishOperation(typeof(void), Summary = "Cancel in-flight AI processing")]
     public Task CancelProcessing()
     {
-        // TODO: implement
-        return Task.FromResult(Task.CompletedTask);
+        operationService.CancelOperation(ConnectionId);
+        return Task.CompletedTask;
+    }
+
+    private async Task TryProcessMessage(SendMessageCommand command, Guid operationId, CancellationToken ct)
+    {
+        await chatNotificationService.SendProcessingStartedAsync(operationId, ct);
+        var processingResult = await settingsService.GetOrCreateAsync(ct)
+            .BindAsync(settings => aiService.ProcessMessageAsync(command.Content, command.AttachmentIds, settings, ct));
+
+        if (processingResult.IsSuccess)
+        {
+            await chatNotificationService.SendProcessingCompletedAsync(operationId, CancellationToken.None);
+            return;
+        }
+
+        if (!processingResult.IsInvalid())
+        {
+            var errorText = processingResult.Errors.FirstOrDefault() ?? "AI processing failed";
+            await chatNotificationService.SendProcessingFailedAsync(operationId, errorText, ct: ct);
+            return;
+        }
+
+        var validationError = processingResult.ValidationErrors.FirstOrDefault();
+        var error = validationError?.ErrorMessage ?? "AI processing failed";
+        var errorCode = Enum.TryParse<ChatProcessingErrorCode>(validationError?.ErrorCode, true, out var code)
+            ? code
+            : ChatProcessingErrorCode.InternalError;
+
+        await chatNotificationService.SendProcessingFailedAsync(operationId, error, errorCode, ct);
     }
 
     #endregion
@@ -48,6 +101,12 @@ public class ChatHub : Hub
     [Channel(nameof(OnMessageChunk))]
     [SubscribeOperation(typeof(MessageChunkEvent), Summary = "Streaming LLM response chunk or full message payload")]
     public void OnMessageChunk(MessageChunkEvent @event)
+    {
+    }
+
+    [Channel(nameof(OnMessageCompleted))]
+    [SubscribeOperation(typeof(MessageCompletedEvent), Summary = "Streaming LLM response finished successfully")]
+    public void OnMessageCompleted(MessageCompletedEvent @event)
     {
     }
 
@@ -100,4 +159,10 @@ public class ChatHub : Hub
     }
 
     #endregion
+
+    public override Task OnDisconnectedAsync(Exception? exception)
+    {
+        operationService.CancelOperation(ConnectionId);
+        return base.OnDisconnectedAsync(exception);
+    }
 }

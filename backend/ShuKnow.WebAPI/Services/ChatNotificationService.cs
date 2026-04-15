@@ -23,6 +23,9 @@ public class ChatNotificationService(
 
     public Task SendMessageChunkAsync(Guid operationId, Guid messageId, string chunk, CancellationToken ct = default)
         => SendEventAsync(nameof(ChatHub.OnMessageChunk), new MessageChunkEvent(operationId, messageId, chunk), ct);
+    
+    public Task SendMessageCompletedAsync(Guid operationId, Guid messageId, CancellationToken ct = default)
+        => SendEventAsync(nameof(ChatHub.OnMessageCompleted), new MessageCompletedEvent(operationId, messageId), ct);
 
     public async Task SendFileCreatedAsync(FileEntity file, CancellationToken ct = default)
     {
@@ -74,9 +77,7 @@ public class ChatNotificationService(
         return errorCode switch
         {
             ChatProcessingErrorCode.LlmConnectionFailed => ProcessingErrorCode.LlmConnectionFailed,
-            ChatProcessingErrorCode.LlmRateLimited => ProcessingErrorCode.LlmRateLimited,
             ChatProcessingErrorCode.LlmInvalidResponse => ProcessingErrorCode.LlmInvalidResponse,
-            ChatProcessingErrorCode.ClassificationParseError => ProcessingErrorCode.ClassificationParseError,
             ChatProcessingErrorCode.FileOperationFailed => ProcessingErrorCode.FileOperationFailed,
             _ => ProcessingErrorCode.InternalError
         };
