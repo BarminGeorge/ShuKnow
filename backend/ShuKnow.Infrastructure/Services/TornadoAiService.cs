@@ -76,19 +76,22 @@ public class TornadoAiService(
         
         for (var _ = 0; _ < maxTurns; _++)
         {
-            var response = await conversation.GetResponseWithToolsAsync(
-                toolsService.DispatchToolCalls,
-                ct);
+            var response = await conversation.GetResponseWithToolsAsync(toolsService.DispatchToolCalls, ct);
             if (response.Exception is not null || !response.HasData)
             {
                 logger.LogError(response.Exception, "Error while processing message with Tornado API");
                 return Invalid("Error while processing message", ChatProcessingErrorCode.LlmInvalidResponse);
             }
 
-            var message = ChatMessage.CreateAiMessage(sessionId, response.Text ?? string.Empty);
-            aiMessages.Add(message);
-            await notificationService.SendMessageChunkAsync(operationId, message.Id, response.Text ?? "", ct);
-            await notificationService.SendMessageCompletedAsync(operationId, message.Id, ct);
+            var responseText = response.Text ?? string.Empty;
+
+            if (!string.IsNullOrEmpty(responseText))
+            {
+                var message = ChatMessage.CreateAiMessage(sessionId, responseText);
+                aiMessages.Add(message);
+                await notificationService.SendMessageChunkAsync(operationId, message.Id, message.Content, ct);
+                await notificationService.SendMessageCompletedAsync(operationId, message.Id, ct);
+            }
 
             if (!response.ContainsFunctionCalls)
                 return aiMessages;

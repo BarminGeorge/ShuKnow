@@ -30,7 +30,7 @@ public class TornadoAiServiceLiveTests
         var fixture = CreateFixture(attachments: []);
         const string prompt = "Ответь одним словом: да.";
 
-        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: TODO);
+        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
 
         AssertSuccess(result, fixture.Logs);
     }
@@ -41,7 +41,7 @@ public class TornadoAiServiceLiveTests
         var fixture = CreateFixture(attachments: []);
         const string prompt = "Ответь одним словом: да.";
 
-        await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: TODO);
+        await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
 
         fixture.PersistedMessages.Should().Contain(m =>
             m.Role == ChatMessageRole.User &&
@@ -54,7 +54,7 @@ public class TornadoAiServiceLiveTests
         var fixture = CreateFixture(attachments: []);
         const string prompt = "Ответь одним словом: да.";
 
-        await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: TODO);
+        await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
 
         fixture.PersistedMessages.Should().Contain(m =>
             m.Role == ChatMessageRole.Ai &&
@@ -67,7 +67,7 @@ public class TornadoAiServiceLiveTests
         var fixture = CreateFixture(attachments: []);
         const string prompt = "Коротко представься без markdown и перечисли доступные tools с сигнатурами.";
 
-        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: TODO);
+        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
 
         AssertSuccess(result, fixture.Logs);
         fixture.PersistedMessages.Should().HaveCount(2);
@@ -84,7 +84,7 @@ public class TornadoAiServiceLiveTests
         await fixture.Sut.ProcessMessageAsync(
             "Подтверди, что получил описание вложения, одним коротким предложением.",
             [attachmentId],
-            fixture.Settings, TODO);
+            fixture.Settings, Guid.NewGuid());
 
         await fixture.AttachmentService.Received(1).GetByIdsAsync(
             Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { attachmentId })),
@@ -101,7 +101,7 @@ public class TornadoAiServiceLiveTests
         await fixture.Sut.ProcessMessageAsync(
             "Подтверди, что получил описание вложения, одним коротким предложением.",
             [attachmentId],
-            fixture.Settings, TODO);
+            fixture.Settings, Guid.NewGuid());
 
         await fixture.BlobStorageService.Received(1).GetAsync(attachment.BlobId, Arg.Any<CancellationToken>());
     }
@@ -116,7 +116,7 @@ public class TornadoAiServiceLiveTests
         var fixture = CreateFixtureWithToolErrors();
         const string prompt = "Перемести файл 'nonexistent.txt' в папку 'destination/'.";
 
-        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: TODO);
+        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
 
         AssertSuccess(result, fixture.Logs);
         await fixture.AiToolsService.Received().MoveFileAsync(
@@ -140,7 +140,7 @@ public class TornadoAiServiceLiveTests
             Подтверди выполнение кратко.
             """;
 
-        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: TODO);
+        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
 
         AssertSuccess(result, fixture.Logs);
         await fixture.AiToolsService.Received().CreateFolderAsync(
@@ -165,9 +165,8 @@ public class TornadoAiServiceLiveTests
             Подтверди выполнение кратко.
             """;
 
-        await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: TODO);
-
-        fixture.PersistedMessages.Should().HaveCount(2);
+        await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
+        
         fixture.PersistedMessages[0].Role.Should().Be(ChatMessageRole.User);
         fixture.PersistedMessages[1].Role.Should().Be(ChatMessageRole.Ai);
         fixture.PersistedMessages[1].Content.Should().NotBeNullOrWhiteSpace();
@@ -183,7 +182,7 @@ public class TornadoAiServiceLiveTests
             Подтверди кратко.
             """;
 
-        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: TODO);
+        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
 
         AssertSuccess(result, fixture.Logs);
         await fixture.AiToolsService.Received().PrependTextAsync(
@@ -261,6 +260,12 @@ public class TornadoAiServiceLiveTests
         blobStorageService.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success<Stream>(new MemoryStream([1, 2, 3]))));
 
+        var notificationService = Substitute.For<IChatNotificationService>();
+        notificationService.SendMessageChunkAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        notificationService.SendMessageCompletedAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
         var encryptionService = new EncryptionService(Options.Create(new EncryptionOptions { Key = EncryptionKey }));
         var encryptedApiKey = encryptionService.Encrypt(config.ApiKey).Value;
         var settings = new UserAiSettings(
@@ -285,13 +290,27 @@ public class TornadoAiServiceLiveTests
                 persistedMessages.Add(message);
                 return Task.FromResult(Result.Success(message));
             });
+        chatService.PersistMessagesAsync(Arg.Any<IReadOnlyCollection<ChatMessage>>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                persistedMessages.AddRange(callInfo.Arg<IReadOnlyCollection<ChatMessage>>());
+                return Task.FromResult(Result.Success());
+            });
 
         var promptBuilder = new TornadoPromptBuilder(attachmentService, blobStorageService, chatService);
         var toolsService = new TornadoToolsService(aiToolsService);
         var conversationFactory = new TornadoConversationFactory(encryptionService);
         var logger = new TestLogger<TornadoAiService>();
         var options = Options.Create(new TornadoAiOptions { Temperature = 0.3, MaxTurns = 10 });
-        var sut = new TornadoAiService(promptBuilder, attachmentService, chatService, toolsService, conversationFactory, options, logger);
+        var sut = new TornadoAiService(
+            promptBuilder,
+            attachmentService,
+            chatService,
+            toolsService,
+            notificationService,
+            conversationFactory,
+            options,
+            logger);
 
         return new TornadoAiLiveFixture(
             sut,

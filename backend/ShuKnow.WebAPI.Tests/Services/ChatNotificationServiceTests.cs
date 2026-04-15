@@ -229,15 +229,15 @@ public class ChatNotificationServiceTests
     {
         var operationId = Guid.NewGuid();
 
-        await sut.SendProcessingFailedAsync(operationId, "rate limited", ChatProcessingErrorCode.LlmRateLimited);
+        await sut.SendProcessingFailedAsync(operationId, "invalid response", ChatProcessingErrorCode.LlmInvalidResponse);
 
         AssertSentEvent<ProcessingFailedEvent>(
             nameof(ChatHub.OnProcessingFailed),
             @event =>
             {
                 @event.OperationId.Should().Be(operationId);
-                @event.Error.Should().Be("rate limited");
-                @event.Code.Should().Be(ProcessingErrorCode.LlmRateLimited);
+                @event.Error.Should().Be("invalid response");
+                @event.Code.Should().Be(ProcessingErrorCode.LlmInvalidResponse);
             });
     }
 
