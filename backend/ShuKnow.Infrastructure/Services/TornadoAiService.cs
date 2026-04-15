@@ -3,10 +3,11 @@ using LlmTornado.Chat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ShuKnow.Application.Common;
-using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.Application.Models.Notifications;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Infrastructure.Misc;
+using static ShuKnow.Application.Extensions.ResultExtensions;
 using ChatMessage = ShuKnow.Domain.Entities.ChatMessage;
 
 namespace ShuKnow.Infrastructure.Services;
@@ -81,7 +82,7 @@ public class TornadoAiService(
             if (response.Exception is not null || !response.HasData)
             {
                 logger.LogError(response.Exception, "Error while processing message with Tornado API");
-                return Result.Error("Error while processing message");
+                return Invalid("Error while processing message", ChatProcessingErrorCode.LlmInvalidResponse);
             }
 
             var message = ChatMessage.CreateAiMessage(sessionId, response.Text ?? string.Empty);
@@ -92,8 +93,8 @@ public class TornadoAiService(
             if (!response.ContainsFunctionCalls)
                 return aiMessages;
         }
-
-        return Result.Error($"Agent did not converge after {maxTurns} iterations");
+        
+        return Invalid($"Agent did not converge after {maxTurns} iterations", ChatProcessingErrorCode.LlmInvalidResponse);
     }
 
     private async Task<Result<string>> RunConnectionTest(ITornadoConversation conversation,

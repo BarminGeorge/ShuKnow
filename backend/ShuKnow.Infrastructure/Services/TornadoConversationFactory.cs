@@ -5,9 +5,11 @@ using LlmTornado.Chat.Models;
 using LlmTornado.ChatFunctions;
 using LlmTornado.Common;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.Application.Models.Notifications;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Extensions;
 using ShuKnow.Infrastructure.Extensions;
+using static ShuKnow.Application.Extensions.ResultExtensions;
 using TornadoChatMessage = LlmTornado.Chat.ChatMessage;
 
 namespace ShuKnow.Infrastructure.Services;
@@ -19,7 +21,7 @@ public class TornadoConversationFactory(IEncryptionService encryptionService) : 
         IReadOnlyCollection<Tool> tools,
         double temperature)
     {
-        return CreateApi(settings)
+       return CreateApi(settings)
             .Map(api => (ITornadoConversation)new LlmTornadoConversation(api.Chat.CreateConversation(new ChatRequest
             {
                 Model = new ChatModel(settings.ModelId, api.GetFirstAuthenticatedProvider()),
@@ -40,7 +42,7 @@ public class TornadoConversationFactory(IEncryptionService encryptionService) : 
     private Result<TornadoApi> CreateApi(UserAiSettings settings)
     {
         if (string.IsNullOrEmpty(settings.ApiKeyEncrypted))
-            return Result.Error("API key is not configured");
+            return Invalid("API key is not configured", ChatProcessingErrorCode.LlmConnectionFailed);
 
         return encryptionService.Decrypt(settings.ApiKeyEncrypted)
             .Bind(apiKey => settings.Provider.MapToLlmProviders()
