@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { X, Eye, EyeOff, ArrowLeft, ChevronDown, Loader2, User, Sparkles, Cpu, Key, Settings, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import { X, Eye, EyeOff, ArrowLeft, Loader2, User, Sparkles, Cpu, Key, Settings, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { settingsService } from "../../api";
 import type { AiProvider, AiConnectionTestResult } from "../../api/types";
 import { Badge } from "./ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -25,6 +26,8 @@ const PROVIDER_MODELS: Record<string, string> = {
   Gemini: "gemini-pro",
   Anthropic: "claude-3-5-sonnet-20241022",
 };
+
+const PROVIDERS = ["OpenAI", "OpenRouter", "Gemini", "Anthropic"];
 
 // Provider icons
 const PROVIDER_ICONS: Record<string, React.ReactNode> = {
@@ -159,7 +162,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           setIsEditingKey(false);
           setApiKey("");
         } else {
-          toast.error(result.errorMessage || "Не удалось подключиться");
+          setTestResult({
+            ...result,
+            errorMessage: result.errorMessage || "Не удалось подключиться",
+          });
         }
       } catch (testError) {
         console.error("Test failed:", testError);
@@ -169,7 +175,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           latencyMs: null,
           errorMessage: errorMsg,
         });
-        toast.error(errorMsg);
       } finally {
         setIsTesting(false);
       }
@@ -177,7 +182,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       console.error("Failed to save settings:", error);
       const errorMsg = error instanceof Error ? error.message : "Не удалось сохранить настройки";
       setSaveError(errorMsg);
-      toast.error(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -371,22 +375,31 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <div className="space-y-5">
               <div>
                 <label className="text-xs text-gray-400 block mb-1">Провайдер</label>
-                <div className="relative">
-                  <select
-                    value={provider}
-                    onChange={(e) => setProvider(e.target.value)}
-                    disabled={isLoading || isTesting}
-                    className="w-full pl-3 pr-10 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 focus:outline-none focus:border-indigo-500/50 appearance-none disabled:opacity-50"
+                <Select
+                  value={provider}
+                  onValueChange={setProvider}
+                  disabled={isLoading || isTesting}
+                >
+                  <SelectTrigger
+                    className="h-[38px] w-full rounded-xl border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-gray-200 shadow-none outline-none focus:border-indigo-500/50 focus:ring-0 focus-visible:border-indigo-500/50 focus-visible:ring-0 disabled:opacity-50"
                   >
-                    <option value="OpenAI">OpenAI</option>
-                    <option value="OpenRouter">OpenRouter</option>
-                    <option value="Gemini">Gemini</option>
-                    <option value="Anthropic">Anthropic</option>
-                  </select>
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                    <ChevronDown size={16} />
-                  </div>
-                </div>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent
+                    sideOffset={6}
+                    className="z-[70] rounded-xl border border-white/10 bg-[#1f1f1f] p-1 text-gray-200 shadow-2xl"
+                  >
+                    {PROVIDERS.map((providerName) => (
+                      <SelectItem
+                        key={providerName}
+                        value={providerName}
+                        className="rounded-lg py-2 pl-3 pr-8 text-sm text-gray-200 outline-none focus:bg-white/10 focus:text-white data-[state=checked]:bg-indigo-500/15 data-[state=checked]:text-white"
+                      >
+                        {providerName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <label className="text-xs text-gray-400 block mb-1">Base URL</label>
@@ -419,23 +432,30 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <div>
                 <label className="text-xs text-gray-400 block mb-1">API Ключ</label>
                 <div className="relative">
-                  <input
-                    type={showKey ? "text" : "password"}
+                  <textarea
+                    rows={1}
+                    wrap="off"
                     value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
+                    onChange={(e) => setApiKey(e.target.value.replace(/[\r\n]/g, ""))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.preventDefault();
+                    }}
                     disabled={isLoading || isTesting}
                     placeholder="Введите ваш API ключ"
-                    autoComplete="new-password"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
                     data-form-type="other"
                     data-lpignore="true"
-                    className="w-full pl-3 pr-10 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-50"
+                    className={`block w-full h-[38px] pl-3 pr-10 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-50 resize-none overflow-hidden leading-5 ${showKey ? "" : "[-webkit-text-security:disc]"}`}
                   />
                   {apiKey && (
                     <button 
                       type="button"
                       onClick={() => setShowKey(!showKey)}
                       disabled={isLoading || isTesting}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-50"
+                      className="absolute right-3 top-0 flex h-[38px] items-center text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-50"
                     >
                       {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
