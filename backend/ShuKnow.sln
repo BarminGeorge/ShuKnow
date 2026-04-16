@@ -22,6 +22,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShuKnow.WebAPI.Tests", "Shu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShuKnow.Metrics.Tests", "ShuKnow.Metrics.Tests\ShuKnow.Metrics.Tests.csproj", "{B134A451-0FDE-4BCE-9C38-54213F5525E2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShuKnow.WebAPI.IntegrationTests", "ShuKnow.WebAPI.IntegrationTests\ShuKnow.WebAPI.IntegrationTests.csproj", "{3C2882FC-9244-411E-A4D6-1EAFF7CD4DDA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -156,6 +158,18 @@ Global
 		{B134A451-0FDE-4BCE-9C38-54213F5525E2}.Release|x64.Build.0 = Release|Any CPU
 		{B134A451-0FDE-4BCE-9C38-54213F5525E2}.Release|x86.ActiveCfg = Release|Any CPU
 		{B134A451-0FDE-4BCE-9C38-54213F5525E2}.Release|x86.Build.0 = Release|Any CPU
+		{3C2882FC-9244-411E-A4D6-1EAFF7CD4DDA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3C2882FC-9244-411E-A4D6-1EAFF7CD4DDA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3C2882FC-9244-411E-A4D6-1EAFF7CD4DDA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3C2882FC-9244-411E-A4D6-1EAFF7CD4DDA}.Debug|x64.Build.0 = Debug|Any CPU
+		{3C2882FC-9244-411E-A4D6-1EAFF7CD4DDA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{3C2882FC-9244-411E-A4D6-1EAFF7CD4DDA}.Debug|x86.Build.0 = Debug|Any CPU
+		{3C2882FC-9244-411E-A4D6-1EAFF7CD4DDA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3C2882FC-9244-411E-A4D6-1EAFF7CD4DDA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3C2882FC-9244-411E-A4D6-1EAFF7CD4DDA}.Release|x64.ActiveCfg = Release|Any CPU
+		{3C2882FC-9244-411E-A4D6-1EAFF7CD4DDA}.Release|x64.Build.0 = Release|Any CPU
+		{3C2882FC-9244-411E-A4D6-1EAFF7CD4DDA}.Release|x86.ActiveCfg = Release|Any CPU
+		{3C2882FC-9244-411E-A4D6-1EAFF7CD4DDA}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
