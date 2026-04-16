@@ -6,6 +6,24 @@ namespace ShuKnow.Application.Extensions;
 
 public static class ResultExtensions
 {
+    public static string GetFirstErrorOrDefault(this IResult result, string defaultMessage)
+    {
+        return result.Errors.FirstOrDefault()
+               ?? result.ValidationErrors.FirstOrDefault()?.ErrorMessage
+               ?? defaultMessage;
+    }
+
+    public static ChatProcessingErrorCode GetChatProcessingErrorCodeOrDefault(
+        this IResult result,
+        ChatProcessingErrorCode defaultCode = ChatProcessingErrorCode.InternalError)
+    {
+        var errorCode = result.ValidationErrors.FirstOrDefault()?.ErrorCode;
+
+        return Enum.TryParse<ChatProcessingErrorCode>(errorCode, true, out var code)
+            ? code
+            : defaultCode;
+    }
+
     public static async Task<Result<T>> SaveChangesAsync<T>(this Task<Result<T>> result, IUnitOfWork unitOfWork)
     {
         return await result.ActAsync(_ => unitOfWork.SaveChangesAsync());

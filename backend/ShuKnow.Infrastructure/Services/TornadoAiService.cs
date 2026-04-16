@@ -24,7 +24,8 @@ public class TornadoAiService(
 {
     private readonly double temperature = options.Value.Temperature;
     private readonly int maxTurns = options.Value.MaxTurns;
-
+    private const string DefaultProcessingErrorMessage = "Error while processing message";
+    
     public async Task<Result> ProcessMessageAsync(string content, IReadOnlyCollection<Guid>? attachmentIds,
         UserAiSettings settings, Guid operationId, CancellationToken ct = default)
     {
@@ -47,7 +48,7 @@ public class TornadoAiService(
             .BindAsync(conversation => LatencyMeasureUtil.MeasureAsync(() => RunConnectionTest(conversation, ct)));
 
         var latency = testResult.IsSuccess ? (int?)testResult.Value : null;
-        var error = testResult.IsSuccess ? null : testResult.Errors.FirstOrDefault();
+        var error = testResult.IsSuccess ? null : testResult.GetFirstErrorOrDefault(DefaultProcessingErrorMessage);
 
         settings.UpdateTestResult(testResult.IsSuccess, latency, error);
         return settings;
@@ -68,7 +69,7 @@ public class TornadoAiService(
             .Act(_ => userTask.Result.Act(conversation.AddUserMessage))
             .Map();
     }
-
+    
     private async Task<Result<List<ChatMessage>>> RunWithTools(
         ITornadoConversation conversation, Guid sessionId, Guid operationId, CancellationToken ct = default)
     {

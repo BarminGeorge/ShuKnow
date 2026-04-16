@@ -1,6 +1,7 @@
 using Ardalis.Result;
 using LlmTornado.ChatFunctions;
 using LlmTornado.Common;
+using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using static ShuKnow.Infrastructure.Misc.TornadoAiToolUtil;
 
@@ -8,6 +9,7 @@ namespace ShuKnow.Infrastructure.Services;
 
 public class TornadoToolsService
 {
+    private const string DefaultToolErrorMessage = "One or more error occured";
     private readonly Dictionary<string, Func<FunctionCall, CancellationToken, Task<Result<string>>>> dispatchers =
         new(StringComparer.Ordinal);
 
@@ -36,9 +38,7 @@ public class TornadoToolsService
             var result = await HandleFunctionCall(call, ct);
             call.Result = result.IsSuccess
                 ? new FunctionResult(call, result.Value, true)
-                : new FunctionResult(call,
-                    result.Errors.FirstOrDefault() ?? result.ValidationErrors.FirstOrDefault()?.ErrorMessage ??
-                    "One or more error occured", false);
+                : new FunctionResult(call, result.GetFirstErrorOrDefault(DefaultToolErrorMessage), false);
         }
     }
 

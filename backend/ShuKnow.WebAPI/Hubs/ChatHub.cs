@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using Saunter.Attributes;
+using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
-using ShuKnow.Application.Models.Notifications;
 using ShuKnow.WebAPI.Dto.Files;
 using ShuKnow.WebAPI.Events;
 
@@ -20,6 +20,8 @@ public class ChatHub(
     ICurrentConnectionService currentConnectionService,
     ILogger<ChatHub> logger) : Hub
 {
+    private const string DefaultProcessingErrorMessage = "AI processing failed";
+
     private string ConnectionId => currentConnectionService.connectionId;
     
     #region Client -> Server Operations
@@ -52,34 +54,30 @@ public class ChatHub(
         operationService.CancelOperation(ConnectionId);
         return Task.CompletedTask;
     }
-
+    
     private async Task TryProcessMessage(SendMessageCommand command, Guid operationId, CancellationToken ct)
     {
         await chatNotificationService.SendProcessingStartedAsync(operationId, ct);
-        var processingResult = await settingsService.GetOrCreateAsync(ct)
-            .BindAsync(settings
-                => aiService.ProcessMessageAsync(command.Content, command.AttachmentIds, settings, operationId, ct));
 
+        var processingResult = await settingsService.GetOrCreateAsync(ct)
+            .BindAsync(settings =>
+                aiService.ProcessMessageAsync(command.Content, command.AttachmentIds, settings, operationId, ct));
+        await NotifyProcessingResultAsync(operationId, processingResult, ct);
+    }
+
+    private async Task NotifyProcessingResultAsync(Guid operationId, Result processingResult, CancellationToken ct)
+    {
         if (processingResult.IsSuccess)
         {
             await chatNotificationService.SendProcessingCompletedAsync(operationId, CancellationToken.None);
             return;
         }
 
-        if (!processingResult.IsInvalid())
-        {
-            var errorText = processingResult.Errors.FirstOrDefault() ?? "AI processing failed";
-            await chatNotificationService.SendProcessingFailedAsync(operationId, errorText, ct: ct);
-            return;
-        }
-
-        var validationError = processingResult.ValidationErrors.FirstOrDefault();
-        var error = validationError?.ErrorMessage ?? "AI processing failed";
-        var errorCode = Enum.TryParse<ChatProcessingErrorCode>(validationError?.ErrorCode, true, out var code)
-            ? code
-            : ChatProcessingErrorCode.InternalError;
-
-        await chatNotificationService.SendProcessingFailedAsync(operationId, error, errorCode, ct);
+        await chatNotificationService.SendProcessingFailedAsync(
+            operationId,
+            processingResult.GetFirstErrorOrDefault(DefaultProcessingErrorMessage),
+            processingResult.GetChatProcessingErrorCodeOrDefault(),
+            ct);
     }
 
     #endregion
