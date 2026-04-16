@@ -1,5 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using ShuKnow.Application.Common;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Services;
 
@@ -20,7 +19,5 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IActionQueryService, ActionQueryService>();
         services.AddScoped<IActionTrackingService, ActionTrackingService>();
         services.AddScoped<IRollbackService, RollbackService>();
-
-        services.AddSingleton<IProcessingOperationService, ProcessingOperationService>();
     }
 }
