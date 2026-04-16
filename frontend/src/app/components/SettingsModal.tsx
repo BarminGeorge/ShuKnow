@@ -236,7 +236,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={handleClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      onPointerDown={(e) => {
+        if (e.target === e.currentTarget) handleClose();
+      }}
+    >
       <div 
         className="bg-[#141414] border border-white/10 rounded-2xl w-full max-w-lg mx-4 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
