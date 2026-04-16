@@ -4,6 +4,20 @@ import type { AiSettingsDto, UpdateAiSettingsRequest, AiConnectionTestResult } f
 
 const API_BASE = '/api';
 
+const maskApiKey = (key: string) => {
+  const trimmedKey = key.trim();
+  const length = trimmedKey.length;
+
+  if (!length) return '';
+  if (length <= 4) return '*'.repeat(length);
+
+  const visibleStart = length <= 10 ? 2 : Math.min(4, Math.ceil(length * 0.15));
+  const visibleEnd = length <= 10 ? 2 : Math.min(4, Math.ceil(length * 0.12));
+  const hiddenCount = Math.max(3, Math.min(24, length - visibleStart - visibleEnd));
+
+  return `${trimmedKey.slice(0, visibleStart)}${'*'.repeat(hiddenCount)}${trimmedKey.slice(-visibleEnd)}`;
+};
+
 // Mutable mock settings state
 let currentSettings: AiSettingsDto = { ...MOCK_AI_SETTINGS };
 
@@ -23,9 +37,7 @@ export const settingsHandlers = [
     // Update mock settings
     currentSettings = {
       baseUrl: body.baseUrl,
-      apiKeyMasked: body.apiKey.length > 4
-        ? body.apiKey.substring(0, 3) + '***' + body.apiKey.substring(body.apiKey.length - 3)
-        : '***',
+      apiKeyMasked: maskApiKey(body.apiKey),
       isConfigured: true,
       provider: body.provider,
       modelId: body.modelId,

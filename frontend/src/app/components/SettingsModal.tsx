@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Eye, EyeOff, ArrowLeft, Loader2, User, Sparkles, Cpu, Key, Settings, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import { X, Eye, EyeOff, ArrowLeft, Loader2, User, Sparkles, Cpu, Key, Settings, CheckCircle2, AlertCircle, RefreshCw, Link } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { settingsService } from "../../api";
@@ -28,6 +28,7 @@ const PROVIDER_MODELS: Record<string, string> = {
 };
 
 const PROVIDERS = ["OpenAI", "OpenRouter", "Gemini", "Anthropic"];
+const EMPTY_SETTING_VALUE = "Не задано";
 
 // Provider icons
 const PROVIDER_ICONS: Record<string, React.ReactNode> = {
@@ -37,12 +38,33 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   Anthropic: <Sparkles size={16} className="text-orange-400" />,
 };
 
+const normalizeProviderName = (value?: string | null) => {
+  if (!value) return "";
+  const normalized = value.toLowerCase();
+  if (normalized === "unknown") return "";
+  return PROVIDERS.find((providerName) => providerName.toLowerCase() === normalized) || value;
+};
+
+const maskApiKey = (key: string, emptyValue = EMPTY_SETTING_VALUE, maskChar = "*") => {
+  const trimmedKey = key.trim();
+  const length = trimmedKey.length;
+
+  if (!length) return emptyValue;
+  if (length <= 4) return maskChar.repeat(length);
+
+  const visibleStart = length <= 10 ? 2 : Math.min(4, Math.ceil(length * 0.15));
+  const visibleEnd = length <= 10 ? 2 : Math.min(4, Math.ceil(length * 0.12));
+  const hiddenCount = Math.max(3, Math.min(24, length - visibleStart - visibleEnd));
+
+  return `${trimmedKey.slice(0, visibleStart)}${maskChar.repeat(hiddenCount)}${trimmedKey.slice(-visibleEnd)}`;
+};
+
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [apiKey, setApiKey] = useState("");
   const [apiKeyMasked, setApiKeyMasked] = useState("");
-  const [provider, setProvider] = useState("OpenAI");
-  const [baseUrl, setBaseUrl] = useState(PROVIDER_URLS["OpenAI"]);
-  const [modelId, setModelId] = useState("gpt-4o");
+  const [provider, setProvider] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [modelId, setModelId] = useState("");
   const [isEditingKey, setIsEditingKey] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -54,6 +76,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   // Update base URL and model when provider changes
   useEffect(() => {
+    if (!provider) return;
+
     setBaseUrl(PROVIDER_URLS[provider] || "");
     setModelId(PROVIDER_MODELS[provider] || "");
   }, [provider]);
@@ -69,10 +93,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   useEffect(() => {
     if (isEditingKey) {
       if (!isConfigured) {
-        // First time setup - set OpenAI defaults
-        setProvider("OpenAI");
-        setBaseUrl(PROVIDER_URLS["OpenAI"]);
-        setModelId(PROVIDER_MODELS["OpenAI"]);
+        setProvider("");
+        setBaseUrl("");
+        setModelId("");
       }
       // Always clear API key when opening edit form
       setApiKey("");
@@ -83,17 +106,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     try {
       const settings = await settingsService.fetchAiSettings();
       
-      setBaseUrl(settings.baseUrl || PROVIDER_URLS["OpenAI"]);
+      setBaseUrl(settings.isConfigured ? settings.baseUrl || "" : "");
       setIsConfigured(settings.isConfigured);
       setApiKeyMasked(settings.apiKeyMasked || "");
       
       // Convert provider from lowercase to PascalCase for UI
-      const providerKey = settings.provider 
-        ? settings.provider.charAt(0).toUpperCase() + settings.provider.slice(1)
-        : "OpenAI";
+      const providerKey = settings.isConfigured ? normalizeProviderName(settings.provider) : "";
       setProvider(providerKey);
       
-      setModelId(settings.modelId || PROVIDER_MODELS[providerKey]);
+      setModelId(settings.isConfigured ? settings.modelId || "" : "");
       setApiKey(""); // Don't load key for security
       
       // Auto-test connection if configured
@@ -127,8 +148,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   };
 
   const handleSave = async () => {
-    if (!apiKey.trim()) {
-      setSaveError("API ключ не может быть пустым");
+    if (!provider || !baseUrl.trim() || !modelId.trim() || !apiKey.trim()) {
+      setSaveError("Заполните провайдера, Base URL, модель и API ключ");
       return;
     }
     
@@ -141,7 +162,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       await settingsService.updateAiSettings({
         baseUrl,
         apiKey,
-        provider: provider.toLowerCase() as AiProvider,
+        provider: provider ? provider.toLowerCase() as AiProvider : undefined,
         modelId: modelId || undefined,
       });
       
@@ -153,11 +174,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         
         if (result.success) {
           setIsConfigured(true);
-          // Update masked key for display
-          const masked = apiKey.length > 6
-            ? apiKey.substring(0, 3) + '***' + apiKey.substring(apiKey.length - 3)
-            : '***';
-          setApiKeyMasked(masked);
+          setApiKeyMasked(maskApiKey(apiKey));
           // Close editing form immediately on successful test
           setIsEditingKey(false);
           setApiKey("");
@@ -187,10 +204,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
   };
 
-  const maskKey = (key: string) => {
-    if (!key) return "Не задан";
-    if (key.length <= 6) return "••••••";
-    return key.substring(0, 3) + "••••••••••••" + key.substring(key.length - 3);
+  const renderSettingValue = (value?: string | null, className = "text-sm font-medium") => {
+    const displayValue = value?.trim() || EMPTY_SETTING_VALUE;
+    const isEmpty = displayValue === EMPTY_SETTING_VALUE;
+
+    return (
+      <div className={`${className} ${isEmpty ? "text-gray-500 italic" : "text-gray-200"}`}>
+        {displayValue}
+      </div>
+    );
   };
 
   const handleQuickTest = async () => {
@@ -302,73 +324,62 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </div>
                 </div>
 
-                {!isConfigured ? (
-                  // Empty state
-                  <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6 text-center">
-                    <div className="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center mx-auto mb-3">
-                      <Key size={20} className="text-indigo-400" />
+                <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-4 space-y-3">
+                  {/* Provider */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                      {PROVIDER_ICONS[provider] || <Sparkles size={16} className="text-indigo-400" />}
                     </div>
-                    <h4 className="text-sm font-medium text-gray-200 mb-1">
-                      API ключ не настроен
-                    </h4>
-                    <p className="text-xs text-gray-500 mb-4">
-                      Настройте подключение к AI провайдеру для начала работы
-                    </p>
+                    <div className="flex-1">
+                      <div className="text-xs text-gray-500">Провайдер</div>
+                      {renderSettingValue(normalizeProviderName(provider))}
+                    </div>
+                  </div>
+
+                  {/* Base URL */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                      <Link size={16} className="text-blue-400" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-xs text-gray-500">Base URL</div>
+                      {renderSettingValue(baseUrl)}
+                    </div>
+                  </div>
+
+                  {/* Model */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                      <Cpu size={16} className="text-purple-400" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-xs text-gray-500">Модель</div>
+                      {renderSettingValue(modelId)}
+                    </div>
+                  </div>
+
+                  {/* API Key */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                      <Key size={16} className="text-green-400" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-xs text-gray-500">API ключ</div>
+                      {renderSettingValue(apiKeyMasked, "text-sm font-mono")}
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-white/10 pt-3">
                     <button
                       onClick={() => setIsEditingKey(true)}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm font-medium"
+                      className="w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-gray-300 transition-colors flex items-center justify-center gap-2"
                     >
-                      Настроить API ключ
+                      <Settings size={14} />
+                      {isConfigured ? "Изменить настройки" : "Настроить API ключ"}
                     </button>
                   </div>
-                ) : (
-                  // Configured state
-                  <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-4 space-y-3">
-                    {/* Provider */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-                        {PROVIDER_ICONS[provider] || <Sparkles size={16} className="text-indigo-400" />}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs text-gray-500">Провайдер</div>
-                        <div className="text-sm font-medium text-gray-200">{provider}</div>
-                      </div>
-                    </div>
-
-                    {/* Model */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                        <Cpu size={16} className="text-purple-400" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs text-gray-500">Модель</div>
-                        <div className="text-sm font-medium text-gray-200">{modelId}</div>
-                      </div>
-                    </div>
-
-                    {/* API Key */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
-                        <Key size={16} className="text-green-400" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs text-gray-500">API ключ</div>
-                        <div className="text-sm font-mono text-gray-400">{apiKeyMasked || "Не задан"}</div>
-                      </div>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="border-t border-white/10 pt-3">
-                      <button
-                        onClick={() => setIsEditingKey(true)}
-                        className="w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-gray-300 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Settings size={14} />
-                        Изменить настройки
-                      </button>
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
           ) : (
@@ -432,6 +443,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <div>
                 <label className="text-xs text-gray-400 block mb-1">API Ключ</label>
                 <div className="relative">
+                  {!showKey && apiKey && (
+                    <div className="pointer-events-none absolute left-3 right-14 top-0 z-10 flex h-[38px] items-center overflow-hidden whitespace-nowrap font-mono text-sm leading-5 text-gray-200">
+                      {"•".repeat(apiKey.length)}
+                    </div>
+                  )}
                   <textarea
                     rows={1}
                     wrap="off"
@@ -439,6 +455,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     onChange={(e) => setApiKey(e.target.value.replace(/[\r\n]/g, ""))}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") e.preventDefault();
+                    }}
+                    onCopy={(e) => {
+                      if (!showKey && apiKey) {
+                        e.preventDefault();
+                        e.clipboardData.setData("text/plain", apiKey);
+                      }
                     }}
                     disabled={isLoading || isTesting}
                     placeholder="Введите ваш API ключ"
@@ -448,14 +470,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     spellCheck={false}
                     data-form-type="other"
                     data-lpignore="true"
-                    className={`block w-full h-[38px] pl-3 pr-10 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-50 resize-none overflow-hidden leading-5 ${showKey ? "" : "[-webkit-text-security:disc]"}`}
+                    className={`block w-full h-[38px] pl-3 pr-14 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl font-mono text-sm placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-50 resize-none overflow-hidden leading-5 ${showKey ? "text-gray-200" : "text-transparent caret-gray-200"}`}
                   />
+                  <div className="pointer-events-none absolute right-px top-px z-10 h-[36px] w-14 rounded-r-xl bg-[#1a1a1a]" />
                   {apiKey && (
                     <button 
                       type="button"
                       onClick={() => setShowKey(!showKey)}
                       disabled={isLoading || isTesting}
-                      className="absolute right-3 top-0 flex h-[38px] items-center text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-50"
+                      className="absolute right-3 top-0 z-20 flex h-[38px] w-8 items-center justify-center text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-50"
                     >
                       {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
