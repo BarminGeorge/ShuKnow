@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Settings, Plus, PanelLeftClose, PanelLeftOpen, MessageSquare, LogOut } from "lucide-react";
-import { FolderItem } from "./FolderItem";
+import { FolderItem, SidebarFolderDragLayer } from "./FolderItem";
 import { SettingsModal } from "./SettingsModal";
 import { CreateFolderModal } from "./CreateFolderModal";
 import { EditFolderModal } from "./EditFolderModal";
@@ -366,6 +366,7 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
 
       {/* File System */}
       <div className="flex-1 overflow-y-auto overflow-x-auto py-4 scrollbar-hide-hover" style={{ scrollbarWidth: "thin" }}>
+        <SidebarFolderDragLayer />
         {folders.map((folder, index) => (
           <FolderItem
             key={folder.id}

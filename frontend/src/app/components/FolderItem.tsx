@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
-import { useDrag, useDrop } from "react-dnd";
+import { useEffect, useRef, useState } from "react";
+import { useDrag, useDragLayer, useDrop } from "react-dnd";
+import { getEmptyImage } from "react-dnd-html5-backend";
 import { Edit3, Plus, ChevronRight, ChevronDown, Trash2 } from "lucide-react";
 import type { Folder } from "../../api/types";
 import { useWorkspaceView } from "../hooks/useWorkspaceView";
@@ -19,6 +20,13 @@ const HOVER_TO_NEST_DELAY = 600;
 
 interface DragItem {
   path: string[];
+  name: string;
+  emoji?: string;
+  depth: number;
+  hasSubfolders: boolean;
+  isExpanded: boolean;
+  sourceWidth: number;
+  sourceHeight: number;
 }
 
 type DropZone = "before" | "after" | "inside" | null;
@@ -43,11 +51,22 @@ export function FolderItem({
 
   const hasSubfolders = folder.subfolders && folder.subfolders.length > 0;
 
-  const [{ isDragging }, drag] = useDrag({
+  const [{ isDragging }, drag, dragPreview] = useDrag({
     type: FOLDER_TYPE,
     item: () => {
       setIsDraggingState(true);
-      return { path };
+      const rect = ref.current?.getBoundingClientRect();
+
+      return {
+        path,
+        name: folder.name,
+        emoji: folder.emoji,
+        depth,
+        hasSubfolders,
+        isExpanded,
+        sourceWidth: rect?.width ?? 240,
+        sourceHeight: rect?.height ?? 36,
+      };
     },
     end: () => {
       setIsDraggingState(false);
@@ -57,6 +76,10 @@ export function FolderItem({
       isDragging: monitor.isDragging(),
     }),
   });
+
+  useEffect(() => {
+    dragPreview(getEmptyImage(), { captureDraggingState: true });
+  }, [dragPreview]);
 
   const [{ isOver }, drop] = useDrop({
     accept: FOLDER_TYPE,
@@ -261,6 +284,50 @@ export function FolderItem({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+export function SidebarFolderDragLayer() {
+  const { isDragging, item, sourceOffset, itemType } = useDragLayer((monitor) => ({
+    isDragging: monitor.isDragging(),
+    item: monitor.getItem() as DragItem | null,
+    sourceOffset: monitor.getSourceClientOffset(),
+    itemType: monitor.getItemType(),
+  }));
+
+  if (!isDragging || !item || !sourceOffset || itemType !== FOLDER_TYPE) return null;
+
+  return (
+    <div className="fixed inset-0 z-[10000] pointer-events-none">
+      <div
+        className="absolute flex items-center gap-2 rounded-lg bg-white/10 border border-white/10 shadow-lg shadow-black/30 select-none"
+        style={{
+          left: sourceOffset.x,
+          top: sourceOffset.y,
+          width: item.sourceWidth,
+          height: item.sourceHeight,
+          paddingLeft: `${item.depth * 16 + 12}px`,
+          paddingRight: 12,
+        }}
+      >
+        {item.hasSubfolders ? (
+          <div className="w-4 h-4 flex items-center justify-center text-gray-300">
+            {item.isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </div>
+        ) : (
+          <div className="w-4" />
+        )}
+
+        <div className="flex items-center gap-2 min-w-0">
+          {item.emoji && (
+            <span className="text-xl flex-shrink-0">{item.emoji}</span>
+          )}
+          <span className="text-sm text-gray-100 whitespace-nowrap overflow-hidden text-ellipsis">
+            {item.name}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
