@@ -1,3 +1,4 @@
+using System.Text;
 using Ardalis.Result;
 using AwesomeAssertions;
 using LlmTornado.Chat;
@@ -334,6 +335,25 @@ public class TornadoAiServiceTests
         capturedParts[1].Text.Should().Be("Attachment: `notes.png` (image/png)");
         capturedParts[2].Image.Should().NotBeNull();
         capturedParts[2].Image!.MimeType.Should().Be("image/png");
+    }
+
+    [Test]
+    public async Task ProcessMessageAsync_WhenAttachmentProvided_ShouldDisposeBlobStreamAfterBuildingMessage()
+    {
+        var attachmentId = Guid.NewGuid();
+        var attachment = CreateImageAttachment(attachmentId, "notes.txt", "text/plain");
+        var stream = new TrackingMemoryStream("hello");
+
+        attachmentService.GetByIdsAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Contains(attachmentId)),
+                Arg.Any<CancellationToken>())
+            .Returns(Success<IReadOnlyList<ChatAttachment>>([attachment]));
+        blobStorageService.GetAsync(attachment.BlobId, Arg.Any<CancellationToken>())
+            .Returns(Success<Stream>(stream));
+
+        await sut.ProcessMessageAsync("hello", [attachmentId], settings, operationId);
+
+        stream.IsDisposed.Should().BeTrue();
     }
 
     [Test]
@@ -803,6 +823,24 @@ public class TornadoAiServiceTests
     private static Task<Result<T>> Error<T>(string message)
     {
         return Task.FromResult(Result<T>.Error(message));
+    }
+
+    private sealed class TrackingMemoryStream(string content)
+        : MemoryStream(Encoding.UTF8.GetBytes(content))
+    {
+        public bool IsDisposed { get; private set; }
+
+        protected override void Dispose(bool disposing)
+        {
+            IsDisposed = true;
+            base.Dispose(disposing);
+        }
+
+        public override async ValueTask DisposeAsync()
+        {
+            IsDisposed = true;
+            await base.DisposeAsync();
+        }
     }
 
     #endregion

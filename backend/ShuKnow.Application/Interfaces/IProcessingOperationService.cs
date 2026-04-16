@@ -8,5 +8,5 @@ public interface IProcessingOperationService
 
     void CancelOperation(string connectionId);
 
-    void CompleteOperation(string connectionId);
+    void CompleteOperation(string connectionId, Guid operationId);
 }

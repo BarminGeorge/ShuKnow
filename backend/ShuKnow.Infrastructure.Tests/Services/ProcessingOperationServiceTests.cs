@@ -53,9 +53,25 @@ public class ProcessingOperationServiceTests
     {
         var operation = sut.BeginOperation("connection-1");
 
-        sut.CompleteOperation("connection-1");
+        sut.CompleteOperation("connection-1", operation.OperationId);
         sut.CancelOperation("connection-1");
 
         operation.CancellationTokenSource.IsCancellationRequested.Should().BeFalse();
+        var act = () => operation.CancellationTokenSource.Cancel();
+        act.Should().Throw<ObjectDisposedException>();
+    }
+
+    [Test]
+    public void CompleteOperation_WhenOperationIdDoesNotMatch_ShouldKeepNewerOperationTracked()
+    {
+        var existing = sut.BeginOperation("connection-1");
+        var replacement = sut.BeginOperation("connection-1");
+
+        sut.CompleteOperation("connection-1", existing.OperationId);
+        sut.CancelOperation("connection-1");
+
+        replacement.CancellationTokenSource.IsCancellationRequested.Should().BeTrue();
+        var act = () => replacement.CancellationTokenSource.Cancel();
+        act.Should().Throw<ObjectDisposedException>();
     }
 }

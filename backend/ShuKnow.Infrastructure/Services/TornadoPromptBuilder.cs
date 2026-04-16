@@ -46,7 +46,11 @@ public class TornadoPromptBuilder(
                         $"Attachment: `{attachment.FileName}` ({attachment.ContentType})"));
                     
                     var partResult = await blobStorageService.GetAsync(attachment.BlobId, ct)
-                        .BindAsync(stream => CreateMessagePart(stream, attachment, ct))
+                        .BindAsync(async stream =>
+                        {
+                            await using var attachmentStream = stream;
+                            return await CreateMessagePart(attachmentStream, attachment, ct);
+                        })
                         .Act(messageParts.Add);
                     
                     if (!partResult.IsSuccess)

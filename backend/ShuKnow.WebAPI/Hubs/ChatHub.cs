@@ -43,7 +43,7 @@ public class ChatHub(
         }
         finally
         {
-            operationService.CompleteOperation(ConnectionId);
+            operationService.CompleteOperation(ConnectionId, operationId);
         }
     }
 
