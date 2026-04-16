@@ -103,6 +103,26 @@ export const fileHandlers = [
     return HttpResponse.json(file);
   }),
 
+  // PATCH /api/files/:id/move
+  http.patch(`${API_BASE}/files/:id/move`, async ({ params, request }) => {
+    const { id } = params;
+    const body = await request.json() as any;
+    if (!body.targetFolderId) {
+      return new HttpResponse(null, { status: 404 });
+    }
+
+    const file = MOCK_FILES.find(f => f.id === id);
+    if (!file) {
+      return HttpResponse.json({
+        id,
+        folderId: body.targetFolderId,
+      });
+    }
+
+    file.folderId = body.targetFolderId;
+    return HttpResponse.json(file);
+  }),
+
   // PATCH /api/files/:id/reorder
   http.patch(`${API_BASE}/files/:id/reorder`, async ({ params, request }) => {
     const { id } = params;

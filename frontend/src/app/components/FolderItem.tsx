@@ -4,6 +4,8 @@ import { getEmptyImage } from "react-dnd-html5-backend";
 import { Edit3, Plus, ChevronRight, ChevronDown, Trash2 } from "lucide-react";
 import type { Folder } from "../../api/types";
 import { useWorkspaceView } from "../hooks/useWorkspaceView";
+import { GRID_ITEM_TYPE } from "./FolderContentView/constants";
+import type { GridItemType } from "./FolderContentView/types";
 
 interface FolderItemProps {
   folder: Folder;
@@ -12,6 +14,7 @@ interface FolderItemProps {
   onEditFolder: (folder: Folder, path: string[]) => void;
   onAddSubfolder: (parentPath: string[]) => void;
   onDeleteFolder: (path: string[]) => void;
+  onMoveGridItemToFolder?: (itemId: string, targetFolderId: string, itemType: GridItemType) => void;
   depth?: number;
 }
 
@@ -29,6 +32,11 @@ interface DragItem {
   sourceHeight: number;
 }
 
+interface GridDragItem {
+  id: string;
+  origType: GridItemType;
+}
+
 type DropZone = "before" | "after" | "inside" | null;
 
 export function FolderItem({
@@ -38,6 +46,7 @@ export function FolderItem({
   onEditFolder,
   onAddSubfolder,
   onDeleteFolder,
+  onMoveGridItemToFolder,
   depth = 0,
 }: FolderItemProps) {
   const { setSelectedFolderPath, setViewMode } = useWorkspaceView();
@@ -82,9 +91,17 @@ export function FolderItem({
   }, [dragPreview]);
 
   const [{ isOver }, drop] = useDrop({
-    accept: FOLDER_TYPE,
-    hover: (item: DragItem, monitor) => {
+    accept: [FOLDER_TYPE, GRID_ITEM_TYPE],
+    hover: (item: DragItem | GridDragItem, monitor) => {
       if (!ref.current) return;
+
+      const itemType = monitor.getItemType();
+      if (itemType === GRID_ITEM_TYPE) {
+        const gridItem = item as GridDragItem;
+        setDropZone(gridItem.id === folder.id ? null : "inside");
+        clearHoverTimeout();
+        return;
+      }
 
       const dragPath = item.path;
       const hoverPath = path;
@@ -135,8 +152,20 @@ export function FolderItem({
 
       setDropZone(currentDropZone);
     },
-    drop: (item: DragItem, monitor) => {
+    drop: (item: DragItem | GridDragItem, monitor) => {
       if (!ref.current) return;
+
+      const itemType = monitor.getItemType();
+      if (itemType === GRID_ITEM_TYPE) {
+        const gridItem = item as GridDragItem;
+        setDropZone(null);
+
+        if (gridItem.id !== folder.id) {
+          onMoveGridItemToFolder?.(gridItem.id, folder.id, gridItem.origType);
+        }
+
+        return { movedToSidebarFolder: true };
+      }
 
       const dragPath = item.path;
       const hoverPath = path;
@@ -279,6 +308,7 @@ export function FolderItem({
               onEditFolder={onEditFolder}
               onAddSubfolder={onAddSubfolder}
               onDeleteFolder={onDeleteFolder}
+              onMoveGridItemToFolder={onMoveGridItemToFolder}
               depth={depth + 1}
             />
           ))}

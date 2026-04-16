@@ -7,11 +7,13 @@ import { EditFolderModal } from "./EditFolderModal";
 import { DeleteFolderModal } from "./DeleteFolderModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router";
-import { folderService, ApiError } from "../../api";
+import { folderService, fileService, ApiError } from "../../api";
 import { toast } from "sonner";
 import type { Folder } from "../../api/types";
 import { useFolders } from "../hooks/useFolders";
+import { useFiles } from "../hooks/useFiles";
 import { useWorkspaceView } from "../hooks/useWorkspaceView";
+import type { GridItemType } from "./FolderContentView/types";
 
 interface SidebarProps {
   onLogoClick: () => void;
@@ -22,6 +24,7 @@ interface SidebarProps {
 export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarProps) {
   // Jotai hooks
   const { folders, setFolders, updateFolder, createFolder, moveFolderAtom } = useFolders();
+  const { files, setFiles } = useFiles();
   const { setSelectedFolderPath, setViewMode } = useWorkspaceView();
   
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -67,6 +70,106 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
       return parentFolder?.id || null;
     }
   };
+
+  const containsFolderId = (folder: Folder, folderId: string): boolean => {
+    return (folder.subfolders || []).some((subfolder) => (
+      subfolder.id === folderId || containsFolderId(subfolder, folderId)
+    ));
+  };
+
+  const moveFolderIntoFolderById = (foldersList: Folder[], folderId: string, targetFolderId: string): Folder[] => {
+    const clonedFolders = JSON.parse(JSON.stringify(foldersList)) as Folder[];
+    let removedFolder: Folder | null = null;
+
+    const removeFolder = (items: Folder[]): boolean => {
+      const folderIndex = items.findIndex((item) => item.id === folderId);
+
+      if (folderIndex >= 0) {
+        removedFolder = items.splice(folderIndex, 1)[0];
+        return true;
+      }
+
+      return items.some((item) => removeFolder(item.subfolders || []));
+    };
+
+    const insertFolder = (items: Folder[]): boolean => {
+      for (const item of items) {
+        if (item.id === targetFolderId) {
+          item.subfolders = item.subfolders || [];
+          item.subfolders.push(removedFolder!);
+          return true;
+        }
+
+        if (insertFolder(item.subfolders || [])) {
+          return true;
+        }
+      }
+
+      return false;
+    };
+
+    const draggedFolder = findFolderById(clonedFolders, folderId);
+    if (!draggedFolder || folderId === targetFolderId || containsFolderId(draggedFolder, targetFolderId)) {
+      return foldersList;
+    }
+
+    removeFolder(clonedFolders);
+    if (!removedFolder || !insertFolder(clonedFolders)) {
+      return foldersList;
+    }
+
+    return clonedFolders;
+  };
+
+  const findFolderById = (foldersList: Folder[], folderId: string): Folder | null => {
+    for (const folder of foldersList) {
+      if (folder.id === folderId) return folder;
+      const subfolder = findFolderById(folder.subfolders || [], folderId);
+      if (subfolder) return subfolder;
+    }
+
+    return null;
+  };
+
+  const handleMoveGridItemToSidebarFolder = useCallback(async (
+    itemId: string,
+    targetFolderId: string,
+    itemType: GridItemType
+  ) => {
+    if (itemId === targetFolderId) return;
+
+    if (itemType === "file") {
+      const previousFiles = files;
+      setFiles((currentFiles) => currentFiles.map((file) => (
+        file.id === itemId ? { ...file, folderId: targetFolderId } : file
+      )));
+
+      try {
+        await fileService.moveFile(itemId, { targetFolderId });
+      } catch (error) {
+        setFiles(previousFiles);
+        toast.error("Не удалось переместить файл в папку");
+      }
+
+      return;
+    }
+
+    const draggedFolder = findFolderById(folders, itemId);
+    if (!draggedFolder || containsFolderId(draggedFolder, targetFolderId)) {
+      toast.error("Нельзя переместить папку внутрь самой себя");
+      return;
+    }
+
+    const previousFolders = folders;
+    setFolders(moveFolderIntoFolderById(folders, itemId, targetFolderId));
+
+    try {
+      await folderService.moveFolder(itemId, { newParentFolderId: targetFolderId });
+    } catch (error) {
+      setFolders(previousFolders);
+      toast.error("Не удалось переместить папку");
+    }
+  }, [files, folders, setFiles, setFolders]);
 
   const moveFolder = useCallback(async (dragPath: string[], hoverPath: string[], dropZone: "before" | "after" | "inside") => {
     const draggedFolder = findFolderByPath(dragPath);
@@ -177,20 +280,36 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
     }
   }, [folders, setFolders]);
 
-  const handleCreateFolder = (name: string, emoji: string, prompt: string) => {
-    const newFolder: Folder = {
-      id: Date.now().toString(),
-      name,
-      emoji,
-      prompt,
-      description: "",
-      sortOrder: 0,
-      fileCount: 0,
-      subfolders: [],
-    };
+  const handleCreateFolder = async (name: string, emoji: string, prompt: string) => {
+    const parentFolderId = createFolderParentPath
+      ? findFolderByPath(createFolderParentPath)?.id ?? null
+      : null;
+    const parentPath = createFolderParentPath;
 
-    createFolder(newFolder, createFolderParentPath);
     setCreateFolderParentPath(null);
+
+    try {
+      const createdFolder = await folderService.createFolder({
+        name,
+        description: "",
+        emoji,
+        parentFolderId,
+      });
+      const newFolder: Folder = {
+        id: createdFolder.id,
+        name: createdFolder.name,
+        emoji: createdFolder.emoji ?? emoji,
+        prompt,
+        description: createdFolder.description || "",
+        sortOrder: createdFolder.sortOrder,
+        fileCount: createdFolder.fileCount,
+        subfolders: [],
+      };
+
+      createFolder(newFolder, parentPath);
+    } catch (error) {
+      toast.error("Не удалось создать папку");
+    }
   };
 
   const handleAddSubfolder = (parentPath: string[]) => {
@@ -376,6 +495,7 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
             onEditFolder={handleEditFolder}
             onAddSubfolder={handleAddSubfolder}
             onDeleteFolder={handleDeleteFolder}
+            onMoveGridItemToFolder={handleMoveGridItemToSidebarFolder}
           />
         ))}
       </div>
