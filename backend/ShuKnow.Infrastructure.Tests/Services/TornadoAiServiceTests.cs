@@ -7,6 +7,7 @@ using LlmTornado.Common;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using ShuKnow.Application.Common;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Models.Notifications;
@@ -242,10 +243,11 @@ public class TornadoAiServiceTests
     [Test]
     public async Task ProcessMessageAsync_WhenSuccessful_ShouldPersistAiResponse()
     {
-        conversation.GetResponseWithToolsAsync(
+        conversation.StreamResponseWithToolsAsync(
                 Arg.Any<Func<List<FunctionCall>, CancellationToken, ValueTask>>(),
+                Arg.Any<Func<string, ValueTask>>(),
                 Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(TornadoConversationResponse.Success("AI response text", false)));
+            .Returns(("AI response text", 0));
 
         await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
 
@@ -517,13 +519,14 @@ public class TornadoAiServiceTests
     public async Task ProcessMessageAsync_WhenConversationDoesNotConverge_ShouldReturnErrorAfterMaxTurns()
     {
         var invocationCount = 0;
-        conversation.GetResponseWithToolsAsync(
+        conversation.StreamResponseWithToolsAsync(
                 Arg.Any<Func<List<FunctionCall>, CancellationToken, ValueTask>>(),
+                Arg.Any<Func<string, ValueTask>>(),
                 Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
                 invocationCount++;
-                return Task.FromResult(TornadoConversationResponse.Success("tool call", true));
+                return ("tool call", 1);
             });
 
         var result = await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
@@ -538,10 +541,11 @@ public class TornadoAiServiceTests
     [Test]
     public async Task ProcessMessageAsync_WhenConversationDoesNotConverge_ShouldNotPersistMessages()
     {
-        conversation.GetResponseWithToolsAsync(
+        conversation.StreamResponseWithToolsAsync(
                 Arg.Any<Func<List<FunctionCall>, CancellationToken, ValueTask>>(),
+                Arg.Any<Func<string, ValueTask>>(),
                 Arg.Any<CancellationToken>())
-            .Returns(_ => Task.FromResult(TornadoConversationResponse.Success("tool call", true)));
+            .Returns(("tool call", 1));
 
         await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
 
@@ -556,69 +560,36 @@ public class TornadoAiServiceTests
     #region ProcessMessageAsync - Error Handling
 
     [Test]
-    public async Task ProcessMessageAsync_WhenConversationResponseFails_ShouldReturnError()
+    public async Task ProcessMessageAsync_WhenStreamReturnsEmptyResponse_ShouldNotPersistAiMessages()
     {
-        conversation.GetResponseWithToolsAsync(
+        conversation.StreamResponseWithToolsAsync(
                 Arg.Any<Func<List<FunctionCall>, CancellationToken, ValueTask>>(),
+                Arg.Any<Func<string, ValueTask>>(),
                 Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(TornadoConversationResponse.Failure(new InvalidOperationException("boom"))));
-
-        var result = await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
-
-        result.Status.Should().Be(ResultStatus.Invalid);
-        result.ValidationErrors.Should().ContainSingle(error =>
-            error.ErrorMessage == "Error while processing message" &&
-            error.ErrorCode == ChatProcessingErrorCode.LlmInvalidResponse.ToString());
-    }
-
-    [Test]
-    public async Task ProcessMessageAsync_WhenConversationResponseFails_ShouldNotPersistMessages()
-    {
-        conversation.GetResponseWithToolsAsync(
-                Arg.Any<Func<List<FunctionCall>, CancellationToken, ValueTask>>(),
-                Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(TornadoConversationResponse.Failure(new InvalidOperationException("boom"))));
+            .Returns((string.Empty, 0));
 
         await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
 
-        await chatService.DidNotReceive()
-            .PersistMessageAsync(Arg.Any<ChatMessage>(), Arg.Any<CancellationToken>());
-        await chatService.DidNotReceive()
+        await chatService.Received(1)
             .PersistMessagesAsync(Arg.Any<IReadOnlyCollection<ChatMessage>>(), Arg.Any<CancellationToken>());
+        await chatService.DidNotReceive()
+            .PersistMessagesAsync(
+                Arg.Is<IReadOnlyCollection<ChatMessage>>(messages => messages.Any()),
+                Arg.Any<CancellationToken>());
     }
 
     [Test]
-    public async Task ProcessMessageAsync_WhenResponseHasNoData_ShouldReturnError()
+    public async Task ProcessMessageAsync_WhenStreamThrows_ShouldPropagateException()
     {
-        conversation.GetResponseWithToolsAsync(
+        conversation.StreamResponseWithToolsAsync(
                 Arg.Any<Func<List<FunctionCall>, CancellationToken, ValueTask>>(),
+                Arg.Any<Func<string, ValueTask>>(),
                 Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new TornadoConversationResponse(null, false, false)));
+            .ThrowsAsync(new InvalidOperationException("boom"));
 
-        var result = await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        var act = () => sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
 
-        result.Status.Should().Be(ResultStatus.Invalid);
-        result.ValidationErrors.Should().ContainSingle(error =>
-            error.ErrorMessage == "Error while processing message" &&
-            error.ErrorCode == ChatProcessingErrorCode.LlmInvalidResponse.ToString());
-    }
-
-    [Test]
-    public async Task ProcessMessageAsync_WhenResponseTextIsNull_ShouldPersistEmptyString()
-    {
-        conversation.GetResponseWithToolsAsync(
-                Arg.Any<Func<List<FunctionCall>, CancellationToken, ValueTask>>(),
-                Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(TornadoConversationResponse.Success("hello", false)));
-
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
-
-        await chatService.Received(1).PersistMessagesAsync(
-            Arg.Is<IReadOnlyCollection<ChatMessage>>(messages =>
-                messages.Count == 1 &&
-                messages.Single().Role == ChatMessageRole.Ai &&
-                messages.Single().Content == "hello"),
-            Arg.Any<CancellationToken>());
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("boom");
     }
 
     #endregion
@@ -729,10 +700,15 @@ public class TornadoAiServiceTests
         notificationService.SendMessageCompletedAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
 
-        conversation.GetResponseWithToolsAsync(
+        conversation.StreamResponseWithToolsAsync(
                 Arg.Any<Func<List<FunctionCall>, CancellationToken, ValueTask>>(),
+                Arg.Any<Func<string, ValueTask>>(),
                 Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(TornadoConversationResponse.Success("assistant response", false)));
+            .Returns(callInfo =>
+            {
+                var tokensHandler = callInfo.Arg<Func<string, ValueTask>>();
+                return EmitTokensAsync(tokensHandler, "assistant response");
+            });
         conversation.GetResponseAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(TornadoConversationResponse.Success("connection ok", false)));
 
@@ -752,11 +728,12 @@ public class TornadoAiServiceTests
             .Returns(Success<Stream>(new MemoryStream([1, 2, 3])));
     }
 
-    private void ConfigureToolLoop(Func<int, (TornadoConversationResponse Response, FunctionCall? Call)> responseFactory)
+    private void ConfigureToolLoop(Func<int, (string Response, FunctionCall? Call)> responseFactory)
     {
         var invocationCount = 0;
-        conversation.GetResponseWithToolsAsync(
+        conversation.StreamResponseWithToolsAsync(
                 Arg.Any<Func<List<FunctionCall>, CancellationToken, ValueTask>>(),
+                Arg.Any<Func<string, ValueTask>>(),
                 Arg.Any<CancellationToken>())
             .Returns(async callInfo =>
             {
@@ -769,7 +746,9 @@ public class TornadoAiServiceTests
                     await handleToolCalls([call], ct);
                 }
 
-                return response;
+                var tokensHandler = callInfo.Arg<Func<string, ValueTask>>();
+                await tokensHandler(response);
+                return (response, call is null ? 0 : 1);
             });
     }
 
@@ -790,16 +769,25 @@ public class TornadoAiServiceTests
         return new ChatAttachment(attachmentId, Guid.NewGuid(), Guid.NewGuid(), fileName, contentType, 128);
     }
 
-    private static (TornadoConversationResponse Response, FunctionCall? Call) ToolCallResponse(
+    private static (string Response, FunctionCall? Call) ToolCallResponse(
         string toolName, string arguments)
     {
         var call = new FunctionCall { Name = toolName, Arguments = arguments };
-        return (TornadoConversationResponse.Success("tool requested", true), call);
+        return ("tool requested", call);
     }
 
-    private static (TornadoConversationResponse Response, FunctionCall? Call) FinalResponse(string text)
+    private static (string Response, FunctionCall? Call) FinalResponse(string text)
     {
-        return (TornadoConversationResponse.Success(text, false), null);
+        return (text, null);
+    }
+
+    private static async Task<(string response, int toolCalls)> EmitTokensAsync(
+        Func<string, ValueTask> tokensHandler,
+        string response,
+        int toolCalls = 0)
+    {
+        await tokensHandler(response);
+        return (response, toolCalls);
     }
 
     private static Task<Result> Success()

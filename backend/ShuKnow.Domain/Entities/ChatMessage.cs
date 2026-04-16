@@ -34,10 +34,10 @@ public class ChatMessage : IEntity<Guid>
             index: index);
     }
 
-    public static ChatMessage CreateAiMessage(Guid sessionId, string content, int? index = null)
+    public static ChatMessage CreateAiMessage(Guid messageId, Guid sessionId, string content, int? index = null)
     {
         return new ChatMessage(
-            chatMessageId: Guid.NewGuid(),
+            chatMessageId: messageId,
             sessionId: sessionId,
             role: ChatMessageRole.Ai,
             content: content,

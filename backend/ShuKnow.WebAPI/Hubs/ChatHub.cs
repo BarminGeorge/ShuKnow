@@ -21,7 +21,7 @@ public class ChatHub(
     ILogger<ChatHub> logger) : Hub
 {
     private string ConnectionId => currentConnectionService.connectionId;
-
+    
     #region Client -> Server Operations
 
     [Channel(nameof(SendMessage))]

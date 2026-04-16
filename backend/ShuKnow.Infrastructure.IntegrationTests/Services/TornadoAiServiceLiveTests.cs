@@ -41,8 +41,9 @@ public class TornadoAiServiceLiveTests
         var fixture = CreateFixture(attachments: []);
         const string prompt = "Ответь одним словом: да.";
 
-        await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
-
+        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
+        
+        AssertSuccess(result, fixture.Logs);
         fixture.PersistedMessages.Should().Contain(m =>
             m.Role == ChatMessageRole.User &&
             m.Content == prompt);
@@ -54,8 +55,9 @@ public class TornadoAiServiceLiveTests
         var fixture = CreateFixture(attachments: []);
         const string prompt = "Ответь одним словом: да.";
 
-        await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
-
+        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
+        
+        AssertSuccess(result, fixture.Logs);
         fixture.PersistedMessages.Should().Contain(m =>
             m.Role == ChatMessageRole.Ai &&
             !string.IsNullOrWhiteSpace(m.Content));
@@ -81,11 +83,12 @@ public class TornadoAiServiceLiveTests
         var attachment = CreateTextAttachment(attachmentId, "notes.txt");
         var fixture = CreateFixture([attachment]);
 
-        await fixture.Sut.ProcessMessageAsync(
+        var result = await fixture.Sut.ProcessMessageAsync(
             "Подтверди, что получил описание вложения, одним коротким предложением.",
             [attachmentId],
             fixture.Settings, Guid.NewGuid());
-
+        
+        AssertSuccess(result, fixture.Logs);
         await fixture.AttachmentService.Received(1).GetByIdsAsync(
             Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { attachmentId })),
             Arg.Any<CancellationToken>());
@@ -98,11 +101,12 @@ public class TornadoAiServiceLiveTests
         var attachment = CreateTextAttachment(attachmentId, "notes.txt");
         var fixture = CreateFixture([attachment]);
 
-        await fixture.Sut.ProcessMessageAsync(
+        var result = await fixture.Sut.ProcessMessageAsync(
             "Подтверди, что получил описание вложения, одним коротким предложением.",
             [attachmentId],
             fixture.Settings, Guid.NewGuid());
-
+        
+        AssertSuccess(result, fixture.Logs);
         await fixture.BlobStorageService.Received(1).GetAsync(attachment.BlobId, Arg.Any<CancellationToken>());
     }
 
@@ -165,8 +169,9 @@ public class TornadoAiServiceLiveTests
             Подтверди выполнение кратко.
             """;
 
-        await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
+        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
         
+        AssertSuccess(result, fixture.Logs);
         fixture.PersistedMessages[0].Role.Should().Be(ChatMessageRole.User);
         fixture.PersistedMessages[1].Role.Should().Be(ChatMessageRole.Ai);
         fixture.PersistedMessages[1].Content.Should().NotBeNullOrWhiteSpace();
@@ -212,7 +217,7 @@ public class TornadoAiServiceLiveTests
             var logOutput = fixture.Logs.Count == 0 ? "<no logs>" : string.Join(Environment.NewLine, fixture.Logs);
             Assert.Fail($"Connection test failed. Error: {result.LastTestError}. Logs:{Environment.NewLine}{logOutput}");
         }
-
+        
         result.LastTestLatencyMs.Should().NotBeNull();
         result.LastTestLatencyMs.Should().BeGreaterThan(0);
         result.LastTestError.Should().BeNull();

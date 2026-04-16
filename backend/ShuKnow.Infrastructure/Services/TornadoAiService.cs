@@ -73,31 +73,46 @@ public class TornadoAiService(
         ITornadoConversation conversation, Guid sessionId, Guid operationId, CancellationToken ct = default)
     {
         var aiMessages = new List<ChatMessage>();
-        
+
         for (var _ = 0; _ < maxTurns; _++)
         {
-            var response = await conversation.GetResponseWithToolsAsync(toolsService.DispatchToolCalls, ct);
-            if (response.Exception is not null || !response.HasData)
-            {
-                logger.LogError(response.Exception, "Error while processing message with Tornado API");
-                return Invalid("Error while processing message", ChatProcessingErrorCode.LlmInvalidResponse);
-            }
+            var messageId = Guid.NewGuid();
+            var result = await StreamResponseWithToolsAsync(conversation, operationId, messageId, ct);
+            if (!result.IsSuccess)
+                return result.Map();
 
-            var responseText = response.Text ?? string.Empty;
+            var (response, callsCount) = result.Value;
+            await notificationService.SendMessageCompletedAsync(operationId, messageId, ct);
 
-            if (!string.IsNullOrEmpty(responseText))
+            if (!string.IsNullOrEmpty(response))
             {
-                var message = ChatMessage.CreateAiMessage(sessionId, responseText);
+                var message = ChatMessage.CreateAiMessage(messageId, sessionId, response);
                 aiMessages.Add(message);
-                await notificationService.SendMessageChunkAsync(operationId, message.Id, message.Content, ct);
-                await notificationService.SendMessageCompletedAsync(operationId, message.Id, ct);
             }
 
-            if (!response.ContainsFunctionCalls)
+            if (callsCount == 0)
                 return aiMessages;
         }
-        
-        return Invalid($"Agent did not converge after {maxTurns} iterations", ChatProcessingErrorCode.LlmInvalidResponse);
+
+        return Invalid($"Agent did not converge after {maxTurns} iterations",
+            ChatProcessingErrorCode.LlmInvalidResponse);
+    }
+
+    private async Task<Result<(string response, int toolCalls)>> StreamResponseWithToolsAsync(
+        ITornadoConversation conversation, Guid operationId, Guid messageId, CancellationToken ct)
+    {
+        try
+        {
+            return await conversation.StreamResponseWithToolsAsync(
+                toolsService.DispatchToolCalls,
+                async tokens => await notificationService.SendMessageChunkAsync(operationId, messageId, tokens, ct),
+                ct);
+        }
+        catch (HttpRequestException e)
+        {
+            logger.LogError(e, "LLM invalid response");
+            return Invalid("LLM invalid response", ChatProcessingErrorCode.LlmInvalidResponse);
+        }
     }
 
     private async Task<Result<string>> RunConnectionTest(ITornadoConversation conversation,
