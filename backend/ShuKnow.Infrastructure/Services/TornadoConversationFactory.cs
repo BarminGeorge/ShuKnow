@@ -84,7 +84,10 @@ public sealed class LlmTornadoConversation(Conversation conversation) : ITornado
         await conversation.StreamResponseRich(async tokens =>
             {
                 messageBuffer.Append(tokens);
-                await tokensHandler(tokens ?? "");
+                if (string.IsNullOrEmpty(tokens))
+                    return;
+                
+                await tokensHandler(tokens);
             },
             async calls =>
             {
