@@ -10,7 +10,7 @@ COPY backend/ShuKnow.Infrastructure/ShuKnow.Infrastructure.csproj ./backend/ShuK
 COPY backend/ShuKnow.Metrics/ShuKnow.Metrics.csproj ./backend/ShuKnow.Metrics/
 COPY backend/ShuKnow.WebAPI/ShuKnow.WebAPI.csproj ./backend/ShuKnow.WebAPI/
 
-RUN dotnet restore backend/ShuKnow.sln
+RUN dotnet restore backend/ShuKnow.Host/ShuKnow.Host.csproj
 
 FROM restore AS publish
 COPY backend/. ./backend/

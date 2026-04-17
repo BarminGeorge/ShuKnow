@@ -54,3 +54,21 @@ Workflow: `.github/workflows/publish-docker-ghcr.yml`
 - Публикуются два образа:
   - `ghcr.io/<owner>/<repo>` (backend)
   - `ghcr.io/<owner>/<repo>-frontend` (frontend)
+
+## 6. Локальный запуск без SSL и без GHCR
+
+Для localhost используйте override:
+
+```bash
+docker compose --env-file .env.prod -f compose.prod.yaml -f compose.override.yaml up -d --build
+```
+
+Этот режим:
+
+- не запускает `certbot-init` и `certbot`;
+- использует локально собранные образы (`shuknow-backend-local`, `shuknow-frontend-local`);
+- поднимает nginx только на `http://localhost` без TLS.
+- для мониторинга используйте прямые URL:
+  - Grafana: `http://localhost:3000`
+  - Prometheus: `http://localhost:9090`
+  - маршруты nginx `/monitoring` и `/monitoring/prometheus` делают редирект на эти порты.
