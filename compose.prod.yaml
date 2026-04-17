@@ -12,7 +12,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__Postgres: Host=postgres;Port=5432;Username=${POSTGRES_USER:?POSTGRES_USER must be set};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set};Database=${POSTGRES_DB:?POSTGRES_DB must be set}
-      ConnectionStrings__Redis: redis:6379
+      ConnectionStrings__Redis: redis:6379,password=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
       BlobStorage__Provider: ${BLOB_PROVIDER:?BLOB_PROVIDER must be set}
       BlobStorage__S3__ServiceUrl: http://rustfs:9000
       BlobStorage__S3__AccessKey: ${RUSTFS_ACCESS_KEY:?RUSTFS_ACCESS_KEY must be set}
@@ -47,6 +47,11 @@ services:
     restart: unless-stopped
     expose:
       - "80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     networks:
       - shuknow-prod
 
@@ -72,11 +77,11 @@ services:
     image: redis:8.6.2-alpine
     container_name: shuknow-redis
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"]
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 10
