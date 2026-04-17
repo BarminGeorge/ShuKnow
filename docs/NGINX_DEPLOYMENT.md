@@ -11,13 +11,9 @@ Default upstream in dev mode: `host.docker.internal:5209`.
 ## Prod mode (HTTPS + Let's Encrypt)
 
 1. Create `.env.prod` from `.env.prod.example` and set:
-   - `SERVER_NAME`
-   - `LETSENCRYPT_EMAIL`
-   - `JWT_KEY`
-   - `ENCRYPTION_KEY`
-   - production passwords/secrets
-2. Get initial certificate:
-   - `docker compose --env-file .env.prod -f compose.prod.yaml run --rm certbot certonly --webroot -w /var/www/certbot --email "$LETSENCRYPT_EMAIL" --agree-tos --no-eff-email -d "$SERVER_NAME"`
+   - all variables from template (prod compose has no defaults)
+2. Get initial certificate via GitHub Actions:
+   - run workflow `.github/workflows/issue-initial-ssl.yml`
 3. Start full production stack:
    - `docker compose --env-file .env.prod -f compose.prod.yaml up -d`
 4. (Optional) start monitoring services:

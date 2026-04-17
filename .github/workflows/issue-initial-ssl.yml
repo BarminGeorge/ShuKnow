@@ -1,0 +1,45 @@
+name: Issue Initial SSL Certificate
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_ref:
+        description: "Git ref to deploy on server (branch/tag/sha)"
+        required: true
+        default: "main"
+
+jobs:
+  issue-certificate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Issue initial Let's Encrypt certificate on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.PROD_SSH_PORT }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            cd "${{ secrets.PROD_DEPLOY_PATH }}"
+            git fetch --all --tags
+            git checkout "${{ github.event.inputs.deploy_ref }}"
+            git pull --ff-only
+
+            if [ ! -f ".env.prod" ]; then
+              echo "Missing .env.prod in ${PWD}"
+              exit 1
+            fi
+
+            set -a
+            . ./.env.prod
+            set +a
+
+            docker compose --env-file .env.prod -f compose.prod.yaml up -d nginx
+            docker compose --env-file .env.prod -f compose.prod.yaml run --rm certbot certonly --webroot -w /var/www/certbot --email "$LETSENCRYPT_EMAIL" --agree-tos --no-eff-email -d "$SERVER_NAME"
+            docker compose --env-file .env.prod -f compose.prod.yaml up -d nginx certbot

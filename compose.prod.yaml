@@ -1,7 +1,7 @@
 services:
   backend:
     container_name: shuknow-api
-    image: ${BACKEND_IMAGE:-ghcr.io/barmingeorge/shuknow:latest}
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE must be set}
     build:
       context: .
       dockerfile: Dockerfile
@@ -11,19 +11,19 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__Postgres: Host=postgres;Port=5432;Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres};Database=${POSTGRES_DB:-shuknow}
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Username=${POSTGRES_USER:?POSTGRES_USER must be set};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set};Database=${POSTGRES_DB:?POSTGRES_DB must be set}
       ConnectionStrings__Redis: redis:6379
-      BlobStorage__Provider: ${BLOB_PROVIDER:-S3}
+      BlobStorage__Provider: ${BLOB_PROVIDER:?BLOB_PROVIDER must be set}
       BlobStorage__S3__ServiceUrl: http://rustfs:9000
-      BlobStorage__S3__AccessKey: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
-      BlobStorage__S3__SecretKey: ${RUSTFS_SECRET_KEY:-rustfsadmin}
-      BlobStorage__S3__BucketName: ${RUSTFS_BUCKET_NAME:-shuknow}
-      BlobStorage__S3__Prefix: ${RUSTFS_PREFIX:-blobs}
+      BlobStorage__S3__AccessKey: ${RUSTFS_ACCESS_KEY:?RUSTFS_ACCESS_KEY must be set}
+      BlobStorage__S3__SecretKey: ${RUSTFS_SECRET_KEY:?RUSTFS_SECRET_KEY must be set}
+      BlobStorage__S3__BucketName: ${RUSTFS_BUCKET_NAME:?RUSTFS_BUCKET_NAME must be set}
+      BlobStorage__S3__Prefix: ${RUSTFS_PREFIX:?RUSTFS_PREFIX must be set}
       BlobStorage__S3__ForcePathStyle: "true"
       Jwt__Key: ${JWT_KEY:?JWT_KEY must be set}
-      Jwt__Issuer: ${JWT_ISSUER:-shuknow}
-      Jwt__Audience: ${JWT_AUDIENCE:-shuknow}
-      Jwt__ExpiresInMinutes: ${JWT_EXPIRES_IN_MINUTES:-60}
+      Jwt__Issuer: ${JWT_ISSUER:?JWT_ISSUER must be set}
+      Jwt__Audience: ${JWT_AUDIENCE:?JWT_AUDIENCE must be set}
+      Jwt__ExpiresInMinutes: ${JWT_EXPIRES_IN_MINUTES:?JWT_EXPIRES_IN_MINUTES must be set}
       Encryption__Key: ${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set}
       AuthCookie__Secure: "true"
     volumes:
@@ -43,13 +43,13 @@ services:
     container_name: shuknow-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-shuknow}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB must be set}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-shuknow}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?POSTGRES_USER must be set} -d ${POSTGRES_DB:?POSTGRES_DB must be set}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -78,8 +78,8 @@ services:
     command: /data
     environment:
       RUSTFS_ADDRESS: ":9000"
-      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
-      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:?RUSTFS_ACCESS_KEY must be set}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:?RUSTFS_SECRET_KEY must be set}
       RUSTFS_CONSOLE_ENABLE: "true"
     volumes:
       - rustfs-data:/data
@@ -113,8 +113,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER must be set}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - grafana-data:/var/lib/grafana
@@ -134,8 +134,8 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      SERVER_NAME: ${SERVER_NAME}
-      BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:-backend:8080}
+      SERVER_NAME: ${SERVER_NAME:?SERVER_NAME must be set}
+      BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:?BACKEND_UPSTREAM must be set}
       NGINX_ENVSUBST_FILTER: SERVER_NAME|BACKEND_UPSTREAM
     volumes:
       - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
@@ -154,8 +154,8 @@ services:
     container_name: shuknow-certbot
     restart: unless-stopped
     environment:
-      SERVER_NAME: ${SERVER_NAME}
-      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
+      SERVER_NAME: ${SERVER_NAME:?SERVER_NAME must be set}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL must be set}
     volumes:
       - certbot-conf:/etc/letsencrypt
       - certbot-www:/var/www/certbot
