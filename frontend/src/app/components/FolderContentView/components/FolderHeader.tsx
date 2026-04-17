@@ -142,7 +142,9 @@ export function FolderHeader({
               </button>
               <button
                 onClick={onCreateFile}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg transition-colors text-sm border border-indigo-500/20"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-violet-100
+                           bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))]
+                           border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)]"
                 title="Создать файл"
               >
                 <Plus size={16} />

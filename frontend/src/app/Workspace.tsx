@@ -85,11 +85,28 @@ export default function Workspace() {
   const { openTabs, activeTab, activeTabId, openTab, closeTab, switchTab } = useTabs();
   
   const sidebarRef = useRef<ImperativePanelHandle>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
+  const [composerBottomPadding, setComposerBottomPadding] = useState(128);
   
   // Track current processing message ID for SignalR events
   const currentAgentMessageIdRef = useRef<string | null>(null);
   // Track files created during current operation for result display
   const createdFilesRef = useRef<Array<{ name: string; folder: string; folderId?: string; action: "created" | "sorted" }>>([]);
+
+  useEffect(() => {
+    const composer = composerRef.current;
+    if (!composer) return;
+
+    const updatePadding = () => {
+      setComposerBottomPadding(Math.ceil(composer.getBoundingClientRect().height + 20));
+    };
+
+    updatePadding();
+    const observer = new ResizeObserver(updatePadding);
+    observer.observe(composer);
+
+    return () => observer.disconnect();
+  }, [messages.length > 0]);
 
   // SignalR Chat Hub integration (disabled in mock mode)
   const chatHub = useChatHub({
@@ -564,6 +581,7 @@ export default function Workspace() {
                       <>
                         <ChatMessages 
                           messages={messages} 
+                          bottomPadding={composerBottomPadding}
                           onOpenFolder={(folderId) => {
                             // Navigate to folder
                             handleNavigateToFolder(folderId);
@@ -596,7 +614,11 @@ export default function Workspace() {
                             }
                           }}
                         />
-                        <InputConsole onSend={handleSendMessage} />
+                        <div ref={composerRef} className="absolute inset-x-0 bottom-0 z-20 pointer-events-none">
+                          <div className="pointer-events-auto">
+                            <InputConsole onSend={handleSendMessage} />
+                          </div>
+                        </div>
                       </>
                     )}
                   </div>

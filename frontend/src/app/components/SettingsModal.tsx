@@ -508,7 +508,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   type="button"
                   onClick={handleSave}
                   disabled={isLoading || isTesting}
-                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-violet-100
+                             bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))]
+                             border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {(isLoading || isTesting) && <Loader2 size={14} className="animate-spin" />}
                   {isLoading ? "Сохранение..." : isTesting ? "Тестирование..." : "Сохранить"}

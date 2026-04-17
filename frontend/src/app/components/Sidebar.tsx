@@ -380,7 +380,9 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
 
         <button
           onClick={onLogoClick}
-          className="w-10 h-10 mb-2 flex items-center justify-center rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 transition-colors border border-indigo-500/20 flex-shrink-0"
+          className="w-10 h-10 mb-2 flex items-center justify-center rounded-lg text-violet-100
+                     bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))]
+                     border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)] flex-shrink-0"
           title="Чат"
         >
           <MessageSquare size={18} />
@@ -465,7 +467,9 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
       <div className="px-4 mb-4 flex flex-col gap-2">
         <button
           onClick={onLogoClick}
-          className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 transition-colors border border-indigo-500/20"
+          className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium text-violet-100
+                     bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))]
+                     border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)]"
         >
           <MessageSquare size={16} />
           <span className="text-sm font-medium">Чат</span>

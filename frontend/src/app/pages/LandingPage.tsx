@@ -209,7 +209,10 @@ export default function LandingPage() {
             </p>
 
             <div className="flex items-center justify-center">
-              <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white px-12 py-6 text-lg rounded-full">
+              <Button
+                asChild
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-violet-100 bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))] border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)]"
+              >
                 <Link to={ctaPath}>
                   Начать сейчас
                 </Link>
@@ -333,7 +336,10 @@ export default function LandingPage() {
             Перестаньте тратить время на ручную сортировку. Позвольте ИИ
             организовать вашу информацию.
           </p>
-          <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white px-12 py-6 text-lg rounded-full">
+          <Button
+            asChild
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-violet-100 bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))] border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)]"
+          >
             <Link to={ctaPath}>
               {ctaText}
             </Link>
