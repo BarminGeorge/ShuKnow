@@ -57,6 +57,10 @@ docker compose --env-file .env.prod -f compose.prod.yaml up -d
 ## 4. Мониторинг
 Prometheus и Grafana запускаются этой же командой вместе со всем остальным стеком.
 
+- Grafana доступна только через основной домен: `https://<SERVER_NAME>/monitoring/`
+- Вход только по `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`
+- Прямые внешние порты `3000/9090` не публикуются
+
 ## 5. Обновление образов из GHCR
 
 ```bash

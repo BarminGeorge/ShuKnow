@@ -20,6 +20,9 @@ Default upstream in dev mode: `host.docker.internal:5209`.
 Nginx includes:
 - HTTP->HTTPS redirect in prod;
 - reverse proxy with `Host`, `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`;
+- monitoring proxy:
+  - Grafana: `/monitoring/` (password protected by Grafana auth)
+  - Prometheus: `/monitoring/prometheus/`;
 - security headers (`HSTS`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `CSP`, `Permissions-Policy`, `COOP`, `CORP`);
 - API DDoS mitigation via request/connection limits;
 - WebSocket support on `/hubs/`;

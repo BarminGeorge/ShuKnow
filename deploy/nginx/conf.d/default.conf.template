@@ -75,6 +75,22 @@ server {
         proxy_pass http://${BACKEND_UPSTREAM};
     }
 
+    location = /monitoring {
+        return 301 /monitoring/;
+    }
+
+    location /monitoring/ {
+        proxy_pass http://grafana:3000/monitoring/;
+    }
+
+    location = /monitoring/prometheus {
+        return 301 /monitoring/prometheus/;
+    }
+
+    location /monitoring/prometheus/ {
+        proxy_pass http://prometheus:9090/;
+    }
+
     location / {
         proxy_pass http://${FRONTEND_UPSTREAM};
     }
