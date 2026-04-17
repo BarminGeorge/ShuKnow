@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
 import { Eye, FileText, ImageIcon, Pencil } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import {
@@ -26,6 +26,237 @@ import { getFileExtension, isCodeFileName } from "../../utils/fileValidation";
 interface EditorPaneProps {
   file: FileItem;
   onUpdateContent: (fileId: string, content: string) => void;
+}
+
+const PYTHON_KEYWORDS = new Set([
+  "and", "as", "assert", "async", "await", "break", "class", "continue", "def", "del",
+  "elif", "else", "except", "finally", "for", "from", "global", "if", "import", "in",
+  "is", "lambda", "nonlocal", "not", "or", "pass", "raise", "return", "try", "while",
+  "with", "yield",
+]);
+
+const PYTHON_BUILTINS = new Set([
+  "abs", "bool", "dict", "enumerate", "float", "int", "len", "list", "max", "min",
+  "print", "range", "round", "set", "str", "sum", "tuple", "zip",
+]);
+
+const PYTHON_CONSTANTS = new Set(["False", "None", "True"]);
+
+const JAVASCRIPT_KEYWORDS = new Set([
+  "as", "async", "await", "break", "case", "catch", "class", "const", "continue", "default",
+  "delete", "do", "else", "export", "extends", "finally", "for", "from", "function", "if",
+  "import", "in", "instanceof", "interface", "let", "new", "of", "return", "switch", "throw",
+  "try", "type", "typeof", "var", "void", "while", "yield",
+]);
+
+const JAVASCRIPT_BUILTINS = new Set([
+  "Array", "Boolean", "Date", "Error", "JSON", "Map", "Math", "Number", "Object", "Promise",
+  "React", "Set", "String", "console", "document", "navigator", "window",
+]);
+
+const JAVASCRIPT_CONSTANTS = new Set(["false", "null", "true", "undefined"]);
+
+const CSHARP_KEYWORDS = new Set([
+  "abstract", "as", "async", "await", "base", "break", "case", "catch", "class", "const",
+  "continue", "default", "delegate", "do", "else", "enum", "event", "explicit", "extern",
+  "finally", "fixed", "for", "foreach", "get", "if", "implicit", "in", "interface", "internal",
+  "is", "lock", "namespace", "new", "operator", "out", "override", "params", "private",
+  "protected", "public", "readonly", "record", "ref", "return", "sealed", "set", "sizeof",
+  "stackalloc", "static", "struct", "switch", "this", "throw", "try", "typeof", "unchecked",
+  "unsafe", "using", "virtual", "void", "volatile", "while", "yield",
+]);
+
+const CSHARP_TYPES = new Set([
+  "bool", "byte", "char", "DateTime", "decimal", "double", "dynamic", "float", "Guid", "int",
+  "IEnumerable", "List", "long", "object", "short", "string", "String", "Task", "uint", "ulong",
+  "var",
+]);
+
+const CSHARP_CONSTANTS = new Set(["false", "null", "true"]);
+
+function getLanguageLabel(language: string) {
+  const normalizedLanguage = language.toLowerCase();
+
+  return normalizedLanguage || "code";
+}
+
+function highlightPythonLine(line: string) {
+  const tokens: ReactNode[] = [];
+  const tokenPattern = /#[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\b\d+(?:\.\d+)?\b|\b[A-Za-z_]\w*\b|\s+|./g;
+
+  for (const match of line.matchAll(tokenPattern)) {
+    const token = match[0];
+    const index = match.index ?? 0;
+    let className = "";
+
+    if (token.startsWith("#")) {
+      className = "text-[#6a737d]";
+    } else if (token.startsWith("\"") || token.startsWith("'")) {
+      className = "text-[#a5d6ff]";
+    } else if (/^\d/.test(token)) {
+      className = "text-[#b392f0]";
+    } else if (PYTHON_KEYWORDS.has(token)) {
+      className = "text-[#ff7b72]";
+    } else if (PYTHON_BUILTINS.has(token)) {
+      className = "text-[#d2a8ff]";
+    } else if (PYTHON_CONSTANTS.has(token)) {
+      className = "text-[#79c0ff]";
+    } else if (/^[A-Za-z_]\w*$/.test(token) && line.slice(index + token.length).trimStart().startsWith("(")) {
+      className = "text-[#7ee787]";
+    } else if (/^[A-Za-z_]\w*$/.test(token)) {
+      className = "text-[#79c0ff]";
+    }
+
+    tokens.push(className ? <span key={`${index}-${token}`} className={className}>{token}</span> : token);
+  }
+
+  return tokens;
+}
+
+function highlightJavascriptLine(line: string) {
+  const tokens: ReactNode[] = [];
+  const tokenPattern = /\/\/[^\n]*|\/\*.*?\*\/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|<\/?[A-Za-z][\w.-]*|[A-Za-z_][$\w-]*=|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][\w$]*\b|\s+|./g;
+
+  for (const match of line.matchAll(tokenPattern)) {
+    const token = match[0];
+    const index = match.index ?? 0;
+    let className = "";
+
+    if (token.startsWith("//") || token.startsWith("/*")) {
+      className = "text-[#6a737d]";
+    } else if (token.startsWith("\"") || token.startsWith("'") || token.startsWith("`")) {
+      className = "text-[#a5d6ff]";
+    } else if (/^<\/?[A-Za-z]/.test(token)) {
+      className = "text-[#7ee787]";
+    } else if (/^[A-Za-z_][$\w-]*=$/.test(token)) {
+      className = "text-[#d2a8ff]";
+    } else if (/^\d/.test(token)) {
+      className = "text-[#b392f0]";
+    } else if (JAVASCRIPT_KEYWORDS.has(token)) {
+      className = "text-[#ff7b72]";
+    } else if (JAVASCRIPT_BUILTINS.has(token)) {
+      className = "text-[#d2a8ff]";
+    } else if (JAVASCRIPT_CONSTANTS.has(token)) {
+      className = "text-[#79c0ff]";
+    } else if (/^[A-Za-z_$][\w$]*$/.test(token) && line.slice(index + token.length).trimStart().startsWith("(")) {
+      className = "text-[#7ee787]";
+    } else if (/^[A-Za-z_$][\w$]*$/.test(token)) {
+      className = "text-[#c9d1d9]";
+    }
+
+    tokens.push(className ? <span key={`${index}-${token}`} className={className}>{token}</span> : token);
+  }
+
+  return tokens;
+}
+
+function highlightCSharpLine(line: string) {
+  const tokens: ReactNode[] = [];
+  const tokenPattern = /\/\/[^\n]*|\/\*.*?\*\/|@"(?:[^"]|"")*"|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\b\d+(?:\.\d+)?\b|\b[A-Za-z_]\w*\b|\s+|./g;
+
+  for (const match of line.matchAll(tokenPattern)) {
+    const token = match[0];
+    const index = match.index ?? 0;
+    let className = "";
+
+    if (token.startsWith("//") || token.startsWith("/*")) {
+      className = "text-[#6a737d]";
+    } else if (token.startsWith("\"") || token.startsWith("'") || token.startsWith("@\"")) {
+      className = "text-[#a5d6ff]";
+    } else if (/^\d/.test(token)) {
+      className = "text-[#b392f0]";
+    } else if (CSHARP_KEYWORDS.has(token)) {
+      className = "text-[#ff7b72]";
+    } else if (CSHARP_TYPES.has(token)) {
+      className = "text-[#79c0ff]";
+    } else if (CSHARP_CONSTANTS.has(token)) {
+      className = "text-[#79c0ff]";
+    } else if (/^[A-Z]\w*$/.test(token)) {
+      className = "text-[#d2a8ff]";
+    } else if (/^[A-Za-z_]\w*$/.test(token) && line.slice(index + token.length).trimStart().startsWith("(")) {
+      className = "text-[#7ee787]";
+    }
+
+    tokens.push(className ? <span key={`${index}-${token}`} className={className}>{token}</span> : token);
+  }
+
+  return tokens;
+}
+
+function highlightCode(code: string, language: string) {
+  const normalizedLanguage = language.toLowerCase();
+
+  if (normalizedLanguage === "python" || normalizedLanguage === "py") {
+    return code.split("\n").map((line, index, lines) => (
+      <span key={index}>
+        {highlightPythonLine(line)}
+        {index < lines.length - 1 ? "\n" : null}
+      </span>
+    ));
+  }
+
+  if (["javascript", "js", "jsx", "typescript", "ts", "tsx"].includes(normalizedLanguage)) {
+    return code.split("\n").map((line, index, lines) => (
+      <span key={index}>
+        {highlightJavascriptLine(line)}
+        {index < lines.length - 1 ? "\n" : null}
+      </span>
+    ));
+  }
+
+  if (["csharp", "cs"].includes(normalizedLanguage)) {
+    return code.split("\n").map((line, index, lines) => (
+      <span key={index}>
+        {highlightCSharpLine(line)}
+        {index < lines.length - 1 ? "\n" : null}
+      </span>
+    ));
+  }
+
+  return code.split("\n").map((line, index, lines) => (
+    <span key={index}>
+      {highlightPythonLine(line)}
+      {index < lines.length - 1 ? "\n" : null}
+    </span>
+  ));
+}
+
+function MarkdownCode({ className, children, ...props }: { className?: string; children?: ReactNode }) {
+  const [copied, setCopied] = useState(false);
+  const language = /language-(\w+)/.exec(className ?? "")?.[1] ?? "";
+  const code = String(children ?? "").replace(/^\s*\n/, "").replace(/\n$/, "");
+  const isCodeBlock = Boolean(language) || String(children ?? "").includes("\n");
+
+  if (!isCodeBlock) {
+    return (
+      <code className={className} {...props}>
+        {children}
+      </code>
+    );
+  }
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
+  };
+
+  return (
+    <div className="not-prose relative my-6 bg-[#0d0d0d] ring-1 ring-[#1f1f1f]">
+      <div className="absolute right-2 top-2 z-10">
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-500 transition-colors hover:bg-white/10 hover:text-gray-100"
+        >
+          {copied ? "Скопировано" : getLanguageLabel(language)}
+        </button>
+      </div>
+      <pre className="m-0 overflow-x-auto border-0 bg-[#0d0d0d] p-5 pr-20 text-[14px] leading-7">
+        <code className="font-mono text-[#c9d1d9]" style={{ backgroundColor: "transparent", borderRadius: 0, fontSize: "inherit", padding: 0 }}>{highlightCode(code, language)}</code>
+      </pre>
+    </div>
+  );
 }
 
 export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
@@ -614,7 +845,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
                        prose-h1:text-3xl prose-h1:mb-6 prose-h1:mt-0
                        prose-h2:text-xl prose-h2:mb-4 prose-h2:mt-8
                        prose-h3:text-lg prose-h3:mb-3 prose-h3:mt-6
-                       prose-p:text-gray-300 prose-p:leading-relaxed prose-p:break-words
+                       prose-p:text-gray-300 prose-p:leading-relaxed prose-p:break-words prose-p:whitespace-pre-wrap
                        prose-strong:text-white prose-strong:font-semibold
                        prose-em:text-gray-300
                        prose-li:text-gray-300 prose-li:marker:text-gray-500 prose-li:break-words
@@ -626,7 +857,14 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
                        prose-hr:border-white/10
                        min-h-[calc(100vh-200px)]"
           >
-            <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeKatex]}
+              components={{
+                pre: ({ children }) => <>{children}</>,
+                code: MarkdownCode,
+              }}
+            >
               {localContent}
             </ReactMarkdown>
           </div>
@@ -661,29 +899,31 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
           />
         ) : (
           /* ── Plain Textarea Editor ───────────────────────────────── */
-          <textarea
-            ref={textareaRef}
-            value={localContent}
-            onChange={(e) => handleChange(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleTextareaKeyDown}
-            onSelect={handleTextareaSelect}
-            onClick={handleTextareaSelect}
-            onKeyUp={handleTextareaSelect}
-            placeholder="Начните вводить текст..."
-            autoFocus
-            spellCheck={false}
-            className="w-full bg-transparent text-gray-200 resize-none outline-none placeholder:text-gray-700 caret-indigo-400"
-            style={{
-              fontFamily: isMarkdownFile
-                ? "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-                : "'ui-monospace','SFMono-Regular','Menlo','Monaco','Consolas',monospace",
-              fontSize: isMarkdownFile ? "16px" : "15px",
-              lineHeight: isMarkdownFile ? "1.7" : "1.55",
-              letterSpacing: "0",
-              minHeight: "calc(100vh - 160px)",
-            }}
-          />
+          <div className="relative">
+            <textarea
+              ref={textareaRef}
+              value={localContent}
+              onChange={(e) => handleChange(e.target.value)}
+              onBlur={handleBlur}
+              onKeyDown={handleTextareaKeyDown}
+              onSelect={handleTextareaSelect}
+              onClick={handleTextareaSelect}
+              onKeyUp={handleTextareaSelect}
+              placeholder="Начните вводить текст..."
+              autoFocus
+              spellCheck={false}
+              className="w-full bg-transparent text-gray-200 resize-none outline-none placeholder:text-gray-700 caret-indigo-400"
+              style={{
+                fontFamily: isMarkdownFile
+                  ? "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+                  : "'ui-monospace','SFMono-Regular','Menlo','Monaco','Consolas',monospace",
+                fontSize: isMarkdownFile ? "16px" : "15px",
+                lineHeight: isMarkdownFile ? "1.35" : "1.55",
+                letterSpacing: "0",
+                minHeight: "calc(100vh - 160px)",
+              }}
+            />
+          </div>
         )}
       </div>
     </div>
