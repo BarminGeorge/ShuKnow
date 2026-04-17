@@ -274,6 +274,9 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   const editorSelectionRef = useRef<{ anchor: number; head: number } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const textareaSelectionRef = useRef<{ start: number; end: number } | null>(null);
+  const markdownScrollContainerRef = useRef<HTMLDivElement>(null);
+  const markdownScrollRatioRef = useRef(0);
+  const shouldRestoreMarkdownScrollRef = useRef(false);
 
   // Keep refs fresh
   localContentRef.current = localContent;
@@ -289,6 +292,8 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     editorViewRef.current = null;
     editorSelectionRef.current = null;
     textareaSelectionRef.current = null;
+    markdownScrollRatioRef.current = 0;
+    shouldRestoreMarkdownScrollRef.current = false;
   }, [file.id]);
 
   useEffect(() => {
@@ -344,6 +349,44 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     onUpdateContent(file.id, localContent);
   }, [file.id, localContent, onUpdateContent]);
+
+  const getMarkdownScrollElement = useCallback((): HTMLElement | null => {
+    if (!isMarkdownFile) return null;
+
+    if (isEditing && textareaRef.current) {
+      return textareaRef.current;
+    }
+
+    return markdownScrollContainerRef.current;
+  }, [isEditing, isMarkdownFile]);
+
+  const captureMarkdownScrollPosition = useCallback(() => {
+    const scrollElement = getMarkdownScrollElement();
+    if (!scrollElement) return;
+
+    const maxScrollTop = scrollElement.scrollHeight - scrollElement.clientHeight;
+    markdownScrollRatioRef.current = maxScrollTop > 0
+      ? scrollElement.scrollTop / maxScrollTop
+      : 0;
+    shouldRestoreMarkdownScrollRef.current = true;
+  }, [getMarkdownScrollElement]);
+
+  useEffect(() => {
+    if (!isMarkdownFile || !shouldRestoreMarkdownScrollRef.current) return;
+
+    const animationFrameId = requestAnimationFrame(() => {
+      const scrollElement = getMarkdownScrollElement();
+      if (!scrollElement) return;
+
+      const maxScrollTop = scrollElement.scrollHeight - scrollElement.clientHeight;
+      scrollElement.scrollTop = maxScrollTop > 0
+        ? markdownScrollRatioRef.current * maxScrollTop
+        : 0;
+      shouldRestoreMarkdownScrollRef.current = false;
+    });
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [getMarkdownScrollElement, isEditing, isMarkdownFile, localContent]);
 
   const captureEditorSelection = useCallback(() => {
     if (textareaRef.current) {
@@ -522,6 +565,8 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   }, [file.name]);
 
   const toggleMode = () => {
+    captureMarkdownScrollPosition();
+
     if (isEditing) {
       captureEditorSelection();
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -808,7 +853,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
 
   // ── Text / Markdown editor ─────────────────────────────────────────
   return (
-    <div className="h-full overflow-y-auto bg-[#111111]">
+    <div ref={markdownScrollContainerRef} className="h-full overflow-y-auto bg-[#111111]">
       <div className="max-w-3xl mx-auto px-10 py-12">
         {/* Toggle button for markdown files */}
         {isMarkdownFile && (
