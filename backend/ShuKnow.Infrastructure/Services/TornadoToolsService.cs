@@ -9,7 +9,7 @@ namespace ShuKnow.Infrastructure.Services;
 
 public class TornadoToolsService
 {
-    private const string DefaultToolErrorMessage = "One or more error occured";
+    private const string DefaultToolErrorMessage = "One or more error occurred";
     private readonly Dictionary<string, Func<FunctionCall, CancellationToken, Task<Result<string>>>> dispatchers =
         new(StringComparer.Ordinal);
 
