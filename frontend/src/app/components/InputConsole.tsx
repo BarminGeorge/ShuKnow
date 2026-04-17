@@ -228,15 +228,15 @@ export function InputConsole({ onSend }: InputConsoleProps) {
         {/* Input container */}
         <div
           className={`relative flex items-center gap-2 px-4 py-3 rounded-2xl overflow-hidden border
-            shadow-[inset_0_1px_0_rgba(255,255,255,0.08),inset_0_-18px_36px_rgba(0,0,0,0.18),0_18px_46px_rgba(0,0,0,0.34)]
+            shadow-[inset_0_1px_0_rgba(255,255,255,0.055),inset_0_-18px_36px_rgba(0,0,0,0.22),0_18px_46px_rgba(0,0,0,0.34)]
             transition-all duration-150
-            before:absolute before:inset-x-5 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-violet-200/34 before:to-transparent
+            before:absolute before:inset-x-5 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent
             after:absolute after:inset-x-8 after:bottom-0 after:h-px after:bg-gradient-to-r after:from-transparent after:via-black/70 after:to-transparent
-            hover:-translate-y-px hover:border-violet-200/24 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.10),inset_0_-18px_36px_rgba(0,0,0,0.16),0_20px_52px_rgba(0,0,0,0.38),0_0_30px_rgba(167,139,250,0.08)]
-            focus-within:-translate-y-px focus-within:border-violet-200/36 focus-within:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-18px_36px_rgba(0,0,0,0.16),0_20px_52px_rgba(0,0,0,0.38),0_0_36px_rgba(167,139,250,0.14)] ${
+            hover:-translate-y-px hover:border-white/[0.13] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.065),inset_0_-18px_36px_rgba(0,0,0,0.20),0_20px_52px_rgba(0,0,0,0.38),0_0_16px_rgba(167,139,250,0.025)]
+            focus-within:-translate-y-px focus-within:border-violet-200/18 focus-within:shadow-[inset_0_1px_0_rgba(255,255,255,0.075),inset_0_-18px_36px_rgba(0,0,0,0.20),0_20px_52px_rgba(0,0,0,0.38),0_0_18px_rgba(167,139,250,0.04)] ${
             isDragging 
-              ? "bg-[linear-gradient(135deg,rgb(50,30,78),rgb(25,20,34)_45%,rgb(45,34,70))] border-violet-200/40 ring-2 ring-violet-300/24" 
-              : "bg-[linear-gradient(135deg,rgb(31,31,33),rgb(27,27,28)_34%,rgb(17,17,18)_62%,rgb(20,20,22))] border-white/[0.10]"
+              ? "bg-[linear-gradient(135deg,rgb(39,30,56),rgb(24,22,29)_45%,rgb(34,30,48))] border-violet-200/26 ring-2 ring-violet-300/14" 
+              : "bg-[linear-gradient(135deg,rgb(25,25,26),rgb(22,22,23)_34%,rgb(17,17,18)_62%,rgb(18,18,19))] border-white/[0.085]"
           }`}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
@@ -267,10 +267,10 @@ export function InputConsole({ onSend }: InputConsoleProps) {
             onClick={handleSend}
             disabled={isUploading || (!input.trim() && attachments.length === 0)}
             className="relative z-10 flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-violet-100
-                       bg-[linear-gradient(135deg,rgb(48,34,76),rgb(19,23,36)_58%,rgb(39,31,58))]
-                       border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] transition-all duration-150
-                       hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)]
-                       disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-violet-200/18 disabled:hover:text-violet-100 disabled:hover:shadow-[0_0_18px_rgba(167,139,250,0.06)]"
+                       bg-[linear-gradient(135deg,rgb(36,31,48),rgb(20,22,31)_58%,rgb(28,26,39))]
+                       border border-violet-200/14 shadow-[0_0_14px_rgba(167,139,250,0.035)] transition-all duration-150
+                       hover:border-violet-200/22 hover:text-white hover:shadow-[0_0_18px_rgba(167,139,250,0.07)]
+                       disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-violet-200/14 disabled:hover:text-violet-100 disabled:hover:shadow-[0_0_14px_rgba(167,139,250,0.035)]"
             title={isUploading ? "Загрузка файлов..." : "Отправить"}
           >
             {isUploading ? <Loader2 size={18} className="animate-spin" /> : <ArrowUp size={18} />}
