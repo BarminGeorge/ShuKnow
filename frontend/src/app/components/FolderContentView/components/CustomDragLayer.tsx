@@ -17,6 +17,41 @@ export function CustomDragLayer() {
 
   const isFolder = item.origType === "folder";
   const isPhoto = item.fileType === "photo" && item.contentUrl;
+  const extensionKey = item.name?.split(".").pop()?.toLowerCase() || "";
+
+  const folderVisualStyle = {
+    card: "bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.68)_58%,rgba(167,139,250,0.09))] border-violet-200/18",
+    line: "via-violet-200/32",
+  };
+
+  const getFileVisualStyle = () => {
+    if (item.fileType === "pdf" || extensionKey === "pdf") {
+      return {
+        badgeBg: "bg-rose-300/10",
+        badgeText: "text-rose-200",
+        card: "bg-[linear-gradient(135deg,rgba(244,114,182,0.18),rgba(15,23,42,0.68)_58%,rgba(251,113,133,0.08))] border-rose-200/18",
+        line: "via-rose-200/32",
+      };
+    }
+
+    if (["md", "txt", "rtf"].includes(extensionKey)) {
+      return {
+        badgeBg: "bg-[rgba(129,140,248,0.15)]",
+        badgeText: "text-[#818cf8]",
+        card: "bg-[linear-gradient(135deg,rgba(99,102,241,0.2),rgba(15,23,42,0.68)_58%,rgba(129,140,248,0.1))] border-indigo-300/18",
+        line: "via-indigo-300/40",
+      };
+    }
+
+    return {
+      badgeBg: "bg-sky-300/10",
+      badgeText: "text-sky-200",
+      card: "bg-[linear-gradient(135deg,rgba(14,165,233,0.18),rgba(15,23,42,0.68)_58%,rgba(56,189,248,0.08))] border-sky-200/18",
+      line: "via-sky-200/32",
+    };
+  };
+
+  const fileVisualStyle = getFileVisualStyle();
 
   // Use captured dimensions or fall back to defaults
   const cardWidth = item.sourceWidth || 280;
@@ -80,10 +115,12 @@ export function CustomDragLayer() {
         ) : isFolder ? (
           /* Folder Card Preview */
           <div
-            className="rounded-2xl overflow-hidden cursor-pointer bg-[#1e1e2e] border border-[rgba(99,102,241,0.2)] shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
+            className={`relative rounded-2xl overflow-hidden cursor-pointer border shadow-[0_25px_60px_rgba(0,0,0,0.5)] ${folderVisualStyle.card}`}
             style={{ width: cardWidth, height: cardHeight }}
           >
             <div className="h-full px-7 py-6 flex flex-col justify-between">
+              <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${folderVisualStyle.line} to-transparent`} />
+
               {/* Top: Emoji */}
               <div className="flex items-start justify-between">
                 <span className="text-[40px] leading-none">
@@ -104,14 +141,16 @@ export function CustomDragLayer() {
         ) : (
           /* File Card Preview */
           <div
-            className="rounded-2xl overflow-hidden cursor-pointer bg-[#1e1e2e] border border-[rgba(99,102,241,0.2)] shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
+            className={`relative rounded-2xl overflow-hidden cursor-pointer border shadow-[0_25px_60px_rgba(0,0,0,0.5)] ${fileVisualStyle.card}`}
             style={{ width: cardWidth, height: cardHeight }}
           >
             <div className="h-full px-7 py-6 flex flex-col justify-between">
+              <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${fileVisualStyle.line} to-transparent`} />
+
               {/* Top: Type badge */}
               <div className="flex items-start justify-between">
-                <span className="text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-[rgba(129,140,248,0.15)] text-[#818cf8]">
-                  {fileExtension}
+                <span className={`text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg ${fileVisualStyle.badgeBg} ${fileVisualStyle.badgeText}`}>
+                  {item.fileType === "pdf" ? "PDF" : fileExtension}
                 </span>
               </div>
               {/* Bottom: Name and Date */}
