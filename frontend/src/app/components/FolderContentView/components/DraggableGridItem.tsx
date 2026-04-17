@@ -3,7 +3,6 @@ import { useDrag, useDrop } from "react-dnd";
 import { getEmptyImage } from "react-dnd-html5-backend";
 import { MoreVertical } from "lucide-react";
 import type { Folder, FileItem } from "../../../../api/types";
-import { isCodeFileName } from "../../../utils/fileValidation";
 import type { DraggableGridItemProps, DropIntent, GridItemType } from "../types";
 import { GRID_ITEM_TYPE } from "../constants";
 import {
@@ -271,11 +270,11 @@ export function DraggableGridItem({
       if (!isOver || !canDrop) return "";
       
       if (dropIntent === "nest") {
-        return "ring-2 ring-indigo-500/40 scale-[1.02] shadow-[0_0_20px_rgba(99,102,241,0.3)]";
+        return "ring-2 ring-violet-300/35 scale-[1.02] shadow-[0_0_20px_rgba(167,139,250,0.16)]";
       }
       
       if (dropIntent === "reorder") {
-        return "ring-1 ring-indigo-500/30";
+        return "ring-1 ring-violet-300/30";
       }
       
       return "";
@@ -295,16 +294,17 @@ export function DraggableGridItem({
         className={`
           group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
           ${getItemAnimationClass()} ${getDropZoneStyles()}
-          bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)]
-          hover:from-[rgba(99,102,241,0.12)] hover:to-[rgba(99,102,241,0.06)]
-          hover:border hover:border-[rgba(99,102,241,0.15)]
+          bg-[linear-gradient(135deg,rgba(124,58,237,0.12),rgba(15,23,42,0.42)_58%,rgba(167,139,250,0.05))]
+          border-violet-200/10 hover:border-violet-200/22 hover:shadow-[0_0_24px_rgba(167,139,250,0.06)]
           hover:-translate-y-[1px]
-          border border-transparent
+          border
         `}
         onClick={() => onFolderClick(folder)}
       >
         {/* Content - Single unified block */}
         <div className="h-full px-7 py-6 flex flex-col justify-between">
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-200/32 to-transparent" />
+
           {/* Top: Emoji */}
           <div className="flex items-start justify-between">
             <span className="text-[40px] leading-none">
@@ -336,7 +336,7 @@ export function DraggableGridItem({
         
         {/* 嵌套意图指示器：显示一个半透明的覆盖层提示 */}
         {dropIntent === "nest" && (
-          <div className="absolute inset-0 bg-indigo-500/10 pointer-events-none rounded-2xl" />
+          <div className="absolute inset-0 bg-violet-400/10 pointer-events-none rounded-2xl" />
         )}
       </div>
     );
@@ -360,19 +360,44 @@ export function DraggableGridItem({
     // Get display name without extension
     const displayName = getFileNameWithoutExtension(file.name);
     const fileExtension = getFileExtension(file.name);
-    const isCodeFile = isCodeFileName(file.name);
+    const extensionKey = file.name.split(".").pop()?.toLowerCase() || "";
+
+    const getFileVisualStyle = () => {
+      if (file.type === "pdf") {
+        return {
+          badgeBg: "bg-rose-300/10",
+          badgeText: "text-rose-200",
+          card: "bg-[linear-gradient(135deg,rgba(244,114,182,0.12),rgba(15,23,42,0.42)_58%,rgba(251,113,133,0.04))] border-rose-200/10 hover:border-rose-200/22 hover:shadow-[0_0_24px_rgba(251,113,133,0.06)]",
+          line: "via-rose-200/32",
+        };
+      }
+
+      if (["md", "txt", "rtf"].includes(extensionKey)) {
+        return {
+          badgeBg: "bg-[rgba(129,140,248,0.15)]",
+          badgeText: "text-[#818cf8]",
+          card: "bg-[linear-gradient(135deg,rgba(99,102,241,0.14),rgba(15,23,42,0.42)_58%,rgba(129,140,248,0.06))] border-indigo-300/10 hover:border-indigo-300/25 hover:shadow-[0_0_24px_rgba(129,140,248,0.08)]",
+          line: "via-indigo-300/40",
+        };
+      }
+
+      return {
+        badgeBg: "bg-sky-300/10",
+        badgeText: "text-sky-200",
+        card: "bg-[linear-gradient(135deg,rgba(14,165,233,0.12),rgba(15,23,42,0.42)_58%,rgba(56,189,248,0.04))] border-sky-200/10 hover:border-sky-200/22 hover:shadow-[0_0_24px_rgba(56,189,248,0.06)]",
+        line: "via-sky-200/32",
+      };
+    };
+
+    const fileVisualStyle = getFileVisualStyle();
 
     // Get file type badge info
     const getTypeBadge = () => {
       if (file.type === "pdf") {
-        return { label: "PDF", bgColor: "bg-[rgba(129,140,248,0.15)]", textColor: "text-[#818cf8]" };
+        return { label: "PDF", bgColor: fileVisualStyle.badgeBg, textColor: fileVisualStyle.badgeText };
       }
 
-      if (isCodeFile) {
-        return { label: fileExtension, bgColor: "bg-cyan-400/10", textColor: "text-cyan-300" };
-      }
-
-      return { label: fileExtension, bgColor: "bg-[rgba(129,140,248,0.15)]", textColor: "text-[#818cf8]" };
+      return { label: fileExtension, bgColor: fileVisualStyle.badgeBg, textColor: fileVisualStyle.badgeText };
     };
 
     const typeBadge = getTypeBadge();
@@ -461,10 +486,7 @@ export function DraggableGridItem({
         className={`
           group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
           ${getItemAnimationClass()} ${getFileDropStyles()}
-          ${isCodeFile
-            ? "bg-[linear-gradient(135deg,rgba(8,145,178,0.14),rgba(15,23,42,0.42)_58%,rgba(34,211,238,0.06))] border-cyan-300/10 hover:border-cyan-300/25 hover:shadow-[0_0_24px_rgba(34,211,238,0.08)]"
-            : "bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)] hover:from-[rgba(99,102,241,0.12)] hover:to-[rgba(99,102,241,0.06)] hover:border hover:border-[rgba(99,102,241,0.15)] border-transparent"
-          }
+          ${fileVisualStyle.card}
           hover:-translate-y-[1px]
           border
         `}
@@ -473,9 +495,7 @@ export function DraggableGridItem({
       >
         {/* Content - Single unified block */}
         <div className="h-full px-7 py-6 flex flex-col justify-between">
-          {isCodeFile && (
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/40 to-transparent" />
-          )}
+          <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${fileVisualStyle.line} to-transparent`} />
 
           {/* Top: Type badge and menu */}
           <div className="flex items-start justify-between">

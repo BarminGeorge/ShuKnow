@@ -1,5 +1,5 @@
 import { Trash2, FileEdit, Download } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 interface FileContextMenuProps {
   isOpen: boolean;
@@ -23,7 +23,7 @@ export function FileContextMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const [adjustedPosition, setAdjustedPosition] = useState(position);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isOpen && menuRef.current) {
       const menu = menuRef.current;
       const menuWidth = menu.offsetWidth;

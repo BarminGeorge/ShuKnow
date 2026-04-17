@@ -1,5 +1,5 @@
 import { Edit3, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 interface FolderContextMenuProps {
   isOpen: boolean;
@@ -19,7 +19,7 @@ export function FolderContextMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const [adjustedPosition, setAdjustedPosition] = useState(position);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isOpen && menuRef.current) {
       const menu = menuRef.current;
       const menuWidth = menu.offsetWidth;
