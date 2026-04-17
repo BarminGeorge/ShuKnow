@@ -1,11 +1,27 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { ImageIcon, Pencil, Eye, FileText } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Eye, FileText, ImageIcon, Pencil } from "lucide-react";
+import CodeMirror from "@uiw/react-codemirror";
+import {
+  EditorView,
+  keymap,
+  type ViewUpdate,
+} from "@codemirror/view";
+import { javascript } from "@codemirror/lang-javascript";
+import { json } from "@codemirror/lang-json";
+import { html } from "@codemirror/lang-html";
+import { css } from "@codemirror/lang-css";
+import { python } from "@codemirror/lang-python";
+import { cpp } from "@codemirror/lang-cpp";
+import { oneDarkHighlightStyle } from "@codemirror/theme-one-dark";
+import { syntaxHighlighting } from "@codemirror/language";
+import { EditorSelection, type Extension } from "@codemirror/state";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import type { FileItem } from "../../Workspace";
+import { getFileExtension, isCodeFileName } from "../../utils/fileValidation";
 
 interface EditorPaneProps {
   file: FileItem;
@@ -14,6 +30,7 @@ interface EditorPaneProps {
 
 export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   const isMarkdownFile = file.name.endsWith(".md");
+  const isCodeFile = isCodeFileName(file.name);
   const hasContent = Boolean(file.content?.trim());
 
   const [localContent, setLocalContent] = useState(file.content || "");
@@ -22,7 +39,10 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   const localContentRef = useRef(localContent);
   const fileIdRef = useRef(file.id);
   const onUpdateRef = useRef(onUpdateContent);
+  const editorViewRef = useRef<EditorView | null>(null);
+  const editorSelectionRef = useRef<{ anchor: number; head: number } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaSelectionRef = useRef<{ start: number; end: number } | null>(null);
 
   // Keep refs fresh
   localContentRef.current = localContent;
@@ -33,6 +53,30 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   useEffect(() => {
     setLocalContent(file.content || "");
   }, [file.id, file.content]);
+
+  useEffect(() => {
+    editorViewRef.current = null;
+    editorSelectionRef.current = null;
+    textareaSelectionRef.current = null;
+  }, [file.id]);
+
+  useEffect(() => {
+    if (!isEditing || isCodeFile || !textareaRef.current) return;
+
+    const textarea = textareaRef.current;
+    textarea.focus();
+
+    const savedSelection = textareaSelectionRef.current;
+    if (!savedSelection) return;
+
+    const maxPosition = textarea.value.length;
+    const start = Math.min(savedSelection.start, maxPosition);
+    const end = Math.min(savedSelection.end, maxPosition);
+
+    requestAnimationFrame(() => {
+      textarea.setSelectionRange(start, end);
+    });
+  }, [isCodeFile, isEditing]);
 
   // Cleanup on unmount: flush pending debounce and save
   useEffect(() => {
@@ -55,13 +99,6 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
-  // Auto-focus textarea when entering edit mode
-  useEffect(() => {
-    if (isEditing && textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  }, [isEditing]);
-
   const handleChange = (newValue: string) => {
     setLocalContent(newValue);
     // 800ms debounced save
@@ -77,9 +114,185 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     onUpdateContent(file.id, localContent);
   }, [file.id, localContent, onUpdateContent]);
 
+  const captureEditorSelection = useCallback(() => {
+    if (textareaRef.current) {
+      textareaSelectionRef.current = {
+        start: textareaRef.current.selectionStart,
+        end: textareaRef.current.selectionEnd,
+      };
+    }
+
+    const selection = editorViewRef.current?.state.selection.main;
+    if (!selection) return;
+
+    editorSelectionRef.current = {
+      anchor: selection.anchor,
+      head: selection.head,
+    };
+  }, []);
+
+  const restoreEditorSelection = useCallback((view: EditorView) => {
+    const savedSelection = editorSelectionRef.current;
+    if (!savedSelection) return;
+
+    const maxPosition = view.state.doc.length;
+    const anchor = Math.min(savedSelection.anchor, maxPosition);
+    const head = Math.min(savedSelection.head, maxPosition);
+
+    requestAnimationFrame(() => {
+      view.dispatch({
+        selection: EditorSelection.single(anchor, head),
+        scrollIntoView: true,
+      });
+      view.focus();
+    });
+  }, []);
+
+  const handleEditorUpdate = useCallback((viewUpdate: ViewUpdate) => {
+    editorViewRef.current = viewUpdate.view;
+
+    if (viewUpdate.selectionSet) {
+      const selection = viewUpdate.state.selection.main;
+      editorSelectionRef.current = {
+        anchor: selection.anchor,
+        head: selection.head,
+      };
+    }
+  }, []);
+
+  const handleCreateEditor = useCallback((view: EditorView) => {
+    editorViewRef.current = view;
+    restoreEditorSelection(view);
+  }, [restoreEditorSelection]);
+
+  const handleTextareaSelect = useCallback((event: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    textareaSelectionRef.current = {
+      start: event.currentTarget.selectionStart,
+      end: event.currentTarget.selectionEnd,
+    };
+  }, []);
+
+  const handleTextareaKeyDown = useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Tab") return;
+
+    event.preventDefault();
+
+    const textarea = event.currentTarget;
+    const { selectionStart, selectionEnd, value } = textarea;
+    const nextValue = `${value.slice(0, selectionStart)}\t${value.slice(selectionEnd)}`;
+    const nextCursorPosition = selectionStart + 1;
+
+    handleChange(nextValue);
+    textareaSelectionRef.current = {
+      start: nextCursorPosition,
+      end: nextCursorPosition,
+    };
+
+    requestAnimationFrame(() => {
+      textarea.setSelectionRange(nextCursorPosition, nextCursorPosition);
+    });
+  }, []);
+
+  const codeMirrorExtensions = useMemo<Extension[]>(() => {
+    const extension = getFileExtension(file.name);
+    const languageExtension = (() => {
+      switch (extension) {
+        case "js":
+          return javascript({ jsx: false, typescript: false });
+        case "jsx":
+          return javascript({ jsx: true, typescript: false });
+        case "ts":
+          return javascript({ jsx: false, typescript: true });
+        case "tsx":
+          return javascript({ jsx: true, typescript: true });
+        case "json":
+          return json();
+        case "html":
+          return html();
+        case "css":
+          return css();
+        case "py":
+          return python();
+        case "cs":
+          return cpp();
+        default:
+          return [];
+      }
+    })();
+
+    return [
+      languageExtension,
+      syntaxHighlighting(oneDarkHighlightStyle),
+      keymap.of([{
+        key: "Tab",
+        run: (view) => {
+          view.dispatch(view.state.changeByRange((range) => ({
+            changes: { from: range.from, to: range.to, insert: "\t" },
+            range: EditorSelection.cursor(range.from + 1),
+          })));
+          return true;
+        },
+      }]),
+      EditorView.lineWrapping,
+      EditorView.theme({
+        "&": {
+          background: "transparent !important",
+          backgroundColor: "transparent !important",
+          border: "0 !important",
+          boxShadow: "none !important",
+          color: "#d4d4d4",
+          fontSize: "15px",
+          outline: "none !important",
+        },
+        ".cm-editor, .cm-editor.cm-focused": {
+          background: "transparent !important",
+          backgroundColor: "transparent !important",
+          border: "0 !important",
+          boxShadow: "none !important",
+          outline: "none !important",
+        },
+        ".cm-scroller": {
+          background: "transparent !important",
+          backgroundColor: "transparent !important",
+          border: "0 !important",
+          boxShadow: "none !important",
+          fontFamily: "'ui-monospace','SFMono-Regular','Menlo','Monaco','Consolas',monospace",
+          lineHeight: "1.85",
+          outline: "none !important",
+        },
+        ".cm-content": {
+          background: "transparent !important",
+          backgroundColor: "transparent !important",
+          border: "0 !important",
+          boxShadow: "none !important",
+          outline: "none !important",
+          padding: "0",
+          caretColor: "#818cf8",
+          minHeight: "calc(100vh - 160px)",
+        },
+        ".cm-line": {
+          backgroundColor: "transparent !important",
+        },
+        ".cm-focused": {
+          outline: "none",
+        },
+        ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": {
+          backgroundColor: "rgba(99,102,241,0.28)",
+        },
+        ".cm-activeLine, .cm-activeLine.cm-line": {
+          background: "transparent !important",
+          backgroundColor: "transparent !important",
+        },
+        ".cm-gutters, .cm-activeLineGutter": {
+          display: "none",
+        },
+      }, { dark: true }),
+    ];
+  }, [file.name]);
+
   const toggleMode = () => {
     if (isEditing) {
-      // Save before switching to preview
+      captureEditorSelection();
       if (debounceRef.current) clearTimeout(debounceRef.current);
       onUpdateContent(file.id, localContent);
     }
@@ -395,17 +608,20 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
           /* ── Markdown Preview ────────────────────────────────────── */
           <div
             className="prose prose-invert max-w-none
+                       break-words
                        prose-headings:font-semibold prose-headings:tracking-tight
+                       prose-headings:break-words
                        prose-h1:text-3xl prose-h1:mb-6 prose-h1:mt-0
                        prose-h2:text-xl prose-h2:mb-4 prose-h2:mt-8
                        prose-h3:text-lg prose-h3:mb-3 prose-h3:mt-6
-                       prose-p:text-gray-300 prose-p:leading-relaxed
+                       prose-p:text-gray-300 prose-p:leading-relaxed prose-p:break-words
                        prose-strong:text-white prose-strong:font-semibold
                        prose-em:text-gray-300
-                       prose-li:text-gray-300 prose-li:marker:text-gray-500
+                       prose-li:text-gray-300 prose-li:marker:text-gray-500 prose-li:break-words
                        prose-ul:my-2 prose-ol:my-2
                                  prose-a:text-indigo-400 prose-a:no-underline hover:prose-a:underline
-                                 prose-code:text-indigo-300 prose-code:bg-white/5 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded                       prose-pre:bg-[#0a0a0a] prose-pre:border prose-pre:border-white/5
+                                 prose-code:text-indigo-300 prose-code:bg-white/5 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:break-words
+                       prose-pre:bg-[#0a0a0a] prose-pre:border prose-pre:border-white/5 prose-pre:whitespace-pre-wrap prose-pre:break-words
                        prose-blockquote:border-indigo-500/50 prose-blockquote:text-gray-400
                        prose-hr:border-white/10
                        min-h-[calc(100vh-200px)]"
@@ -414,23 +630,57 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
               {localContent}
             </ReactMarkdown>
           </div>
+        ) : isCodeFile ? (
+          /* ── Code Editor ─────────────────────────────────────────── */
+          <CodeMirror
+            value={localContent}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            onCreateEditor={handleCreateEditor}
+            onUpdate={handleEditorUpdate}
+            autoFocus
+            theme="none"
+            basicSetup={{
+              lineNumbers: false,
+              foldGutter: false,
+              highlightActiveLineGutter: false,
+              highlightActiveLine: false,
+              highlightSelectionMatches: true,
+            }}
+            extensions={isCodeFile ? codeMirrorExtensions : codeMirrorExtensions.slice(2)}
+            placeholder="Начните вводить текст..."
+            className="min-h-[calc(100vh-160px)] font-mono text-[15px] leading-[1.85] tracking-[0.01em] w-full !bg-transparent text-gray-200 !border-0 !shadow-none !outline-none [&_*]:!shadow-none [&_.cm-editor]:!bg-transparent [&_.cm-editor]:!border-0 [&_.cm-editor]:!outline-none [&_.cm-scroller]:!bg-transparent [&_.cm-scroller]:!border-0 [&_.cm-content]:!bg-transparent [&_.cm-content]:!border-0"
+            height="auto"
+            style={{
+              backgroundColor: "transparent",
+              border: 0,
+              boxShadow: "none",
+              minHeight: "calc(100vh - 160px)",
+              outline: "none",
+            }}
+          />
         ) : (
-          /* ── Textarea Editor ──────────────────────────────────────── */
+          /* ── Plain Textarea Editor ───────────────────────────────── */
           <textarea
             ref={textareaRef}
             value={localContent}
             onChange={(e) => handleChange(e.target.value)}
             onBlur={handleBlur}
-            placeholder="Начните вводить текст…"
+            onKeyDown={handleTextareaKeyDown}
+            onSelect={handleTextareaSelect}
+            onClick={handleTextareaSelect}
+            onKeyUp={handleTextareaSelect}
+            placeholder="Начните вводить текст..."
             autoFocus
             spellCheck={false}
             className="w-full bg-transparent text-gray-200 resize-none outline-none placeholder:text-gray-700 caret-indigo-400"
             style={{
-              fontFamily:
-                "'ui-monospace','SFMono-Regular','Menlo','Monaco','Consolas',monospace",
-              fontSize: "15px",
-              lineHeight: "1.85",
-              letterSpacing: "0.01em",
+              fontFamily: isMarkdownFile
+                ? "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+                : "'ui-monospace','SFMono-Regular','Menlo','Monaco','Consolas',monospace",
+              fontSize: isMarkdownFile ? "16px" : "15px",
+              lineHeight: isMarkdownFile ? "1.7" : "1.55",
+              letterSpacing: "0",
               minHeight: "calc(100vh - 160px)",
             }}
           />

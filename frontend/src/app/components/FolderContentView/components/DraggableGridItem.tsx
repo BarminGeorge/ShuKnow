@@ -3,6 +3,7 @@ import { useDrag, useDrop } from "react-dnd";
 import { getEmptyImage } from "react-dnd-html5-backend";
 import { MoreVertical } from "lucide-react";
 import type { Folder, FileItem } from "../../../../api/types";
+import { isCodeFileName } from "../../../utils/fileValidation";
 import type { DraggableGridItemProps, DropIntent, GridItemType } from "../types";
 import { GRID_ITEM_TYPE } from "../constants";
 import {
@@ -359,13 +360,18 @@ export function DraggableGridItem({
     // Get display name without extension
     const displayName = getFileNameWithoutExtension(file.name);
     const fileExtension = getFileExtension(file.name);
+    const isCodeFile = isCodeFileName(file.name);
 
-    // Get file type badge info - INDIGO for all text files
+    // Get file type badge info
     const getTypeBadge = () => {
       if (file.type === "pdf") {
         return { label: "PDF", bgColor: "bg-[rgba(129,140,248,0.15)]", textColor: "text-[#818cf8]" };
       }
-      // All other files (text, photos shown in card, etc) - indigo
+
+      if (isCodeFile) {
+        return { label: fileExtension, bgColor: "bg-cyan-400/10", textColor: "text-cyan-300" };
+      }
+
       return { label: fileExtension, bgColor: "bg-[rgba(129,140,248,0.15)]", textColor: "text-[#818cf8]" };
     };
 
@@ -455,17 +461,22 @@ export function DraggableGridItem({
         className={`
           group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
           ${getItemAnimationClass()} ${getFileDropStyles()}
-          bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)]
-          hover:from-[rgba(99,102,241,0.12)] hover:to-[rgba(99,102,241,0.06)]
-          hover:border hover:border-[rgba(99,102,241,0.15)]
+          ${isCodeFile
+            ? "bg-[linear-gradient(135deg,rgba(8,145,178,0.14),rgba(15,23,42,0.42)_58%,rgba(34,211,238,0.06))] border-cyan-300/10 hover:border-cyan-300/25 hover:shadow-[0_0_24px_rgba(34,211,238,0.08)]"
+            : "bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)] hover:from-[rgba(99,102,241,0.12)] hover:to-[rgba(99,102,241,0.06)] hover:border hover:border-[rgba(99,102,241,0.15)] border-transparent"
+          }
           hover:-translate-y-[1px]
-          border border-transparent
+          border
         `}
         onClick={() => handleFileClick(file.id)}
         title="Нажмите для открытия"
       >
         {/* Content - Single unified block */}
         <div className="h-full px-7 py-6 flex flex-col justify-between">
+          {isCodeFile && (
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/40 to-transparent" />
+          )}
+
           {/* Top: Type badge and menu */}
           <div className="flex items-start justify-between">
             <span className={`

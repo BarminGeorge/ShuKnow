@@ -257,6 +257,13 @@
     font-size: 0.875em;
   }
 
+  .prose-invert :not(pre) > code::before,
+  .prose-invert :not(pre) > code::after,
+  .prose-invert code::before,
+  .prose-invert code::after {
+    content: "" !important;
+  }
+
   .prose-invert pre {
     background-color: rgb(24, 24, 27);
     border: 1px solid rgb(63, 63, 70);

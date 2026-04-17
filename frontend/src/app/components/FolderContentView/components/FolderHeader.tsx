@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { ChevronRight, Smile, FolderIcon, Plus, Paperclip } from "lucide-react";
 import { EmojiPicker } from "../../EmojiPicker";
 import { formatFolderStatsHeader } from "../helpers";
+import { ACCEPTED_UPLOAD_FILE_TYPES } from "../../../utils/fileValidation";
 
 interface FolderHeaderProps {
   breadcrumbs: string[];
@@ -165,7 +166,7 @@ export function FolderHeader({
         ref={fileInputRef}
         type="file"
         multiple
-        accept="image/*,.pdf,.txt,.md,.json,.js,.ts,.tsx,.jsx,.html,.css"
+        accept={ACCEPTED_UPLOAD_FILE_TYPES}
         className="hidden"
         onChange={onFileInputChange}
       />

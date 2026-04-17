@@ -13,6 +13,7 @@ import { useFiles } from "../hooks/useFiles";
 import { useFolders } from "../hooks/useFolders";
 import { useTabs } from "../hooks/useTabs";
 import { useAtomValue } from "jotai";
+import { toast } from "sonner";
 import { filesInCurrentFolderAtom } from "../store";
 import type { FolderContentViewProps } from "./FolderContentView/types";
 import { FolderHeader } from "./FolderContentView/components/FolderHeader";
@@ -21,6 +22,11 @@ import { UploadZone } from "./FolderContentView/components/UploadZone";
 import { useGridItems } from "./FolderContentView/hooks/useGridItems";
 import { useFolderActions } from "./FolderContentView/hooks/useFolderActions";
 import { useFileUpload } from "./FolderContentView/hooks/useFileUpload";
+import {
+  getContentTypeForFileName,
+  isSupportedTextFileName,
+  SUPPORTED_TEXT_EXTENSIONS_LABEL,
+} from "../utils/fileValidation";
 
 export function FolderContentView({
   onBack,
@@ -185,11 +191,18 @@ export function FolderContentView({
   };
 
   const handleCreateFileFromModal = (name: string, prompt: string) => {
+    if (!isSupportedTextFileName(name)) {
+      toast.error(`Неподдерживаемый формат файла. Поддерживаются: ${SUPPORTED_TEXT_EXTENSIONS_LABEL}`);
+      return;
+    }
+
     const newFile: FileItem = {
       id: Date.now().toString(),
       name,
       type: "text",
       folderId: folder.id,
+      contentType: getContentTypeForFileName(name),
+      sizeBytes: 0,
       content: "",
       prompt: prompt || undefined,
       createdAt: new Date().toISOString(),

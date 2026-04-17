@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { X, FileText } from "lucide-react";
+import { isSupportedTextFileName } from "../utils/fileValidation";
 
 interface CreateFileModalProps {
   isOpen: boolean;
@@ -14,9 +15,10 @@ export function CreateFileModal({
 }: CreateFileModalProps) {
   const [name, setName] = useState("Новая заметка.md");
   const [description, setDescription] = useState("");
+  const isNameValid = isSupportedTextFileName(name);
 
   const handleCreate = () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !isNameValid) return;
     onCreate(name.trim(), description.trim());
     setName("Новая заметка.md");
     setDescription("");
@@ -72,6 +74,11 @@ export function CreateFileModal({
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">{name.length}/50</span>
             </div>
+            {name.trim() && !isNameValid && (
+              <p className="mt-2 text-xs text-red-400">
+                Неподдерживаемый формат файла
+              </p>
+            )}
           </div>
 
           {/* Description (AI Instruction) */}
@@ -100,7 +107,7 @@ export function CreateFileModal({
           </button>
           <button
             onClick={handleCreate}
-            disabled={!name.trim()}
+            disabled={!name.trim() || !isNameValid}
             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm"
           >
             Создать
