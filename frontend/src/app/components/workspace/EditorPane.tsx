@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
 import { Eye, FileText, ImageIcon, Pencil } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import {
@@ -20,6 +20,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import { flushSync } from "react-dom";
 import type { FileItem } from "../../Workspace";
 import { getFileExtension, isCodeFileName } from "../../utils/fileValidation";
 
@@ -266,6 +267,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
 
   const [localContent, setLocalContent] = useState(file.content || "");
   const [isEditing, setIsEditing] = useState(!isMarkdownFile || !hasContent);
+  const [isMarkdownScrollRestoring, setIsMarkdownScrollRestoring] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const localContentRef = useRef(localContent);
   const fileIdRef = useRef(file.id);
@@ -296,22 +298,33 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     shouldRestoreMarkdownScrollRef.current = false;
   }, [file.id]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isEditing || isCodeFile || !textareaRef.current) return;
 
     const textarea = textareaRef.current;
-    textarea.focus();
+    const containerScrollTop = markdownScrollContainerRef.current?.scrollTop ?? 0;
+    const textareaScrollTop = textarea.scrollTop;
+
+    textarea.focus({ preventScroll: true });
 
     const savedSelection = textareaSelectionRef.current;
-    if (!savedSelection) return;
+    if (!savedSelection) {
+      if (markdownScrollContainerRef.current) {
+        markdownScrollContainerRef.current.scrollTop = containerScrollTop;
+      }
+      textarea.scrollTop = textareaScrollTop;
+      return;
+    }
 
     const maxPosition = textarea.value.length;
     const start = Math.min(savedSelection.start, maxPosition);
     const end = Math.min(savedSelection.end, maxPosition);
 
-    requestAnimationFrame(() => {
-      textarea.setSelectionRange(start, end);
-    });
+    textarea.setSelectionRange(start, end);
+    if (markdownScrollContainerRef.current) {
+      markdownScrollContainerRef.current.scrollTop = containerScrollTop;
+    }
+    textarea.scrollTop = textareaScrollTop;
   }, [isCodeFile, isEditing]);
 
   // Cleanup on unmount: flush pending debounce and save
@@ -368,6 +381,11 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     element.scrollTop = ratio * maxScrollTop;
   };
 
+  const restoreMarkdownScrollPosition = (ratio = markdownScrollRatioRef.current) => {
+    restoreScrollRatio(markdownScrollContainerRef.current, ratio);
+    restoreScrollRatio(textareaRef.current, ratio);
+  };
+
   const captureMarkdownScrollPosition = useCallback(() => {
     if (!isMarkdownFile) return;
 
@@ -377,18 +395,20 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     shouldRestoreMarkdownScrollRef.current = true;
   }, [isMarkdownFile]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isMarkdownFile || !shouldRestoreMarkdownScrollRef.current) return;
 
     let secondAnimationFrameId = 0;
     const ratio = markdownScrollRatioRef.current;
-    const applyRestore = () => {
-      restoreScrollRatio(markdownScrollContainerRef.current, ratio);
-      restoreScrollRatio(textareaRef.current, ratio);
-    };
+    const applyRestore = () => restoreMarkdownScrollPosition(ratio);
+
+    applyRestore();
 
     const firstAnimationFrameId = requestAnimationFrame(() => {
       applyRestore();
+      flushSync(() => {
+        setIsMarkdownScrollRestoring(false);
+      });
       secondAnimationFrameId = requestAnimationFrame(() => {
         applyRestore();
       });
@@ -579,13 +599,19 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
 
   const toggleMode = () => {
     captureMarkdownScrollPosition();
+    const ratio = markdownScrollRatioRef.current;
 
     if (isEditing) {
       captureEditorSelection();
       if (debounceRef.current) clearTimeout(debounceRef.current);
       onUpdateContent(file.id, localContent);
     }
-    setIsEditing(!isEditing);
+
+    flushSync(() => {
+      setIsMarkdownScrollRestoring(true);
+      setIsEditing(!isEditing);
+    });
+    restoreMarkdownScrollPosition(ratio);
   };
 
   // ── Image viewer with zoom (no pan) ───────────────────────────────────────────────────────────
@@ -895,7 +921,10 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
         </div>
       )}
 
-      <div ref={markdownScrollContainerRef} className="h-full overflow-y-auto">
+      <div
+        ref={markdownScrollContainerRef}
+        className={`h-full overflow-y-auto ${isMarkdownScrollRestoring ? "invisible" : ""}`}
+      >
         <div className="max-w-3xl mx-auto px-10 py-12">
           {isMarkdownFile && !isEditing ? (
             /* ── Markdown Preview ────────────────────────────────────── */
