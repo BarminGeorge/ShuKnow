@@ -12,7 +12,7 @@ namespace ShuKnow.WebAPI.Hubs;
 
 [AsyncApi]
 [Authorize]
-public class ChatHub(
+public partial class ChatHub(
     IAiService aiService,
     IChatNotificationService chatNotificationService,
     ISettingsService settingsService,
