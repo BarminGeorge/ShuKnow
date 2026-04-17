@@ -350,43 +350,56 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     onUpdateContent(file.id, localContent);
   }, [file.id, localContent, onUpdateContent]);
 
-  const getMarkdownScrollElement = useCallback((): HTMLElement | null => {
-    if (!isMarkdownFile) return null;
+  const getScrollRatio = (element: HTMLElement | null) => {
+    if (!element) return null;
 
-    if (isEditing && textareaRef.current) {
-      return textareaRef.current;
-    }
+    const maxScrollTop = element.scrollHeight - element.clientHeight;
+    if (maxScrollTop <= 0) return null;
 
-    return markdownScrollContainerRef.current;
-  }, [isEditing, isMarkdownFile]);
+    return element.scrollTop / maxScrollTop;
+  };
+
+  const restoreScrollRatio = (element: HTMLElement | null, ratio: number) => {
+    if (!element) return;
+
+    const maxScrollTop = element.scrollHeight - element.clientHeight;
+    if (maxScrollTop <= 0) return;
+
+    element.scrollTop = ratio * maxScrollTop;
+  };
 
   const captureMarkdownScrollPosition = useCallback(() => {
-    const scrollElement = getMarkdownScrollElement();
-    if (!scrollElement) return;
+    if (!isMarkdownFile) return;
 
-    const maxScrollTop = scrollElement.scrollHeight - scrollElement.clientHeight;
-    markdownScrollRatioRef.current = maxScrollTop > 0
-      ? scrollElement.scrollTop / maxScrollTop
-      : 0;
+    const textareaRatio = getScrollRatio(textareaRef.current);
+    const containerRatio = getScrollRatio(markdownScrollContainerRef.current);
+    markdownScrollRatioRef.current = textareaRatio ?? containerRatio ?? 0;
     shouldRestoreMarkdownScrollRef.current = true;
-  }, [getMarkdownScrollElement]);
+  }, [isMarkdownFile]);
 
   useEffect(() => {
     if (!isMarkdownFile || !shouldRestoreMarkdownScrollRef.current) return;
 
-    const animationFrameId = requestAnimationFrame(() => {
-      const scrollElement = getMarkdownScrollElement();
-      if (!scrollElement) return;
+    let secondAnimationFrameId = 0;
+    const ratio = markdownScrollRatioRef.current;
+    const applyRestore = () => {
+      restoreScrollRatio(markdownScrollContainerRef.current, ratio);
+      restoreScrollRatio(textareaRef.current, ratio);
+    };
 
-      const maxScrollTop = scrollElement.scrollHeight - scrollElement.clientHeight;
-      scrollElement.scrollTop = maxScrollTop > 0
-        ? markdownScrollRatioRef.current * maxScrollTop
-        : 0;
+    const firstAnimationFrameId = requestAnimationFrame(() => {
+      applyRestore();
+      secondAnimationFrameId = requestAnimationFrame(() => {
+        applyRestore();
+      });
       shouldRestoreMarkdownScrollRef.current = false;
     });
 
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [getMarkdownScrollElement, isEditing, isMarkdownFile, localContent]);
+    return () => {
+      cancelAnimationFrame(firstAnimationFrameId);
+      cancelAnimationFrame(secondAnimationFrameId);
+    };
+  }, [isEditing, isMarkdownFile, localContent]);
 
   const captureEditorSelection = useCallback(() => {
     if (textareaRef.current) {
@@ -853,37 +866,41 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
 
   // ── Text / Markdown editor ─────────────────────────────────────────
   return (
-    <div ref={markdownScrollContainerRef} className="h-full overflow-y-auto bg-[#111111]">
-      <div className="max-w-3xl mx-auto px-10 py-12">
-        {/* Toggle button for markdown files */}
-        {isMarkdownFile && (
-          <div className="flex justify-end mb-4">
+    <div className="relative h-full bg-[#111111]">
+      {/* Floating toggle button for markdown files */}
+      {isMarkdownFile && (
+        <div className="pointer-events-none absolute right-8 top-6 z-30">
+          <div className="flex justify-end">
             <button
               onClick={toggleMode}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg
-                         bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200
-                         transition-all duration-200 border border-white/5 hover:border-white/10"
+              className="pointer-events-auto flex h-8 items-center gap-1.5 rounded-md
+                         border border-white/8 bg-[#141414]/75 px-3 text-xs font-medium
+                         text-gray-500 shadow-[0_6px_16px_rgba(0,0,0,0.22)] backdrop-blur-sm
+                         transition-colors duration-150 hover:border-white/12 hover:bg-[#1b1b1b]/85 hover:text-gray-300"
               title={isEditing ? "Просмотр" : "Редактировать"}
             >
               {isEditing ? (
                 <>
-                  <Eye size={14} />
+                  <Eye size={13} />
                   <span>Просмотр</span>
                 </>
               ) : (
                 <>
-                  <Pencil size={14} />
+                  <Pencil size={13} />
                   <span>Редактировать</span>
                 </>
               )}
             </button>
           </div>
-        )}
+        </div>
+      )}
 
-        {isMarkdownFile && !isEditing ? (
-          /* ── Markdown Preview ────────────────────────────────────── */
-          <div
-            className="prose prose-invert max-w-none
+      <div ref={markdownScrollContainerRef} className="h-full overflow-y-auto">
+        <div className="max-w-3xl mx-auto px-10 py-12">
+          {isMarkdownFile && !isEditing ? (
+            /* ── Markdown Preview ────────────────────────────────────── */
+            <div
+              className="prose prose-invert max-w-none
                        break-words
                        prose-headings:font-semibold prose-headings:tracking-tight
                        prose-headings:break-words
@@ -901,75 +918,76 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
                        prose-blockquote:border-indigo-500/50 prose-blockquote:text-gray-400
                        prose-hr:border-white/10
                        min-h-[calc(100vh-200px)]"
-          >
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkMath]}
-              rehypePlugins={[rehypeKatex]}
-              components={{
-                pre: ({ children }) => <>{children}</>,
-                code: MarkdownCode,
-              }}
             >
-              {localContent}
-            </ReactMarkdown>
-          </div>
-        ) : isCodeFile ? (
-          /* ── Code Editor ─────────────────────────────────────────── */
-          <CodeMirror
-            value={localContent}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            onCreateEditor={handleCreateEditor}
-            onUpdate={handleEditorUpdate}
-            autoFocus
-            theme="none"
-            basicSetup={{
-              lineNumbers: false,
-              foldGutter: false,
-              highlightActiveLineGutter: false,
-              highlightActiveLine: false,
-              highlightSelectionMatches: true,
-            }}
-            extensions={isCodeFile ? codeMirrorExtensions : codeMirrorExtensions.slice(2)}
-            placeholder="Начните вводить текст..."
-            className="min-h-[calc(100vh-160px)] font-mono text-[15px] leading-[1.85] tracking-[0.01em] w-full !bg-transparent text-gray-200 !border-0 !shadow-none !outline-none [&_*]:!shadow-none [&_.cm-editor]:!bg-transparent [&_.cm-editor]:!border-0 [&_.cm-editor]:!outline-none [&_.cm-scroller]:!bg-transparent [&_.cm-scroller]:!border-0 [&_.cm-content]:!bg-transparent [&_.cm-content]:!border-0"
-            height="auto"
-            style={{
-              backgroundColor: "transparent",
-              border: 0,
-              boxShadow: "none",
-              minHeight: "calc(100vh - 160px)",
-              outline: "none",
-            }}
-          />
-        ) : (
-          /* ── Plain Textarea Editor ───────────────────────────────── */
-          <div className="relative">
-            <textarea
-              ref={textareaRef}
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
+                components={{
+                  pre: ({ children }) => <>{children}</>,
+                  code: MarkdownCode,
+                }}
+              >
+                {localContent}
+              </ReactMarkdown>
+            </div>
+          ) : isCodeFile ? (
+            /* ── Code Editor ─────────────────────────────────────────── */
+            <CodeMirror
               value={localContent}
-              onChange={(e) => handleChange(e.target.value)}
+              onChange={handleChange}
               onBlur={handleBlur}
-              onKeyDown={handleTextareaKeyDown}
-              onSelect={handleTextareaSelect}
-              onClick={handleTextareaSelect}
-              onKeyUp={handleTextareaSelect}
-              placeholder="Начните вводить текст..."
+              onCreateEditor={handleCreateEditor}
+              onUpdate={handleEditorUpdate}
               autoFocus
-              spellCheck={false}
-              className="w-full bg-transparent text-gray-200 resize-none outline-none placeholder:text-gray-700 caret-indigo-400"
+              theme="none"
+              basicSetup={{
+                lineNumbers: false,
+                foldGutter: false,
+                highlightActiveLineGutter: false,
+                highlightActiveLine: false,
+                highlightSelectionMatches: true,
+              }}
+              extensions={isCodeFile ? codeMirrorExtensions : codeMirrorExtensions.slice(2)}
+              placeholder="Начните вводить текст..."
+              className="min-h-[calc(100vh-160px)] font-mono text-[15px] leading-[1.85] tracking-[0.01em] w-full !bg-transparent text-gray-200 !border-0 !shadow-none !outline-none [&_*]:!shadow-none [&_.cm-editor]:!bg-transparent [&_.cm-editor]:!border-0 [&_.cm-editor]:!outline-none [&_.cm-scroller]:!bg-transparent [&_.cm-scroller]:!border-0 [&_.cm-content]:!bg-transparent [&_.cm-content]:!border-0"
+              height="auto"
               style={{
-                fontFamily: isMarkdownFile
-                  ? "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-                  : "'ui-monospace','SFMono-Regular','Menlo','Monaco','Consolas',monospace",
-                fontSize: isMarkdownFile ? "16px" : "15px",
-                lineHeight: isMarkdownFile ? "1.35" : "1.55",
-                letterSpacing: "0",
+                backgroundColor: "transparent",
+                border: 0,
+                boxShadow: "none",
                 minHeight: "calc(100vh - 160px)",
+                outline: "none",
               }}
             />
-          </div>
-        )}
+          ) : (
+            /* ── Plain Textarea Editor ───────────────────────────────── */
+            <div className="relative">
+              <textarea
+                ref={textareaRef}
+                value={localContent}
+                onChange={(e) => handleChange(e.target.value)}
+                onBlur={handleBlur}
+                onKeyDown={handleTextareaKeyDown}
+                onSelect={handleTextareaSelect}
+                onClick={handleTextareaSelect}
+                onKeyUp={handleTextareaSelect}
+                placeholder="Начните вводить текст..."
+                autoFocus
+                spellCheck={false}
+                className="w-full bg-transparent text-gray-200 resize-none outline-none placeholder:text-gray-700 caret-indigo-400"
+                style={{
+                  fontFamily: isMarkdownFile
+                    ? "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+                    : "'ui-monospace','SFMono-Regular','Menlo','Monaco','Consolas',monospace",
+                  fontSize: isMarkdownFile ? "16px" : "15px",
+                  lineHeight: isMarkdownFile ? "1.35" : "1.55",
+                  letterSpacing: "0",
+                  minHeight: "calc(100vh - 160px)",
+                }}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
