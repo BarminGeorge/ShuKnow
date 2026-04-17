@@ -76,6 +76,6 @@ server {
     }
 
     location / {
-        proxy_pass http://${BACKEND_UPSTREAM};
+        proxy_pass http://${FRONTEND_UPSTREAM};
     }
 }

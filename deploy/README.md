@@ -16,6 +16,10 @@ cp .env.prod.example .env.prod
 - `ENCRYPTION_KEY`
 - `POSTGRES_PASSWORD`
 - `GRAFANA_ADMIN_PASSWORD`
+- `BACKEND_UPSTREAM`
+- `FRONTEND_UPSTREAM`
+- `BACKEND_IMAGE`
+- `FRONTEND_IMAGE`
 
 ## 2. Первичный выпуск TLS-сертификата Let's Encrypt
 
@@ -49,24 +53,22 @@ docker compose --env-file .env.prod -f compose.prod.yaml up -d nginx certbot
 docker compose --env-file .env.prod -f compose.prod.yaml up -d
 ```
 
-## 4. Мониторинг (опционально)
+## 4. Мониторинг
+Prometheus и Grafana запускаются этой же командой вместе со всем остальным стеком.
 
-Prometheus и Grafana в `compose.prod.yaml` вынесены в профиль `monitoring`.
-
-```bash
-docker compose --env-file .env.prod -f compose.prod.yaml --profile monitoring up -d
-```
-
-## 5. Обновление образа backend из GHCR
+## 5. Обновление образов из GHCR
 
 ```bash
-docker compose --env-file .env.prod -f compose.prod.yaml pull backend
-docker compose --env-file .env.prod -f compose.prod.yaml up -d backend
+docker compose --env-file .env.prod -f compose.prod.yaml pull backend frontend
+docker compose --env-file .env.prod -f compose.prod.yaml up -d backend frontend
 ```
 
-## 6. Публикация Docker-образа в GHCR
+## 6. Публикация Docker-образов в GHCR
 
 Workflow: `.github/workflows/publish-docker-ghcr.yml`
 
 - Публикация автоматически на тегах `v*.*.*`
 - Также доступен ручной запуск через `workflow_dispatch`
+- Публикуются два образа:
+  - `ghcr.io/<owner>/<repo>` (backend)
+  - `ghcr.io/<owner>/<repo>-frontend` (frontend)

@@ -38,6 +38,18 @@ services:
     networks:
       - shuknow-prod
 
+  frontend:
+    container_name: shuknow-frontend
+    image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE must be set}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - shuknow-prod
+
   postgres:
     image: postgres:16-alpine
     container_name: shuknow-postgres
@@ -90,7 +102,6 @@ services:
     image: prom/prometheus:v3.11.0
     container_name: shuknow-prometheus
     restart: unless-stopped
-    profiles: ["monitoring"]
     ports:
       - "9090:9090"
     volumes:
@@ -109,7 +120,6 @@ services:
     image: grafana/grafana:12.5.0
     container_name: shuknow-grafana
     restart: unless-stopped
-    profiles: ["monitoring"]
     ports:
       - "3000:3000"
     environment:
@@ -136,7 +146,8 @@ services:
     environment:
       SERVER_NAME: ${SERVER_NAME:?SERVER_NAME must be set}
       BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:?BACKEND_UPSTREAM must be set}
-      NGINX_ENVSUBST_FILTER: SERVER_NAME|BACKEND_UPSTREAM
+      FRONTEND_UPSTREAM: ${FRONTEND_UPSTREAM:?FRONTEND_UPSTREAM must be set}
+      NGINX_ENVSUBST_FILTER: SERVER_NAME|BACKEND_UPSTREAM|FRONTEND_UPSTREAM
     volumes:
       - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./deploy/nginx/conf.d/default.conf.template:/etc/nginx/templates/default.conf.template:ro
@@ -145,6 +156,8 @@ services:
     command: ["nginx", "-g", "daemon off;"]
     depends_on:
       backend:
+        condition: service_started
+      frontend:
         condition: service_started
     networks:
       - shuknow-prod
