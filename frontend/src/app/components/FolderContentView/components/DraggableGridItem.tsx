@@ -223,9 +223,16 @@ export function DraggableGridItem({
         onMoveItemToFolder(draggedItem.id, item.id, draggedItem.origType);
         return { movedIntoFolder: true };
       }
+
+      if (dropIntent === "reorder" && draggedItem.index !== index) {
+        moveItem(draggedItem.index, index);
+        draggedItem.index = index;
+      }
+
       // 否则执行重新排序（已在hover中完成，这里只需清理状态）
       setDropIntent(null);
       lastIntentRef.current = null;
+      return { moved: true };
     },
     canDrop: (draggedItem) => {
       // 文件总是可以拖放到其他位置进行排序

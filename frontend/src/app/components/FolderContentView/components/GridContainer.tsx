@@ -1,8 +1,10 @@
 import { Upload, FolderIcon, Plus } from "lucide-react";
+import { useDrop } from "react-dnd";
 import type { GridItem } from "../types";
 import type { Folder, FileItem } from "../../../../api/types";
 import { DraggableGridItem } from "./DraggableGridItem";
 import { CustomDragLayer } from "./CustomDragLayer";
+import { GRID_ITEM_TYPE } from "../constants";
 
 interface GridContainerProps {
   gridRef: React.RefObject<HTMLDivElement>;
@@ -45,8 +47,16 @@ export function GridContainer({
   onCreateFolder,
   onCreateFile,
 }: GridContainerProps) {
+  const [, dropGrid] = useDrop({
+    accept: GRID_ITEM_TYPE,
+    drop: (_item, monitor) => {
+      if (monitor.didDrop()) return undefined;
+      return { moved: true };
+    },
+  });
+
   return (
-    <div className="flex-1 overflow-y-auto px-8 py-6 relative">
+    <div ref={dropGrid} className="flex-1 overflow-y-auto px-8 py-6 relative">
       {/* Drop overlay when dragging files */}
       {isFileOver && gridItems.length > 0 && (
         <div className="absolute inset-0 bg-indigo-500/5 border-2 border-dashed border-indigo-500/50 rounded-xl z-10 flex items-center justify-center pointer-events-none">
