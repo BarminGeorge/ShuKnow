@@ -165,6 +165,8 @@ services:
       - certbot-www:/var/www/certbot
     command: ["nginx", "-g", "daemon off;"]
     depends_on:
+      certbot-init:
+        condition: service_completed_successfully
       backend:
         condition: service_started
       frontend:
@@ -172,6 +174,24 @@ services:
     networks:
       - shuknow-prod
 
+  certbot-init:
+    image: certbot/certbot:latest
+    container_name: shuknow-certbot-init
+    restart: "no"
+    network_mode: host
+    environment:
+      SERVER_NAME: ${SERVER_NAME:?SERVER_NAME must be set}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL must be set}
+    volumes:
+      - certbot-conf:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: >
+      /bin/sh -c "set -eu;
+      if [ -f /etc/letsencrypt/live/$${SERVER_NAME}/fullchain.pem ] && [ -f /etc/letsencrypt/live/$${SERVER_NAME}/privkey.pem ]; then
+      echo 'Certificate already exists for' $${SERVER_NAME};
+      exit 0;
+      fi;
+      certbot certonly --standalone --preferred-challenges http --non-interactive --agree-tos --no-eff-email --email $${LETSENCRYPT_EMAIL} -d $${SERVER_NAME}"
   certbot:
     image: certbot/certbot:latest
     container_name: shuknow-certbot

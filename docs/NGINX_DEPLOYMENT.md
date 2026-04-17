@@ -12,10 +12,9 @@ Default upstream in dev mode: `host.docker.internal:5209`.
 
 1. Create `.env.prod` from `.env.prod.example` and set:
    - all variables from template (prod compose has no defaults)
-2. Get initial certificate via GitHub Actions:
-   - run workflow `.github/workflows/issue-initial-ssl.yml`
-3. Start full production stack (backend + frontend + nginx + certbot + postgres + redis + rustfs + prometheus + grafana):
+2. Start full production stack (backend + frontend + nginx + certbot + postgres + redis + rustfs + prometheus + grafana):
    - `docker compose --env-file .env.prod -f compose.prod.yaml up -d`
+3. Initial certificate is issued automatically on first start by `certbot-init` (standalone HTTP-01), then nginx starts with HTTPS.
 
 Nginx includes:
 - HTTP->HTTPS redirect in prod;
