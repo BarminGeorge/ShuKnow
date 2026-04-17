@@ -55,17 +55,21 @@ public class ChatService(
     public async Task<Result<ChatMessage>> PersistMessageAsync(ChatMessage message, CancellationToken ct = default)
     {
         return await chatSessionRepository.GetActiveAsync(CurrentUserId)
-            .BindAsync(session => session.Id == message.SessionId 
-                ? Result.Success(session) 
+            .BindAsync(session => message.SessionId == session.Id
+                ? Result.Success(session)
                 : Result<ChatSession>.NotFound())
             .BindAsync(_ => chatMessageRepository.AddAsync(message))
             .SaveChangesAsync(unitOfWork)
             .MapAsync(() => message);
     }
 
-    public async Task<Result> PersistMessagesAsync(IReadOnlyCollection<ChatMessage> messages, CancellationToken ct = default)
+    public async Task<Result> PersistMessagesAsync(IReadOnlyCollection<ChatMessage> messages,
+        CancellationToken ct = default)
     {
         return await chatSessionRepository.GetActiveAsync(CurrentUserId)
+            .BindAsync(session => messages.All(message => message.SessionId == session.Id)
+                ? Result.Success(session)
+                : Result<ChatSession>.NotFound())
             .BindAsync(_ => chatMessageRepository.AddRangeAsync(messages))
             .SaveChangesAsync(unitOfWork);
     }
