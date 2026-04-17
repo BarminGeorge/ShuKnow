@@ -195,7 +195,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
               <div
                 key={attachment.localId}
                 className="flex-shrink-0 w-[220px] flex items-center gap-3 px-3 py-2.5 rounded-xl
-                           bg-[linear-gradient(135deg,rgb(31,31,33),rgb(24,24,24)_52%,rgb(28,22,40))]
+                           bg-[linear-gradient(135deg,rgb(31,31,33),rgb(24,24,24)_52%,rgb(18,18,20))]
                            border border-white/[0.07] shadow-[0_10px_28px_rgba(0,0,0,0.22)]
                            group transition-all hover:border-violet-200/18 hover:shadow-[0_12px_32px_rgba(0,0,0,0.26),0_0_20px_rgba(167,139,250,0.05)]"
               >
@@ -236,7 +236,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
             focus-within:-translate-y-px focus-within:border-violet-200/36 focus-within:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-18px_36px_rgba(0,0,0,0.16),0_20px_52px_rgba(0,0,0,0.38),0_0_36px_rgba(167,139,250,0.14)] ${
             isDragging 
               ? "bg-[linear-gradient(135deg,rgb(50,30,78),rgb(25,20,34)_45%,rgb(45,34,70))] border-violet-200/40 ring-2 ring-violet-300/24" 
-              : "bg-[linear-gradient(135deg,rgb(38,27,55),rgb(30,30,32)_34%,rgb(17,17,18)_62%,rgb(34,27,49))] border-white/[0.10]"
+              : "bg-[linear-gradient(135deg,rgb(31,31,33),rgb(27,27,28)_34%,rgb(17,17,18)_62%,rgb(20,20,22))] border-white/[0.10]"
           }`}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}

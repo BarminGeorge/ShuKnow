@@ -135,7 +135,7 @@ function DraggableAttachment({ attachment }: { attachment: Attachment }) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       className={`flex-shrink-0 w-[220px] flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-grab active:cursor-grabbing
-                  bg-[linear-gradient(135deg,rgba(255,255,255,0.05),rgba(24,24,24,0.92)_52%,rgba(124,58,237,0.08))]
+                  bg-[linear-gradient(135deg,rgba(255,255,255,0.052),rgba(27,27,28,0.96)_52%,rgba(18,18,19,0.98))]
                   border border-white/[0.07] shadow-[0_10px_28px_rgba(0,0,0,0.22)]
                   transition-all hover:border-violet-200/18 hover:shadow-[0_12px_32px_rgba(0,0,0,0.26),0_0_20px_rgba(167,139,250,0.05)] ${isDragging ? 'opacity-50' : ''}`}
     >
@@ -166,6 +166,7 @@ function UserMessage({
   onResend?: (messageId: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [isResendAnimating, setIsResendAnimating] = useState(false);
 
   const handleCopy = async () => {
     try {
@@ -180,10 +181,22 @@ function UserMessage({
   const hasAttachments = !!message.attachments?.length;
   const hasText = !!message.content;
 
+  const handleResend = () => {
+    setIsResendAnimating(false);
+    requestAnimationFrame(() => {
+      setIsResendAnimating(true);
+      window.setTimeout(() => setIsResendAnimating(false), 450);
+    });
+    onResend?.(message.id);
+  };
+
   return (
     <div className="group relative inline-flex max-w-full flex-col items-end overflow-visible">
+      {(hasText || onResend) && (
+        <div className="absolute inset-x-0 top-full h-4" aria-hidden="true" />
+      )}
       <div className={`max-w-full overflow-hidden rounded-2xl border border-white/[0.07]
-                      bg-[linear-gradient(135deg,rgba(255,255,255,0.055),rgba(24,24,24,0.94)_54%,rgba(124,58,237,0.08))]
+                      bg-[linear-gradient(135deg,rgba(255,255,255,0.05),rgba(23,23,24,0.97)_54%,rgba(16,16,17,0.98))]
                       shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_34px_rgba(0,0,0,0.24)]
                       ${hasAttachments && !hasText ? "p-2" : "px-4 py-3"}`}>
         {/* Attachments - horizontal scrollable strip */}
@@ -212,7 +225,7 @@ function UserMessage({
             <button
               onClick={handleCopy}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400
-                         bg-[linear-gradient(135deg,rgba(255,255,255,0.06),rgba(28,28,30,0.96)_52%,rgba(124,58,237,0.10))]
+                         bg-[linear-gradient(135deg,rgba(255,255,255,0.06),rgba(28,28,30,0.96)_52%,rgba(18,18,20,0.98))]
                          border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_24px_rgba(0,0,0,0.28)]
                          hover:text-violet-100 hover:border-violet-200/22 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_12px_28px_rgba(0,0,0,0.30),0_0_18px_rgba(167,139,250,0.08)]
                          transition-all"
@@ -223,15 +236,15 @@ function UserMessage({
           )}
           {onResend && (
             <button
-              onClick={() => onResend(message.id)}
+              onClick={handleResend}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400
-                         bg-[linear-gradient(135deg,rgba(255,255,255,0.06),rgba(28,28,30,0.96)_52%,rgba(124,58,237,0.10))]
+                         bg-[linear-gradient(135deg,rgba(255,255,255,0.06),rgba(28,28,30,0.96)_52%,rgba(18,18,20,0.98))]
                          border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_24px_rgba(0,0,0,0.28)]
                          hover:text-violet-100 hover:border-violet-200/22 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_12px_28px_rgba(0,0,0,0.30),0_0_18px_rgba(167,139,250,0.08)]
                          transition-all"
               title="Отправить повторно"
             >
-              <RefreshCw size={16} />
+              <RefreshCw size={16} className={isResendAnimating ? "animate-[spin_450ms_ease-out_1]" : ""} />
             </button>
           )}
         </div>
@@ -240,11 +253,11 @@ function UserMessage({
   );
 }
 
-export function ChatMessages({ messages, onOpenFolder, onRetry, onSelectFolder, onResend, bottomPadding = 176 }: ChatMessagesProps) {
+export function ChatMessages({ messages, onOpenFolder, onRetry, onResend, bottomPadding = 176 }: ChatMessagesProps) {
   if (messages.length === 0) return null;
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_58%_0%,rgba(124,58,237,0.055),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.012),transparent_18%)]">
+    <div className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_58%_0%,rgba(124,58,237,0.025),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.01),transparent_18%)]">
       <div className="max-w-7xl mx-auto px-9" style={{ paddingBottom: bottomPadding }}>
         {messages.map((message, index) => (
           <div
@@ -260,9 +273,9 @@ export function ChatMessages({ messages, onOpenFolder, onRetry, onSelectFolder, 
               ) : (
                 <div className="w-full max-w-5xl">
                   <div className="relative flex gap-4 rounded-2xl overflow-hidden border border-white/[0.055]
-                                  bg-[linear-gradient(135deg,rgba(255,255,255,0.04),rgba(17,17,17,0.96)_50%,rgba(124,58,237,0.07))]
+                                  bg-[linear-gradient(135deg,rgba(255,255,255,0.035),rgba(18,18,19,0.97)_52%,rgba(12,12,13,0.98))]
                                   px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_16px_44px_rgba(0,0,0,0.24)]
-                                  before:absolute before:inset-y-5 before:left-0 before:w-px before:bg-gradient-to-b before:from-transparent before:via-violet-200/30 before:to-transparent">
+                                  before:absolute before:inset-y-5 before:left-0 before:w-px before:bg-gradient-to-b before:from-transparent before:via-violet-200/22 before:to-transparent">
                     {/* Agent avatar */}
                     <div className="relative z-10 w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-violet-100
                                     bg-[linear-gradient(135deg,rgba(124,58,237,0.78),rgba(15,23,42,0.56)_58%,rgba(167,139,250,0.38))]
@@ -357,21 +370,12 @@ export function ChatMessages({ messages, onOpenFolder, onRetry, onSelectFolder, 
                         
                         {/* Action buttons */}
                         <div className="flex gap-2">
-                          {onSelectFolder && (
-                            <button 
-                              onClick={() => onSelectFolder(message.id)}
-                              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-violet-100
-                                         bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))]
-                                         border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)]"
-                            >
-                              <FolderOpen size={14} />
-                              <span>Выбрать папку</span>
-                            </button>
-                          )}
                           {onRetry && (
                             <button 
                               onClick={() => onRetry(message.id)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-violet-500/10 text-muted-foreground hover:text-violet-200 transition-colors text-sm"
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-violet-100
+                                         bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))]
+                                         border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)]"
                             >
                               <Undo2 size={14} />
                               <span>Повторить</span>
