@@ -274,6 +274,30 @@ public class FolderServiceTests
     }
 
     [Test]
+    public async Task DeleteAsync_WhenDeletedFilesHaveEmptyOrDuplicateBlobIds_ShouldEnqueueOnlyUniqueNonEmptyBlobIds()
+    {
+        var folder = CreateFolder();
+        var blobId = Guid.NewGuid();
+        var firstFile = CreateFile(folderId: folder.Id);
+        firstFile.BlobId = blobId;
+        var duplicateFile = CreateFile(folderId: folder.Id);
+        duplicateFile.BlobId = blobId;
+        var emptyBlobFile = CreateFile(folderId: folder.Id);
+        emptyBlobFile.BlobId = Guid.Empty;
+
+        folderRepository.GetByIdAsync(folder.Id, currentUserId).Returns(Success(folder));
+        folderRepository.GetTreeAsync(currentUserId).Returns(Success<IReadOnlyList<Folder>>([folder]));
+        fileRepository.DeleteByFolderAsync(folder.Id, currentUserId)
+            .Returns(Success<IReadOnlyList<DomainFile>>([firstFile, duplicateFile, emptyBlobFile]));
+
+        var result = await sut.DeleteAsync(folder.Id);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        await blobDeletionQueue.Received(1).EnqueueDeleteAsync(blobId);
+        await blobDeletionQueue.DidNotReceive().EnqueueDeleteAsync(Guid.Empty);
+    }
+
+    [Test]
     public async Task MoveAsync_WhenTargetIsCurrentParent_ShouldReturnExistingFolderWithoutSavingChanges()
     {
         var parentId = Guid.NewGuid();

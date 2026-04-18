@@ -84,36 +84,13 @@ internal class FolderService(
 
     public async Task<Result> DeleteAsync(Guid folderId, CancellationToken ct = default)
     {
-        var folderResult = await GetByIdAsync(folderId, ct);
-        if (!folderResult.IsSuccess)
-            return folderResult.Map();
-
-        var subtreeFolderIdsResult = await GetSubtreeFolderIdsAsync(folderId);
-        if (!subtreeFolderIdsResult.IsSuccess)
-            return subtreeFolderIdsResult.Map();
-
-        var deletedBlobIds = new List<Guid>();
-        foreach (var subtreeFolderId in subtreeFolderIdsResult.Value)
-        {
-            var deleteFilesResult = await fileRepository.DeleteByFolderAsync(subtreeFolderId, CurrentUserId);
-            if (!deleteFilesResult.IsSuccess)
-                return deleteFilesResult.Map();
-
-            deletedBlobIds.AddRange(deleteFilesResult.Value.Select(file => file.BlobId));
-        }
-
-        var deleteFolderResult = await folderRepository.DeleteSubtreeAsync(folderId, CurrentUserId);
-        if (!deleteFolderResult.IsSuccess)
-            return deleteFolderResult;
-
-        var saveResult = await unitOfWork.SaveChangesAsync();
-        if (!saveResult.IsSuccess)
-            return saveResult;
-
-        foreach (var blobId in deletedBlobIds)
-            await blobDeletionQueue.EnqueueDeleteAsync(blobId);
-
-        return Result.Success();
+        return await GetByIdAsync(folderId, ct)
+            .BindAsync(_ => GetSubtreeFolderIdsAsync(folderId))
+            .BindAsync(DeleteFilesByFoldersAsync)
+            .ActAsync(_ => folderRepository.DeleteSubtreeAsync(folderId, CurrentUserId))
+            .SaveChangesAsync(unitOfWork)
+            .ActAsync(EnqueueDeletesAsync)
+            .BindAsync(_ => Result.Success());
     }
 
     public async Task<Result<Folder>> MoveAsync(Guid folderId, Guid? newParentFolderId = null,
@@ -250,6 +227,32 @@ internal class FolderService(
     {
         return await folderRepository.GetTreeAsync(CurrentUserId)
             .MapAsync(folders => GetSubtreeFolderIds(folderId, folders));
+    }
+
+    private async Task<Result<IReadOnlyList<Guid>>> DeleteFilesByFoldersAsync(IReadOnlyList<Guid> folderIds)
+    {
+        var deletedBlobIds = new List<Guid>();
+
+        foreach (var folderId in folderIds)
+        {
+            var deleteFilesResult = await fileRepository.DeleteByFolderAsync(folderId, CurrentUserId);
+            if (!deleteFilesResult.IsSuccess)
+                return deleteFilesResult.Map();
+
+            deletedBlobIds.AddRange(deleteFilesResult.Value.Select(file => file.BlobId));
+        }
+
+        return deletedBlobIds;
+    }
+
+    private async Task EnqueueDeletesAsync(IEnumerable<Guid> blobIds)
+    {
+        var enqueueTasks = blobIds
+            .Where(blobId => blobId != Guid.Empty)
+            .Distinct()
+            .Select(blobId => blobDeletionQueue.EnqueueDeleteAsync(blobId).AsTask());
+
+        await Task.WhenAll(enqueueTasks);
     }
 
     private static IReadOnlyList<Guid> GetSubtreeFolderIds(Guid folderId, IReadOnlyList<Folder> folders)
