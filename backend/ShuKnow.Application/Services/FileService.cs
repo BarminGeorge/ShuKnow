@@ -260,13 +260,6 @@ public class FileService(
         return updatedItems;
     }
 
-    private static string[] SplitPath(string path)
-    {
-        return path.Split(
-            ['/', '\\'],
-            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-    }
-
     private sealed class PreparedUpload(Stream content, long sizeBytes, IAsyncDisposable? disposable = null)
         : IAsyncDisposable
     {
