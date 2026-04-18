@@ -51,24 +51,19 @@ services:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__Postgres: Host=postgres;Port=5432;Username=${POSTGRES_USER:?POSTGRES_USER must be set};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set};Database=${POSTGRES_DB:?POSTGRES_DB must be set}
       ConnectionStrings__Redis: redis:6379,password=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
-      BlobStorage__Provider: ${BLOB_PROVIDER:?BLOB_PROVIDER must be set}
-      BlobStorage__S3__ServiceUrl: http://rustfs:9000
-      BlobStorage__S3__AccessKey: ${RUSTFS_ACCESS_KEY:?RUSTFS_ACCESS_KEY must be set}
-      BlobStorage__S3__SecretKey: ${RUSTFS_SECRET_KEY:?RUSTFS_SECRET_KEY must be set}
-      BlobStorage__S3__BucketName: ${RUSTFS_BUCKET_NAME:?RUSTFS_BUCKET_NAME must be set}
-      BlobStorage__S3__Prefix: ${RUSTFS_PREFIX:?RUSTFS_PREFIX must be set}
-      BlobStorage__S3__ForcePathStyle: "true"
+      BlobStorage__Provider: FileSystem
+      BlobStorage__FileSystem__BasePath: /app/data/blobs
       Jwt__Key: ${JWT_KEY:?JWT_KEY must be set}
       Jwt__Issuer: ${JWT_ISSUER:?JWT_ISSUER must be set}
       Jwt__Audience: ${JWT_AUDIENCE:?JWT_AUDIENCE must be set}
       Jwt__ExpiresInMinutes: ${JWT_EXPIRES_IN_MINUTES:?JWT_EXPIRES_IN_MINUTES must be set}
       Encryption__Key: ${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set}
       AuthCookie__Secure: "true"
+    volumes:
+      - backend-data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
-      rustfs:
-        condition: service_started
     networks:
       - shuknow-prod
 
