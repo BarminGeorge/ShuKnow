@@ -33,7 +33,21 @@ docker compose --env-file .env.prod -f compose.prod.yaml up -d
 При первом старте сертификат запрашивается автоматически сервисом `certbot-init`, после чего запускается nginx с HTTPS.
 `certbot-init` использует standalone HTTP-01 и требует, чтобы порт 80 на сервере был доступен извне для Let's Encrypt.
 
-## 3. Мониторинг
+## 3. Применение миграций вручную
+
+One-shot сервис `migrator` не запускается автоматически. Применяйте миграции отдельной командой:
+
+```bash
+docker compose --env-file .env.prod -f compose.prod.yaml up migrator
+```
+
+После успешного завершения `migrator` можно запускать или перезапускать backend:
+
+```bash
+docker compose --env-file .env.prod -f compose.prod.yaml up -d backend
+```
+
+## 4. Мониторинг
 Prometheus и Grafana запускаются этой же командой вместе со всем остальным стеком.
 
 - Grafana доступна только через основной домен: `https://<SERVER_NAME>/monitoring/`
@@ -41,14 +55,14 @@ Prometheus и Grafana запускаются этой же командой вм
 - Prometheus доступен через `https://<SERVER_NAME>/monitoring/prometheus/` и защищён Basic Auth (`PROMETHEUS_BASIC_AUTH_USER` + `PROMETHEUS_BASIC_AUTH_PASSWORD`)
 - Прямые внешние порты `3000/9090` не публикуются
 
-## 4. Обновление образов из GHCR
+## 5. Обновление образов из GHCR
 
 ```bash
 docker compose --env-file .env.prod -f compose.prod.yaml pull backend frontend
 docker compose --env-file .env.prod -f compose.prod.yaml up -d backend frontend
 ```
 
-## 5. Публикация Docker-образов в GHCR
+## 6. Публикация Docker-образов в GHCR
 
 Workflow: `.github/workflows/publish-docker-ghcr.yml`
 
@@ -58,7 +72,7 @@ Workflow: `.github/workflows/publish-docker-ghcr.yml`
   - `ghcr.io/<owner>/<repo>` (backend)
   - `ghcr.io/<owner>/<repo>-frontend` (frontend)
 
-## 6. Локальный запуск без SSL и без GHCR
+## 7. Локальный запуск без SSL и без GHCR
 
 Для localhost используйте override:
 

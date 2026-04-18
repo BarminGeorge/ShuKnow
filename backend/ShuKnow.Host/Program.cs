@@ -2,13 +2,15 @@
 using ShuKnow.Application.Configuration;
 using ShuKnow.Domain.Configuration;
 using ShuKnow.Infrastructure.Configuration;
-using ShuKnow.WebAPI.Configuration;
 using ShuKnow.Metrics.Configuration;
+using ShuKnow.WebAPI.Configuration;
 
 namespace ShuKnow.Host;
 
 public static class Program
 {
+    private const string ApplyMigrationsOnlyEnvironmentVariable = "SHUKNOW_APPLY_MIGRATIONS_ONLY";
+
     public static async Task Main(string[] args)
     {
         DotEnv.Load(new DotEnvOptions(probeForEnv: true, probeLevelsToSearch: 5));
@@ -17,6 +19,13 @@ public static class Program
         builder.Services.ConfigureServices(builder.Configuration);
 
         var app = builder.Build();
+
+        if (ShouldApplyMigrationsOnly())
+        {
+            app.Services.ApplyMigrations();
+            return;
+        }
+
         app.ConfigureApp();
 
         await app.RunAsync();
@@ -44,4 +53,10 @@ public static class Program
         app.UseWebDevelopment();
         app.Services.ApplyMigrations();
     }
+    
+    private static bool ShouldApplyMigrationsOnly()
+        => string.Equals(
+            Environment.GetEnvironmentVariable(ApplyMigrationsOnlyEnvironmentVariable),
+            bool.TrueString,
+            StringComparison.OrdinalIgnoreCase);
 }
