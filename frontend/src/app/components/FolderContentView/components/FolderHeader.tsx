@@ -4,6 +4,9 @@ import { EmojiPicker } from "../../EmojiPicker";
 import { formatFolderStatsHeader } from "../helpers";
 import { ACCEPTED_UPLOAD_FILE_TYPES } from "../../../utils/fileValidation";
 
+const secondaryActionClass = "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-white/[0.045] border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] hover:text-gray-100 hover:border-white/14 hover:bg-white/[0.065] transition-colors";
+const promptFieldClass = "w-full px-4 py-3 bg-[#101010] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] focus:border-violet-300/28 focus:bg-[#121212] transition-colors";
+
 interface FolderHeaderProps {
   breadcrumbs: string[];
   onBreadcrumbClick: (index: number) => void;
@@ -60,7 +63,7 @@ export function FolderHeader({
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <div className="border-b border-white/10 px-8 py-6">
+    <div className="border-b border-white/[0.07] px-8 py-6">
       {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-sm text-gray-400 mb-4 overflow-x-auto scrollbar-none" style={{ scrollbarWidth: "none" }}>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -134,7 +137,7 @@ export function FolderHeader({
             <>
               <button
                 onClick={onCreateFolder}
-                className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
+                className={secondaryActionClass}
                 title="Создать папку"
               >
                 <FolderIcon size={16} />
@@ -154,7 +157,7 @@ export function FolderHeader({
           )}
           <button
             onClick={onAttachFile}
-            className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
+            className={secondaryActionClass}
             title="Прикрепить файл"
           >
             <Paperclip size={16} />
@@ -180,7 +183,7 @@ export function FolderHeader({
           onChange={(e) => setAiPrompt(e.target.value)}
           onBlur={onPromptBlur}
           placeholder="Инструкция для ИИ: что должно попадать в эту папку..."
-          className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-indigo-500/50 transition-colors"
+          className={promptFieldClass}
           rows={2}
         />
       </div>

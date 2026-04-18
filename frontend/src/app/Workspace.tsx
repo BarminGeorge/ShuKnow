@@ -275,8 +275,13 @@ export default function Workspace() {
                     {messages.length === 0 ? (
                       <div className="flex-1 flex flex-col items-center justify-center pb-20">
                         <div className="flex items-center gap-3 mb-6">
-                          <div className="w-8 h-8 flex items-center justify-center text-indigo-400">
-                            <Sparkles size={24} />
+                          <div className="relative flex h-9 w-9 items-center justify-center">
+                            <div className="absolute inset-2 rounded-full bg-violet-500/8 blur-sm" />
+                            <Sparkles
+                              size={26}
+                              className="relative text-violet-200 drop-shadow-[0_0_7px_rgba(167,139,250,0.22)]"
+                              strokeWidth={2.25}
+                            />
                           </div>
                           <h2 className="text-2xl font-semibold text-white text-center">{currentTitle}</h2>
                         </div>

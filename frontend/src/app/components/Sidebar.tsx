@@ -422,10 +422,9 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
             setIsCreateFolderOpen(true);
           }}
           className="w-10 h-10 mb-4 flex items-center justify-center rounded-lg text-gray-300
-                     bg-[linear-gradient(180deg,rgba(255,255,255,0.085),rgba(255,255,255,0.035))]
-                     border border-white/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_18px_rgba(0,0,0,0.18)]
-                     hover:text-gray-100 hover:border-white/18 hover:bg-white/10 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.11),0_10px_22px_rgba(0,0,0,0.22)]
-                     transition-all flex-shrink-0"
+                     bg-white/[0.045] border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]
+                     hover:text-gray-100 hover:border-white/14 hover:bg-white/[0.065]
+                     transition-colors flex-shrink-0"
           title="Новая папка"
         >
           <Plus size={18} />
@@ -549,10 +548,9 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
             setIsCreateFolderOpen(true);
           }}
           className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-gray-300
-                     bg-[linear-gradient(180deg,rgba(255,255,255,0.085),rgba(255,255,255,0.035))]
-                     border border-white/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_18px_rgba(0,0,0,0.18)]
-                     hover:text-gray-100 hover:border-white/18 hover:bg-white/10 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.11),0_10px_22px_rgba(0,0,0,0.22)]
-                     transition-all"
+                     bg-white/[0.045] border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]
+                     hover:text-gray-100 hover:border-white/14 hover:bg-white/[0.065]
+                     transition-colors"
         >
           <Plus size={16} />
           <span className="text-sm font-medium">Новая папка</span>
