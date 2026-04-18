@@ -4,7 +4,7 @@ services:
     pull_policy: never
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: backend/Dockerfile
     environment:
       BlobStorage__Provider: FileSystem
       BlobStorage__FileSystem__BasePath: /app/data/blobs

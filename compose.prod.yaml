@@ -4,7 +4,7 @@ services:
     image: ${BACKEND_IMAGE:?BACKEND_IMAGE must be set}
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     expose:
       - "8080"
