@@ -5,6 +5,7 @@ import { SettingsModal } from "./SettingsModal";
 import { CreateFolderModal } from "./CreateFolderModal";
 import { EditFolderModal } from "./EditFolderModal";
 import { DeleteFolderModal } from "./DeleteFolderModal";
+import { SidebarFolderContextMenu } from "./SidebarFolderContextMenu";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router";
 import { folderService, fileService, ApiError } from "../../api";
@@ -42,6 +43,17 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
     folder: Folder | null;
     path: string[];
   }>({ isOpen: false, folder: null, path: [] });
+  const [folderContextMenuState, setFolderContextMenuState] = useState<{
+    isOpen: boolean;
+    folder: Folder | null;
+    path: string[];
+    position: { x: number; y: number };
+  }>({
+    isOpen: false,
+    folder: null,
+    path: [],
+    position: { x: 0, y: 0 },
+  });
 
   const findFolderByPath = (path: string[]): Folder | null => {
     if (path.length === 0) return null;
@@ -340,6 +352,21 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
     }
   };
 
+  const handleOpenFolderContextMenu = (
+    folder: Folder,
+    path: string[],
+    position: { x: number; y: number }
+  ) => {
+    setFolderContextMenuState({ isOpen: true, folder, path, position });
+  };
+
+  const handleCloseFolderContextMenu = () => {
+    setFolderContextMenuState((currentState) => ({
+      ...currentState,
+      isOpen: false,
+    }));
+  };
+
   const handleConfirmDelete = async (isRecursiveDelete: boolean) => {
     const { folder, path } = deleteFolderState;
     if (!folder) return;
@@ -380,9 +407,10 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
 
         <button
           onClick={onLogoClick}
-          className="w-10 h-10 mb-2 flex items-center justify-center rounded-lg text-violet-100
-                     bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))]
-                     border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)] flex-shrink-0"
+          className="w-10 h-10 mb-2 flex items-center justify-center rounded-lg text-violet-200/85
+                     bg-[linear-gradient(135deg,rgba(76,29,149,0.26),rgba(17,16,24,0.58)_60%,rgba(109,40,217,0.08))]
+                     border border-violet-300/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_14px_rgba(91,33,182,0.045)]
+                     hover:border-violet-300/20 hover:text-violet-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_18px_rgba(91,33,182,0.075)] flex-shrink-0"
           title="Чат"
         >
           <MessageSquare size={18} />
@@ -393,7 +421,11 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
             setCreateFolderParentPath(null);
             setIsCreateFolderOpen(true);
           }}
-          className="w-10 h-10 mb-4 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-200 transition-colors border border-white/10 flex-shrink-0"
+          className="w-10 h-10 mb-4 flex items-center justify-center rounded-lg text-gray-300
+                     bg-[linear-gradient(180deg,rgba(255,255,255,0.085),rgba(255,255,255,0.035))]
+                     border border-white/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_18px_rgba(0,0,0,0.18)]
+                     hover:text-gray-100 hover:border-white/18 hover:bg-white/10 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.11),0_10px_22px_rgba(0,0,0,0.22)]
+                     transition-all flex-shrink-0"
           title="Новая папка"
         >
           <Plus size={18} />
@@ -405,6 +437,14 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
               key={folder.id}
               className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/10 cursor-pointer transition-colors flex-shrink-0"
               title={folder.name}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                handleOpenFolderContextMenu(folder, [index.toString()], {
+                  x: event.clientX,
+                  y: event.clientY,
+                });
+              }}
               onClick={() => {
                 setSelectedFolderPath([index.toString()]);
                 setViewMode('folder');
@@ -425,7 +465,8 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
           </button>
           <button
             onClick={() => { logout(); navigate("/"); }}
-            className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-indigo-500/10 text-gray-400 hover:text-indigo-400 transition-colors"
+            className="w-10 h-10 flex items-center justify-center rounded-lg text-gray-400 transition-all
+                       hover:text-violet-300/85 hover:bg-[linear-gradient(135deg,rgba(76,29,149,0.18),rgba(20,18,28,0.48))]"
             title="Выйти"
           >
             <LogOut size={18} />
@@ -438,6 +479,32 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
           isOpen={isCreateFolderOpen}
           onClose={handleCreateFolderClose}
           onCreateFolder={handleCreateFolder}
+        />
+        <EditFolderModal
+          isOpen={editFolderState.isOpen}
+          onClose={() => setEditFolderState({ isOpen: false, folder: null, path: [] })}
+          folderName={editFolderState.folder?.name || ""}
+          folderEmoji={editFolderState.folder?.emoji || ""}
+          currentPrompt={editFolderState.folder?.prompt || ""}
+          onSave={handleSaveFolderEdit}
+        />
+        <DeleteFolderModal
+          isOpen={deleteFolderState.isOpen}
+          folder={deleteFolderState.folder}
+          onClose={() => setDeleteFolderState({ isOpen: false, folder: null, path: [] })}
+          onConfirm={handleConfirmDelete}
+        />
+        <SidebarFolderContextMenu
+          isOpen={folderContextMenuState.isOpen}
+          position={folderContextMenuState.position}
+          onClose={handleCloseFolderContextMenu}
+          onAddSubfolder={() => handleAddSubfolder(folderContextMenuState.path)}
+          onEdit={() => {
+            if (folderContextMenuState.folder) {
+              handleEditFolder(folderContextMenuState.folder, folderContextMenuState.path);
+            }
+          }}
+          onDelete={() => handleDeleteFolder(folderContextMenuState.path)}
         />
       </div>
     );
@@ -467,9 +534,10 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
       <div className="px-4 mb-4 flex flex-col gap-2">
         <button
           onClick={onLogoClick}
-          className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium text-violet-100
-                     bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))]
-                     border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)]"
+          className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium text-violet-200/85
+                     bg-[linear-gradient(135deg,rgba(76,29,149,0.26),rgba(17,16,24,0.58)_60%,rgba(109,40,217,0.08))]
+                     border border-violet-300/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_14px_rgba(91,33,182,0.045)]
+                     hover:border-violet-300/20 hover:text-violet-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_18px_rgba(91,33,182,0.075)]"
         >
           <MessageSquare size={16} />
           <span className="text-sm font-medium">Чат</span>
@@ -480,7 +548,11 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
             setCreateFolderParentPath(null);
             setIsCreateFolderOpen(true);
           }}
-          className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-gray-200 transition-colors border border-white/10"
+          className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-gray-300
+                     bg-[linear-gradient(180deg,rgba(255,255,255,0.085),rgba(255,255,255,0.035))]
+                     border border-white/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_18px_rgba(0,0,0,0.18)]
+                     hover:text-gray-100 hover:border-white/18 hover:bg-white/10 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.11),0_10px_22px_rgba(0,0,0,0.22)]
+                     transition-all"
         >
           <Plus size={16} />
           <span className="text-sm font-medium">Новая папка</span>
@@ -490,18 +562,21 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
       {/* File System */}
       <div className="flex-1 overflow-y-auto overflow-x-auto py-4 scrollbar-hide-hover" style={{ scrollbarWidth: "thin" }}>
         <SidebarFolderDragLayer />
-        {folders.map((folder, index) => (
-          <FolderItem
-            key={folder.id}
-            folder={folder}
-            path={[index.toString()]}
-            moveFolder={moveFolder}
-            onEditFolder={handleEditFolder}
-            onAddSubfolder={handleAddSubfolder}
-            onDeleteFolder={handleDeleteFolder}
-            onMoveGridItemToFolder={handleMoveGridItemToSidebarFolder}
-          />
-        ))}
+        <div className="inline-block min-w-full align-top">
+          {folders.map((folder, index) => (
+            <FolderItem
+              key={folder.id}
+              folder={folder}
+              path={[index.toString()]}
+              moveFolder={moveFolder}
+              onEditFolder={handleEditFolder}
+              onAddSubfolder={handleAddSubfolder}
+              onDeleteFolder={handleDeleteFolder}
+              onOpenContextMenu={handleOpenFolderContextMenu}
+              onMoveGridItemToFolder={handleMoveGridItemToSidebarFolder}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Footer Settings */}
@@ -516,7 +591,8 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
         </button>
         <button
           onClick={() => { logout(); navigate("/"); }}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-indigo-500/10 text-gray-400 hover:text-indigo-400 transition-colors"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 transition-all
+                     hover:text-violet-300/85 hover:bg-[linear-gradient(135deg,rgba(76,29,149,0.18),rgba(20,18,28,0.48))]"
           title="Выйти"
         >
           <LogOut size={18} />
@@ -544,6 +620,18 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
         folder={deleteFolderState.folder}
         onClose={() => setDeleteFolderState({ isOpen: false, folder: null, path: [] })}
         onConfirm={handleConfirmDelete}
+      />
+      <SidebarFolderContextMenu
+        isOpen={folderContextMenuState.isOpen}
+        position={folderContextMenuState.position}
+        onClose={handleCloseFolderContextMenu}
+        onAddSubfolder={() => handleAddSubfolder(folderContextMenuState.path)}
+        onEdit={() => {
+          if (folderContextMenuState.folder) {
+            handleEditFolder(folderContextMenuState.folder, folderContextMenuState.path);
+          }
+        }}
+        onDelete={() => handleDeleteFolder(folderContextMenuState.path)}
       />
     </div>
   );

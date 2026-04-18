@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useDrag, useDragLayer, useDrop } from "react-dnd";
 import { getEmptyImage } from "react-dnd-html5-backend";
-import { Edit3, Plus, ChevronRight, ChevronDown, Trash2 } from "lucide-react";
+import { ChevronRight, ChevronDown } from "lucide-react";
 import type { Folder } from "../../api/types";
 import { useWorkspaceView } from "../hooks/useWorkspaceView";
 import { GRID_ITEM_TYPE } from "./FolderContentView/constants";
@@ -14,6 +14,7 @@ interface FolderItemProps {
   onEditFolder: (folder: Folder, path: string[]) => void;
   onAddSubfolder: (parentPath: string[]) => void;
   onDeleteFolder: (path: string[]) => void;
+  onOpenContextMenu: (folder: Folder, path: string[], position: { x: number; y: number }) => void;
   onMoveGridItemToFolder?: (itemId: string, targetFolderId: string, itemType: GridItemType) => void;
   depth?: number;
 }
@@ -26,10 +27,6 @@ interface DragItem {
   name: string;
   emoji?: string;
   depth: number;
-  hasSubfolders: boolean;
-  isExpanded: boolean;
-  sourceWidth: number;
-  sourceHeight: number;
 }
 
 interface GridDragItem {
@@ -46,39 +43,41 @@ export function FolderItem({
   onEditFolder,
   onAddSubfolder,
   onDeleteFolder,
+  onOpenContextMenu,
   onMoveGridItemToFolder,
   depth = 0,
 }: FolderItemProps) {
   const { setSelectedFolderPath, setViewMode } = useWorkspaceView();
   const [isExpanded, setIsExpanded] = useState(depth === 0);
-  const [isHovered, setIsHovered] = useState(false);
   const [dropZone, setDropZone] = useState<DropZone>(null);
+  const [isPointerHovered, setIsPointerHovered] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const latestDropZoneRef = useRef<DropZone>(null);
   const [isDraggingState, setIsDraggingState] = useState(false);
 
   const hasSubfolders = folder.subfolders && folder.subfolders.length > 0;
+  const isAnySidebarFolderDragging = useDragLayer((monitor) => (
+    monitor.isDragging() && monitor.getItemType() === FOLDER_TYPE
+  ));
 
   const [{ isDragging }, drag, dragPreview] = useDrag({
     type: FOLDER_TYPE,
     item: () => {
       setIsDraggingState(true);
-      const rect = ref.current?.getBoundingClientRect();
+      setIsPointerHovered(false);
 
       return {
         path,
         name: folder.name,
         emoji: folder.emoji,
         depth,
-        hasSubfolders,
-        isExpanded,
-        sourceWidth: rect?.width ?? 240,
-        sourceHeight: rect?.height ?? 36,
       };
     },
     end: () => {
       setIsDraggingState(false);
+      setIsPointerHovered(false);
       dragStartPosRef.current = null;
     },
     collect: (monitor) => ({
@@ -90,6 +89,42 @@ export function FolderItem({
     dragPreview(getEmptyImage(), { captureDraggingState: true });
   }, [dragPreview]);
 
+  const clearHoverTimeout = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+  };
+
+  const updateDropZone = (nextDropZone: DropZone) => {
+    latestDropZoneRef.current = nextDropZone;
+    setDropZone(nextDropZone);
+  };
+
+  const getDropZoneFromPointer = (monitor: Parameters<NonNullable<Parameters<typeof useDrop>[0]["hover"]>>[1]) => {
+    if (!ref.current) return null;
+
+    const hoverBoundingRect = ref.current.getBoundingClientRect();
+    const clientOffset = monitor.getClientOffset();
+
+    if (!clientOffset) return null;
+
+    const hoverClientY = clientOffset.y - hoverBoundingRect.top;
+    const hoverHeight = hoverBoundingRect.bottom - hoverBoundingRect.top;
+    const topZoneEnd = hoverHeight * 0.25;
+    const bottomZoneStart = hoverHeight * 0.75;
+
+    if (hoverClientY < topZoneEnd) {
+      return "before";
+    }
+
+    if (hoverClientY > bottomZoneStart) {
+      return "after";
+    }
+
+    return "inside";
+  };
+
   const [{ isOver }, drop] = useDrop({
     accept: [FOLDER_TYPE, GRID_ITEM_TYPE],
     hover: (item: DragItem | GridDragItem, monitor) => {
@@ -98,7 +133,7 @@ export function FolderItem({
       const itemType = monitor.getItemType();
       if (itemType === GRID_ITEM_TYPE) {
         const gridItem = item as GridDragItem;
-        setDropZone(gridItem.id === folder.id ? null : "inside");
+        updateDropZone(gridItem.id === folder.id ? null : "inside");
         clearHoverTimeout();
         return;
       }
@@ -107,40 +142,25 @@ export function FolderItem({
       const hoverPath = path;
       if (JSON.stringify(dragPath) === JSON.stringify(hoverPath)) {
         clearHoverTimeout();
-        setDropZone(null);
+        updateDropZone(null);
         return;
       }
       if (hoverPath.join("/").startsWith(dragPath.join("/"))) {
         clearHoverTimeout();
-        setDropZone(null);
+        updateDropZone(null);
         return;
       }
 
-      const hoverBoundingRect = ref.current.getBoundingClientRect();
-      const clientOffset = monitor.getClientOffset();
-
-      if (!clientOffset) {
+      const currentDropZone = getDropZoneFromPointer(monitor);
+      if (!currentDropZone) {
         clearHoverTimeout();
-        setDropZone(null);
+        updateDropZone(null);
         return;
       }
 
-      const hoverClientY = clientOffset.y - hoverBoundingRect.top;
-      const hoverHeight = hoverBoundingRect.bottom - hoverBoundingRect.top;
-      const topZoneEnd = hoverHeight * 0.25;
-      const bottomZoneStart = hoverHeight * 0.75;
-
-      let currentDropZone: DropZone = null;
-
-      if (hoverClientY < topZoneEnd) {
-        currentDropZone = "before";
+      if (currentDropZone === "before" || currentDropZone === "after") {
         clearHoverTimeout();
-      } else if (hoverClientY > bottomZoneStart) {
-        currentDropZone = "after";
-        clearHoverTimeout();
-      } else {
-        currentDropZone = "inside";
-        
+      } else if (currentDropZone === "inside") {
         if (!hoverTimeoutRef.current) {
           hoverTimeoutRef.current = setTimeout(() => {
             if (hasSubfolders && !isExpanded) {
@@ -150,15 +170,16 @@ export function FolderItem({
         }
       }
 
-      setDropZone(currentDropZone);
+      updateDropZone(currentDropZone);
     },
     drop: (item: DragItem | GridDragItem, monitor) => {
       if (!ref.current) return;
+      if (monitor.didDrop()) return;
 
       const itemType = monitor.getItemType();
       if (itemType === GRID_ITEM_TYPE) {
         const gridItem = item as GridDragItem;
-        setDropZone(null);
+        updateDropZone(null);
 
         if (gridItem.id !== folder.id) {
           onMoveGridItemToFolder?.(gridItem.id, folder.id, gridItem.origType);
@@ -170,8 +191,8 @@ export function FolderItem({
       const dragPath = item.path;
       const hoverPath = path;
       clearHoverTimeout();
-      const finalDropZone = dropZone || "after";
-      setDropZone(null);
+      const finalDropZone = getDropZoneFromPointer(monitor) || latestDropZoneRef.current || "after";
+      updateDropZone(null);
       if (JSON.stringify(dragPath) === JSON.stringify(hoverPath)) return;
       if (hoverPath.join("/").startsWith(dragPath.join("/"))) return;
 
@@ -182,12 +203,20 @@ export function FolderItem({
     }),
   });
 
-  const clearHoverTimeout = () => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
+  useEffect(() => {
+    if (!isOver && dropZone !== null) {
+      clearHoverTimeout();
+      updateDropZone(null);
     }
-  };
+  }, [isOver, dropZone]);
+
+  useEffect(() => {
+    if (!isAnySidebarFolderDragging) {
+      clearHoverTimeout();
+      updateDropZone(null);
+      setIsPointerHovered(false);
+    }
+  }, [isAnySidebarFolderDragging]);
 
   drag(drop(ref));
 
@@ -215,85 +244,68 @@ export function FolderItem({
     setIsExpanded(!isExpanded);
   };
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onOpenContextMenu(folder, path, { x: e.clientX, y: e.clientY });
+  };
+
   return (
-    <div>
-      <div className="relative">
+    <div className="min-w-full">
+      <div className="relative min-w-full">
         {/* Drop indicator - Before */}
         {isOver && dropZone === "before" && (
-          <div className="absolute top-0 left-3 right-3 h-0.5 bg-indigo-500 rounded-full z-10" />
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-violet-700/80 z-10" />
         )}
 
         <div
           ref={ref}
-          className={`group relative flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors select-none ${
+          className={`group relative flex min-w-full items-center gap-2 px-3 py-2 cursor-pointer transition-colors select-none before:absolute before:inset-y-0 before:left-0 before:right-0 before:bg-white/[0.045] before:opacity-0 before:transition-opacity ${
+            !isAnySidebarFolderDragging && isPointerHovered ? "before:opacity-100" : ""
+          } ${
             isDragging ? "opacity-50" : ""
-          } ${dropZone === "inside" && isOver ? "bg-indigo-500/20 border border-indigo-500/50 rounded-lg" : ""}`}
+          } ${dropZone === "inside" && isOver ? "before:bg-[linear-gradient(90deg,rgba(76,29,149,0.22),rgba(255,255,255,0.04))] before:opacity-100" : ""}`}
           style={{ paddingLeft: `${depth * 16 + 12}px` }}
-          onMouseEnter={() => setIsHovered(true)}
+          onMouseEnter={() => {
+            if (!isAnySidebarFolderDragging) {
+              setIsPointerHovered(true);
+            }
+          }}
+          onMouseMove={() => {
+            if (!isAnySidebarFolderDragging) {
+              setIsPointerHovered(true);
+            }
+          }}
           onMouseLeave={() => {
-            setIsHovered(false);
+            setIsPointerHovered(false);
             clearHoverTimeout();
-            setDropZone(null);
+            updateDropZone(null);
           }}
           onMouseDown={handleMouseDown}
           onClick={handleClick}
+          onContextMenu={handleContextMenu}
         >
           {hasSubfolders && (
             <button
-              className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-200"
+              className="relative z-[1] w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-200"
               onClick={handleToggleExpand}
             >
               {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </button>
           )}
-          {!hasSubfolders && <div className="w-4" />}
+          {!hasSubfolders && <div className="relative z-[1] w-4" />}
 
-          <div className="flex items-center gap-2 flex-1">
+          <div className="relative z-[1] flex flex-1 items-center gap-2">
             {folder.emoji && (
               <span className="text-xl select-none flex-shrink-0">{folder.emoji}</span>
             )}
             <span className="text-sm text-gray-200 select-none whitespace-nowrap">{folder.name}</span>
           </div>
-
-          {isHovered && !isDraggingState && (
-            <div className="flex items-center gap-1 ml-auto">
-              <button
-                className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-indigo-400 transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEditFolder(folder, path);
-                }}
-                title="Редактировать папку"
-              >
-                <Edit3 size={14} />
-              </button>
-              <button
-                className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-indigo-400 transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAddSubfolder(path);
-                }}
-                title="Добавить подпапку"
-              >
-                <Plus size={14} />
-              </button>
-              <button
-                className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-indigo-400 transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteFolder(path);
-                }}
-                title="Удалить папку"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Drop indicator - After */}
         {isOver && dropZone === "after" && (
-          <div className="absolute bottom-0 left-3 right-3 h-0.5 bg-indigo-500 rounded-full z-10" />
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-700/80 z-10" />
         )}
       </div>
 
@@ -308,6 +320,7 @@ export function FolderItem({
               onEditFolder={onEditFolder}
               onAddSubfolder={onAddSubfolder}
               onDeleteFolder={onDeleteFolder}
+              onOpenContextMenu={onOpenContextMenu}
               onMoveGridItemToFolder={onMoveGridItemToFolder}
               depth={depth + 1}
             />
@@ -331,29 +344,17 @@ export function SidebarFolderDragLayer() {
   return (
     <div className="fixed inset-0 z-[10000] pointer-events-none">
       <div
-        className="absolute flex items-center gap-2 rounded-lg bg-white/10 border border-white/10 shadow-lg shadow-black/30 select-none"
+        className="absolute flex items-center gap-2 select-none"
         style={{
-          left: sourceOffset.x,
+          left: sourceOffset.x + item.depth * 16 + 36,
           top: sourceOffset.y,
-          width: item.sourceWidth,
-          height: item.sourceHeight,
-          paddingLeft: `${item.depth * 16 + 12}px`,
-          paddingRight: 12,
         }}
       >
-        {item.hasSubfolders ? (
-          <div className="w-4 h-4 flex items-center justify-center text-gray-300">
-            {item.isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          </div>
-        ) : (
-          <div className="w-4" />
-        )}
-
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2">
           {item.emoji && (
             <span className="text-xl flex-shrink-0">{item.emoji}</span>
           )}
-          <span className="text-sm text-gray-100 whitespace-nowrap overflow-hidden text-ellipsis">
+          <span className="text-sm text-gray-100 whitespace-nowrap drop-shadow-[0_2px_8px_rgba(0,0,0,0.55)]">
             {item.name}
           </span>
         </div>
