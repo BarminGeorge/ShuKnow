@@ -1,4 +1,4 @@
-﻿using ShuKnow.Application.Interfaces;
+using ShuKnow.Application.Interfaces;
 
 namespace ShuKnow.WebAPI.Services;
 

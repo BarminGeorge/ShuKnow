@@ -5,8 +5,12 @@ namespace ShuKnow.Application.Interfaces;
 
 public interface IAiService
 {
-    Task<Result> ProcessMessageAsync(string content, IReadOnlyCollection<Guid>? attachmentIds,
-        UserAiSettings settings, CancellationToken ct = default);
+    Task<Result> ProcessMessageAsync(
+        string content, 
+        IReadOnlyCollection<Guid>? attachmentIds,
+        UserAiSettings settings, 
+        Guid operationId, 
+        CancellationToken ct = default);
 
     Task<UserAiSettings> TestConnectionAsync(UserAiSettings settings, CancellationToken ct = default);
 }

@@ -16,4 +16,9 @@ public interface ITornadoConversation
         CancellationToken ct = default);
 
     Task<TornadoConversationResponse> GetResponseAsync(CancellationToken ct = default);
+
+    Task<(string response, int toolCalls)> StreamResponseWithToolsAsync(
+        Func<List<FunctionCall>, CancellationToken, ValueTask> toolCallsHandler,
+        Func<string, ValueTask> tokensHandler,
+        CancellationToken ct = default);
 }

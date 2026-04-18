@@ -45,7 +45,7 @@ public class ChatService(
         return await GetOrCreateActiveSessionAsync(ct)
             .BindAsync(session => chatMessageRepository.GetPageAsync(session.Id, cursor, limit));
     }
-    
+
     public async Task<Result<IReadOnlyCollection<ChatMessage>>> GetMessagesAsync(CancellationToken ct = default)
     {
         return await GetOrCreateActiveSessionAsync(ct)
@@ -55,12 +55,22 @@ public class ChatService(
     public async Task<Result<ChatMessage>> PersistMessageAsync(ChatMessage message, CancellationToken ct = default)
     {
         return await chatSessionRepository.GetActiveAsync(CurrentUserId)
-            .BindAsync(session => Task.FromResult(
-                session.Id == message.SessionId
-                    ? Result.Success(session)
-                    : Result<ChatSession>.NotFound()))
+            .BindAsync(session => message.SessionId == session.Id
+                ? Result.Success(session)
+                : Result<ChatSession>.NotFound())
             .BindAsync(_ => chatMessageRepository.AddAsync(message))
             .SaveChangesAsync(unitOfWork)
             .MapAsync(() => message);
+    }
+
+    public async Task<Result> PersistMessagesAsync(IReadOnlyCollection<ChatMessage> messages,
+        CancellationToken ct = default)
+    {
+        return await chatSessionRepository.GetActiveAsync(CurrentUserId)
+            .BindAsync(session => messages.All(message => message.SessionId == session.Id)
+                ? Result.Success(session)
+                : Result<ChatSession>.NotFound())
+            .BindAsync(_ => chatMessageRepository.AddRangeAsync(messages))
+            .SaveChangesAsync(unitOfWork);
     }
 }

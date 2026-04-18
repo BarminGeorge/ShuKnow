@@ -19,11 +19,12 @@ public class TornadoPromptBuilder(
     public async Task<Result<string>> CreateSystemInstructions(CancellationToken ct = default)
     {
         // TODO: implement prompt building (with current folder structure)
-        return Result.Success("Ты - помощник с файлами и информацией. Используя выданные тебе tools, сохрани переданную тебе информацию");
+        return Result.Success(
+            "Ты - помощник с файлами и информацией. Используя выданные тебе tools, сохрани переданную тебе информацию");
     }
 
     public async Task<Result<IEnumerable<ChatMessage>>> GetPreviousMessages(CancellationToken ct = default)
-    {   
+    {
         return await chatService.GetMessagesAsync(ct)
             .MapAsync(messages => messages
                 .Select(message => message.MapToChatMessagePart()));
@@ -44,9 +45,13 @@ public class TornadoPromptBuilder(
                     messageParts.Add(new ChatMessagePart(
                         $"Attachment: `{attachment.FileName}` ({attachment.ContentType})"));
                     
-                    var partResult = await blobStorageService.GetAsync(attachment.BlobId, ct).ToBase64Async(ct)
-                        .BindAsync(base64 => CreateMessagePart(base64, attachment))
-                        .Act(part => messageParts.Add(part));
+                    var partResult = await blobStorageService.GetAsync(attachment.BlobId, ct)
+                        .BindAsync(async stream =>
+                        {
+                            await using var attachmentStream = stream;
+                            return await CreateMessagePart(attachmentStream, attachment, ct);
+                        })
+                        .Act(messageParts.Add);
                     
                     if (!partResult.IsSuccess)
                         return partResult.Map();
@@ -56,13 +61,15 @@ public class TornadoPromptBuilder(
             });
     }
 
-    private static Result<ChatMessagePart> CreateMessagePart(string base64Data, ChatAttachment attachment)
+    private static async Task<Result<ChatMessagePart>> CreateMessagePart(
+        Stream stream, ChatAttachment attachment, CancellationToken ct = default)
     {
         var prefix = attachment.ContentType.Split('/', 2)[0];
         return prefix switch
         {
-            "image" => new ChatMessagePart(base64Data, ImageDetail.Auto, attachment.ContentType),
-            "application" or "text" => new ChatMessagePart(new ChatDocument(base64Data)),
+            "image" => new ChatMessagePart(await stream.ToBase64Async(ct), ImageDetail.Auto, attachment.ContentType),
+            "application" => new ChatMessagePart(new ChatDocument(await stream.ToBase64Async(ct))),
+            "text" => new ChatMessagePart(await stream.ToStringAsync(ct)),
             _ => Result.Invalid(new ValidationError($"Unsupported attachment type '{attachment.ContentType}'"))
         };
     }

@@ -33,4 +33,15 @@ public static class StreamExtensions
 
         return Encoding.ASCII.GetString(outputStream.ToArray());
     }
+
+    public static async Task<string> ToStringAsync(this Stream stream, CancellationToken ct = default)
+    {
+        if (stream == null)
+            throw new ArgumentNullException(nameof(stream));
+        if (!stream.CanRead)
+            throw new InvalidOperationException("Stream must be readable.");
+
+        using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
+        return await reader.ReadToEndAsync(ct);
+    }
 }

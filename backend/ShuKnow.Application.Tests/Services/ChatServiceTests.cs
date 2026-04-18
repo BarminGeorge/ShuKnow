@@ -153,7 +153,7 @@ public class ChatServiceTests
     {
         var activeSession = CreateSession();
         var anotherSessionId = Guid.NewGuid();
-        var message = ChatMessage.CreateAiMessage(anotherSessionId, "response");
+        var message = ChatMessage.CreateAiMessage(Guid.NewGuid(), anotherSessionId, "response");
 
         chatSessionRepository.GetActiveAsync(currentUserId).Returns(Success(activeSession));
 

@@ -1,3 +1,4 @@
+using System.Text;
 using Ardalis.Result;
 using Microsoft.EntityFrameworkCore;
 using ShuKnow.Domain.Entities;
@@ -10,6 +11,12 @@ public class ChatMessageRepository(AppDbContext context) : IChatMessageRepositor
     public Task<Result> AddAsync(ChatMessage message)
     {
         context.ChatMessages.Add(message);
+        return Task.FromResult(Result.Success());
+    }
+
+    public Task<Result> AddRangeAsync(IReadOnlyCollection<ChatMessage> messages)
+    {
+        context.ChatMessages.AddRange(messages);
         return Task.FromResult(Result.Success());
     }
 
@@ -68,7 +75,7 @@ public class ChatMessageRepository(AppDbContext context) : IChatMessageRepositor
         if (!Convert.TryFromBase64String(encodedCursor, buffer, out var bytesWritten))
             return false;
 
-        var str = System.Text.Encoding.UTF8.GetString(buffer[..bytesWritten]);
+        var str = Encoding.UTF8.GetString(buffer[..bytesWritten]);
         var parts = str.Split('|');
         if (parts.Length != 3) return false;
 
@@ -90,7 +97,7 @@ public class ChatMessageRepository(AppDbContext context) : IChatMessageRepositor
     private static string EncodeCursor(ChatMessage message)
     {
         var str = $"{message.SessionId:N}|{message.Index}|{message.Id:N}";
-        return Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(str));
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(str));
     }
 
     private static (IReadOnlyList<ChatMessage> Messages, string? NextCursor) CreatePageResult(List<ChatMessage> messages, int limit) =>

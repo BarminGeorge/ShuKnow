@@ -10,6 +10,8 @@ public interface IChatNotificationService
 
     Task SendMessageChunkAsync(Guid operationId, Guid messageId, string chunk, CancellationToken ct = default);
 
+    Task SendMessageCompletedAsync(Guid operationId, Guid messageId, CancellationToken ct = default);
+
     Task SendFileCreatedAsync(FileEntity file, CancellationToken ct = default);
 
     Task SendFileMovedAsync(FileEntity file, Guid? fromFolderId, CancellationToken ct = default);
