@@ -183,7 +183,7 @@ services:
       - shuknow-prod
 
   certbot-init:
-    image: certbot/certbot:latest
+    image: certbot/certbot:v5.5.0
     container_name: shuknow-certbot-init
     restart: "no"
     network_mode: host
