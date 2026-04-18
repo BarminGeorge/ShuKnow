@@ -30,13 +30,50 @@ const PROVIDER_MODELS: Record<string, string> = {
 const PROVIDERS = ["OpenAI", "OpenRouter", "Gemini", "Anthropic"];
 const EMPTY_SETTING_VALUE = "Не задано";
 
-// Provider icons
-const PROVIDER_ICONS: Record<string, React.ReactNode> = {
-  OpenAI: <Sparkles size={16} className="text-green-400" />,
-  OpenRouter: <Cpu size={16} className="text-blue-400" />,
-  Gemini: <Sparkles size={16} className="text-purple-400" />,
-  Anthropic: <Sparkles size={16} className="text-orange-400" />,
+const modalButtonClass = "rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.085),rgba(255,255,255,0.035))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_18px_rgba(0,0,0,0.18)] transition-all hover:border-white/18 hover:bg-white/10 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.11),0_10px_22px_rgba(0,0,0,0.22)]";
+const primaryButtonClass = "rounded-lg border border-violet-300/12 bg-[linear-gradient(135deg,rgba(76,29,149,0.26),rgba(17,16,24,0.58)_60%,rgba(109,40,217,0.08))] text-violet-200/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_14px_rgba(91,33,182,0.045)] transition-all hover:border-violet-300/20 hover:text-violet-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_18px_rgba(91,33,182,0.075)]";
+const fieldClass = "w-full rounded-lg border border-white/10 bg-[#101010] px-4 py-3 text-sm text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] outline-none transition-colors placeholder:text-gray-600 focus:border-violet-300/28 focus:bg-[#121212] disabled:opacity-50";
+const labelClass = "mb-2 block text-sm font-medium text-gray-400";
+
+type SettingVisualKind = "provider" | "baseUrl" | "model" | "apiKey";
+
+const SETTING_VISUALS: Record<SettingVisualKind, {
+  icon: React.ReactNode;
+  shell: string;
+  line: string;
+}> = {
+  provider: {
+    icon: <Sparkles size={16} className="text-violet-200" />,
+    shell: "border-violet-200/12 bg-[linear-gradient(135deg,rgba(124,58,237,0.15),rgba(17,16,24,0.82)_62%,rgba(167,139,250,0.06))]",
+    line: "via-violet-200/34",
+  },
+  baseUrl: {
+    icon: <Link size={16} className="text-sky-200" />,
+    shell: "border-sky-200/12 bg-[linear-gradient(135deg,rgba(14,165,233,0.15),rgba(17,16,24,0.82)_62%,rgba(56,189,248,0.06))]",
+    line: "via-sky-200/34",
+  },
+  model: {
+    icon: <Cpu size={16} className="text-indigo-200" />,
+    shell: "border-indigo-200/12 bg-[linear-gradient(135deg,rgba(99,102,241,0.16),rgba(17,16,24,0.82)_62%,rgba(129,140,248,0.07))]",
+    line: "via-indigo-200/38",
+  },
+  apiKey: {
+    icon: <Key size={16} className="text-rose-200" />,
+    shell: "border-rose-200/12 bg-[linear-gradient(135deg,rgba(244,114,182,0.14),rgba(17,16,24,0.82)_62%,rgba(251,113,133,0.06))]",
+    line: "via-rose-200/34",
+  },
 };
+
+function SettingIcon({ kind }: { kind: SettingVisualKind }) {
+  const visual = SETTING_VISUALS[kind];
+
+  return (
+    <div className={`relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_18px_rgba(0,0,0,0.22)] ${visual.shell}`}>
+      <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${visual.line} to-transparent`} />
+      {visual.icon}
+    </div>
+  );
+}
 
 const normalizeProviderName = (value?: string | null) => {
   if (!value) return "";
@@ -237,20 +274,20 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/72 backdrop-blur-sm"
       onPointerDown={(e) => {
         if (e.target === e.currentTarget) handleClose();
       }}
     >
       <div 
-        className="bg-[#141414] border border-white/10 rounded-2xl w-full max-w-lg mx-4 shadow-2xl"
+        className="w-full max-w-lg mx-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0d0d0d] shadow-[0_24px_80px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.04)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10">
+        <div className="flex items-center gap-3 border-b border-white/[0.07] px-6 py-4">
           <button
             onClick={isEditingKey ? () => setIsEditingKey(false) : handleClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-white/[0.055] hover:text-gray-200"
           >
             {isEditingKey ? <ArrowLeft size={18} /> : <X size={18} />}
           </button>
@@ -260,16 +297,16 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         </div>
 
         {/* Content */}
-        <div className="px-6 py-6 max-h-[70vh] overflow-y-auto">
+        <div className="max-h-[70vh] overflow-y-auto px-6 py-6">
           {!isEditingKey ? (
             <div className="space-y-6">
               {/* Account Section */}
               <div>
-                <h3 className="text-sm font-medium text-gray-300 mb-3">Аккаунт</h3>
-                <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-4">
+                <h3 className="mb-3 text-sm font-medium text-gray-300">Аккаунт</h3>
+                <div className="rounded-xl border border-white/[0.08] bg-[#111111] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center">
-                      <User size={18} className="text-indigo-400" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                      <User size={18} className="text-gray-300" />
                     </div>
                     <div className="flex-1">
                       <div className="text-xs text-gray-500">Логин</div>
@@ -280,19 +317,19 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               </div>
 
               {/* Divider */}
-              <div className="border-t border-white/10" />
+              <div className="border-t border-white/[0.07]" />
 
               {/* API Settings Section */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-medium text-gray-300">API Настройки</h3>
+                  <h3 className="text-sm font-medium text-gray-300">API настройки</h3>
                   <div className="flex items-center gap-2">
                     {/* Refresh button - only show if configured */}
                     {isConfigured && (
                       <button
                         onClick={handleQuickTest}
                         disabled={isTesting}
-                        className={`w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 transition-colors disabled:cursor-not-allowed
+                        className={`flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.035] transition-colors hover:bg-white/[0.07] disabled:cursor-not-allowed
                           ${isTesting ? 'text-gray-500' : 'text-gray-400 hover:text-gray-200'}`}
                       >
                         <RefreshCw size={14} className={isTesting ? "animate-spin" : ""} />
@@ -301,26 +338,26 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                     {/* Status badge */}
                     {isTesting ? (
-                      <Badge className="bg-gray-500/10 text-gray-400 border-gray-500/20 flex items-center gap-1 w-[120px]">
+                      <Badge className="flex w-[120px] items-center gap-1 border-gray-500/20 bg-gray-500/10 text-gray-400">
                         <AlertCircle size={12} />
                         Проверка
                       </Badge>
                     ) : (
                       <>
                         {isConfigured && testResult?.success && (
-                          <Badge className="bg-green-500/10 text-green-400 border-green-500/20 flex items-center gap-1 w-[120px]">
+                          <Badge className="flex w-[120px] items-center gap-1 border-emerald-400/18 bg-emerald-400/10 text-emerald-300">
                             <CheckCircle2 size={12} />
                             Подключено
                           </Badge>
                         )}
                         {isConfigured && testResult && !testResult.success && (
-                          <Badge className="bg-red-500/10 text-red-400 border-red-500/20 flex items-center gap-1 w-[120px]">
+                          <Badge className="flex w-[120px] items-center gap-1 border-rose-400/18 bg-rose-400/10 text-rose-300">
                             <AlertCircle size={12} />
                             Ошибка
                           </Badge>
                         )}
                         {!isConfigured && (
-                          <Badge className="bg-gray-500/10 text-gray-400 border-gray-500/20 w-[120px]">
+                          <Badge className="w-[120px] border-white/[0.08] bg-white/[0.035] text-gray-400">
                             Не настроено
                           </Badge>
                         )}
@@ -329,12 +366,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </div>
                 </div>
 
-                <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-4 space-y-3">
+                <div className="space-y-3 rounded-xl border border-white/[0.08] bg-[#111111] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
                   {/* Provider */}
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-                      {PROVIDER_ICONS[provider] || <Sparkles size={16} className="text-indigo-400" />}
-                    </div>
+                    <SettingIcon kind="provider" />
                     <div className="flex-1">
                       <div className="text-xs text-gray-500">Провайдер</div>
                       {renderSettingValue(normalizeProviderName(provider))}
@@ -343,9 +378,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                   {/* Base URL */}
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                      <Link size={16} className="text-blue-400" />
-                    </div>
+                    <SettingIcon kind="baseUrl" />
                     <div className="flex-1">
                       <div className="text-xs text-gray-500">Base URL</div>
                       {renderSettingValue(baseUrl)}
@@ -354,9 +387,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                   {/* Model */}
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                      <Cpu size={16} className="text-purple-400" />
-                    </div>
+                    <SettingIcon kind="model" />
                     <div className="flex-1">
                       <div className="text-xs text-gray-500">Модель</div>
                       {renderSettingValue(modelId)}
@@ -365,9 +396,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                   {/* API Key */}
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
-                      <Key size={16} className="text-green-400" />
-                    </div>
+                    <SettingIcon kind="apiKey" />
                     <div className="flex-1">
                       <div className="text-xs text-gray-500">API ключ</div>
                       {renderSettingValue(apiKeyMasked, "text-sm font-mono")}
@@ -375,10 +404,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </div>
 
                   {/* Divider */}
-                  <div className="border-t border-white/10 pt-3">
+                  <div className="border-t border-white/[0.07] pt-3">
                     <button
                       onClick={() => setIsEditingKey(true)}
-                      className="w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-gray-300 transition-colors flex items-center justify-center gap-2"
+                      className={`flex w-full items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium ${modalButtonClass} text-gray-300 hover:text-gray-100`}
                     >
                       <Settings size={14} />
                       {isConfigured ? "Изменить настройки" : "Настроить API ключ"}
@@ -390,26 +419,26 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           ) : (
             <div className="space-y-5">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Провайдер</label>
+                <label className={labelClass}>Провайдер</label>
                 <Select
                   value={provider}
                   onValueChange={setProvider}
                   disabled={isLoading || isTesting}
                 >
                   <SelectTrigger
-                    className="h-[38px] w-full rounded-xl border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-gray-200 shadow-none outline-none focus:border-indigo-500/50 focus:ring-0 focus-visible:border-indigo-500/50 focus-visible:ring-0 disabled:opacity-50"
+                    className="h-[46px] w-full rounded-lg border border-white/10 bg-[#101010] px-4 py-3 text-sm text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] outline-none focus:border-violet-300/28 focus:ring-0 focus-visible:border-violet-300/28 focus-visible:ring-0 disabled:opacity-50"
                   >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent
                     sideOffset={6}
-                    className="z-[70] rounded-xl border border-white/10 bg-[#1f1f1f] p-1 text-gray-200 shadow-2xl"
+                    className="z-[70] rounded-lg border border-white/[0.08] bg-[#101010] p-1 text-gray-200 shadow-[0_18px_42px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.04)]"
                   >
                     {PROVIDERS.map((providerName) => (
                       <SelectItem
                         key={providerName}
                         value={providerName}
-                        className="rounded-lg py-2 pl-3 pr-8 text-sm text-gray-200 outline-none focus:bg-white/10 focus:text-white data-[state=checked]:bg-indigo-500/15 data-[state=checked]:text-white"
+                        className="rounded-md py-2 pl-3 pr-8 text-sm text-gray-200 outline-none focus:bg-white/[0.06] focus:text-white data-[state=checked]:bg-violet-500/12 data-[state=checked]:text-violet-100"
                       >
                         {providerName}
                       </SelectItem>
@@ -418,7 +447,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </Select>
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Base URL</label>
+                <label className={labelClass}>Base URL</label>
                 <input
                   type="url"
                   value={baseUrl}
@@ -428,11 +457,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   autoComplete="off"
                   data-form-type="other"
                   data-lpignore="true"
-                  className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-50"
+                  className={fieldClass}
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">ID Модели</label>
+                <label className={labelClass}>ID модели</label>
                 <input
                   type="text"
                   value={modelId}
@@ -442,14 +471,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   autoComplete="off"
                   data-form-type="other"
                   data-lpignore="true"
-                  className="w-full px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-50"
+                  className={fieldClass}
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">API Ключ</label>
+                <label className={labelClass}>API ключ</label>
                 <div className="relative">
                   {!showKey && apiKey && (
-                    <div className="pointer-events-none absolute left-3 right-14 top-0 z-10 flex h-[38px] items-center overflow-hidden whitespace-nowrap font-mono text-sm leading-5 text-gray-200">
+                    <div className="pointer-events-none absolute left-4 right-14 top-0 z-10 flex h-[46px] items-center overflow-hidden whitespace-nowrap font-mono text-sm leading-5 text-gray-200">
                       {"•".repeat(apiKey.length)}
                     </div>
                   )}
@@ -475,15 +504,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     spellCheck={false}
                     data-form-type="other"
                     data-lpignore="true"
-                    className={`block w-full h-[38px] pl-3 pr-14 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl font-mono text-sm placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-50 resize-none overflow-hidden leading-5 ${showKey ? "text-gray-200" : "text-transparent caret-gray-200"}`}
+                    className={`block h-[46px] w-full resize-none overflow-hidden rounded-lg border border-white/10 bg-[#101010] py-3 pl-4 pr-14 font-mono text-sm leading-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] outline-none transition-colors placeholder:text-gray-600 focus:border-violet-300/28 focus:bg-[#121212] disabled:opacity-50 ${showKey ? "text-gray-200" : "text-transparent caret-gray-200"}`}
                   />
-                  <div className="pointer-events-none absolute right-px top-px z-10 h-[36px] w-14 rounded-r-xl bg-[#1a1a1a]" />
+                  <div className="pointer-events-none absolute right-px top-px z-10 h-[44px] w-14 rounded-r-lg bg-[#101010]" />
                   {apiKey && (
                     <button 
                       type="button"
                       onClick={() => setShowKey(!showKey)}
                       disabled={isLoading || isTesting}
-                      className="absolute right-3 top-0 z-20 flex h-[38px] w-8 items-center justify-center text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-50"
+                      className="absolute right-3 top-0 z-20 flex h-[46px] w-8 items-center justify-center text-gray-500 transition-colors hover:text-gray-300 disabled:opacity-50"
                     >
                       {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -492,13 +521,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               </div>
 
               {saveError && (
-                <div className="p-3 rounded-lg text-sm bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <div className="rounded-lg border border-rose-400/18 bg-rose-400/10 p-3 text-sm text-rose-300">
                   {saveError}
                 </div>
               )}
 
               {testResult && !testResult.success && (
-                <div className="p-3 rounded-lg text-sm bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <div className="rounded-lg border border-rose-400/18 bg-rose-400/10 p-3 text-sm text-rose-300">
                   ✗ {testResult.errorMessage}
                 </div>
               )}
@@ -508,9 +537,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   type="button"
                   onClick={handleSave}
                   disabled={isLoading || isTesting}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-violet-100
-                             bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))]
-                             border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`flex items-center gap-2 px-5 py-2.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${primaryButtonClass}`}
                 >
                   {(isLoading || isTesting) && <Loader2 size={14} className="animate-spin" />}
                   {isLoading ? "Сохранение..." : isTesting ? "Тестирование..." : "Сохранить"}
