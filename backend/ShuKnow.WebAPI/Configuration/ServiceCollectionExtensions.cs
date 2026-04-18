@@ -57,6 +57,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddValidatorsFromAssembly(typeof(ServiceCollectionExtensions).Assembly);
         services.AddFluentValidationAutoValidation();
+        services.AddSingleton<IHubFilter, CurrentConnectionHubFilter>();
         services.AddSingleton<IHubFilter, ValidationHubFilter>();
     }
 

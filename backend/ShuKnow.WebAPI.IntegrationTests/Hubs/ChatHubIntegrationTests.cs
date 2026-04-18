@@ -21,6 +21,7 @@ using ShuKnow.Domain.VO;
 using ShuKnow.WebAPI.Events;
 using ShuKnow.WebAPI.Hubs;
 using ShuKnow.WebAPI.Requests.Validators;
+using ShuKnow.WebAPI.Services;
 using File = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.WebAPI.IntegrationTests.Hubs;
@@ -40,11 +41,16 @@ public class ChatHubIntegrationTests
 
         builder.WebHost.UseTestServer();
         builder.Services.AddLogging();
-        builder.Services.AddSignalR(options => options.AddFilter<ValidationHubFilter>());
+        builder.Services.AddSignalR(options =>
+        {
+            options.AddFilter<CurrentConnectionHubFilter>();
+            options.AddFilter<ValidationHubFilter>();
+        });
         builder.Services.AddAuthentication(TestAuthHandler.AuthenticationScheme)
             .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.AuthenticationScheme, _ => { });
         builder.Services.AddAuthorization();
         builder.Services.AddSingleton<IValidator<SendMessageCommand>, SendMessageCommandValidator>();
+        builder.Services.AddSingleton<IHubFilter, CurrentConnectionHubFilter>();
         builder.Services.AddSingleton<IHubFilter, ValidationHubFilter>();
 
         aiService = new RecordingAiService();
@@ -55,8 +61,8 @@ public class ChatHubIntegrationTests
         builder.Services.AddSingleton<IChatNotificationService>(chatNotificationService);
         builder.Services.AddSingleton<ISettingsService>(new StubSettingsService());
         builder.Services.AddSingleton<IProcessingOperationService>(operationService);
-        // TODO: Replace this stub with the production CurrentConnectionService once CCS is implemented.
-        builder.Services.AddSingleton<ICurrentConnectionService>(new StubCurrentConnectionService("integration-connection"));
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddScoped<ICurrentConnectionService, CurrentConnectionService>();
 
         app = builder.Build();
         app.UseAuthentication();
@@ -90,7 +96,7 @@ public class ChatHubIntegrationTests
         aiService.Calls[0].AttachmentIds.Should().BeEquivalentTo([attachmentId]);
 
         operationService.BeginCalls.Should().HaveCount(1);
-        operationService.BeginCalls[0].Should().Be("integration-connection");
+        operationService.BeginCalls[0].Should().NotBeNullOrWhiteSpace();
         operationService.CompletedOperations.Should().HaveCount(1);
 
         chatNotificationService.Events.Should().ContainInOrder(
@@ -270,12 +276,6 @@ public class ChatHubIntegrationTests
         {
             throw new NotSupportedException();
         }
-    }
-
-    // TODO: Remove this test stub after CCS implementation allows exercising the real connection-id resolution path.
-    private sealed class StubCurrentConnectionService(string connectionId) : ICurrentConnectionService
-    {
-        public string connectionId { get; } = connectionId;
     }
 
     private sealed class TestAuthHandler(
