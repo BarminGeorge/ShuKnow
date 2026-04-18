@@ -230,7 +230,9 @@ public class FileService(
         siblings.RemoveAt(currentIndex);
         siblings.Insert(position, file);
 
-        return Result.Success(ApplySortOrder(siblings));
+        return Result.Success((
+            ApplySortOrder<File>(siblings),
+            ApplySortOrder<Folder>(siblings)));
     }
 
     private static List<IOrderedItem> BuildSortedSiblingList(IReadOnlyList<File> files, IReadOnlyList<Folder> folders)
@@ -241,34 +243,21 @@ public class FileService(
             .ToList();
     }
 
-    private static (IReadOnlyList<File> Files, IReadOnlyList<Folder> Folders) ApplySortOrder(List<IOrderedItem> items)
+    private static IReadOnlyList<T> ApplySortOrder<T>(IReadOnlyList<IOrderedItem> items)
+        where T : class, IOrderedItem
     {
-        var updatedFiles = new List<File>();
-        var updatedFolders = new List<Folder>();
+        var updatedItems = new List<T>();
 
         for (var i = 0; i < items.Count; i++)
         {
-            if (items[i].SortOrder == i)
+            if (items[i] is not T item || item.SortOrder == i)
                 continue;
 
-            items[i].SortOrder = i;
-            AddUpdatedItem(items[i], updatedFiles, updatedFolders);
+            item.SortOrder = i;
+            updatedItems.Add(item);
         }
 
-        return (updatedFiles, updatedFolders);
-    }
-
-    private static void AddUpdatedItem(IOrderedItem item, ICollection<File> files, ICollection<Folder> folders)
-    {
-        switch (item)
-        {
-            case File file:
-                files.Add(file);
-                break;
-            case Folder folder:
-                folders.Add(folder);
-                break;
-        }
+        return updatedItems;
     }
 
     private static string[] SplitPath(string path)
