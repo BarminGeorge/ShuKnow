@@ -83,10 +83,7 @@ public static class ModelToDtoMappers
             folder.Description,
             folder.Emoji,
             folder.ParentFolderId,
-            folder.SortOrder,
-            0,
-            false,
-            null);
+            folder.SortOrder);
     }
 
     public static IReadOnlyList<FolderDto> ToDto(this IReadOnlyList<Folder> folders)
@@ -135,7 +132,6 @@ public static class ModelToDtoMappers
             folder.Description,
             folder.Emoji,
             folder.SortOrder,
-            0,
             children);
     }
 
