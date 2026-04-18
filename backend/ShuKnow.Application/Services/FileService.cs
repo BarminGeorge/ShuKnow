@@ -210,6 +210,14 @@ public class FileService(
     private async Task<Result> ApplyReorderAsync(
         File file, IReadOnlyList<File> files, IReadOnlyList<Folder> folders, int position)
     {
+        return await ReorderSiblings(file, files, folders, position)
+            .BindAsync(updatedItems => fileRepository.UpdateRangeAsync(updatedItems.Files)
+                .BindAsync(_ => folderRepository.UpdateRangeAsync(updatedItems.Folders)));
+    }
+
+    private static Result<(IReadOnlyList<File> Files, IReadOnlyList<Folder> Folders)> ReorderSiblings(
+        File file, IReadOnlyList<File> files, IReadOnlyList<Folder> folders, int position)
+    {
         var siblings = BuildSortedSiblingList(files, folders);
 
         if (position < 0 || position >= siblings.Count)
@@ -222,23 +230,7 @@ public class FileService(
         siblings.RemoveAt(currentIndex);
         siblings.Insert(position, file);
 
-        var originalSortOrders = siblings.ToDictionary(GetOrderedItemKey, item => item.SortOrder);
-        ApplySortOrder(siblings);
-
-        var updatedFiles = siblings
-            .OfType<File>()
-            .Where(updatedFile => originalSortOrders[GetOrderedItemKey(updatedFile)] != updatedFile.SortOrder)
-            .ToList();
-        var updatedFolders = siblings
-            .OfType<Folder>()
-            .Where(updatedFolder => originalSortOrders[GetOrderedItemKey(updatedFolder)] != updatedFolder.SortOrder)
-            .ToList();
-
-        var updateFilesResult = await fileRepository.UpdateRangeAsync(updatedFiles);
-        if (!updateFilesResult.IsSuccess)
-            return updateFilesResult;
-
-        return await folderRepository.UpdateRangeAsync(updatedFolders);
+        return Result.Success(ApplySortOrder(siblings));
     }
 
     private static List<IOrderedItem> BuildSortedSiblingList(IReadOnlyList<File> files, IReadOnlyList<Folder> folders)
@@ -249,20 +241,34 @@ public class FileService(
             .ToList();
     }
 
-    private static void ApplySortOrder<T>(List<T> items) where T : class, IOrderedItem
+    private static (IReadOnlyList<File> Files, IReadOnlyList<Folder> Folders) ApplySortOrder(List<IOrderedItem> items)
     {
+        var updatedFiles = new List<File>();
+        var updatedFolders = new List<Folder>();
+
         for (var i = 0; i < items.Count; i++)
+        {
+            if (items[i].SortOrder == i)
+                continue;
+
             items[i].SortOrder = i;
+            AddUpdatedItem(items[i], updatedFiles, updatedFolders);
+        }
+
+        return (updatedFiles, updatedFolders);
     }
 
-    private static (Type Type, Guid Id) GetOrderedItemKey(IOrderedItem item)
+    private static void AddUpdatedItem(IOrderedItem item, ICollection<File> files, ICollection<Folder> folders)
     {
-        return item switch
+        switch (item)
         {
-            File file => (typeof(File), file.Id),
-            Folder folder => (typeof(Folder), folder.Id),
-            _ => throw new InvalidOperationException("Unsupported ordered item type.")
-        };
+            case File file:
+                files.Add(file);
+                break;
+            case Folder folder:
+                folders.Add(folder);
+                break;
+        }
     }
 
     private static string[] SplitPath(string path)
