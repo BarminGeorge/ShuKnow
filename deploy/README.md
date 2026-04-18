@@ -21,6 +21,8 @@ cp .env.prod.example .env.prod
 - `FRONTEND_UPSTREAM`
 - `BACKEND_IMAGE`
 - `FRONTEND_IMAGE`
+- `PROMETHEUS_BASIC_AUTH_USER`
+- `PROMETHEUS_BASIC_AUTH_PASSWORD`
 
 ## 2. Запуск production-стека (включая авто-получение первого SSL)
 
@@ -36,6 +38,7 @@ Prometheus и Grafana запускаются этой же командой вм
 
 - Grafana доступна только через основной домен: `https://<SERVER_NAME>/monitoring/`
 - Вход только по `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`
+- Prometheus доступен через `https://<SERVER_NAME>/monitoring/prometheus/` и защищён Basic Auth (`PROMETHEUS_BASIC_AUTH_USER` + `PROMETHEUS_BASIC_AUTH_PASSWORD`)
 - Прямые внешние порты `3000/9090` не публикуются
 
 ## 4. Обновление образов из GHCR

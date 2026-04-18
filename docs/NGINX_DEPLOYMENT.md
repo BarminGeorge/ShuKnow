@@ -21,7 +21,7 @@ Nginx includes:
 - reverse proxy with `Host`, `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`;
 - monitoring proxy:
   - Grafana: `/monitoring/` (password protected by Grafana auth)
-  - Prometheus: `/monitoring/prometheus/`;
+  - Prometheus: `/monitoring/prometheus/` (protected by nginx Basic Auth via `PROMETHEUS_BASIC_AUTH_USER` + `PROMETHEUS_BASIC_AUTH_PASSWORD`);
 - security headers (`HSTS`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `CSP`, `Permissions-Policy`, `COOP`, `CORP`);
 - API DDoS mitigation via request/connection limits;
 - WebSocket support on `/hubs/`;
