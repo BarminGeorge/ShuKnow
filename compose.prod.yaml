@@ -1,24 +1,212 @@
 services:
+  backend:
+    container_name: shuknow-api
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE must be set}
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Username=${POSTGRES_USER:?POSTGRES_USER must be set};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set};Database=${POSTGRES_DB:?POSTGRES_DB must be set}
+      ConnectionStrings__Redis: redis:6379,password=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      BlobStorage__Provider: ${BLOB_PROVIDER:?BLOB_PROVIDER must be set}
+      BlobStorage__S3__ServiceUrl: http://rustfs:9000
+      BlobStorage__S3__AccessKey: ${RUSTFS_ACCESS_KEY:?RUSTFS_ACCESS_KEY must be set}
+      BlobStorage__S3__SecretKey: ${RUSTFS_SECRET_KEY:?RUSTFS_SECRET_KEY must be set}
+      BlobStorage__S3__BucketName: ${RUSTFS_BUCKET_NAME:?RUSTFS_BUCKET_NAME must be set}
+      BlobStorage__S3__Prefix: ${RUSTFS_PREFIX:?RUSTFS_PREFIX must be set}
+      BlobStorage__S3__ForcePathStyle: "true"
+      Jwt__Key: ${JWT_KEY:?JWT_KEY must be set}
+      Jwt__Issuer: ${JWT_ISSUER:?JWT_ISSUER must be set}
+      Jwt__Audience: ${JWT_AUDIENCE:?JWT_AUDIENCE must be set}
+      Jwt__ExpiresInMinutes: ${JWT_EXPIRES_IN_MINUTES:?JWT_EXPIRES_IN_MINUTES must be set}
+      Encryption__Key: ${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set}
+      AuthCookie__Secure: "true"
+    volumes:
+      - backend-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rustfs:
+        condition: service_started
+    networks:
+      - shuknow-prod
+
+  frontend:
+    container_name: shuknow-frontend
+    image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE must be set}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - shuknow-prod
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: shuknow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB must be set}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?POSTGRES_USER must be set} -d ${POSTGRES_DB:?POSTGRES_DB must be set}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - shuknow-prod
+
+  redis:
+    image: redis:8.6.2-alpine
+    container_name: shuknow-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - shuknow-prod
+
+  rustfs:
+    image: rustfs/rustfs:1.0.0-alpha.80
+    container_name: shuknow-rustfs
+    restart: unless-stopped
+    command: /data
+    environment:
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:?RUSTFS_ACCESS_KEY must be set}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:?RUSTFS_SECRET_KEY must be set}
+      RUSTFS_CONSOLE_ENABLE: "true"
+    volumes:
+      - rustfs-data:/data
+    networks:
+      - shuknow-prod
+
+  prometheus:
+    image: prom/prometheus:v3.11.0
+    container_name: shuknow-prometheus
+    restart: unless-stopped
+    expose:
+      - "9090"
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.external-url=/monitoring/prometheus/
+      - --web.route-prefix=/
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - shuknow-prod
+
+  grafana:
+    image: grafana/grafana:12.4.0
+    container_name: shuknow-grafana
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER must be set}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_ROOT_URL: https://${SERVER_NAME:?SERVER_NAME must be set}/monitoring/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      prometheus:
+        condition: service_started
+    networks:
+      - shuknow-prod
+
   nginx:
     image: nginx:1.27-alpine
+    container_name: shuknow-nginx
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     environment:
-      SERVER_NAME: ${SERVER_NAME}
-      BACKEND_UPSTREAM: ${BACKEND_UPSTREAM}
-      NGINX_ENVSUBST_FILTER: SERVER_NAME|BACKEND_UPSTREAM
+      SERVER_NAME: ${SERVER_NAME:?SERVER_NAME must be set}
+      BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:?BACKEND_UPSTREAM must be set}
+      FRONTEND_UPSTREAM: ${FRONTEND_UPSTREAM:?FRONTEND_UPSTREAM must be set}
+      PROMETHEUS_BASIC_AUTH_USER: ${PROMETHEUS_BASIC_AUTH_USER:?PROMETHEUS_BASIC_AUTH_USER must be set}
+      PROMETHEUS_BASIC_AUTH_PASSWORD: ${PROMETHEUS_BASIC_AUTH_PASSWORD:?PROMETHEUS_BASIC_AUTH_PASSWORD must be set}
+      NGINX_ENVSUBST_FILTER: SERVER_NAME|BACKEND_UPSTREAM|FRONTEND_UPSTREAM
     volumes:
       - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./deploy/nginx/conf.d/default.conf.template:/etc/nginx/templates/default.conf.template:ro
       - certbot-conf:/etc/letsencrypt
       - certbot-www:/var/www/certbot
-    command: ["nginx", "-g", "daemon off;"]
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -eu;
+        printf '%s:{PLAIN}%s\n' "$PROMETHEUS_BASIC_AUTH_USER" "$PROMETHEUS_BASIC_AUTH_PASSWORD" > /etc/nginx/prometheus.htpasswd;
+        exec nginx -g 'daemon off;'
+    depends_on:
+      certbot-init:
+        condition: service_completed_successfully
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+    networks:
+      - shuknow-prod
 
+  certbot-init:
+    image: certbot/certbot:v5.5.0
+    container_name: shuknow-certbot-init
+    restart: "no"
+    network_mode: host
+    environment:
+      SERVER_NAME: ${SERVER_NAME:?SERVER_NAME must be set}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL must be set}
+    volumes:
+      - certbot-conf:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: >
+      /bin/sh -c "set -eu;
+      if [ -f /etc/letsencrypt/live/$${SERVER_NAME}/fullchain.pem ] && [ -f /etc/letsencrypt/live/$${SERVER_NAME}/privkey.pem ]; then
+      echo 'Certificate already exists for' $${SERVER_NAME};
+      exit 0;
+      fi;
+      certbot certonly --standalone --preferred-challenges http --non-interactive --agree-tos --no-eff-email --email $${LETSENCRYPT_EMAIL} -d $${SERVER_NAME}"
   certbot:
     image: certbot/certbot:latest
+    container_name: shuknow-certbot
     restart: unless-stopped
+    environment:
+      SERVER_NAME: ${SERVER_NAME:?SERVER_NAME must be set}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL must be set}
     volumes:
       - certbot-conf:/etc/letsencrypt
       - certbot-www:/var/www/certbot
@@ -27,7 +215,22 @@ services:
       certbot renew --webroot -w /var/www/certbot --quiet;
       sleep 12h & wait $${!};
       done"
+    depends_on:
+      nginx:
+        condition: service_started
+    networks:
+      - shuknow-prod
 
 volumes:
+  backend-data:
+  postgres-data:
+  redis-data:
+  rustfs-data:
+  prometheus-data:
+  grafana-data:
   certbot-conf:
   certbot-www:
+
+networks:
+  shuknow-prod:
+    driver: bridge
