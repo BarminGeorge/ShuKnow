@@ -23,7 +23,7 @@ public static class ModelToDtoMappers
         return new ChatSessionDto(
             session.Id,
             (ApiChatSessionStatus)session.Status,
-            0,
+            session.Messages?.Count ?? 0,
             false);
     }
 
