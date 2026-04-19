@@ -5,6 +5,12 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Eye, EyeOff, Sparkles } from "lucide-react";
+import {
+  getFormString,
+  LOGIN_MAX_LENGTH,
+  validateLoginPassword,
+  validateLoginValue,
+} from "../utils/authValidation";
 
 const authPanelClass =
   "overflow-hidden rounded-lg border border-white/[0.08] bg-[#0d0d0d] shadow-[0_24px_80px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.04)]";
@@ -21,17 +27,25 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
 
-    if (!loginValue || !password) {
-      setError("Заполните все поля");
+    const formData = new FormData(e.currentTarget);
+    const nextLoginValue = getFormString(formData, "username").trim();
+    const nextPassword = getFormString(formData, "password");
+
+    setLoginValue(nextLoginValue);
+    setPassword(nextPassword);
+
+    const validationError = validateLoginValue(nextLoginValue) ?? validateLoginPassword(nextPassword);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     try {
-      await login(loginValue, password);
+      await login(nextLoginValue, nextPassword);
       navigate("/app");
     } catch {
       setError("Ошибка входа. Попробуйте снова.");
@@ -69,7 +83,11 @@ export default function LoginPage() {
                     type="text"
                     placeholder="Ваш логин"
                     value={loginValue}
-                    onChange={(e) => setLoginValue(e.target.value)}
+                    maxLength={LOGIN_MAX_LENGTH}
+                    onChange={(e) => {
+                      setLoginValue(e.target.value);
+                      setError("");
+                    }}
                     autoComplete="username"
                     className={authFieldClass}
                   />
@@ -84,7 +102,10 @@ export default function LoginPage() {
                       type={showPassword ? "text" : "password"}
                       placeholder="••••••••"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setError("");
+                      }}
                       autoComplete="current-password"
                       className={`${authFieldClass} pr-11`}
                     />

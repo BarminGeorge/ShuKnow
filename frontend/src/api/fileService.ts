@@ -107,8 +107,8 @@ export async function moveFile(
 export async function reorderFile(
   fileId: string,
   request: ReorderFileRequest
-): Promise<FileDto> {
-  return apiRequest<FileDto>(`/api/files/${fileId}/reorder`, {
+): Promise<void> {
+  return apiRequest<void>(`/api/files/${fileId}/reorder`, {
     method: "PATCH",
     body: JSON.stringify(request),
   });

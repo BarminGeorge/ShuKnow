@@ -1,7 +1,7 @@
 export interface FolderTreeNodeDto {
   id: string;
   name: string;
-  description?: string;
+  description: string;
   emoji?: string;
   sortOrder: number;
   fileCount: number;
@@ -11,7 +11,7 @@ export interface FolderTreeNodeDto {
 export interface FolderDto {
   id: string;
   name: string;
-  description?: string;
+  description: string;
   emoji?: string;
   parentFolderId: string | null;
   sortOrder: number;
@@ -43,16 +43,16 @@ export interface ReorderFolderRequest {
 
 export interface FileDto {
   id: string;
-  folderId: string;
-  folderName: string;
+  folderId: string | null;
+  folderName: string | null;
   name: string;
-  description?: string;
+  description: string;
   contentType: string;
   sizeBytes: number;
   version: number;
   checksumSha256?: string | null;
-  createdAt?: string;
-  sortOrder?: number;
+  createdAt: string;
+  sortOrder: number;
 }
 
 export interface UpdateFileRequest {
@@ -61,7 +61,7 @@ export interface UpdateFileRequest {
 }
 
 export interface MoveFileRequest {
-  targetFolderId: string;
+  targetFolderId: string | null;
 }
 
 export interface ReorderFileRequest {
@@ -135,7 +135,7 @@ export function mapFileDtoToFileItem(dto: FileDto): FileItem {
   return {
     id: dto.id,
     name: dto.name,
-    folderId: dto.folderId,
+    folderId: dto.folderId ?? "",
     description: dto.description,
     contentType: dto.contentType,
     sizeBytes: dto.sizeBytes,

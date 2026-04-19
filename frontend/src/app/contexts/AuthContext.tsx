@@ -16,6 +16,15 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function parseTokenResponse(rawToken: string): string {
+  try {
+    const parsed = JSON.parse(rawToken);
+    return typeof parsed === "string" ? parsed : rawToken;
+  } catch {
+    return rawToken;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthenticatedUser | null>(() => {
     try {
@@ -48,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error("Login failed");
     }
 
-    const token = await response.text();
+    const token = parseTokenResponse(await response.text());
     localStorage.setItem(LOCAL_STORAGE_AUTH_TOKEN_KEY, token);
 
     const meResponse = await fetch("/api/auth/me", {
@@ -63,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const meData = await meResponse.json();
     
-    setUser({ id: meData.id, login: loginValue });
+    setUser({ id: meData.id, login: meData.login ?? loginValue });
   };
 
   const performRegister = async (loginValue: string, password: string) => {
