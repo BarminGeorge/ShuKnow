@@ -2,6 +2,8 @@ import { useState, useRef } from "react";
 import { X, Smile } from "lucide-react";
 import { EmojiPicker } from "./EmojiPicker";
 
+const FOLDER_PROMPT_MAX_LENGTH = 2000;
+
 interface CreateFolderModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -82,11 +84,15 @@ export function CreateFolderModal({ isOpen, onClose, onCreateFolder }: CreateFol
             </label>
             <textarea
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+              onChange={(e) => setPrompt(e.target.value.slice(0, FOLDER_PROMPT_MAX_LENGTH))}
               placeholder="Опишите, какие файлы и заметки должны попадать в эту папку..."
+              maxLength={FOLDER_PROMPT_MAX_LENGTH}
               className="w-full px-4 py-3 bg-white/[0.025] border border-white/[0.08] rounded-lg text-sm text-gray-200 placeholder:text-gray-600 resize-none outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] focus:border-violet-200/18 focus:bg-white/[0.035] transition-colors"
               rows={4}
             />
+            <div className="mt-2 flex justify-end text-xs text-gray-500">
+              {prompt.length}/{FOLDER_PROMPT_MAX_LENGTH}
+            </div>
           </div>
         </div>
 

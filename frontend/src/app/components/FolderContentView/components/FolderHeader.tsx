@@ -6,6 +6,7 @@ import { ACCEPTED_UPLOAD_FILE_TYPES } from "../../../utils/fileValidation";
 
 const secondaryActionClass = "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-white/[0.045] border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] hover:text-gray-100 hover:border-white/14 hover:bg-white/[0.065] transition-colors";
 const promptFieldClass = "w-full px-4 py-3 bg-[#101010] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] focus:border-violet-300/28 focus:bg-[#121212] transition-colors";
+const FOLDER_PROMPT_MAX_LENGTH = 2000;
 
 interface FolderHeaderProps {
   breadcrumbs: string[];
@@ -179,9 +180,10 @@ export function FolderHeader({
       <div>
         <textarea
           value={aiPrompt}
-          onChange={(e) => setAiPrompt(e.target.value)}
+          onChange={(e) => setAiPrompt(e.target.value.slice(0, FOLDER_PROMPT_MAX_LENGTH))}
           onBlur={onPromptBlur}
           placeholder="Инструкция для ИИ: что должно попадать в эту папку..."
+          maxLength={FOLDER_PROMPT_MAX_LENGTH}
           className={promptFieldClass}
           rows={2}
         />
