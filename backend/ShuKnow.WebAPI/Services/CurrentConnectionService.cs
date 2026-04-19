@@ -9,7 +9,7 @@ public class CurrentConnectionService : ICurrentConnectionService
     public string connectionId => currentConnectionId
         ?? throw new InvalidOperationException("Connection id is not available for the current hub scope.");
 
-    public void SetConnectionId(string connectionId)
+    internal void SetConnectionId(string connectionId)
     {
         currentConnectionId = string.IsNullOrWhiteSpace(connectionId)
             ? throw new ArgumentException("Connection id cannot be null or whitespace.", nameof(connectionId))
