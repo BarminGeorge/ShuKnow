@@ -19,6 +19,8 @@ import { motion, useInView } from "motion/react";
 
 const primaryLinkClass =
   "inline-flex items-center justify-center gap-2 rounded-lg border border-violet-300/12 bg-[linear-gradient(135deg,rgba(76,29,149,0.26),rgba(17,16,24,0.58)_60%,rgba(109,40,217,0.08))] px-5 py-2.5 text-sm font-medium text-violet-200/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_14px_rgba(91,33,182,0.045)] transition-all hover:border-violet-300/20 hover:text-violet-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_18px_rgba(91,33,182,0.075)]";
+const heroPrimaryLinkClass =
+  "inline-flex min-h-[56px] min-w-[220px] items-center justify-center gap-2 rounded-xl border border-violet-300/14 bg-[linear-gradient(135deg,rgba(76,29,149,0.34),rgba(17,16,24,0.66)_60%,rgba(109,40,217,0.12))] px-8 py-4 text-base font-semibold text-violet-100/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_0_22px_rgba(91,33,182,0.075)] transition-all hover:border-violet-300/24 hover:text-violet-50 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_28px_rgba(91,33,182,0.12)]";
 const navLinkClass =
   "inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-400 transition-colors hover:bg-white/[0.055] hover:text-gray-200";
 const featureIconClass =
@@ -206,7 +208,7 @@ export default function LandingPage() {
             </p>
 
             <div className="flex items-center justify-center">
-              <Link to={ctaPath} className={primaryLinkClass}>
+              <Link to={ctaPath} className={heroPrimaryLinkClass}>
                 Начать сейчас
               </Link>
             </div>
@@ -328,7 +330,7 @@ export default function LandingPage() {
             Перестаньте тратить время на ручную сортировку. Позвольте ИИ
             организовать вашу информацию.
           </p>
-          <Link to={ctaPath} className={primaryLinkClass}>
+          <Link to={ctaPath} className={heroPrimaryLinkClass}>
             {ctaText}
           </Link>
         </FadeInSection>
