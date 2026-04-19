@@ -48,20 +48,20 @@ export function DeleteFolderModal({ isOpen, folder, onClose, onConfirm }: Delete
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={handleClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm" onClick={handleClose}>
       <div 
-        className="bg-[#1a1a1a] border border-white/20 rounded-xl w-full max-w-md mx-4 shadow-2xl"
+        className="w-full max-w-md mx-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0d0d0d] shadow-[0_24px_80px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.04)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10">
-          <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-500/20 text-red-400">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-white/[0.07]">
+          <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-rose-200/10 bg-rose-500/10 text-rose-300/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <AlertTriangle size={18} />
           </div>
-          <h2 className="text-lg font-semibold text-white">Удалить папку</h2>
+          <h2 className="text-lg font-semibold text-gray-100">Удалить папку</h2>
           <button
             onClick={handleClose}
             disabled={isDeleting}
-            className="ml-auto w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-50"
+            className="ml-auto w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/[0.06] text-gray-500 hover:text-gray-200 transition-colors disabled:opacity-50"
           >
             <X size={18} />
           </button>
@@ -83,17 +83,17 @@ export function DeleteFolderModal({ isOpen, folder, onClose, onConfirm }: Delete
           )}
 
           {errorMessage && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
+            <div className="mb-4 p-3 bg-rose-500/10 border border-rose-300/20 rounded-lg text-sm text-rose-300">
               {errorMessage}
             </div>
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-white/10 flex gap-3 justify-end">
+        <div className="px-6 py-4 border-t border-white/[0.07] flex gap-3 justify-end bg-white/[0.01]">
           <button
             onClick={handleClose}
             disabled={isDeleting}
-            className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-gray-300 transition-colors disabled:opacity-50"
+            className="px-4 py-2 rounded-lg border border-white/10 bg-white/[0.045] text-sm text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition-colors hover:border-white/14 hover:bg-white/[0.065] disabled:opacity-50"
           >
             Отмена
           </button>
@@ -103,7 +103,7 @@ export function DeleteFolderModal({ isOpen, folder, onClose, onConfirm }: Delete
               <button
                 onClick={() => handleDelete(false)}
                 disabled={isDeleting}
-                className="flex items-center gap-2 px-4 py-2 bg-orange-600/80 hover:bg-orange-600 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-amber-200/16 bg-amber-500/12 text-sm font-medium text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:border-amber-200/24 hover:bg-amber-500/18 disabled:opacity-50"
               >
                 {isDeleting && <Loader2 size={14} className="animate-spin" />}
                 Удалить только папку
@@ -111,7 +111,7 @@ export function DeleteFolderModal({ isOpen, folder, onClose, onConfirm }: Delete
               <button
                 onClick={() => handleDelete(true)}
                 disabled={isDeleting}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-rose-200/18 bg-rose-500/14 text-sm font-medium text-rose-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:border-rose-200/28 hover:bg-rose-500/20 disabled:opacity-50"
               >
                 {isDeleting && <Loader2 size={14} className="animate-spin" />}
                 Удалить всё
@@ -121,7 +121,7 @@ export function DeleteFolderModal({ isOpen, folder, onClose, onConfirm }: Delete
             <button
               onClick={() => handleDelete(false)}
               disabled={isDeleting}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-rose-200/18 bg-rose-500/14 text-sm font-medium text-rose-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:border-rose-200/28 hover:bg-rose-500/20 disabled:opacity-50"
             >
               {isDeleting && <Loader2 size={14} className="animate-spin" />}
               Удалить

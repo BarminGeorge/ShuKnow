@@ -20,7 +20,7 @@ export function CustomDragLayer() {
   const extensionKey = item.name?.split(".").pop()?.toLowerCase() || "";
 
   const folderVisualStyle = {
-    card: "bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.68)_58%,rgba(167,139,250,0.09))] border-violet-200/18",
+    card: "bg-[linear-gradient(135deg,rgba(76,29,149,0.13),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))] border-violet-200/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_16px_36px_rgba(0,0,0,0.30)]",
     line: "via-violet-200/32",
   };
 
@@ -29,8 +29,8 @@ export function CustomDragLayer() {
       return {
         badgeBg: "bg-rose-300/10",
         badgeText: "text-rose-200",
-        card: "bg-[linear-gradient(135deg,rgba(244,114,182,0.18),rgba(15,23,42,0.68)_58%,rgba(251,113,133,0.08))] border-rose-200/18",
-        line: "via-rose-200/32",
+        card: "bg-[linear-gradient(135deg,rgba(157,23,77,0.13),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))] border-rose-200/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_16px_36px_rgba(0,0,0,0.30)]",
+        line: "via-rose-200/28",
       };
     }
 
@@ -38,16 +38,16 @@ export function CustomDragLayer() {
       return {
         badgeBg: "bg-[rgba(129,140,248,0.15)]",
         badgeText: "text-[#818cf8]",
-        card: "bg-[linear-gradient(135deg,rgba(99,102,241,0.2),rgba(15,23,42,0.68)_58%,rgba(129,140,248,0.1))] border-indigo-300/18",
-        line: "via-indigo-300/40",
+        card: "bg-[linear-gradient(135deg,rgba(67,56,202,0.14),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))] border-indigo-300/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_16px_36px_rgba(0,0,0,0.30)]",
+        line: "via-indigo-300/34",
       };
     }
 
     return {
       badgeBg: "bg-sky-300/10",
       badgeText: "text-sky-200",
-      card: "bg-[linear-gradient(135deg,rgba(14,165,233,0.18),rgba(15,23,42,0.68)_58%,rgba(56,189,248,0.08))] border-sky-200/18",
-      line: "via-sky-200/32",
+      card: "bg-[linear-gradient(135deg,rgba(3,105,161,0.13),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))] border-sky-200/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_16px_36px_rgba(0,0,0,0.30)]",
+      line: "via-sky-200/28",
     };
   };
 
@@ -78,7 +78,7 @@ export function CustomDragLayer() {
           position: "absolute",
           left: currentOffset.x - cardWidth / 2,
           top: currentOffset.y - cardHeight / 2,
-          transform: "rotate(-4deg) scale(1.03)",
+          transform: "rotate(-2deg) scale(1.015)",
           opacity: 1,
           pointerEvents: "none",
         }}
@@ -86,7 +86,7 @@ export function CustomDragLayer() {
         {/* Photo Card Preview */}
         {isPhoto ? (
           <div
-            className="rounded-2xl overflow-hidden relative cursor-pointer shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
+            className="rounded-2xl overflow-hidden relative cursor-pointer shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_16px_36px_rgba(0,0,0,0.30)] ring-1 ring-white/10"
             style={{ width: cardWidth, height: cardHeight, borderRadius: '20px', overflow: 'hidden' }}
           >
             <img
@@ -95,7 +95,7 @@ export function CustomDragLayer() {
               className="absolute inset-0 w-full h-full object-cover"
               style={{ borderRadius: '0' }}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/74 via-black/16 to-black/4" />
             {/* Format badge - top left */}
             <span className="absolute top-6 left-7 text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-white/85">
               {fileExtension}
@@ -115,7 +115,7 @@ export function CustomDragLayer() {
         ) : isFolder ? (
           /* Folder Card Preview */
           <div
-            className={`relative rounded-2xl overflow-hidden cursor-pointer border shadow-[0_25px_60px_rgba(0,0,0,0.5)] ${folderVisualStyle.card}`}
+            className={`relative rounded-2xl overflow-hidden cursor-pointer border ${folderVisualStyle.card}`}
             style={{ width: cardWidth, height: cardHeight }}
           >
             <div className="h-full px-7 py-6 flex flex-col justify-between">
@@ -141,7 +141,7 @@ export function CustomDragLayer() {
         ) : (
           /* File Card Preview */
           <div
-            className={`relative rounded-2xl overflow-hidden cursor-pointer border shadow-[0_25px_60px_rgba(0,0,0,0.5)] ${fileVisualStyle.card}`}
+            className={`relative rounded-2xl overflow-hidden cursor-pointer border ${fileVisualStyle.card}`}
             style={{ width: cardWidth, height: cardHeight }}
           >
             <div className="h-full px-7 py-6 flex flex-col justify-between">

@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { ChevronRight, Smile, FolderIcon, Plus, Paperclip } from "lucide-react";
+import { ChevronRight, FolderIcon, Plus, Paperclip } from "lucide-react";
 import { EmojiPicker } from "../../EmojiPicker";
 import { formatFolderStatsHeader } from "../helpers";
 import { ACCEPTED_UPLOAD_FILE_TYPES } from "../../../utils/fileValidation";
@@ -91,7 +91,7 @@ export function FolderHeader({
         <button
           ref={emojiTriggerRef}
           onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
-          className={`flex-shrink-0 flex items-center justify-center rounded-xl hover:bg-white/10 transition-colors group ${
+          className={`flex-shrink-0 flex items-center justify-center rounded-xl transition-colors group ${
             emoji ? "w-14 h-14 text-4xl" : "w-14 h-14"
           }`}
           title={emoji ? "Изменить иконку" : "Добавить иконку"}
@@ -99,9 +99,8 @@ export function FolderHeader({
           {emoji ? (
             <span className="leading-none">{emoji}</span>
           ) : (
-            <span className="flex flex-col items-center gap-0.5 text-gray-600 group-hover:text-gray-400 transition-colors">
-              <Smile size={22} />
-              <span className="text-[9px] leading-none">иконка</span>
+            <span className="flex h-12 w-12 items-center justify-center text-gray-600/80 transition-colors group-hover:text-gray-400">
+              <FolderIcon size={30} strokeWidth={1.45} />
             </span>
           )}
         </button>

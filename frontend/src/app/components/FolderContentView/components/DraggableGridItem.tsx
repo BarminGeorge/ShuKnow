@@ -301,8 +301,9 @@ export function DraggableGridItem({
         className={`
           group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
           ${getItemAnimationClass()} ${getDropZoneStyles()}
-          bg-[linear-gradient(135deg,rgba(124,58,237,0.12),rgba(15,23,42,0.42)_58%,rgba(167,139,250,0.05))]
-          border-violet-200/10 hover:border-violet-200/22 hover:shadow-[0_0_24px_rgba(167,139,250,0.06)]
+          bg-[linear-gradient(135deg,rgba(76,29,149,0.13),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))]
+          border-violet-200/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_26px_rgba(0,0,0,0.16)]
+          hover:border-violet-200/18 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_14px_30px_rgba(0,0,0,0.20)]
           hover:-translate-y-[1px]
           border
         `}
@@ -374,8 +375,8 @@ export function DraggableGridItem({
         return {
           badgeBg: "bg-rose-300/10",
           badgeText: "text-rose-200",
-          card: "bg-[linear-gradient(135deg,rgba(244,114,182,0.12),rgba(15,23,42,0.42)_58%,rgba(251,113,133,0.04))] border-rose-200/10 hover:border-rose-200/22 hover:shadow-[0_0_24px_rgba(251,113,133,0.06)]",
-          line: "via-rose-200/32",
+          card: "bg-[linear-gradient(135deg,rgba(157,23,77,0.13),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))] border-rose-200/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_26px_rgba(0,0,0,0.16)] hover:border-rose-200/18 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_14px_30px_rgba(0,0,0,0.20)]",
+          line: "via-rose-200/28",
         };
       }
 
@@ -383,16 +384,16 @@ export function DraggableGridItem({
         return {
           badgeBg: "bg-[rgba(129,140,248,0.15)]",
           badgeText: "text-[#818cf8]",
-          card: "bg-[linear-gradient(135deg,rgba(99,102,241,0.14),rgba(15,23,42,0.42)_58%,rgba(129,140,248,0.06))] border-indigo-300/10 hover:border-indigo-300/25 hover:shadow-[0_0_24px_rgba(129,140,248,0.08)]",
-          line: "via-indigo-300/40",
+          card: "bg-[linear-gradient(135deg,rgba(67,56,202,0.14),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))] border-indigo-300/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_26px_rgba(0,0,0,0.16)] hover:border-indigo-300/20 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_14px_30px_rgba(0,0,0,0.20)]",
+          line: "via-indigo-300/34",
         };
       }
 
       return {
         badgeBg: "bg-sky-300/10",
         badgeText: "text-sky-200",
-        card: "bg-[linear-gradient(135deg,rgba(14,165,233,0.12),rgba(15,23,42,0.42)_58%,rgba(56,189,248,0.04))] border-sky-200/10 hover:border-sky-200/22 hover:shadow-[0_0_24px_rgba(56,189,248,0.06)]",
-        line: "via-sky-200/32",
+        card: "bg-[linear-gradient(135deg,rgba(3,105,161,0.13),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))] border-sky-200/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_26px_rgba(0,0,0,0.16)] hover:border-sky-200/18 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_14px_30px_rgba(0,0,0,0.20)]",
+        line: "via-sky-200/28",
       };
     };
 
@@ -421,7 +422,8 @@ export function DraggableGridItem({
           className={`
             group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
             ${getItemAnimationClass()} ${getFileDropStyles()}
-            hover:scale-[1.02] hover:ring-1 hover:ring-white/10
+            shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_26px_rgba(0,0,0,0.16)]
+            hover:-translate-y-[1px] hover:ring-1 hover:ring-white/10 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_14px_30px_rgba(0,0,0,0.20)]
           `}
           onClick={() => handleFileClick(file.id)}
           title="Нажмите для открытия"
@@ -434,7 +436,7 @@ export function DraggableGridItem({
           />
           
           {/* Bottom gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/74 via-black/16 to-black/4" />
           
           {/* Format badge - top left */}
           <span className="absolute top-6 left-7 text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-white/85">

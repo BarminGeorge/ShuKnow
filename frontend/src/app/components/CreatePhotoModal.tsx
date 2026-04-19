@@ -52,32 +52,29 @@ export function CreatePhotoModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div className="bg-[#141414] border border-white/10 rounded-2xl w-full max-w-md mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10">
-          <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center">
-            <ImageIcon size={16} className="text-indigo-400" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
+      <div className="w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto rounded-2xl border border-white/[0.08] bg-[#0d0d0d] shadow-[0_24px_80px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.04)]">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-white/[0.07]">
+          <div className="w-8 h-8 rounded-lg bg-sky-500/12 border border-sky-200/10 flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <ImageIcon size={16} className="text-sky-300/70" />
           </div>
-          <h2 className="text-lg font-semibold text-white flex-1">Загрузить фото</h2>
+          <h2 className="text-lg font-semibold text-gray-100 flex-1">Загрузить фото</h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors flex-shrink-0"
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/[0.06] text-gray-500 hover:text-gray-200 transition-colors flex-shrink-0"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* Content */}
         <div className="px-6 py-5 space-y-4">
-          {/* Image Upload Area */}
           <div>
             <label className="text-sm font-medium text-gray-300 mb-3 block">
               Фото
             </label>
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="relative border-2 border-dashed border-white/20 rounded-lg p-6 cursor-pointer hover:border-white/40 transition-colors flex flex-col items-center justify-center"
+              className="relative border border-dashed border-white/[0.12] bg-white/[0.018] rounded-lg p-6 cursor-pointer hover:border-white/22 hover:bg-white/[0.03] transition-colors flex flex-col items-center justify-center"
             >
               {previewUrl ? (
                 <div className="w-full">
@@ -94,9 +91,7 @@ export function CreatePhotoModal({
                       setPreviewUrl("");
                       if (fileInputRef.current) fileInputRef.current.value = "";
                     }}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-violet-100
-                               bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))]
-                               border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)]"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-violet-100 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(15,23,42,0.42)_58%,rgba(167,139,250,0.07))] border border-violet-200/16 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] hover:border-violet-200/26 hover:text-white hover:bg-violet-950/20"
                   >
                     Удалить фото
                   </button>
@@ -122,7 +117,6 @@ export function CreatePhotoModal({
             </div>
           </div>
 
-          {/* File Name */}
           <div>
             <label className="text-sm font-medium text-gray-300 mb-2 block">
               Название файла
@@ -135,7 +129,7 @@ export function CreatePhotoModal({
                 onKeyDown={handleKeyDown}
                 placeholder="Название фото"
                 maxLength={50}
-                className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 outline-none focus:border-indigo-500/50 transition-colors pr-14"
+                className="w-full px-4 py-3 bg-white/[0.025] border border-white/[0.08] rounded-lg text-sm text-gray-200 placeholder:text-gray-600 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] focus:border-violet-200/18 focus:bg-white/[0.035] transition-colors pr-14"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">
                 {name.length}/50
@@ -143,7 +137,6 @@ export function CreatePhotoModal({
             </div>
           </div>
 
-          {/* Description (AI Instruction) */}
           <div>
             <label className="text-sm font-medium text-gray-300 mb-2 block">
               Описание / Инструкция для ИИ
@@ -153,26 +146,23 @@ export function CreatePhotoModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Опишите, как ИИ должен работать с этим фото..."
-              className="w-full px-4 py-3 bg-[#0d0d0d] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-indigo-500/50 transition-colors"
+              className="w-full px-4 py-3 bg-white/[0.025] border border-white/[0.08] rounded-lg text-sm text-gray-200 placeholder:text-gray-600 resize-none outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] focus:border-violet-200/18 focus:bg-white/[0.035] transition-colors"
               rows={3}
             />
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-white/10 flex justify-end gap-3">
+        <div className="px-6 py-4 border-t border-white/[0.07] flex justify-end gap-3 bg-white/[0.01]">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors text-sm"
+            className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/[0.055] hover:text-gray-200 transition-colors"
           >
             Отмена
           </button>
           <button
             onClick={handleCreate}
             disabled={!name.trim() || !imageUrl}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-violet-100
-                       bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))]
-                       border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-violet-100 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(15,23,42,0.42)_58%,rgba(167,139,250,0.07))] border border-violet-200/16 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] hover:border-violet-200/26 hover:text-white hover:bg-violet-950/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Загрузить
           </button>

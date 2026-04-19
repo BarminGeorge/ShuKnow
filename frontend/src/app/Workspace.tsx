@@ -276,14 +276,14 @@ export default function Workspace() {
                       <div className="flex-1 flex flex-col items-center justify-center pb-20">
                         <div className="flex items-center gap-3 mb-6">
                           <div className="relative flex h-9 w-9 items-center justify-center">
-                            <div className="absolute inset-2 rounded-full bg-violet-500/8 blur-sm" />
+                            <div className="absolute inset-2 rounded-full bg-[#4c1d95]/7 blur-sm" />
                             <Sparkles
                               size={26}
-                              className="relative text-violet-200 drop-shadow-[0_0_7px_rgba(167,139,250,0.22)]"
+                              className="relative text-violet-300/62 drop-shadow-[0_0_5px_rgba(91,33,182,0.16)]"
                               strokeWidth={2.25}
                             />
                           </div>
-                          <h2 className="text-2xl font-semibold text-white text-center">{currentTitle}</h2>
+                          <h2 className="text-2xl font-semibold text-gray-100/90 text-center">{currentTitle}</h2>
                         </div>
                         <div className="w-full max-w-3xl">
                           <InputConsole onSend={handleSendMessage} />

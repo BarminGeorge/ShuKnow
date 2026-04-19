@@ -30,7 +30,7 @@ const PROVIDER_MODELS: Record<string, string> = {
 const PROVIDERS = ["OpenAI", "OpenRouter", "Gemini", "Anthropic"];
 const EMPTY_SETTING_VALUE = "Не задано";
 
-const modalButtonClass = "rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.085),rgba(255,255,255,0.035))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_18px_rgba(0,0,0,0.18)] transition-all hover:border-white/18 hover:bg-white/10 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.11),0_10px_22px_rgba(0,0,0,0.22)]";
+const modalButtonClass = "rounded-lg border border-white/10 bg-white/[0.045] shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition-colors hover:border-white/14 hover:bg-white/[0.065]";
 const primaryButtonClass = "rounded-lg border border-violet-300/12 bg-[linear-gradient(135deg,rgba(76,29,149,0.26),rgba(17,16,24,0.58)_60%,rgba(109,40,217,0.08))] text-violet-200/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_14px_rgba(91,33,182,0.045)] transition-all hover:border-violet-300/20 hover:text-violet-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_18px_rgba(91,33,182,0.075)]";
 const fieldClass = "w-full rounded-lg border border-white/10 bg-[#101010] px-4 py-3 text-sm text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] outline-none transition-colors placeholder:text-gray-600 focus:border-violet-300/28 focus:bg-[#121212] disabled:opacity-50";
 const labelClass = "mb-2 block text-sm font-medium text-gray-400";
@@ -43,24 +43,24 @@ const SETTING_VISUALS: Record<SettingVisualKind, {
   line: string;
 }> = {
   provider: {
-    icon: <Sparkles size={16} className="text-violet-200" />,
-    shell: "border-violet-200/12 bg-[linear-gradient(135deg,rgba(124,58,237,0.15),rgba(17,16,24,0.82)_62%,rgba(167,139,250,0.06))]",
-    line: "via-violet-200/34",
+    icon: <Sparkles size={16} className="text-violet-300/70" />,
+    shell: "border-violet-200/9 bg-[linear-gradient(135deg,rgba(76,29,149,0.10),rgba(14,14,18,0.96)_58%,rgba(9,10,13,0.98))]",
+    line: "via-violet-200/20",
   },
   baseUrl: {
-    icon: <Link size={16} className="text-sky-200" />,
-    shell: "border-sky-200/12 bg-[linear-gradient(135deg,rgba(14,165,233,0.15),rgba(17,16,24,0.82)_62%,rgba(56,189,248,0.06))]",
-    line: "via-sky-200/34",
+    icon: <Link size={16} className="text-sky-300/70" />,
+    shell: "border-sky-200/9 bg-[linear-gradient(135deg,rgba(3,105,161,0.10),rgba(14,14,18,0.96)_58%,rgba(9,10,13,0.98))]",
+    line: "via-sky-200/20",
   },
   model: {
-    icon: <Cpu size={16} className="text-indigo-200" />,
-    shell: "border-indigo-200/12 bg-[linear-gradient(135deg,rgba(99,102,241,0.16),rgba(17,16,24,0.82)_62%,rgba(129,140,248,0.07))]",
-    line: "via-indigo-200/38",
+    icon: <Cpu size={16} className="text-indigo-300/70" />,
+    shell: "border-indigo-200/9 bg-[linear-gradient(135deg,rgba(67,56,202,0.10),rgba(14,14,18,0.96)_58%,rgba(9,10,13,0.98))]",
+    line: "via-indigo-200/22",
   },
   apiKey: {
-    icon: <Key size={16} className="text-rose-200" />,
-    shell: "border-rose-200/12 bg-[linear-gradient(135deg,rgba(244,114,182,0.14),rgba(17,16,24,0.82)_62%,rgba(251,113,133,0.06))]",
-    line: "via-rose-200/34",
+    icon: <Key size={16} className="text-rose-300/70" />,
+    shell: "border-rose-200/9 bg-[linear-gradient(135deg,rgba(157,23,77,0.10),rgba(14,14,18,0.96)_58%,rgba(9,10,13,0.98))]",
+    line: "via-rose-200/20",
   },
 };
 
@@ -68,7 +68,7 @@ function SettingIcon({ kind }: { kind: SettingVisualKind }) {
   const visual = SETTING_VISUALS[kind];
 
   return (
-    <div className={`relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_18px_rgba(0,0,0,0.22)] ${visual.shell}`}>
+    <div className={`relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${visual.shell}`}>
       <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${visual.line} to-transparent`} />
       {visual.icon}
     </div>
