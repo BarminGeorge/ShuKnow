@@ -9,8 +9,9 @@ import { TabBar } from "./components/workspace/TabBar";
 import { WorkspaceErrorBoundary } from "./components/workspace/WorkspaceErrorBoundary";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import { Toaster } from "sonner";
+import { Toaster, toast } from "sonner";
 import type { Folder, FileItem, Folder as ApiFolder, FileItem as ApiFileItem } from "../api/types";
+import { fileService } from "../api";
 import { useFolders } from "./hooks/useFolders";
 import { useFiles } from "./hooks/useFiles";
 import { useTabs } from "./hooks/useTabs";
@@ -71,6 +72,10 @@ export default function Workspace() {
   });
   
   const composerRef = useRef<HTMLDivElement>(null);
+  const autosaveSequenceRef = useRef(0);
+  const latestAutosaveByFileRef = useRef<Map<string, number>>(new Map());
+  const lastAutosavedContentRef = useRef<Map<string, string>>(new Map());
+  const autosaveFailureNotifiedRef = useRef<Set<string>>(new Set());
   const [composerBottomPadding, setComposerBottomPadding] = useState(128);
 
   useEffect(() => {
@@ -109,9 +114,48 @@ export default function Workspace() {
 
   // ── File management ─────────────────────────────────────────────────────────
 
-  const handleUpdateFileContent = (fileId: string, content: string) => {
+  const handleUpdateFileContent = useCallback((fileId: string, content: string) => {
     updateFile(fileId, { content });
-  };
+
+    const targetFile = files.find((file) => file.id === fileId);
+    const isPersistableTextFile = targetFile?.contentType.startsWith("text/") ?? false;
+    if (isMockMode || !isPersistableTextFile) {
+      return;
+    }
+
+    if (lastAutosavedContentRef.current.get(fileId) === content) {
+      return;
+    }
+
+    const autosaveSequence = autosaveSequenceRef.current + 1;
+    autosaveSequenceRef.current = autosaveSequence;
+    latestAutosaveByFileRef.current.set(fileId, autosaveSequence);
+
+    void fileService.patchFileContent(fileId, content)
+      .then((savedFile) => {
+        if (latestAutosaveByFileRef.current.get(fileId) !== autosaveSequence) {
+          return;
+        }
+
+        lastAutosavedContentRef.current.set(fileId, content);
+        autosaveFailureNotifiedRef.current.delete(fileId);
+        updateFile(fileId, {
+          description: savedFile.description,
+          contentType: savedFile.contentType,
+          sizeBytes: savedFile.sizeBytes,
+          createdAt: savedFile.createdAt,
+          sortOrder: savedFile.sortOrder,
+        });
+      })
+      .catch((error) => {
+        console.error("Failed to autosave file content:", error);
+        if (autosaveFailureNotifiedRef.current.has(fileId)) {
+          return;
+        }
+        autosaveFailureNotifiedRef.current.add(fileId);
+        toast.error("Не удалось сохранить изменения. Попробуйте ещё раз.");
+      });
+  }, [files, isMockMode, updateFile]);
 
   const handleCreateFile = (file: FileItem, openAfterCreate: boolean = true) => {
     createFile(file, openAfterCreate);

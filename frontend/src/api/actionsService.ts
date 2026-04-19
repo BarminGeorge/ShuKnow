@@ -30,7 +30,7 @@ export interface RollbackItemDto {
 export interface RollbackResultDto {
   actionId: string;
   restoredItems: RollbackItemDto[];
-  isFullyReverted: boolean;
+  fullyReverted: boolean;
 }
 
 export interface PagedActionResult {

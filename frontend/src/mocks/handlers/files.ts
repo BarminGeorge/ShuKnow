@@ -107,19 +107,15 @@ export const fileHandlers = [
   http.patch(`${API_BASE}/files/:id/move`, async ({ params, request }) => {
     const { id } = params;
     const body = await request.json() as any;
-    if (!body.targetFolderId) {
-      return new HttpResponse(null, { status: 404 });
-    }
-
     const file = MOCK_FILES.find(f => f.id === id);
     if (!file) {
       return HttpResponse.json({
         id,
-        folderId: body.targetFolderId,
+        folderId: body.targetFolderId ?? null,
       });
     }
 
-    file.folderId = body.targetFolderId;
+    file.folderId = body.targetFolderId ?? null;
     return HttpResponse.json(file);
   }),
 

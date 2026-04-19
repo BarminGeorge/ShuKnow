@@ -18,8 +18,9 @@ export interface AttachmentDto {
 
 export interface ChatMessageDto {
   id: string;
-  role: "User" | "Ai";
+  role: "User" | "Ai" | "System";
   content: string;
+  index?: number | null;
   attachments?: AttachmentDto[] | null;
 }
 

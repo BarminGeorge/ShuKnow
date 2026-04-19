@@ -24,8 +24,9 @@ export interface MessageChunkEvent {
 
 export interface ChatHubMessageDto {
   id: string;
-  role: "User" | "Ai";
+  role: "User" | "Ai" | "System";
   content: string;
+  index?: number | null;
   attachments?: ChatHubAttachmentDto[] | null;
 }
 
@@ -50,40 +51,44 @@ export interface ClassificationDecisionDto {
 
 export interface ChatHubFileDto {
   id: string;
-  folderId: string;
-  folderName: string;
+  folderId: string | null;
+  folderName: string | null;
   name: string;
-  description?: string;
+  description: string;
   contentType: string;
   sizeBytes: number;
+  version: number;
+  checksumSha256?: string | null;
+  createdAt: string;
+  sortOrder: number;
 }
 
 export interface FileMovedEvent {
   fileId: string;
-  fromFolderId: string;
-  toFolderId: string;
+  fileName: string;
+  fromFolderId: string | null;
+  toFolderId: string | null;
 }
 
 export interface ChatHubFolderDto {
-  id: string;
+  folderId: string;
   name: string;
-  description?: string;
+  description: string;
+  emoji?: string | null;
   parentFolderId?: string | null;
   sortOrder: number;
-  fileCount: number;
-  hasChildren: boolean;
-  path?: string[] | null;
 }
 
 export interface ProcessingCompletedEvent {
   operationId: string;
-  actionId: string;
-  summary: string;
-  filesCreated: number;
-  filesMoved: number;
 }
 
 export type ProcessingFailureCode =
+  | number
+  | "LlmConnectionFailed"
+  | "LlmInvalidResponse"
+  | "FileOperationFailed"
+  | "InternalError"
   | "LLM_CONNECTION_FAILED"
   | "LLM_RATE_LIMITED"
   | "LLM_INVALID_RESPONSE"
@@ -101,7 +106,30 @@ export interface ProcessingCancelledEvent {
   operationId: string;
 }
 
+export interface ValidationFailedEvent {
+  targetMethod: string;
+  errors: ValidationErrorDto[];
+}
+
+export interface ValidationErrorDto {
+  propertyName: string;
+  errorMessage: string;
+}
+
+export interface TextUpdatedEvent {
+  fileId: string;
+  text: string;
+}
+
+export interface AttachmentSavedEvent {
+  attachmentId: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+}
+
 export interface ChatHubEventHandlers {
+  onValidationFailed?: (event: ValidationFailedEvent) => void;
   onProcessingStarted?: (event: ProcessingStartedEvent) => void;
   onMessageChunk?: (event: MessageChunkEvent) => void;
   onMessageCompleted?: (message: ChatHubMessageDto) => void;
@@ -109,6 +137,9 @@ export interface ChatHubEventHandlers {
   onFileCreated?: (file: ChatHubFileDto) => void;
   onFileMoved?: (event: FileMovedEvent) => void;
   onFolderCreated?: (folder: ChatHubFolderDto) => void;
+  onTextAppended?: (event: TextUpdatedEvent) => void;
+  onTextPrepended?: (event: TextUpdatedEvent) => void;
+  onAttachmentSaved?: (event: AttachmentSavedEvent) => void;
   onProcessingCompleted?: (event: ProcessingCompletedEvent) => void;
   onProcessingFailed?: (event: ProcessingFailedEvent) => void;
   onProcessingCancelled?: (event: ProcessingCancelledEvent) => void;
@@ -201,6 +232,10 @@ export class ChatHubClient {
   private registerServerEventHandlers(): void {
     if (!this.connection) return;
 
+    this.connection.on("OnValidationFailed", (event: ValidationFailedEvent) => {
+      this.handlers.onValidationFailed?.(event);
+    });
+
     this.connection.on("OnProcessingStarted", (event: ProcessingStartedEvent) => {
       this.handlers.onProcessingStarted?.(event);
     });
@@ -227,6 +262,18 @@ export class ChatHubClient {
 
     this.connection.on("OnFolderCreated", (folder: ChatHubFolderDto) => {
       this.handlers.onFolderCreated?.(folder);
+    });
+
+    this.connection.on("OnTextAppended", (event: TextUpdatedEvent) => {
+      this.handlers.onTextAppended?.(event);
+    });
+
+    this.connection.on("OnTextPrepended", (event: TextUpdatedEvent) => {
+      this.handlers.onTextPrepended?.(event);
+    });
+
+    this.connection.on("OnAttachmentSaved", (event: AttachmentSavedEvent) => {
+      this.handlers.onAttachmentSaved?.(event);
     });
 
     this.connection.on("OnProcessingCompleted", (event: ProcessingCompletedEvent) => {

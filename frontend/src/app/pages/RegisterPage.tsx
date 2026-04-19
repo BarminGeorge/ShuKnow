@@ -5,6 +5,12 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Eye, EyeOff, Sparkles } from "lucide-react";
+import {
+  getFormString,
+  LOGIN_MAX_LENGTH,
+  validateLoginValue,
+  validateRegistrationPassword,
+} from "../utils/authValidation";
 
 const authPanelClass =
   "overflow-hidden rounded-lg border border-white/[0.08] bg-[#0d0d0d] shadow-[0_24px_80px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.04)]";
@@ -23,27 +29,38 @@ export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
 
-    if (!loginValue || !password || !confirmPassword) {
-      setError("Заполните все поля");
+    const formData = new FormData(e.currentTarget);
+    const nextLoginValue = getFormString(formData, "username").trim();
+    const nextPassword = getFormString(formData, "new-password");
+    const nextConfirmPassword = getFormString(formData, "confirm-password");
+
+    setLoginValue(nextLoginValue);
+    setPassword(nextPassword);
+    setConfirmPassword(nextConfirmPassword);
+
+    const validationError =
+      validateLoginValue(nextLoginValue) ?? validateRegistrationPassword(nextPassword);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
-    if (password !== confirmPassword) {
+    if (!nextConfirmPassword) {
+      setError("Подтвердите пароль");
+      return;
+    }
+
+    if (nextPassword !== nextConfirmPassword) {
       setError("Пароли не совпадают");
       return;
     }
 
-    if (password.length < 8) {
-      setError("Пароль должен быть не менее 8 символов");
-      return;
-    }
-
     try {
-      await register(loginValue, password);
+      await register(nextLoginValue, nextPassword);
       navigate("/app");
     } catch {
       setError("Ошибка регистрации. Попробуйте снова.");
@@ -81,7 +98,11 @@ export default function RegisterPage() {
                     type="text"
                     placeholder="Ваш логин"
                     value={loginValue}
-                    onChange={(e) => setLoginValue(e.target.value)}
+                    maxLength={LOGIN_MAX_LENGTH}
+                    onChange={(e) => {
+                      setLoginValue(e.target.value);
+                      setError("");
+                    }}
                     autoComplete="username"
                     className={authFieldClass}
                   />
@@ -96,7 +117,10 @@ export default function RegisterPage() {
                       type={showPassword ? "text" : "password"}
                       placeholder="Минимум 8 символов"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setError("");
+                      }}
                       autoComplete="new-password"
                       className={`${authFieldClass} pr-11`}
                     />
@@ -120,7 +144,10 @@ export default function RegisterPage() {
                       type={showConfirmPassword ? "text" : "password"}
                       placeholder="Повторите пароль"
                       value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        setError("");
+                      }}
                       autoComplete="new-password"
                       className={`${authFieldClass} pr-11`}
                     />
