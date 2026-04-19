@@ -1,8 +1,12 @@
 import { Upload, FolderIcon, Plus } from "lucide-react";
+import { useDrop } from "react-dnd";
 import type { GridItem } from "../types";
 import type { Folder, FileItem } from "../../../../api/types";
 import { DraggableGridItem } from "./DraggableGridItem";
 import { CustomDragLayer } from "./CustomDragLayer";
+import { GRID_ITEM_TYPE } from "../constants";
+
+const secondaryActionClass = "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-white/[0.045] border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] hover:text-gray-100 hover:border-white/14 hover:bg-white/[0.065] transition-colors";
 
 interface GridContainerProps {
   gridRef: React.RefObject<HTMLDivElement>;
@@ -45,15 +49,23 @@ export function GridContainer({
   onCreateFolder,
   onCreateFile,
 }: GridContainerProps) {
+  const [, dropGrid] = useDrop({
+    accept: GRID_ITEM_TYPE,
+    drop: (_item, monitor) => {
+      if (monitor.didDrop()) return undefined;
+      return { moved: true };
+    },
+  });
+
   return (
-    <div className="flex-1 overflow-y-auto px-8 py-6 relative">
+    <div ref={dropGrid} className="flex-1 overflow-y-auto px-8 py-6 relative">
       {/* Drop overlay when dragging files */}
       {isFileOver && gridItems.length > 0 && (
-        <div className="absolute inset-0 bg-indigo-500/5 border-2 border-dashed border-indigo-500/50 rounded-xl z-10 flex items-center justify-center pointer-events-none">
-          <div className="bg-[#141414] px-6 py-4 rounded-xl border border-indigo-500/30">
+        <div className="absolute inset-0 bg-violet-500/5 border-2 border-dashed border-violet-300/35 rounded-xl z-10 flex items-center justify-center pointer-events-none">
+          <div className="bg-[#101010]/95 px-6 py-4 rounded-lg border border-violet-300/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_42px_rgba(0,0,0,0.32)]">
             <div className="flex items-center gap-3">
-              <Upload size={24} className="text-indigo-400" />
-              <span className="text-indigo-300 text-lg">Отпустите файлы для загрузки</span>
+              <Upload size={24} className="text-violet-200/85" />
+              <span className="text-violet-100/85 text-lg">Отпустите файлы для загрузки</span>
             </div>
           </div>
         </div>
@@ -87,13 +99,13 @@ export function GridContainer({
       {/* Empty State */}
       {gridItems.length === 0 && (
         <div className={`flex flex-col items-center justify-center h-full text-center ${
-          isFileOver ? "ring-2 ring-indigo-500/50 ring-inset rounded-xl" : ""
+          isFileOver ? "ring-2 ring-violet-300/35 ring-inset rounded-xl" : ""
         }`}>
           <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-4 transition-colors ${
-            isFileOver ? "bg-indigo-500/10" : "bg-white/5"
+            isFileOver ? "bg-violet-500/10" : "bg-white/5"
           }`}>
             {isFileOver ? (
-              <Upload size={40} className="text-indigo-400" />
+              <Upload size={40} className="text-violet-200/85" />
             ) : (
               <span className="text-5xl">{emoji}</span>
             )}
@@ -108,14 +120,16 @@ export function GridContainer({
             <div className="flex items-center gap-3">
               <button
                 onClick={onCreateFolder}
-                className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
+                className={secondaryActionClass}
               >
                 <FolderIcon size={16} />
                 Создать папку
               </button>
               <button
                 onClick={onCreateFile}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg transition-colors text-sm border border-indigo-500/20"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-violet-100
+                           bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))]
+                           border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)]"
               >
                 <Plus size={16} />
                 Создать файл

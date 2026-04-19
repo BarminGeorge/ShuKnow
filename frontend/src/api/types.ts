@@ -163,7 +163,7 @@ export interface UpdateAiSettingsRequest {
 }
 
 export interface AiConnectionTestResult {
-  isSuccess: boolean;
+  success: boolean;
   latencyMs: number | null;
   errorMessage: string | null;
 }

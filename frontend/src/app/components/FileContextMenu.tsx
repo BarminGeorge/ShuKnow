@@ -1,5 +1,5 @@
 import { Trash2, FileEdit, Download } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 interface FileContextMenuProps {
   isOpen: boolean;
@@ -23,7 +23,7 @@ export function FileContextMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const [adjustedPosition, setAdjustedPosition] = useState(position);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isOpen && menuRef.current) {
       const menu = menuRef.current;
       const menuWidth = menu.offsetWidth;
@@ -51,16 +51,14 @@ export function FileContextMenu({
 
   return (
     <>
-      {/* Backdrop */}
       <div className="fixed inset-0 z-40" onClick={onClose} />
 
-      {/* Menu */}
       <div
         ref={menuRef}
-        className="fixed z-50 bg-[#1a1a1a]/95 backdrop-blur-sm border border-white/[0.08] rounded-xl shadow-lg py-1 min-w-[160px] overflow-hidden"
+        className="fixed z-50 min-w-[176px] overflow-hidden rounded-lg border border-white/[0.08] bg-[#0d0d0d]/95 py-1 shadow-[0_18px_42px_rgba(0,0,0,0.36),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md"
         style={{
-          top: `${adjustedPosition.y}px`,
-          left: `${adjustedPosition.x}px`,
+          top: adjustedPosition.y,
+          left: adjustedPosition.x,
         }}
       >
         {!isPhoto && (
@@ -70,12 +68,11 @@ export function FileContextMenu({
                 onEdit();
                 onClose();
               }}
-              className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5 transition-colors flex items-center gap-2.5"
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-white/[0.055] hover:text-gray-100"
             >
               <FileEdit size={14} className="text-gray-500" />
               Редактировать
             </button>
-            <div className="h-px bg-white/[0.06] mx-2" />
           </>
         )}
         <button
@@ -83,20 +80,21 @@ export function FileContextMenu({
             onDownload();
             onClose();
           }}
-          className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5 transition-colors flex items-center gap-2.5"
+          className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-white/[0.055] hover:text-gray-100 ${
+            !isPhoto ? "border-t border-white/[0.055]" : ""
+          }`}
         >
           <Download size={14} className="text-gray-500" />
           Скачать
         </button>
-        <div className="h-px bg-white/[0.06] mx-2" />
         <button
           onClick={() => {
             onDelete();
             onClose();
           }}
-          className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-indigo-500/10 hover:text-indigo-400 transition-colors flex items-center gap-2.5"
+          className="flex w-full items-center gap-2.5 border-t border-white/[0.055] px-3 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-violet-950/30 hover:text-violet-200"
         >
-          <Trash2 size={14} className="text-gray-500" />
+          <Trash2 size={14} className="text-violet-300/70" />
           Удалить
         </button>
       </div>

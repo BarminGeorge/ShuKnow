@@ -1,6 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useFileUpload } from '../useFileUpload';
+import { toast } from 'sonner';
+
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+  },
+}));
 
 describe('useFileUpload', () => {
   it('should handle image file upload', () => {
@@ -57,5 +64,19 @@ describe('useFileUpload', () => {
     result.current.handleDroppedFiles(files);
 
     expect(mockCreateFile).toHaveBeenCalledTimes(2);
+  });
+
+  it('should skip unsupported files', () => {
+    const mockCreateFile = vi.fn();
+    const { result } = renderHook(() =>
+      useFileUpload({ folderId: 'folder-1', createFile: mockCreateFile })
+    );
+
+    const unsupportedFile = new File(['content'], 'invalid.ppnfng', { type: 'application/octet-stream' });
+
+    result.current.handleDroppedFiles([unsupportedFile]);
+
+    expect(mockCreateFile).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('invalid.ppnfng'));
   });
 });

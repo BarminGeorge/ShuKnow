@@ -1,11 +1,17 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
-import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
-import { Sparkles, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Sparkles } from "lucide-react";
+
+const authPanelClass =
+  "overflow-hidden rounded-lg border border-white/[0.08] bg-[#0d0d0d] shadow-[0_24px_80px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.04)]";
+const authFieldClass =
+  "h-[46px] rounded-lg border-white/10 bg-[#101010] px-4 py-3 text-sm text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] outline-none transition-colors placeholder:text-gray-600 focus-visible:border-violet-300/28 focus-visible:bg-[#121212] focus-visible:ring-0";
+const authButtonClass =
+  "rounded-lg border border-violet-300/12 bg-[linear-gradient(135deg,rgba(76,29,149,0.26),rgba(17,16,24,0.58)_60%,rgba(109,40,217,0.08))] text-violet-200/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_14px_rgba(91,33,182,0.045)] transition-all hover:border-violet-300/20 hover:text-violet-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_18px_rgba(91,33,182,0.075)]";
 
 export default function LoginPage() {
   const [loginValue, setLoginValue] = useState("");
@@ -33,79 +39,83 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
-      <div className="w-full max-w-md relative">
-        {/* Logo */}
-        <Link to="/" className="absolute -top-16 left-1/2 -translate-x-1/2 flex items-center gap-2">
-          <Sparkles className="text-indigo-400" size={28} />
-          <span className="text-2xl font-bold text-white">ShuKnow</span>
-        </Link>
+    <div className="min-h-screen bg-[#080808] px-4 py-6 text-gray-100 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-[calc(100vh-48px)] w-full max-w-6xl flex-col items-center justify-center">
+        <main className="flex w-full flex-col items-center">
+          <Link to="/" className="flex items-center gap-2 text-white">
+            <Sparkles className="text-violet-300/80" size={30} />
+            <span className="text-lg font-semibold tracking-tight">ShuKnow</span>
+          </Link>
+          <Card className={`${authPanelClass} mt-6 w-full max-w-md gap-0`}>
+            <CardHeader className="border-b border-white/[0.07] px-6 py-5">
+              <CardTitle className="text-xl font-semibold text-white">Войти в аккаунт</CardTitle>
+              <CardDescription className="text-sm text-gray-400">
+                Продолжите работу с материалами и чатом
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-6 py-6">
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {error && (
+                  <div className="rounded-lg border border-rose-400/18 bg-rose-400/10 px-3 py-2 text-sm text-rose-300">
+                    {error}
+                  </div>
+                )}
 
-        <Card className="bg-[#141414] border-white/10">
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl text-white">Войти в аккаунт</CardTitle>
-            <CardDescription className="text-gray-400">
-              Введите логин и пароль для входа
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="text-sm text-indigo-400 bg-indigo-400/10 border border-indigo-400/20 rounded-lg px-3 py-2">
-                  {error}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="login" className="text-gray-300">Логин</Label>
-                <Input
-                  id="login"
-                  name="username"
-                  type="text"
-                  placeholder="Ваш логин"
-                  value={loginValue}
-                  onChange={(e) => setLoginValue(e.target.value)}
-                  autoComplete="username"
-                  className="bg-[#1a1a1a] border-white/10 text-white placeholder:text-gray-500"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-300">Пароль</Label>
-                <div className="relative">
+                <div className="space-y-2">
+                  <Label htmlFor="login" className="text-sm text-gray-400">Логин</Label>
                   <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="current-password"
-                    className="bg-[#1a1a1a] border-white/10 text-white placeholder:text-gray-500 pr-10"
+                    id="login"
+                    name="username"
+                    type="text"
+                    placeholder="Ваш логин"
+                    value={loginValue}
+                    onChange={(e) => setLoginValue(e.target.value)}
+                    autoComplete="username"
+                    className={authFieldClass}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors"
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
                 </div>
-              </div>
 
-              <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
-                Войти
-              </Button>
-            </form>
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-sm text-gray-400">Пароль</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="current-password"
+                      className={`${authFieldClass} pr-11`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-0 flex h-[46px] w-8 items-center justify-center text-gray-500 transition-colors hover:text-gray-300"
+                      aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
 
-            <p className="mt-6 text-center text-sm text-gray-400">
-              Нет аккаунта?{" "}
-              <Link to="/register" className="text-indigo-400 hover:text-indigo-300 underline underline-offset-4">
-                Зарегистрироваться
-              </Link>
-            </p>
-          </CardContent>
-        </Card>
+                <button
+                  type="submit"
+                  className={`flex w-full items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium ${authButtonClass}`}
+                >
+                  Войти
+                </button>
+              </form>
+
+              <p className="mt-6 text-center text-sm text-gray-500">
+                Нет аккаунта?{" "}
+                <Link to="/register" className="text-violet-300/85 hover:text-violet-200">
+                  Зарегистрироваться
+                </Link>
+              </p>
+            </CardContent>
+          </Card>
+        </main>
       </div>
     </div>
   );

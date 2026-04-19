@@ -4,6 +4,50 @@ import type { Folder, FolderTreeNodeDto } from '../../api/types';
 
 const API_BASE = '/api';
 
+const findFolderById = (folders: Folder[], folderId: string): Folder | null => {
+  for (const folder of folders) {
+    if (folder.id === folderId) return folder;
+    const found = findFolderById(folder.subfolders || [], folderId);
+    if (found) return found;
+  }
+
+  return null;
+};
+
+const containsFolderId = (folder: Folder, folderId: string): boolean => {
+  return (folder.subfolders || []).some(subfolder => (
+    subfolder.id === folderId || containsFolderId(subfolder, folderId)
+  ));
+};
+
+const removeFolderById = (folders: Folder[], folderId: string): Folder | null => {
+  const folderIndex = folders.findIndex(folder => folder.id === folderId);
+  if (folderIndex >= 0) {
+    return folders.splice(folderIndex, 1)[0];
+  }
+
+  for (const folder of folders) {
+    const removed = removeFolderById(folder.subfolders || [], folderId);
+    if (removed) return removed;
+  }
+
+  return null;
+};
+
+const insertFolderIntoParent = (folders: Folder[], folder: Folder, parentId: string | null): boolean => {
+  if (!parentId) {
+    folders.push(folder);
+    return true;
+  }
+
+  const parentFolder = findFolderById(folders, parentId);
+  if (!parentFolder) return false;
+
+  parentFolder.subfolders = parentFolder.subfolders || [];
+  parentFolder.subfolders.push(folder);
+  return true;
+};
+
 // Helper: Convert Folder to FolderTreeNodeDto
 function folderToTreeNode(folder: Folder): FolderTreeNodeDto {
   return {
@@ -46,6 +90,7 @@ export const folderHandlers = [
   // POST /api/folders
   http.post(`${API_BASE}/folders`, async ({ request }) => {
     const body = await request.json() as any;
+    const parentFolderId = body.parentFolderId ?? null;
     const newFolder: Folder = {
       id: `folder-${Date.now()}`,
       name: body.name,
@@ -53,10 +98,14 @@ export const folderHandlers = [
       sortOrder: 0,
       fileCount: 0,
       subfolders: [],
-      emoji: undefined,
-      prompt: undefined,
+      emoji: body.emoji,
+      prompt: body.prompt,
     };
-    MOCK_FOLDERS.push(newFolder);
+
+    if (!insertFolderIntoParent(MOCK_FOLDERS, newFolder, parentFolderId)) {
+      return new HttpResponse(null, { status: 404 });
+    }
+
     return HttpResponse.json(newFolder, { status: 201 });
   }),
 
@@ -110,7 +159,27 @@ export const folderHandlers = [
   http.patch(`${API_BASE}/folders/:id/move`, async ({ params, request }) => {
     const { id } = params;
     const body = await request.json() as any;
-    // В mock режиме просто возвращаем успех
-    return new HttpResponse(null, { status: 204 });
+    const folderId = id as string;
+    const newParentFolderId = body.newParentFolderId ?? null;
+    const folderToMove = findFolderById(MOCK_FOLDERS, folderId);
+
+    if (!folderToMove) {
+      return HttpResponse.json({ id: folderId, parentFolderId: newParentFolderId });
+    }
+
+    if (newParentFolderId === folderId || containsFolderId(folderToMove, newParentFolderId)) {
+      return new HttpResponse(null, { status: 409 });
+    }
+
+    const movedFolder = removeFolderById(MOCK_FOLDERS, folderId);
+    if (!movedFolder) {
+      return HttpResponse.json({ id: folderId, parentFolderId: newParentFolderId });
+    }
+
+    if (!insertFolderIntoParent(MOCK_FOLDERS, movedFolder, newParentFolderId)) {
+      MOCK_FOLDERS.push(movedFolder);
+    }
+
+    return HttpResponse.json(movedFolder);
   }),
 ];

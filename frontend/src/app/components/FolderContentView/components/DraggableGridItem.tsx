@@ -223,9 +223,16 @@ export function DraggableGridItem({
         onMoveItemToFolder(draggedItem.id, item.id, draggedItem.origType);
         return { movedIntoFolder: true };
       }
+
+      if (dropIntent === "reorder" && draggedItem.index !== index) {
+        moveItem(draggedItem.index, index);
+        draggedItem.index = index;
+      }
+
       // 否则执行重新排序（已在hover中完成，这里只需清理状态）
       setDropIntent(null);
       lastIntentRef.current = null;
+      return { moved: true };
     },
     canDrop: (draggedItem) => {
       // 文件总是可以拖放到其他位置进行排序
@@ -270,11 +277,11 @@ export function DraggableGridItem({
       if (!isOver || !canDrop) return "";
       
       if (dropIntent === "nest") {
-        return "ring-2 ring-indigo-500/40 scale-[1.02] shadow-[0_0_20px_rgba(99,102,241,0.3)]";
+        return "ring-2 ring-violet-300/35 scale-[1.02] shadow-[0_0_20px_rgba(167,139,250,0.16)]";
       }
       
       if (dropIntent === "reorder") {
-        return "ring-1 ring-indigo-500/30";
+        return "ring-1 ring-violet-300/30";
       }
       
       return "";
@@ -294,16 +301,18 @@ export function DraggableGridItem({
         className={`
           group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
           ${getItemAnimationClass()} ${getDropZoneStyles()}
-          bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)]
-          hover:from-[rgba(99,102,241,0.12)] hover:to-[rgba(99,102,241,0.06)]
-          hover:border hover:border-[rgba(99,102,241,0.15)]
+          bg-[linear-gradient(135deg,rgba(76,29,149,0.13),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))]
+          border-violet-200/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_26px_rgba(0,0,0,0.16)]
+          hover:border-violet-200/18 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_14px_30px_rgba(0,0,0,0.20)]
           hover:-translate-y-[1px]
-          border border-transparent
+          border
         `}
         onClick={() => onFolderClick(folder)}
       >
         {/* Content - Single unified block */}
         <div className="h-full px-7 py-6 flex flex-col justify-between">
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-200/32 to-transparent" />
+
           {/* Top: Emoji */}
           <div className="flex items-start justify-between">
             <span className="text-[40px] leading-none">
@@ -335,7 +344,7 @@ export function DraggableGridItem({
         
         {/* 嵌套意图指示器：显示一个半透明的覆盖层提示 */}
         {dropIntent === "nest" && (
-          <div className="absolute inset-0 bg-indigo-500/10 pointer-events-none rounded-2xl" />
+          <div className="absolute inset-0 bg-violet-400/10 pointer-events-none rounded-2xl" />
         )}
       </div>
     );
@@ -359,14 +368,44 @@ export function DraggableGridItem({
     // Get display name without extension
     const displayName = getFileNameWithoutExtension(file.name);
     const fileExtension = getFileExtension(file.name);
+    const extensionKey = file.name.split(".").pop()?.toLowerCase() || "";
 
-    // Get file type badge info - INDIGO for all text files
+    const getFileVisualStyle = () => {
+      if (file.type === "pdf") {
+        return {
+          badgeBg: "bg-rose-300/10",
+          badgeText: "text-rose-200",
+          card: "bg-[linear-gradient(135deg,rgba(157,23,77,0.13),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))] border-rose-200/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_26px_rgba(0,0,0,0.16)] hover:border-rose-200/18 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_14px_30px_rgba(0,0,0,0.20)]",
+          line: "via-rose-200/28",
+        };
+      }
+
+      if (["md", "txt", "rtf"].includes(extensionKey)) {
+        return {
+          badgeBg: "bg-[rgba(129,140,248,0.15)]",
+          badgeText: "text-[#818cf8]",
+          card: "bg-[linear-gradient(135deg,rgba(67,56,202,0.14),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))] border-indigo-300/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_26px_rgba(0,0,0,0.16)] hover:border-indigo-300/20 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_14px_30px_rgba(0,0,0,0.20)]",
+          line: "via-indigo-300/34",
+        };
+      }
+
+      return {
+        badgeBg: "bg-sky-300/10",
+        badgeText: "text-sky-200",
+        card: "bg-[linear-gradient(135deg,rgba(3,105,161,0.13),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))] border-sky-200/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_26px_rgba(0,0,0,0.16)] hover:border-sky-200/18 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_14px_30px_rgba(0,0,0,0.20)]",
+        line: "via-sky-200/28",
+      };
+    };
+
+    const fileVisualStyle = getFileVisualStyle();
+
+    // Get file type badge info
     const getTypeBadge = () => {
       if (file.type === "pdf") {
-        return { label: "PDF", bgColor: "bg-[rgba(129,140,248,0.15)]", textColor: "text-[#818cf8]" };
+        return { label: "PDF", bgColor: fileVisualStyle.badgeBg, textColor: fileVisualStyle.badgeText };
       }
-      // All other files (text, photos shown in card, etc) - indigo
-      return { label: fileExtension, bgColor: "bg-[rgba(129,140,248,0.15)]", textColor: "text-[#818cf8]" };
+
+      return { label: fileExtension, bgColor: fileVisualStyle.badgeBg, textColor: fileVisualStyle.badgeText };
     };
 
     const typeBadge = getTypeBadge();
@@ -383,7 +422,8 @@ export function DraggableGridItem({
           className={`
             group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
             ${getItemAnimationClass()} ${getFileDropStyles()}
-            hover:scale-[1.02] hover:ring-1 hover:ring-white/10
+            shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_26px_rgba(0,0,0,0.16)]
+            hover:-translate-y-[1px] hover:ring-1 hover:ring-white/10 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_14px_30px_rgba(0,0,0,0.20)]
           `}
           onClick={() => handleFileClick(file.id)}
           title="Нажмите для открытия"
@@ -396,7 +436,7 @@ export function DraggableGridItem({
           />
           
           {/* Bottom gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/74 via-black/16 to-black/4" />
           
           {/* Format badge - top left */}
           <span className="absolute top-6 left-7 text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-white/85">
@@ -455,17 +495,17 @@ export function DraggableGridItem({
         className={`
           group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
           ${getItemAnimationClass()} ${getFileDropStyles()}
-          bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(99,102,241,0.03)]
-          hover:from-[rgba(99,102,241,0.12)] hover:to-[rgba(99,102,241,0.06)]
-          hover:border hover:border-[rgba(99,102,241,0.15)]
+          ${fileVisualStyle.card}
           hover:-translate-y-[1px]
-          border border-transparent
+          border
         `}
         onClick={() => handleFileClick(file.id)}
         title="Нажмите для открытия"
       >
         {/* Content - Single unified block */}
         <div className="h-full px-7 py-6 flex flex-col justify-between">
+          <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${fileVisualStyle.line} to-transparent`} />
+
           {/* Top: Type badge and menu */}
           <div className="flex items-start justify-between">
             <span className={`

@@ -1,7 +1,12 @@
 import { useRef } from "react";
-import { ChevronRight, Smile, FolderIcon, Plus, Paperclip } from "lucide-react";
+import { ChevronRight, FolderIcon, Plus, Paperclip } from "lucide-react";
 import { EmojiPicker } from "../../EmojiPicker";
 import { formatFolderStatsHeader } from "../helpers";
+import { ACCEPTED_UPLOAD_FILE_TYPES } from "../../../utils/fileValidation";
+
+const secondaryActionClass = "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-white/[0.045] border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] hover:text-gray-100 hover:border-white/14 hover:bg-white/[0.065] transition-colors";
+const promptFieldClass = "w-full px-4 py-3 bg-[#101010] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] focus:border-violet-300/28 focus:bg-[#121212] transition-colors";
+const FOLDER_PROMPT_MAX_LENGTH = 2000;
 
 interface FolderHeaderProps {
   breadcrumbs: string[];
@@ -59,7 +64,7 @@ export function FolderHeader({
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <div className="border-b border-white/10 px-8 py-6">
+    <div className="border-b border-white/[0.07] px-8 py-6">
       {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-sm text-gray-400 mb-4 overflow-x-auto scrollbar-none" style={{ scrollbarWidth: "none" }}>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -87,7 +92,7 @@ export function FolderHeader({
         <button
           ref={emojiTriggerRef}
           onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
-          className={`flex-shrink-0 flex items-center justify-center rounded-xl hover:bg-white/10 transition-colors group ${
+          className={`flex-shrink-0 flex items-center justify-center rounded-xl transition-colors group ${
             emoji ? "w-14 h-14 text-4xl" : "w-14 h-14"
           }`}
           title={emoji ? "Изменить иконку" : "Добавить иконку"}
@@ -95,9 +100,8 @@ export function FolderHeader({
           {emoji ? (
             <span className="leading-none">{emoji}</span>
           ) : (
-            <span className="flex flex-col items-center gap-0.5 text-gray-600 group-hover:text-gray-400 transition-colors">
-              <Smile size={22} />
-              <span className="text-[9px] leading-none">иконка</span>
+            <span className="flex h-12 w-12 items-center justify-center text-gray-600/80 transition-colors group-hover:text-gray-400">
+              <FolderIcon size={30} strokeWidth={1.45} />
             </span>
           )}
         </button>
@@ -133,7 +137,7 @@ export function FolderHeader({
             <>
               <button
                 onClick={onCreateFolder}
-                className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
+                className={secondaryActionClass}
                 title="Создать папку"
               >
                 <FolderIcon size={16} />
@@ -141,7 +145,9 @@ export function FolderHeader({
               </button>
               <button
                 onClick={onCreateFile}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg transition-colors text-sm border border-indigo-500/20"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-violet-100
+                           bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))]
+                           border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)]"
                 title="Создать файл"
               >
                 <Plus size={16} />
@@ -151,7 +157,7 @@ export function FolderHeader({
           )}
           <button
             onClick={onAttachFile}
-            className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333333] text-white rounded-lg transition-colors text-sm border border-white/10"
+            className={secondaryActionClass}
             title="Прикрепить файл"
           >
             <Paperclip size={16} />
@@ -165,7 +171,7 @@ export function FolderHeader({
         ref={fileInputRef}
         type="file"
         multiple
-        accept="image/*,.pdf,.txt,.md,.json,.js,.ts,.tsx,.jsx,.html,.css"
+        accept={ACCEPTED_UPLOAD_FILE_TYPES}
         className="hidden"
         onChange={onFileInputChange}
       />
@@ -174,10 +180,11 @@ export function FolderHeader({
       <div>
         <textarea
           value={aiPrompt}
-          onChange={(e) => setAiPrompt(e.target.value)}
+          onChange={(e) => setAiPrompt(e.target.value.slice(0, FOLDER_PROMPT_MAX_LENGTH))}
           onBlur={onPromptBlur}
           placeholder="Инструкция для ИИ: что должно попадать в эту папку..."
-          className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/10 rounded-xl text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none focus:border-indigo-500/50 transition-colors"
+          maxLength={FOLDER_PROMPT_MAX_LENGTH}
+          className={promptFieldClass}
           rows={2}
         />
       </div>

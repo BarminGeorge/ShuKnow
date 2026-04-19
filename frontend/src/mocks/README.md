@@ -12,12 +12,15 @@ src/mocks/
 │   ├── index.ts        # Собирает все handlers
 │   ├── auth.ts         # Auth endpoints (login, register, me)
 │   ├── folders.ts      # Folder CRUD endpoints
-│   └── files.ts        # File CRUD endpoints
+│   ├── files.ts        # File CRUD endpoints
+│   ├── chat.ts         # Chat endpoints (session, messages, attachments)
+│   └── settings.ts     # Settings endpoints (AI settings, test connection)
 └── data/               # Моковые данные
     ├── index.ts        # Реэкспорт
     ├── auth.ts         # Mock user data
     ├── folders.ts      # MOCK_FOLDERS
-    └── files.ts        # MOCK_FILES
+    ├── files.ts        # MOCK_FILES
+    └── settings.ts     # MOCK_AI_SETTINGS
 ```
 
 ## Как работает

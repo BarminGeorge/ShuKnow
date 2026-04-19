@@ -43,7 +43,7 @@ export function TabBar({
             style={{ scrollbarWidth: "none" }}
           >
             {tabs.map((file) => {
-              const isActive = file.id === activeTabId;
+              const isActive = viewMode === "editor" && file.id === activeTabId;
               return (
                 <div
                   key={file.id}

@@ -1,9 +1,6 @@
-import { useState, useCallback, useEffect } from "react";
-import { PanelLeftOpen, Loader2 } from "lucide-react";
-import { Panel, PanelGroup, PanelResizeHandle, ImperativePanelHandle } from "react-resizable-panels";
-import { useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Sidebar } from "./components/Sidebar";
-import { ChatMessages, type Message, type Attachment, applyServerIds } from "./components/ChatMessages";
+import { ChatMessages } from "./components/ChatMessages";
 import { InputConsole } from "./components/InputConsole";
 import { Sparkles } from "lucide-react";
 import { FolderContentView } from "./components/FolderContentView";
@@ -12,21 +9,13 @@ import { TabBar } from "./components/workspace/TabBar";
 import { WorkspaceErrorBoundary } from "./components/workspace/WorkspaceErrorBoundary";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import { Toaster, toast } from "sonner";
-import { folderService, fileService, chatService } from "../api";
+import { Toaster } from "sonner";
 import type { Folder, FileItem, Folder as ApiFolder, FileItem as ApiFileItem } from "../api/types";
 import { useFolders } from "./hooks/useFolders";
 import { useFiles } from "./hooks/useFiles";
 import { useTabs } from "./hooks/useTabs";
 import { useWorkspaceView } from "./hooks/useWorkspaceView";
-import { useChat } from "./hooks/useChat";
-import { useChatHub } from "./hooks/useChatHub";
-import type { 
-  ProcessingCompletedEvent, 
-  ProcessingFailedEvent,
-  ChatHubFileDto,
-  ChatHubFolderDto,
-} from "../api/chatHub";
+import { useChatController } from "./hooks/useChatController";
 
 function mapApiFolderToLocalFolder(apiFolder: ApiFolder): Folder {
   return {
@@ -59,20 +48,6 @@ function mapApiFileToLocalFile(apiFile: ApiFileItem): FileItem {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
-type ViewMode = "chat" | "folder" | "editor";
-
-const CHAT_TITLES = [
-  "Сохраним что-нибудь?",
-  "ShuKnow?",
-  "Посохраняемся?",
-  "Что хотите сохранить сегодня?",
-  "Опять ты..",
-  "Снова что-то нашёл?",
-  "Есть что сохранить?",
-  "Готов сохранить что-нибудь?",
-  "42?"
-];
-
 export default function Workspace() {
   // Check if we're in mock mode
   const isMockMode = import.meta.env.VITE_USE_MOCKS === 'true';
@@ -81,277 +56,42 @@ export default function Workspace() {
   const { viewMode, setViewMode, isSidebarCollapsed, setIsSidebarCollapsed, selectedFolderPath, setSelectedFolderPath, currentFolder, breadcrumbs } = useWorkspaceView();
   const { folders, setFolders, isLoading: isLoadingFolders, loadFolders } = useFolders();
   const { files, createFile, updateFile, deleteFile } = useFiles();
-  const { messages, setMessages, currentTitle, setCurrentTitle } = useChat();
   const { openTabs, activeTab, activeTabId, openTab, closeTab, switchTab } = useTabs();
-  
-  const sidebarRef = useRef<ImperativePanelHandle>(null);
-  
-  // Track current processing message ID for SignalR events
-  const currentAgentMessageIdRef = useRef<string | null>(null);
-  // Track files created during current operation for result display
-  const createdFilesRef = useRef<Array<{ name: string; folder: string; folderId?: string; action: "created" | "sorted" }>>([]);
-
-  // SignalR Chat Hub integration (disabled in mock mode)
-  const chatHub = useChatHub({
-    shouldAutoConnect: !isMockMode, // Don't auto-connect in mock mode
-    handlers: {
-      onProcessingStarted: () => {
-        // Create agent message in processing state
-        const agentMessageId = Date.now().toString();
-        currentAgentMessageIdRef.current = agentMessageId;
-        createdFilesRef.current = [];
-        
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: agentMessageId,
-            type: "agent",
-            content: "",
-            timestamp: new Date(),
-            status: "processing",
-          },
-        ]);
-      },
-      
-      onFileCreated: (file: ChatHubFileDto) => {
-        createdFilesRef.current.push({
-          name: file.name,
-          folder: file.folderName,
-          folderId: file.folderId,
-          action: "created",
-        });
-        // Refresh folders to show new file counts
-        loadFolders();
-      },
-      
-      onFolderCreated: (folder: ChatHubFolderDto) => {
-        // Refresh folders to show new folder
-        loadFolders();
-      },
-      
-      onFileMoved: () => {
-        // Track as sorted action
-        // Refresh folders to update file counts
-        loadFolders();
-      },
-      
-      onProcessingCompleted: (event: ProcessingCompletedEvent) => {
-        const agentMessageId = currentAgentMessageIdRef.current;
-        if (agentMessageId) {
-          setMessages((prev) =>
-            prev.map((msg) => {
-              if (msg.id === agentMessageId) {
-                return {
-                  ...msg,
-                  status: "success" as const,
-                  timestamp: new Date(),
-                  result: createdFilesRef.current.length > 0 
-                    ? createdFilesRef.current 
-                    : [{ name: event.summary, folder: "", action: "created" as const }],
-                };
-              }
-              return msg;
-            })
-          );
-        }
-        currentAgentMessageIdRef.current = null;
-        createdFilesRef.current = [];
-      },
-      
-      onProcessingFailed: (event: ProcessingFailedEvent) => {
-        const agentMessageId = currentAgentMessageIdRef.current;
-        if (agentMessageId) {
-          setMessages((prev) =>
-            prev.map((msg) => {
-              if (msg.id === agentMessageId) {
-                return {
-                  ...msg,
-                  status: "error" as const,
-                  timestamp: new Date(),
-                  errorMessage: event.error,
-                };
-              }
-              return msg;
-            })
-          );
-        }
-        currentAgentMessageIdRef.current = null;
-        createdFilesRef.current = [];
-      },
-      
-      onProcessingCancelled: () => {
-        const agentMessageId = currentAgentMessageIdRef.current;
-        if (agentMessageId) {
-          setMessages((prev) =>
-            prev.map((msg) => {
-              if (msg.id === agentMessageId) {
-                return {
-                  ...msg,
-                  cancelled: true,
-                  status: "error" as const,
-                  timestamp: new Date(),
-                  errorMessage: "Обработка отменена",
-                };
-              }
-              return msg;
-            })
-          );
-        }
-        currentAgentMessageIdRef.current = null;
-        createdFilesRef.current = [];
-      },
-    },
+  const {
+    messages,
+    currentTitle,
+    handleSendMessage,
+    handleCancelMessage,
+    handleRetryMessage,
+    handleResendMessage,
+  } = useChatController({
+    isMockMode,
+    isChatView: viewMode === "chat",
+    loadFolders,
   });
+  
+  const composerRef = useRef<HTMLDivElement>(null);
+  const [composerBottomPadding, setComposerBottomPadding] = useState(128);
+
+  useEffect(() => {
+    const composer = composerRef.current;
+    if (!composer) return;
+
+    const updatePadding = () => {
+      setComposerBottomPadding(Math.ceil(composer.getBoundingClientRect().height + 20));
+    };
+
+    updatePadding();
+    const observer = new ResizeObserver(updatePadding);
+    observer.observe(composer);
+
+    return () => observer.disconnect();
+  }, [messages.length > 0]);
 
   // Load folders from API
   useEffect(() => {
     loadFolders();
   }, [loadFolders]);
-
-  // Randomize title when entering chat view
-  useEffect(() => {
-    if (viewMode === "chat") {
-      const randomIndex = Math.floor(Math.random() * CHAT_TITLES.length);
-      setCurrentTitle(CHAT_TITLES[randomIndex]);
-    }
-  }, [viewMode, setCurrentTitle]);
-
-  // Mock message handler for development mode
-  const handleSendMessageMock = (content: string, attachments?: Attachment[]) => {
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      type: "user",
-      content: content.trim(),
-      attachments,
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
-
-    const agentMessageId = (Date.now() + 1).toString();
-
-    // Show processing state
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: agentMessageId,
-          type: "agent",
-          content: "",
-          timestamp: new Date(),
-          status: "processing",
-        },
-      ]);
-    }, 500);
-
-    // Simulate AI response
-    setTimeout(() => {
-      setMessages((prev) =>
-        prev.map((msg) => {
-          if (msg.id === agentMessageId) {
-            // Demo: 80% success, 20% error
-            if (Math.random() > 0.2) {
-              return {
-                ...msg,
-                status: "success" as const,
-                timestamp: new Date(),
-                result: attachments?.map((a) => ({
-                  name: a.name,
-                  folder: "📁 Учёба / Матан",
-                  folderId: "demo-folder-id",
-                  action: "sorted" as const,
-                })) || [{ name: "заметка.txt", folder: "📁 Заметки", folderId: "notes-folder", action: "created" as const }],
-              };
-            } else {
-              return {
-                ...msg,
-                status: "error" as const,
-                timestamp: new Date(),
-                errorMessage: "Не удалось определить папку",
-              };
-            }
-          }
-          return msg;
-        })
-      );
-    }, 2000);
-  };
-
-  // Real message handler using SignalR
-  const handleSendMessageReal = async (content: string, attachments?: Attachment[]) => {
-    // Create user message immediately
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      type: "user",
-      content: content.trim(),
-      attachments,
-      timestamp: new Date(),
-      status: "sending",
-    };
-    setMessages((prev) => [...prev, userMessage]);
-    
-    try {
-      // Upload attachments if any
-      let attachmentIds: string[] | undefined;
-      if (attachments && attachments.length > 0) {
-        const filesToUpload = attachments
-          .filter((a) => a.file)
-          .map((a) => a.file!);
-        
-        if (filesToUpload.length > 0) {
-          const uploadedAttachments = await chatService.uploadChatAttachments(filesToUpload);
-          attachmentIds = uploadedAttachments.map((a) => a.id);
-          
-          // Update user message with server IDs
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === userMessage.id
-                ? { ...msg, attachments: applyServerIds(attachments, uploadedAttachments) }
-                : msg
-            )
-          );
-        }
-      }
-      
-      // Send message via SignalR
-      await chatHub.sendMessage({
-        content: content.trim(),
-        attachmentIds: attachmentIds || null,
-        context: null,
-      });
-      
-      // Update user message status
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === userMessage.id ? { ...msg, status: undefined } : msg
-        )
-      );
-    } catch (sendError) {
-      console.error("Failed to send message:", sendError);
-      toast.error("Не удалось отправить сообщение");
-      
-      // Update user message to show error
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === userMessage.id
-            ? { ...msg, status: "error" as const, errorMessage: "Ошибка отправки" }
-            : msg
-        )
-      );
-    }
-  };
-
-  const handleSendMessage = (content: string, attachments?: Attachment[]) => {
-    // Don't send if no content and no attachments
-    if (!content.trim() && (!attachments || attachments.length === 0)) {
-      return;
-    }
-    
-    if (isMockMode) {
-      handleSendMessageMock(content, attachments);
-    } else {
-      handleSendMessageReal(content, attachments);
-    }
-  };
 
   // ── Tab management ──────────────────────────────────────────────────────────
 
@@ -473,14 +213,7 @@ export default function Workspace() {
   }, [findFolderPathById]);
 
   const handleToggleSidebar = () => {
-    const panel = sidebarRef.current;
-    if (panel) {
-      if (panel.isCollapsed()) {
-        panel.expand();
-      } else {
-        panel.collapse();
-      }
-    }
+    setIsSidebarCollapsed((collapsed) => !collapsed);
   };
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -488,29 +221,20 @@ export default function Workspace() {
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="h-screen w-screen bg-[#0a0a0a] text-white overflow-hidden">
-        <PanelGroup direction="horizontal">
+        <div className="h-full w-full flex">
           {/* ── Sidebar ─────────────────────────────────────────────── */}
-          <Panel 
-            ref={sidebarRef}
-            defaultSize={25} 
-            minSize={15} 
-            maxSize={45}
-            collapsible={true}
-            collapsedSize={4}
-            onCollapse={() => setIsSidebarCollapsed(true)}
-            onExpand={() => setIsSidebarCollapsed(false)}
+          <aside
+            className={`${isSidebarCollapsed ? "w-16" : "w-80"} h-full flex-none border-r border-white/10 transition-[width] duration-200 ease-out`}
           >
             <Sidebar
               onLogoClick={handleGoToChat}
               onToggleSidebar={handleToggleSidebar}
               isCollapsed={isSidebarCollapsed}
             />
-          </Panel>
-
-          <PanelResizeHandle className="w-[1px] bg-white/10 hover:bg-indigo-500/50 transition-colors cursor-col-resize" />
+          </aside>
 
           {/* ── Main workspace ──────────────────────────────────────── */}
-          <Panel minSize={50}>
+          <main className="min-w-0 flex-1">
             <div className="h-full flex flex-col relative">
 
               {/* ── Global Tab Bar ────────────────────────────────────── */}
@@ -551,10 +275,15 @@ export default function Workspace() {
                     {messages.length === 0 ? (
                       <div className="flex-1 flex flex-col items-center justify-center pb-20">
                         <div className="flex items-center gap-3 mb-6">
-                          <div className="w-8 h-8 flex items-center justify-center text-indigo-400">
-                            <Sparkles size={24} />
+                          <div className="relative flex h-9 w-9 items-center justify-center">
+                            <div className="absolute inset-2 rounded-full bg-[#4c1d95]/7 blur-sm" />
+                            <Sparkles
+                              size={26}
+                              className="relative text-violet-300/62 drop-shadow-[0_0_5px_rgba(91,33,182,0.16)]"
+                              strokeWidth={2.25}
+                            />
                           </div>
-                          <h2 className="text-2xl font-semibold text-white text-center">{currentTitle}</h2>
+                          <h2 className="text-2xl font-semibold text-gray-100/90 text-center">{currentTitle}</h2>
                         </div>
                         <div className="w-full max-w-3xl">
                           <InputConsole onSend={handleSendMessage} />
@@ -564,47 +293,32 @@ export default function Workspace() {
                       <>
                         <ChatMessages 
                           messages={messages} 
+                          bottomPadding={composerBottomPadding}
                           onOpenFolder={(folderId) => {
                             // Navigate to folder
                             handleNavigateToFolder(folderId);
                           }}
-                          onUndo={(messageId) => {
-                            // Set cancelled = true instead of removing message
-                            setMessages((prev) => 
-                              prev.map((m) => 
-                                m.id === messageId ? { ...m, cancelled: true } : m
-                              )
-                            );
-                          }}
-                          onRetry={(messageId) => {
-                            // Implement retry logic
-                            setMessages((prev) => 
-                              prev.map((m) => 
-                                m.id === messageId ? { ...m, status: "processing" as const } : m
-                              )
-                            );
-                          }}
+                          onUndo={handleCancelMessage}
+                          onRetry={handleRetryMessage}
                           onSelectFolder={(messageId) => {
                             // Show folder picker
                             setViewMode("folder");
                           }}
-                          onResend={(messageId) => {
-                            // Find the message and resend it
-                            const message = messages.find(m => m.id === messageId);
-                            if (message) {
-                              handleSendMessage(message.content, message.attachments);
-                            }
-                          }}
+                          onResend={handleResendMessage}
                         />
-                        <InputConsole onSend={handleSendMessage} />
+                        <div ref={composerRef} className="absolute inset-x-0 bottom-0 z-20 pointer-events-none">
+                          <div className="pointer-events-auto">
+                            <InputConsole onSend={handleSendMessage} />
+                          </div>
+                        </div>
                       </>
                     )}
                   </div>
                 )}
               </div>
             </div>
-          </Panel>
-        </PanelGroup>
+          </main>
+        </div>
       </div>
       <Toaster theme="dark" />
     </DndProvider>

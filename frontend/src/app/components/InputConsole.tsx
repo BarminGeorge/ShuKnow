@@ -178,7 +178,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
   };
 
   return (
-    <div className="bg-background px-4 pb-4 pt-2">
+    <div className="bg-transparent px-4 pb-6 pt-4">
       <div className="max-w-7xl mx-auto px-9">
         <input
           ref={fileInputRef}
@@ -194,9 +194,12 @@ export function InputConsole({ onSend }: InputConsoleProps) {
             {attachments.map((attachment) => (
               <div
                 key={attachment.localId}
-                className="flex-shrink-0 w-[200px] flex items-center gap-3 px-3 py-2.5 rounded-xl bg-secondary group hover:bg-secondary/80 transition-colors"
+                className="flex-shrink-0 w-[220px] flex items-center gap-3 px-3 py-2.5 rounded-xl
+                           bg-[linear-gradient(135deg,rgb(31,31,33),rgb(24,24,24)_52%,rgb(18,18,20))]
+                           border border-white/[0.07] shadow-[0_10px_28px_rgba(0,0,0,0.22)]
+                           group transition-all hover:border-violet-200/18 hover:shadow-[0_12px_32px_rgba(0,0,0,0.26),0_0_20px_rgba(167,139,250,0.05)]"
               >
-                <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-black/30 border border-white/[0.06] flex items-center justify-center">
                   {isImageFile(attachment.name) && attachment.url ? (
                     <img src={attachment.url} alt={attachment.name} className="w-full h-full object-cover" />
                   ) : (
@@ -212,7 +215,8 @@ export function InputConsole({ onSend }: InputConsoleProps) {
                 <button
                   onClick={() => removeAttachment(attachment.localId)}
                   disabled={isUploading}
-                  className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                  className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-gray-500
+                             hover:bg-violet-500/10 hover:text-violet-100 transition-colors disabled:opacity-50"
                 >
                   <X size={14} />
                 </button>
@@ -221,12 +225,18 @@ export function InputConsole({ onSend }: InputConsoleProps) {
           </div>
         )}
 
-        {/* Input container - ChatGPT style */}
+        {/* Input container */}
         <div
-          className={`flex items-center gap-2 px-4 py-3 rounded-2xl transition-colors ${
+          className={`relative flex items-center gap-2 px-4 py-3 rounded-2xl overflow-hidden border
+            shadow-[inset_0_1px_0_rgba(255,255,255,0.055),inset_0_-18px_36px_rgba(0,0,0,0.22),0_18px_46px_rgba(0,0,0,0.34)]
+            transition-all duration-150
+            before:absolute before:inset-x-5 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent
+            after:absolute after:inset-x-8 after:bottom-0 after:h-px after:bg-gradient-to-r after:from-transparent after:via-black/70 after:to-transparent
+            hover:-translate-y-px hover:border-white/[0.13] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.065),inset_0_-18px_36px_rgba(0,0,0,0.20),0_20px_52px_rgba(0,0,0,0.38),0_0_16px_rgba(167,139,250,0.025)]
+            focus-within:-translate-y-px focus-within:border-violet-200/18 focus-within:shadow-[inset_0_1px_0_rgba(255,255,255,0.075),inset_0_-18px_36px_rgba(0,0,0,0.20),0_20px_52px_rgba(0,0,0,0.38),0_0_18px_rgba(167,139,250,0.04)] ${
             isDragging 
-              ? "ring-2 ring-indigo-500 bg-black" 
-              : "bg-secondary"
+              ? "bg-[linear-gradient(135deg,rgb(39,30,56),rgb(24,22,29)_45%,rgb(34,30,48))] border-violet-200/26 ring-2 ring-violet-300/14" 
+              : "bg-[linear-gradient(135deg,rgb(25,25,26),rgb(22,22,23)_34%,rgb(17,17,18)_62%,rgb(18,18,19))] border-white/[0.085]"
           }`}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
@@ -235,7 +245,8 @@ export function InputConsole({ onSend }: InputConsoleProps) {
         >
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="relative z-10 flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-gray-400
+                       hover:text-violet-100 hover:bg-violet-500/10 transition-colors"
             title="Прикрепить файлы"
           >
             <Paperclip size={18} />
@@ -247,14 +258,19 @@ export function InputConsole({ onSend }: InputConsoleProps) {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={isDragging ? "Отпустите файлы здесь..." : "Спросите ShuKnow..."}
-            className="flex-1 max-h-[200px] min-h-[24px] bg-transparent text-foreground placeholder:text-muted-foreground resize-none outline-none text-[15px] leading-relaxed overflow-y-auto"
+            className="relative z-10 flex-1 max-h-[200px] min-h-[24px] bg-transparent text-gray-100 placeholder:text-gray-500
+                       focus:placeholder:text-gray-400 resize-none outline-none text-[15px] leading-relaxed overflow-y-auto"
             rows={1}
           />
 
           <button
             onClick={handleSend}
             disabled={isUploading || (!input.trim() && attachments.length === 0)}
-            className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            className="relative z-10 flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-violet-100
+                       bg-[linear-gradient(135deg,rgb(36,31,48),rgb(20,22,31)_58%,rgb(28,26,39))]
+                       border border-violet-200/14 shadow-[0_0_14px_rgba(167,139,250,0.035)] transition-all duration-150
+                       hover:border-violet-200/22 hover:text-white hover:shadow-[0_0_18px_rgba(167,139,250,0.07)]
+                       disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-violet-200/14 disabled:hover:text-violet-100 disabled:hover:shadow-[0_0_14px_rgba(167,139,250,0.035)]"
             title={isUploading ? "Загрузка файлов..." : "Отправить"}
           >
             {isUploading ? <Loader2 size={18} className="animate-spin" /> : <ArrowUp size={18} />}
