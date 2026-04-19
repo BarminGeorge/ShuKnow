@@ -4,5 +4,15 @@ namespace ShuKnow.WebAPI.Services;
 
 public class CurrentConnectionService : ICurrentConnectionService
 {
-    public string connectionId => throw new NotImplementedException();
+    private string? currentConnectionId;
+
+    public string connectionId => currentConnectionId
+        ?? throw new InvalidOperationException("Connection id is not available for the current hub scope.");
+
+    internal void SetConnectionId(string connectionId)
+    {
+        currentConnectionId = string.IsNullOrWhiteSpace(connectionId)
+            ? throw new ArgumentException("Connection id cannot be null or whitespace.", nameof(connectionId))
+            : connectionId;
+    }
 }
