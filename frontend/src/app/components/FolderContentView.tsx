@@ -7,6 +7,7 @@ import { EditFileModal } from "./EditFileModal";
 import { EditFolderModal } from "./EditFolderModal";
 import { CreateFileModal } from "./CreateFileModal";
 import { CreateFolderModal } from "./CreateFolderModal";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import type { Folder, FileItem } from "../../api/types";
 import { useWorkspaceView } from "../hooks/useWorkspaceView";
 import { useFiles } from "../hooks/useFiles";
@@ -67,6 +68,12 @@ export function FolderContentView({
   
   const [editFileModal, setEditFileModal] = useState<{ isOpen: boolean; file: FileItem | null; }>({ isOpen: false, file: null });
   const [editFolderModal, setEditFolderModal] = useState<{ isOpen: boolean; folder: Folder | null; }>({ isOpen: false, folder: null });
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    type: "file" | "folder";
+    id: string;
+    name: string;
+  }>({ isOpen: false, type: "file", id: "", name: "" });
   const [fileContextMenu, setFileContextMenu] = useState<{ isOpen: boolean; fileId: string; position: { x: number; y: number }; }>({ isOpen: false, fileId: "", position: { x: 0, y: 0 } });
   const [folderContextMenu, setFolderContextMenu] = useState<{ isOpen: boolean; folderId: string; position: { x: number; y: number }; }>({ isOpen: false, folderId: "", position: { x: 0, y: 0 } });
 
@@ -113,8 +120,9 @@ export function FolderContentView({
   };
 
   const handleDeleteFile = () => {
-    if (confirm("Вы уверены, что хотите удалить этот файл?")) {
-      deleteFile(fileContextMenu.fileId);
+    const file = files.find((f) => f.id === fileContextMenu.fileId);
+    if (file) {
+      setDeleteConfirm({ isOpen: true, type: "file", id: file.id, name: file.name });
     }
     setFileContextMenu({ ...fileContextMenu, isOpen: false });
   };
@@ -172,15 +180,30 @@ export function FolderContentView({
   };
 
   const handleDeleteFolder = () => {
-    if (confirm("Вы уверены, что хотите удалить эту папку и все её содержимое?")) {
-      const updatedSubfolders = folder.subfolders?.filter((f) => f.id !== folderContextMenu.folderId);
-      handleUpdateFolder({ subfolders: updatedSubfolders });
-      
-      // Also delete all files in this subfolder
-      const filesToDelete = files.filter((f) => f.folderId === folderContextMenu.folderId);
-      filesToDelete.forEach((file) => deleteFile(file.id));
+    const targetFolder = folder.subfolders?.find((f) => f.id === folderContextMenu.folderId);
+    if (targetFolder) {
+      setDeleteConfirm({
+        isOpen: true,
+        type: "folder",
+        id: targetFolder.id,
+        name: targetFolder.name,
+      });
     }
     setFolderContextMenu({ ...folderContextMenu, isOpen: false });
+  };
+
+  const handleConfirmDelete = () => {
+    if (deleteConfirm.type === "file") {
+      deleteFile(deleteConfirm.id);
+    } else {
+      const updatedSubfolders = folder.subfolders?.filter((f) => f.id !== deleteConfirm.id);
+      handleUpdateFolder({ subfolders: updatedSubfolders });
+
+      const filesToDelete = files.filter((f) => f.folderId === deleteConfirm.id);
+      filesToDelete.forEach((file) => deleteFile(file.id));
+    }
+
+    setDeleteConfirm({ isOpen: false, type: "file", id: "", name: "" });
   };
 
   const [isCreateFileModalOpen, setIsCreateFileModalOpen] = useState(false);
@@ -503,6 +526,18 @@ export function FolderContentView({
         isOpen={isCreateFolderModalOpen}
         onClose={() => setIsCreateFolderModalOpen(false)}
         onCreateFolder={handleCreateFolderFromModal}
+      />
+      <DeleteConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        title={deleteConfirm.type === "folder" ? "Удалить папку" : "Удалить файл"}
+        description={
+          deleteConfirm.type === "folder"
+            ? `Папка «${deleteConfirm.name}» и всё её содержимое будут удалены. Это действие нельзя отменить.`
+            : `Файл «${deleteConfirm.name}» будет удалён. Это действие нельзя отменить.`
+        }
+        confirmLabel={deleteConfirm.type === "folder" ? "Удалить папку" : "Удалить файл"}
+        onClose={() => setDeleteConfirm({ isOpen: false, type: "file", id: "", name: "" })}
+        onConfirm={handleConfirmDelete}
       />
     </UploadZone>
   );

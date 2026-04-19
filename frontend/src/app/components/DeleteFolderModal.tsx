@@ -99,24 +99,14 @@ export function DeleteFolderModal({ isOpen, folder, onClose, onConfirm }: Delete
           </button>
           
           {hasContents ? (
-            <>
-              <button
-                onClick={() => handleDelete(false)}
-                disabled={isDeleting}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-amber-200/16 bg-amber-500/12 text-sm font-medium text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:border-amber-200/24 hover:bg-amber-500/18 disabled:opacity-50"
-              >
-                {isDeleting && <Loader2 size={14} className="animate-spin" />}
-                Удалить только папку
-              </button>
-              <button
-                onClick={() => handleDelete(true)}
-                disabled={isDeleting}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-rose-200/18 bg-rose-500/14 text-sm font-medium text-rose-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:border-rose-200/28 hover:bg-rose-500/20 disabled:opacity-50"
-              >
-                {isDeleting && <Loader2 size={14} className="animate-spin" />}
-                Удалить всё
-              </button>
-            </>
+            <button
+              onClick={() => handleDelete(true)}
+              disabled={isDeleting}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-rose-200/18 bg-rose-500/14 text-sm font-medium text-rose-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:border-rose-200/28 hover:bg-rose-500/20 disabled:opacity-50"
+            >
+              {isDeleting && <Loader2 size={14} className="animate-spin" />}
+              Удалить всё
+            </button>
           ) : (
             <button
               onClick={() => handleDelete(false)}
