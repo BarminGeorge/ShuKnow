@@ -23,13 +23,15 @@ public class AuthController(
     [HttpPost("register")]
     public async Task<ActionResult<string>> Register([FromBody] RegisterRequest request)
     {
-        return ToAuthActionResult(await identityService.RegisterAsync(request.Login, request.Password));
+        var result = await identityService.RegisterAsync(request.Login, request.Password);
+        return ToAuthActionResult(result);
     }
 
     [HttpPost("login")]
     public async Task<ActionResult<string>> Login([FromBody] LoginRequest request)
     {
-        return ToAuthActionResult(await identityService.LoginAsync(request.Login, request.Password));
+        var result = await identityService.LoginAsync(request.Login, request.Password);
+        return ToAuthActionResult(result);
     }
 
     [Authorize]

@@ -33,12 +33,6 @@ public class FileService(
     public async Task<Result<(IReadOnlyList<File> Files, int TotalCount)>> ListByFolderAsync(
         Guid? folderId, int page, int pageSize, CancellationToken ct = default)
     {
-        if (page < 1)
-            return Result.Invalid(new ValidationError("Page must be greater than zero."));
-
-        if (pageSize < 1)
-            return Result.Invalid(new ValidationError("Page size must be greater than zero."));
-
         return await fileRepository.ListByFolderAsync(folderId, CurrentUserId, page, pageSize);
     }
 

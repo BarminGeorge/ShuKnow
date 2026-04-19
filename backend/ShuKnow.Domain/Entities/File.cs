@@ -50,10 +50,10 @@ public class File : IEntity<Guid>, IOrderedItem
         CreatedAt = createdAt ?? DateTimeOffset.UtcNow;
     }
 
-    public void UpdateMetadata(string name, string description)
+    public void UpdateMetadata(string? name, string? description)
     {
-        Name = name;
-        Description = description;
+        Name = name ?? Name;
+        Description = description ?? Description;
     }
 
     public void ReplaceContent(string contentType, long sizeBytes, string? checksumSha256 = null)

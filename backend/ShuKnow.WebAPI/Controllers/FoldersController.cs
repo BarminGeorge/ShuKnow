@@ -9,7 +9,6 @@ using ShuKnow.WebAPI.Dto.Files;
 using ShuKnow.WebAPI.Dto.Folders;
 using ShuKnow.WebAPI.Mappers;
 using ShuKnow.WebAPI.Requests.Folders;
-using DomainFile = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.WebAPI.Controllers;
 
@@ -65,7 +64,7 @@ public class FoldersController(
         CancellationToken ct)
     {
         return (await folderService.GetByIdAsync(folderId, ct)
-            .Map(folder => request.ToUpdatedModel(folder))
+            .Map(request.ToUpdatedModel)
             .BindAsync(folder => folderService.UpdateAsync(folder, ct)))
             .Map(savedFolder => savedFolder.ToDto())
             .ToActionResult(this);
@@ -115,11 +114,8 @@ public class FoldersController(
         [FromQuery] int pageSize = 50,
         CancellationToken ct = default)
     {
-        PagedFileResult ToDto((IReadOnlyList<DomainFile> Files, int TotalCount) filePage) =>
-            filePage.ToDto(page, pageSize);
-
         return (await fileService.ListByFolderAsync(folderId, page, pageSize, ct))
-            .Map(ToDto)
+            .Map(x => x.ToDto(page, pageSize))
             .ToActionResult(this);
     }   
 
@@ -132,16 +128,10 @@ public class FoldersController(
     {
         await using var stream = file.OpenReadStream();
 
-        DomainFile ToModel(IFormFile upload) =>
-            upload.ToModel(currentUser.UserId, folderId, name, description);
-
-        FileDto ToDto(DomainFile uploadedFile) =>
-            uploadedFile.ToDto();
-
         return (await Result.Success(file)
-            .Map(ToModel)
+            .Map(x => x.ToModel(currentUser.UserId, folderId, name, description))
             .BindAsync(model => fileService.UploadAsync(model, stream, ct)))
-            .Map(ToDto)
+            .Map(x => x.ToDto())
             .ToActionResult(this);
     }
 }

@@ -33,7 +33,7 @@ public class FilesController(IFileService fileService) : ControllerBase
         return (await fileService.GetByIdAsync(fileId, ct)
             .BindAsync(file =>
             {
-                file.UpdateMetadata(request.Name ?? file.Name, request.Description ?? file.Description);
+                file.UpdateMetadata(request.Name, request.Description);
                 return fileService.UpdateMetadataAsync(file, ct);
             }))
             .Map(updatedFile => updatedFile.ToDto())

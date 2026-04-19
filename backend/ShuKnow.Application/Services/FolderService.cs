@@ -231,18 +231,21 @@ internal class FolderService(
 
     private async Task<Result<IReadOnlyList<Guid>>> DeleteFilesByFoldersAsync(IReadOnlyList<Guid> folderIds)
     {
-        var deletedBlobIds = new List<Guid>();
+        var deleteTasks = folderIds
+            .Select(folderId => fileRepository.DeleteByFolderAsync(folderId, CurrentUserId))
+            .ToList();
 
-        foreach (var folderId in folderIds)
-        {
-            var deleteFilesResult = await fileRepository.DeleteByFolderAsync(folderId, CurrentUserId);
-            if (!deleteFilesResult.IsSuccess)
-                return deleteFilesResult.Map();
+        var results = await Task.WhenAll(deleteTasks);
 
-            deletedBlobIds.AddRange(deleteFilesResult.Value.Select(file => file.BlobId));
-        }
+        var firstError = results.FirstOrDefault(r => !r.IsSuccess);
+        if (firstError is not null)
+            return firstError.Map();
 
-        return deletedBlobIds;
+        var allBlobIds = results
+            .SelectMany(r => r.Value.Select(file => file.BlobId))
+            .ToList();
+
+        return allBlobIds;
     }
 
     private async Task EnqueueDeletesAsync(IEnumerable<Guid> blobIds)
