@@ -51,7 +51,8 @@ public class FileService(
             .BindAsync(_ => blobStorageService.SaveAsync(content, file.BlobId, ct))
             .BindAsync(_ => fileRepository.AddAsync(file))
             .SaveChangesAsync(unitOfWork)
-            .MapAsync(() => file);
+            .MapAsync(() => file)
+            .ToCreatedAsync();
     }
 
     public async Task<Result<File>> UpdateMetadataAsync(File file, CancellationToken ct = default)
@@ -146,7 +147,7 @@ public class FileService(
         return await fileRepository.GetByIdForUpdateAsync(fileId, CurrentUserId)
             .BindAsync(file => fileRepository.GetByFolderAsync(file.FolderId, CurrentUserId)
                 .BindAsync(files => GetChildrenFoldersAsync(file.FolderId)
-                    .BindAsync(folders => ApplyReorder(file, files, folders, position))))
+                    .BindAsync(folders => ApplyReorderAsync(file, files, folders, position))))
             .SaveChangesAsync(unitOfWork);
     }
 
@@ -242,7 +243,15 @@ public class FileService(
         return new PreparedUpload(bufferedContent, bufferedContent.Length, bufferedContent);
     }
 
-    private static Result ApplyReorder(
+    private async Task<Result> ApplyReorderAsync(
+        File file, IReadOnlyList<File> files, IReadOnlyList<Folder> folders, int position)
+    {
+        return await ReorderSiblings(file, files, folders, position)
+            .BindAsync(updatedItems => fileRepository.UpdateRangeAsync(updatedItems.Files)
+                .BindAsync(_ => folderRepository.UpdateRangeAsync(updatedItems.Folders)));
+    }
+
+    private static Result<(IReadOnlyList<File> Files, IReadOnlyList<Folder> Folders)> ReorderSiblings(
         File file, IReadOnlyList<File> files, IReadOnlyList<Folder> folders, int position)
     {
         var siblings = BuildSortedSiblingList(files, folders);
@@ -250,11 +259,16 @@ public class FileService(
         if (position < 0 || position >= siblings.Count)
             return Result.Invalid(new ValidationError("Position is out of range."));
 
-        siblings.Remove(file);
-        siblings.Insert(position, file);
-        ApplySortOrder(siblings);
+        var currentIndex = siblings.FindIndex(item => item is File siblingFile && siblingFile.Id == file.Id);
+        if (currentIndex < 0)
+            return Result.NotFound();
 
-        return Result.Success();
+        siblings.RemoveAt(currentIndex);
+        siblings.Insert(position, file);
+
+        return Result.Success((
+            ApplySortOrder<File>(siblings),
+            ApplySortOrder<Folder>(siblings)));
     }
 
     private static List<IOrderedItem> BuildSortedSiblingList(IReadOnlyList<File> files, IReadOnlyList<Folder> folders)
@@ -265,10 +279,21 @@ public class FileService(
             .ToList();
     }
 
-    private static void ApplySortOrder<T>(List<T> items) where T : class, IOrderedItem
+    private static IReadOnlyList<T> ApplySortOrder<T>(IReadOnlyList<IOrderedItem> items)
+        where T : class, IOrderedItem
     {
+        var updatedItems = new List<T>();
+
         for (var i = 0; i < items.Count; i++)
-            items[i].SortOrder = i;
+        {
+            if (items[i] is not T item || item.SortOrder == i)
+                continue;
+
+            item.SortOrder = i;
+            updatedItems.Add(item);
+        }
+
+        return updatedItems;
     }
 
     private sealed class PreparedUpload(Stream content, long sizeBytes, IAsyncDisposable? disposable = null)

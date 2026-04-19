@@ -38,8 +38,7 @@ public class AuthController(
     [HttpGet("me")]
     public async Task<ActionResult<UserDto>> Me()
     {
-        var userResult = await users.GetByIdAsync(currentUser.UserId);
-        return userResult
+        return (await users.GetByIdAsync(currentUser.UserId))
             .Map(user => user.ToDto())
             .ToActionResult(this);
     }

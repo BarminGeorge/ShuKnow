@@ -1,10 +1,14 @@
+using Ardalis.Result;
+using Ardalis.Result.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Metrics.Services;
 using ShuKnow.WebAPI.Dto.Files;
 using ShuKnow.WebAPI.Dto.Folders;
+using ShuKnow.WebAPI.Mappers;
 using ShuKnow.WebAPI.Requests.Folders;
 
 namespace ShuKnow.WebAPI.Controllers;
@@ -13,97 +17,128 @@ namespace ShuKnow.WebAPI.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 public class FoldersController(
-    IMetricsService metricsService,
-    ICurrentUserService currentUserService)
+    IFolderService folderService,
+    IFileService fileService,
+    ICurrentUserService currentUser,
+    IMetricsService metricsService)
     : ControllerBase
 {
-    private static readonly Guid MockDocumentsId = Guid.Parse("6ef7d767-88fb-4d3a-b52c-9586d304f022");
-    private static readonly Guid MockPhotosId = Guid.Parse("9605cb52-a7a0-4f7f-b5cb-be54f6e716f7");
-    private static readonly DateTimeOffset MockCreatedAt = new(2026, 1, 15, 10, 30, 0, TimeSpan.Zero);
-
     [HttpGet("tree")]
-    public async Task<ActionResult<IReadOnlyList<FolderTreeNodeDto>>> GetFolderTree()
+    public async Task<ActionResult<IReadOnlyList<FolderTreeNodeDto>>> GetFolderTree(CancellationToken ct)
     {
-        // TODO: implement
-        var photosFolder = new FolderTreeNodeDto(MockPhotosId, "Photos", string.Empty, "📷", 0, 0, []);
-        return new[] { new FolderTreeNodeDto(MockDocumentsId, "Documents", "Documents folder", "📄", 0, 1, [photosFolder]) };
+        return (await folderService.GetTreeAsync(ct))
+            .Map(folders => folders.ToTree())
+            .ToActionResult(this);
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<FolderDto>>> GetFolders([FromQuery] Guid? parentId)
+    public async Task<ActionResult<IReadOnlyList<FolderDto>>> GetFolders(
+        [FromQuery] Guid? parentId,
+        CancellationToken ct)
     {
-        // TODO: implement
-        return new[] { new FolderDto(MockDocumentsId, "Documents", "Documents folder", "📄", null, 0, 1, true, null) };
+        return (await folderService.ListAsync(parentId, ct))
+            .Map(folders => folders.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpPost]
-    public async Task<ActionResult<FolderDto>> CreateFolder([FromBody] CreateFolderRequest request)
+    public async Task<ActionResult<FolderDto>> CreateFolder(
+        [FromBody] CreateFolderRequest request,
+        CancellationToken ct)
     {
-        // TODO: implement
-        var folder = new FolderDto(Guid.NewGuid(), request.Name, request.Description ?? string.Empty,
-            request.Emoji, request.ParentFolderId, 0, 0, false, null);
-        return CreatedAtAction(nameof(GetFolder), new { folderId = folder.Id }, folder);
+        return (await folderService.CreateAsync(request.ToModel(currentUser.UserId), ct))
+            .Map(createdFolder => createdFolder.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpGet("{folderId}")]
-    public async Task<ActionResult<FolderDto>> GetFolder(Guid folderId)
+    public async Task<ActionResult<FolderDto>> GetFolder(Guid folderId, CancellationToken ct)
     {
-        // TODO: implement
-        return new FolderDto(folderId, "Foobar", string.Empty, null, null, 0, 0, false, null);
+        return (await folderService.GetByIdAsync(folderId, ct))
+            .Map(folder => folder.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpPut("{folderId}")]
-    public async Task<ActionResult<FolderDto>> UpdateFolder(Guid folderId, [FromBody] UpdateFolderRequest request)
+    public async Task<ActionResult<FolderDto>> UpdateFolder(
+        Guid folderId,
+        [FromBody] UpdateFolderRequest request,
+        CancellationToken ct)
     {
-        // TODO: implement
-        return new FolderDto(folderId, request.Name ?? "Old name", request.Description ?? "Old description",
-            request.Emoji, null, 0, 0, false, null);
+        return (await folderService.GetByIdAsync(folderId, ct)
+            .Map(request.ToUpdatedModel)
+            .BindAsync(folder => folderService.UpdateAsync(folder, ct)))
+            .Map(savedFolder => savedFolder.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpDelete("{folderId}")]
-    public async Task<ActionResult> DeleteFolder(Guid folderId, [FromQuery] bool recursive = false)
+    public async Task<ActionResult> DeleteFolder(
+        Guid folderId,
+        CancellationToken ct = default)
     {
-        // TODO: implement
-        return NoContent();
+        return (await folderService.DeleteAsync(folderId, ct)).ToActionResult(this);
     }
 
     [HttpPatch("{folderId}/move")]
-    public async Task<ActionResult<FolderDto>> MoveFolder(Guid folderId, [FromBody] MoveFolderRequest request)
+    public async Task<ActionResult<FolderDto>> MoveFolder(
+        Guid folderId,
+        [FromBody] MoveFolderRequest request,
+        CancellationToken ct)
     {
-        // TODO: implement
-        return new FolderDto(folderId, "Foobar", string.Empty, null, request.NewParentFolderId, 0, 0, false, null);
+        return (await folderService.MoveAsync(folderId, request.NewParentFolderId, ct))
+            .Map(folder => folder.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpPatch("{folderId}/reorder")]
-    public async Task<ActionResult> ReorderFolder(Guid folderId, [FromBody] ReorderFolderRequest request)
+    public async Task<ActionResult> ReorderFolder(
+        Guid folderId,
+        [FromBody] ReorderFolderRequest request,
+        CancellationToken ct)
     {
-        // TODO: implement
-        return NoContent();
+        return (await folderService.ReorderAsync(folderId, request.Position, ct))
+            .ToActionResult(this);
     }
 
     [HttpGet("{folderId}/children")]
-    public async Task<ActionResult<IReadOnlyList<FolderDto>>> GetFolderChildren(Guid folderId)
+    public async Task<ActionResult<IReadOnlyList<FolderDto>>> GetFolderChildren(
+        Guid folderId,
+        CancellationToken ct)
     {
-        // TODO: implement
-        return new[] { new FolderDto(MockDocumentsId, "Photos", string.Empty, "📷", null, 0, 1, true, null) };
+        return (await folderService.GetChildrenAsync(folderId, ct))
+            .Map(folders => folders.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpGet("{folderId}/files")]
-    public async Task<ActionResult<PagedFileResult>> GetFolderFiles(Guid folderId,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+    public async Task<ActionResult<PagedFileResult>> GetFolderFiles(
+        Guid folderId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken ct = default)
     {
-        // TODO: implement
-        return new PagedFileResult([], 0, page, pageSize, false);
+        return (await fileService.ListByFolderAsync(folderId, page, pageSize, ct))
+            .Map(x => x.ToDto(page, pageSize))
+            .ToActionResult(this);
     }
 
     [HttpPost("{folderId}/files")]
-    public async Task<ActionResult<FileDto>> UploadFile(Guid folderId,
-        IFormFile file, [FromForm] string? name = null, [FromForm] string? description = null)
+    public async Task<ActionResult<FileDto>> UploadFile(
+        Guid folderId,
+        IFormFile file,
+        [FromForm] string? name = null,
+        [FromForm] string? description = null,
+        CancellationToken ct = default)
     {
-        // TODO: implement
-        var fileDto = new FileDto(Guid.NewGuid(), folderId, "Folder",
-            name ?? file.FileName, description ?? string.Empty, file.ContentType, file.Length, 1, null, 0, MockCreatedAt);
-        await metricsService.RecordContentSavedAsync(currentUserService.UserId, fileDto.Id);
-        return CreatedAtAction("GetFile", "Files", new { fileId = fileDto.Id }, fileDto);
+        await using var stream = file.OpenReadStream();
+
+        return (await Result.Success(file)
+            .Map(x => x.ToModel(currentUser.UserId, folderId, name, description))
+            .BindAsync(model => fileService.UploadAsync(model, stream, ct))
+            .TapAsync(async uploadedFile =>
+                await metricsService.RecordContentSavedAsync(currentUser.UserId, uploadedFile.Id)))
+            .Map(uploadedFile => uploadedFile.ToDto())
+            .ToActionResult(this);
     }
 }

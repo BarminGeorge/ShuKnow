@@ -39,6 +39,12 @@ public static class ResultExtensions
         return await result.ActAsync(_ => unitOfWork.SaveChangesAsync());
     }
 
+    public static async Task<Result<T>> ToCreatedAsync<T>(this Task<Result<T>> resultTask)
+    {
+        var result = await resultTask;
+        return result.Status == ResultStatus.Ok ? Result.Created(result.Value) : result;
+    }
+
     public static async Task<Result> BindAsync<TSource>(
         this Task<Result<TSource>> resultTask, Func<TSource, Result> bindFunc)
     {
@@ -139,5 +145,34 @@ public static class ResultExtensions
     private static ValidationError CreateChatError(string errorMessage, ChatProcessingErrorCode chatErrorCode)
     {
         return new ValidationError("id", errorMessage, chatErrorCode.ToString(), ValidationSeverity.Error);
+    }
+    
+    public static async Task<Result<T>> Tap<T>(this Task<Result<T>> resultTask, Func<T, Task> asyncAction)
+    {
+        var result = await resultTask;
+
+        if (result.IsSuccess)
+            await asyncAction(result.Value);
+
+        return result;
+    }
+    
+    public static async Task<Result<T>> TapAsync<T>(
+        this Task<Result<T>> resultTask,
+        Func<T, Task> asyncAction)
+    {
+        var result = await resultTask;
+        if (result.IsSuccess)
+            await asyncAction(result.Value);
+        return result;
+    }
+
+    public static async Task<Result<T>> TapAsync<T>(
+        this Result<T> result,
+        Func<T, Task> asyncAction)
+    {
+        if (result.IsSuccess)
+            await asyncAction(result.Value);
+        return result;
     }
 }

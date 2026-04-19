@@ -3,9 +3,9 @@ using ShuKnow.WebAPI.Requests.Files;
 
 namespace ShuKnow.WebAPI.Requests.Validators;
 
-public class UpdateFileRequestValidator : AbstractValidator<UpdateFileRequest>
+public class UpdateFileMetadataRequestValidator : AbstractValidator<UpdateFileMetadataRequest>
 {
-    public UpdateFileRequestValidator()
+    public UpdateFileMetadataRequestValidator()
     {
         RuleFor(x => x.Name)
             .MaximumLength(255).WithMessage("Name must not exceed 255 characters")

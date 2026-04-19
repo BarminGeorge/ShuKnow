@@ -1,11 +1,15 @@
-using System.Text;
+using Ardalis.Result;
+using Ardalis.Result.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Metrics.Services;
 using ShuKnow.WebAPI.Dto.Files;
+using ShuKnow.WebAPI.Mappers;
 using ShuKnow.WebAPI.Requests.Files;
+using ShuKnow.WebAPI.Utility;
 
 namespace ShuKnow.WebAPI.Controllers;
 
@@ -13,80 +17,108 @@ namespace ShuKnow.WebAPI.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 public class FilesController(
+    IFileService fileService,
     IMetricsService metricsService,
     ICurrentUserService currentUserService)
     : ControllerBase
 {
-    private static readonly Guid MockFolderId = Guid.Parse("6ef7d767-88fb-4d3a-b52c-9586d304f022");
-    private static readonly DateTimeOffset MockCreatedAt = new(2026, 1, 15, 10, 30, 0, TimeSpan.Zero);
-
     [HttpGet("{fileId}")]
-    public async Task<ActionResult<FileDto>> GetFile(Guid fileId)
+    public async Task<ActionResult<FileDto>> GetFile(Guid fileId, CancellationToken ct)
     {
-        // TODO: implement
-        return new FileDto(fileId, MockFolderId, "Documents", "report.pdf",
-            "Annual report", "application/pdf", 204_800, 1, null, 0, MockCreatedAt);
+        return (await fileService.GetByIdAsync(fileId, ct))
+            .Map(file => file.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpPut("{fileId}")]
-    public async Task<ActionResult<FileDto>> UpdateFile(Guid fileId, [FromBody] UpdateFileRequest request)
+    public async Task<ActionResult<FileDto>> UpdateFileMetadata(
+        Guid fileId,
+        [FromBody] UpdateFileMetadataRequest request,
+        CancellationToken ct)
     {
-        // TODO: implement
-        return new FileDto(fileId, MockFolderId, "Documents",
-            request.Name ?? "report.pdf", request.Description ?? "Annual report",
-            "application/pdf", 204_800, 1, null, 0, MockCreatedAt);
+        return (await fileService.GetByIdAsync(fileId, ct)
+                .BindAsync(file =>
+                {
+                    file.UpdateMetadata(request.Name, request.Description);
+                    return fileService.UpdateMetadataAsync(file, ct);
+                }))
+            .Map(updatedFile => updatedFile.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpDelete("{fileId}")]
-    public async Task<ActionResult> DeleteFile(Guid fileId)
+    public async Task<ActionResult> DeleteFile(Guid fileId, CancellationToken ct)
     {
-        // TODO: implement
-        return NoContent();
+        return (await fileService.DeleteAsync(fileId, ct))
+            .ToActionResult(this);
     }
 
     [HttpGet("{fileId}/content")]
-    public async Task<ActionResult> DownloadFileContent(Guid fileId,
-        [FromHeader(Name = "Range")] string? range = null)
+    public async Task<ActionResult> DownloadFileContent(
+        Guid fileId,
+        [FromHeader(Name = "Range")] string? range = null,
+        CancellationToken ct = default)
     {
-        // TODO: implement
-        await metricsService.RecordContentOpenedAsync(fileId);
-        var mockContent = "Mock file content"u8.ToArray();
-        return File(mockContent, "application/octet-stream", "report.pdf");
+        if (!RangeHeaderParser.TryParse(range, out var rangeStart, out var rangeEnd))
+            return BadRequest("Only single byte ranges in the format 'bytes=start-end' are supported.");
+
+        var result = await fileService.GetByIdAsync(fileId, ct)
+            .BindAsync(file => fileService.GetContentAsync(fileId, rangeStart, rangeEnd, ct)
+                .MapAsync(content => (content.Content, content.ContentType, file.Name)))
+            .TapAsync(async _ => await metricsService.RecordContentOpenedAsync(fileId));
+
+        return result.IsSuccess
+            ? File(result.Value.Content, result.Value.ContentType, result.Value.Name)
+            : result.Map().ToActionResult(this);
     }
 
     [HttpPut("{fileId}/content")]
-    public async Task<ActionResult<FileDto>> ReplaceFileContent(Guid fileId, IFormFile file)
+    public async Task<ActionResult<FileDto>> ReplaceFileContent(
+        Guid fileId,
+        IFormFile file,
+        CancellationToken ct)
     {
-        // TODO: implement
-        await metricsService.RecordContentSavedAsync(currentUserService.UserId, fileId);
-        return new FileDto(fileId, MockFolderId, "Documents", file.FileName, string.Empty,
-            file.ContentType, file.Length, 1, null, 0, MockCreatedAt);
+        await using var stream = file.OpenReadStream();
+
+        return (await fileService.ReplaceContentAsync(fileId, stream, file.ContentType, ct)
+                .TapAsync(async updatedFile =>
+                    await metricsService.RecordContentSavedAsync(currentUserService.UserId, updatedFile.Id))
+                .Map(updatedFile => updatedFile.ToDto()))
+            .ToActionResult(this);
     }
 
     [HttpPatch("{fileId}/content")]
-    public async Task<ActionResult<FileDto>> UpdateTextContent(Guid fileId,
-        [FromBody] UpdateTextContentRequest request)
+    public async Task<ActionResult<FileDto>> UpdateTextContent(
+        Guid fileId,
+        [FromBody] UpdateTextContentRequest request,
+        CancellationToken ct)
     {
-        // TODO: implement
-        await metricsService.RecordContentSavedAsync(currentUserService.UserId, fileId);
-        var contentBytes = Encoding.UTF8.GetByteCount(request.Content);
-        return new FileDto(fileId, MockFolderId, "Documents", "note.md", string.Empty,
-            "text/markdown", contentBytes, 2, null, 0, MockCreatedAt);
+        return (await fileService.UpdateTextContentAsync(fileId, request.Content, ct)
+                .TapAsync(async file =>
+                    await metricsService.RecordContentSavedAsync(currentUserService.UserId, file.Id))
+                .Map(file => file.ToDto()))
+            .ToActionResult(this);
     }
 
     [HttpPatch("{fileId}/move")]
-    public async Task<ActionResult<FileDto>> MoveFile(Guid fileId, [FromBody] MoveFileRequest request)
+    public async Task<ActionResult<FileDto>> MoveFile(
+        Guid fileId,
+        [FromBody] MoveFileRequest request,
+        CancellationToken ct)
     {
-        // TODO: implement
-        await metricsService.RecordManualMoveAsync(fileId);
-        return new FileDto(fileId, request.TargetFolderId, "Target Folder",
-            "report.pdf", "Annual report", "application/pdf", 204_800, 1, null, 0, MockCreatedAt);
+        return (await fileService.MoveAsync(fileId, request.TargetFolderId, ct: ct)
+                .TapAsync(async _ => await metricsService.RecordManualMoveAsync(fileId))
+                .Map(file => file.ToDto()))
+            .ToActionResult(this);
     }
 
     [HttpPatch("{fileId}/reorder")]
-    public async Task<ActionResult> ReorderFile(Guid fileId, [FromBody] ReorderFileRequest request)
+    public async Task<ActionResult> ReorderFile(
+        Guid fileId,
+        [FromBody] ReorderFileRequest request,
+        CancellationToken ct)
     {
-        // TODO: implement
-        return NoContent();
+        return (await fileService.ReorderAsync(fileId, request.Position, ct))
+            .ToActionResult(this);
     }
 }

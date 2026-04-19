@@ -6,12 +6,15 @@ using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Models;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Repositories;
+using DomainFile = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.Application.Tests.Services;
 
 public class FolderServiceTests
 {
     private IFolderRepository folderRepository = null!;
+    private IFileRepository fileRepository = null!;
+    private IBlobDeletionQueue blobDeletionQueue = null!;
     private IWorkspacePathService workspacePathService = null!;
     private ICurrentUserService currentUserService = null!;
     private IUnitOfWork unitOfWork = null!;
@@ -23,6 +26,8 @@ public class FolderServiceTests
     {
         folderRepository = Substitute.For<IFolderRepository>();
         workspacePathService = Substitute.For<IWorkspacePathService>();
+        fileRepository = Substitute.For<IFileRepository>();
+        blobDeletionQueue = Substitute.For<IBlobDeletionQueue>();
         currentUserService = Substitute.For<ICurrentUserService>();
         unitOfWork = Substitute.For<IUnitOfWork>();
         currentUserId = Guid.NewGuid();
@@ -172,7 +177,7 @@ public class FolderServiceTests
 
         var result = await sut.CreateAsync(folder);
 
-        result.Status.Should().Be(ResultStatus.Ok);
+        result.Status.Should().Be(ResultStatus.Created);
         result.Value.Id.Should().Be(folder.Id);
         result.Value.UserId.Should().Be(currentUserId);
         result.Value.ParentFolderId.Should().Be(parentId);
@@ -203,7 +208,7 @@ public class FolderServiceTests
 
         var result = await sut.CreateByPathAsync("Docs/Invoices", "description", "📁");
 
-        result.Status.Should().Be(ResultStatus.Ok);
+        result.Status.Should().Be(ResultStatus.Created);
         result.Value.UserId.Should().Be(currentUserId);
         result.Value.Name.Should().Be(resolvedPath.FolderName);
         result.Value.ParentFolderId.Should().Be(parentId);
@@ -272,12 +277,70 @@ public class FolderServiceTests
     {
         var folder = CreateFolder();
         folderRepository.GetByIdAsync(folder.Id, currentUserId).Returns(Success(folder));
+        folderRepository.GetTreeAsync(currentUserId).Returns(Success<IReadOnlyList<Folder>>([folder]));
 
         var result = await sut.DeleteAsync(folder.Id);
 
         result.Status.Should().Be(ResultStatus.Ok);
+        await fileRepository.Received(1).DeleteByFolderAsync(folder.Id, currentUserId);
         await folderRepository.Received(1).DeleteSubtreeAsync(folder.Id, currentUserId);
         await unitOfWork.Received(1).SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task DeleteAsync_WhenFolderHasDescendants_ShouldDeleteFilesForWholeSubtreeAndEnqueueBlobDeletes()
+    {
+        var root = CreateFolder();
+        var child = CreateFolder(parentFolderId: root.Id);
+        var grandchild = CreateFolder(parentFolderId: child.Id);
+        var rootFile = CreateFile(folderId: root.Id);
+        rootFile.BlobId = Guid.NewGuid();
+        var childFile = CreateFile(folderId: child.Id);
+        childFile.BlobId = Guid.NewGuid();
+        var grandchildFile = CreateFile(folderId: grandchild.Id);
+        grandchildFile.BlobId = Guid.NewGuid();
+
+        folderRepository.GetByIdAsync(root.Id, currentUserId).Returns(Success(root));
+        folderRepository.GetTreeAsync(currentUserId).Returns(Success<IReadOnlyList<Folder>>([root, child, grandchild]));
+        fileRepository.DeleteByFolderAsync(root.Id, currentUserId).Returns(Success<IReadOnlyList<DomainFile>>([rootFile]));
+        fileRepository.DeleteByFolderAsync(child.Id, currentUserId).Returns(Success<IReadOnlyList<DomainFile>>([childFile]));
+        fileRepository.DeleteByFolderAsync(grandchild.Id, currentUserId).Returns(Success<IReadOnlyList<DomainFile>>([grandchildFile]));
+
+        var result = await sut.DeleteAsync(root.Id);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        await fileRepository.Received(1).DeleteByFolderAsync(root.Id, currentUserId);
+        await fileRepository.Received(1).DeleteByFolderAsync(child.Id, currentUserId);
+        await fileRepository.Received(1).DeleteByFolderAsync(grandchild.Id, currentUserId);
+        await folderRepository.Received(1).DeleteSubtreeAsync(root.Id, currentUserId);
+        await unitOfWork.Received(1).SaveChangesAsync();
+        await blobDeletionQueue.Received(1).EnqueueDeleteAsync(rootFile.BlobId);
+        await blobDeletionQueue.Received(1).EnqueueDeleteAsync(childFile.BlobId);
+        await blobDeletionQueue.Received(1).EnqueueDeleteAsync(grandchildFile.BlobId);
+    }
+
+    [Test]
+    public async Task DeleteAsync_WhenDeletedFilesHaveEmptyOrDuplicateBlobIds_ShouldEnqueueOnlyUniqueNonEmptyBlobIds()
+    {
+        var folder = CreateFolder();
+        var blobId = Guid.NewGuid();
+        var firstFile = CreateFile(folderId: folder.Id);
+        firstFile.BlobId = blobId;
+        var duplicateFile = CreateFile(folderId: folder.Id);
+        duplicateFile.BlobId = blobId;
+        var emptyBlobFile = CreateFile(folderId: folder.Id);
+        emptyBlobFile.BlobId = Guid.Empty;
+
+        folderRepository.GetByIdAsync(folder.Id, currentUserId).Returns(Success(folder));
+        folderRepository.GetTreeAsync(currentUserId).Returns(Success<IReadOnlyList<Folder>>([folder]));
+        fileRepository.DeleteByFolderAsync(folder.Id, currentUserId)
+            .Returns(Success<IReadOnlyList<DomainFile>>([firstFile, duplicateFile, emptyBlobFile]));
+
+        var result = await sut.DeleteAsync(folder.Id);
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        await blobDeletionQueue.Received(1).EnqueueDeleteAsync(blobId);
+        await blobDeletionQueue.DidNotReceive().EnqueueDeleteAsync(Guid.Empty);
     }
 
     [Test]
@@ -407,6 +470,8 @@ public class FolderServiceTests
         folderRepository.UpdateRangeAsync(Arg.Any<IReadOnlyList<Folder>>()).Returns(Success());
         folderRepository.DeleteAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success());
         folderRepository.DeleteSubtreeAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success());
+        fileRepository.DeleteByFolderAsync(Arg.Any<Guid?>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<DomainFile>>([]));
+        blobDeletionQueue.EnqueueDeleteAsync(Arg.Any<Guid>()).Returns(ValueTask.CompletedTask);
     }
 
     private IFolderService CreateSut()
@@ -418,7 +483,27 @@ public class FolderServiceTests
         var constructor = folderServiceType.GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
             .Single();
 
-        return (IFolderService)constructor.Invoke([folderRepository, workspacePathService, currentUserService, unitOfWork]);
+        return (IFolderService)constructor.Invoke(
+        [
+            folderRepository,
+            fileRepository,
+            blobDeletionQueue,
+            workspacePathService,
+            currentUserService,
+            unitOfWork
+        ]);
+    }
+
+    private DomainFile CreateFile(Guid? fileId = null, Guid? folderId = null)
+    {
+        return new DomainFile(
+            fileId ?? Guid.NewGuid(),
+            currentUserId,
+            folderId ?? Guid.NewGuid(),
+            "file.txt",
+            "description",
+            "text/plain",
+            128);
     }
 
     private Folder CreateFolder(

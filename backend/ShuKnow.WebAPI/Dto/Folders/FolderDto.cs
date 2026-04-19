@@ -6,7 +6,4 @@ public record FolderDto(
     string Description,
     string? Emoji,
     Guid? ParentFolderId,
-    int SortOrder,
-    int FileCount,
-    bool HasChildren,
-    IReadOnlyList<string>? Path);
+    int SortOrder);

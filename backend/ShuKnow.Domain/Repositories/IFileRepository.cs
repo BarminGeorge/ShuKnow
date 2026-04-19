@@ -20,6 +20,8 @@ public interface IFileRepository
     Task<Result> AddAsync(File file);
     
     Task<Result> UpdateAsync(File file);
+
+    Task<Result> UpdateRangeAsync(IReadOnlyList<File> files);
     
     Task<Result> DeleteAsync(Guid fileId, Guid userId);
     

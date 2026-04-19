@@ -9,6 +9,8 @@ namespace ShuKnow.Application.Services;
 
 internal class FolderService(
     IFolderRepository folderRepository,
+    IFileRepository fileRepository,
+    IBlobDeletionQueue blobDeletionQueue,
     IWorkspacePathService workspacePathService,
     ICurrentUserService currentUserService,
     IUnitOfWork unitOfWork)
@@ -58,7 +60,8 @@ internal class FolderService(
                 siblings.Count,
                 folder.Emoji))
             .ActAsync(folderRepository.AddAsync)
-            .SaveChangesAsync(unitOfWork);
+            .SaveChangesAsync(unitOfWork)
+            .ToCreatedAsync();
     }
     
     public async Task<Result<Folder>> CreateByPathAsync(
@@ -86,15 +89,22 @@ internal class FolderService(
             .MapAsync(existingFolder => UpdateFolder(
                 existingFolder,
                 name: folder.Name,
-                description: folder.Description))
+                description: folder.Description,
+                emoji: folder.Emoji))
             .ActAsync(folderRepository.UpdateAsync)
             .SaveChangesAsync(unitOfWork);
     }
 
-    public Task<Result> DeleteAsync(Guid folderId, CancellationToken ct = default) =>
-        GetByIdAsync(folderId, ct)
-            .BindAsync(_ => folderRepository.DeleteSubtreeAsync(folderId, CurrentUserId))
-            .SaveChangesAsync(unitOfWork);
+    public async Task<Result> DeleteAsync(Guid folderId, CancellationToken ct = default)
+    {
+        return await GetByIdAsync(folderId, ct)
+            .BindAsync(_ => GetSubtreeFolderIdsAsync(folderId))
+            .BindAsync(DeleteFilesByFoldersAsync)
+            .ActAsync(_ => folderRepository.DeleteSubtreeAsync(folderId, CurrentUserId))
+            .SaveChangesAsync(unitOfWork)
+            .ActAsync(EnqueueDeletesAsync)
+            .BindAsync(_ => Result.Success());
+    }
 
     public async Task<Result<Folder>> MoveAsync(Guid folderId, Guid? newParentFolderId = null,
         CancellationToken ct = default)
@@ -226,13 +236,69 @@ internal class FolderService(
                 : Result.Success()));
     }
 
+    private async Task<Result<IReadOnlyList<Guid>>> GetSubtreeFolderIdsAsync(Guid folderId)
+    {
+        return await folderRepository.GetTreeAsync(CurrentUserId)
+            .MapAsync(folders => GetSubtreeFolderIds(folderId, folders));
+    }
+
+    private async Task<Result<IReadOnlyList<Guid>>> DeleteFilesByFoldersAsync(IReadOnlyList<Guid> folderIds)
+    {
+        var deleteTasks = folderIds
+            .Select(folderId => fileRepository.DeleteByFolderAsync(folderId, CurrentUserId))
+            .ToList();
+
+        var results = await Task.WhenAll(deleteTasks);
+
+        var firstError = results.FirstOrDefault(r => !r.IsSuccess);
+        if (firstError is not null)
+            return firstError.Map();
+
+        var allBlobIds = results
+            .SelectMany(r => r.Value.Select(file => file.BlobId))
+            .ToList();
+
+        return allBlobIds;
+    }
+
+    private async Task EnqueueDeletesAsync(IEnumerable<Guid> blobIds)
+    {
+        var enqueueTasks = blobIds
+            .Where(blobId => blobId != Guid.Empty)
+            .Distinct()
+            .Select(blobId => blobDeletionQueue.EnqueueDeleteAsync(blobId).AsTask());
+
+        await Task.WhenAll(enqueueTasks);
+    }
+
+    private static IReadOnlyList<Guid> GetSubtreeFolderIds(Guid folderId, IReadOnlyList<Folder> folders)
+    {
+        var foldersByParentId = folders.ToLookup(folder => folder.ParentFolderId);
+        var subtreeFolderIds = new List<Guid> { folderId };
+        AppendDescendantFolderIds(folderId, foldersByParentId, subtreeFolderIds);
+        return subtreeFolderIds;
+    }
+
+    private static void AppendDescendantFolderIds(
+        Guid folderId,
+        ILookup<Guid?, Folder> foldersByParentId,
+        ICollection<Guid> subtreeFolderIds)
+    {
+        foreach (var child in foldersByParentId[folderId])
+        {
+            subtreeFolderIds.Add(child.Id);
+            AppendDescendantFolderIds(child.Id, foldersByParentId, subtreeFolderIds);
+        }
+    }
+
     private static Folder UpdateFolder(
         Folder source,
         string? name = null,
         string? description = null,
         Guid? newParentFolderId = null,
         bool updateParentFolderId = false,
-        int? sortOrder = null)
+        int? sortOrder = null,
+        string? emoji = null)
     {
         return new Folder(
             source.Id,
@@ -240,6 +306,7 @@ internal class FolderService(
             name ?? source.Name,
             description ?? source.Description,
             updateParentFolderId ? newParentFolderId : source.ParentFolderId,
-            sortOrder ?? source.SortOrder);
+            sortOrder ?? source.SortOrder,
+            emoji ?? source.Emoji);
     }
 }

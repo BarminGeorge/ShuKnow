@@ -1,10 +1,13 @@
+using Ardalis.Result;
+using Ardalis.Result.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Metrics.Services;
-using ShuKnow.WebAPI.Dto.Enums;
 using ShuKnow.WebAPI.Dto.Chat;
+using ShuKnow.WebAPI.Mappers;
 
 namespace ShuKnow.WebAPI.Controllers;
 
@@ -12,46 +15,57 @@ namespace ShuKnow.WebAPI.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 public class ChatController(
-    IMetricsService metricsService,
-    ICurrentUserService currentUserService)
+    IChatService chatService,
+    IAttachmentService attachmentService,
+    ICurrentUserService currentUser,
+    IMetricsService metricsService)
     : ControllerBase
 {
-    private static readonly Guid MockSessionId = Guid.Parse("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
-
     [HttpGet("session")]
-    public async Task<ActionResult<ChatSessionDto>> GetChatSession()
+    public async Task<ActionResult<ChatSessionDto>> GetChatSession(CancellationToken ct)
     {
-        // TODO: implement
-        return new ChatSessionDto(MockSessionId, ChatSessionStatus.Active, 0, false);
+        return (await chatService.GetOrCreateActiveSessionAsync(ct))
+            .Map(session => session.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpDelete("session")]
-    public async Task<ActionResult> DeleteChatSession()
+    public async Task<ActionResult> DeleteChatSession(CancellationToken ct)
     {
-        // TODO: implement
-        return NoContent();
+        return (await chatService.DeleteSessionAsync(ct)).ToActionResult(this);
     }
 
     [HttpGet("session/messages")]
     public async Task<ActionResult<CursorPagedChatMessageResult>> GetChatMessages(
-        [FromQuery] string? cursor = null, [FromQuery] int limit = 50)
+        [FromQuery] string? cursor = null, [FromQuery] int limit = 50, CancellationToken ct = default)
     {
-        // TODO: implement
-        return new CursorPagedChatMessageResult([], null, false);
+        return (await chatService.GetMessagesAsync(cursor, limit, ct))
+            .Map(page => page.ToDto())
+            .ToActionResult(this);
     }
 
     [HttpPost("attachments")]
     public async Task<ActionResult<IReadOnlyList<AttachmentDto>>> UploadChatAttachments(
-        [FromForm] IFormFileCollection files)
+        [FromForm] IFormFileCollection files,
+        CancellationToken ct)
     {
-        // TODO: implement
-        var attachments = files
-            .Select(f => new AttachmentDto(Guid.NewGuid(), f.FileName, f.ContentType, f.Length))
-            .ToList();
+        var uploads = files.ToUploads(currentUser.UserId);
 
-        await Task.WhenAll(attachments.Select(attachment 
-            => metricsService.RecordContentSavedAsync(currentUserService.UserId, attachment.Id)));
-
-        return Ok(attachments);
+        try
+        {
+            return (await attachmentService.UploadAsync(uploads, ct)
+                    .Tap(async attachments =>
+                    {
+                        var tasks = attachments.Select(a =>
+                            metricsService.RecordContentSavedAsync(currentUser.UserId, a.Id));
+                        await Task.WhenAll(tasks);
+                    })
+                    .Map(attachments => attachments.ToDto()))
+                .ToActionResult(this);
+        }
+        finally
+        {
+            await uploads.DisposeContentsAsync();
+        }
     }
 }

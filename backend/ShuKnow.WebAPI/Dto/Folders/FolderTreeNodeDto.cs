@@ -6,5 +6,4 @@ public record FolderTreeNodeDto(
     string Description,
     string? Emoji,
     int SortOrder,
-    int FileCount,
     IReadOnlyList<FolderTreeNodeDto> Children);
