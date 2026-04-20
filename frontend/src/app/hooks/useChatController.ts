@@ -12,7 +12,7 @@ import { useChatHub } from "./useChatHub";
 import type {
   ChatHubFileDto,
   ChatHubFolderDto,
-  ChatHubMessageDto,
+  MessageCompletedEvent,
   MessageChunkEvent,
   ProcessingCompletedEvent,
   ProcessingFailedEvent,
@@ -154,17 +154,16 @@ export function useChatController({
         );
       },
 
-      onMessageCompleted: (message: ChatHubMessageDto) => {
+      onMessageCompleted: (event: MessageCompletedEvent) => {
         const operationId =
-          extractOperationIdFromEvent(message) ??
-          backendMessageOperationIdsRef.current.get(message.id) ??
+          extractOperationIdFromEvent(event) ??
+          backendMessageOperationIdsRef.current.get(event.messageId) ??
           latestOperationIdRef.current;
 
         updateAgentMessage(
           operationId,
           (currentMessage) => ({
             ...currentMessage,
-            content: message.content,
             timestamp: new Date(),
           })
         );
@@ -175,8 +174,7 @@ export function useChatController({
         const operation = operationId ? operationsRef.current.get(operationId) : undefined;
         operation?.createdFiles.push({
           name: file.name,
-          folder: file.folderName,
-          folderId: file.folderId,
+          folder: "",
           action: "created",
         });
         markFoldersForRefresh(operationId);
@@ -196,9 +194,7 @@ export function useChatController({
           ...message,
           status: "success" as const,
           timestamp: new Date(),
-          result: operation?.createdFiles.length
-            ? operation.createdFiles
-            : [{ name: event.summary, folder: "", action: "created" as const }],
+          result: operation?.createdFiles.length ? operation.createdFiles : undefined,
         }));
         void completeOperation(event.operationId);
       },
@@ -379,12 +375,25 @@ export function useChatController({
   }, [handleSendMessageMock, handleSendMessageReal, isMockMode]);
 
   const handleCancelMessage = useCallback((messageId: string) => {
+    const operationId = Array.from(operationsRef.current.entries())
+      .find(([, operation]) => operation.messageId === messageId)?.[0] ?? latestOperationIdRef.current;
+
     setMessages((prev) =>
       prev.map((message) =>
-        message.id === messageId ? { ...message, cancelled: true } : message
+        message.id === messageId
+          ? {
+              ...message,
+              cancelled: true,
+              status: "error" as const,
+              timestamp: new Date(),
+              errorMessage: "Обработка отменена",
+            }
+          : message
       )
     );
-  }, [setMessages]);
+    void chatHub.cancelProcessing();
+    void completeOperation(operationId);
+  }, [chatHub, setMessages]);
 
   const handleRetryMessage = useCallback((messageId: string) => {
     setMessages((prev) =>

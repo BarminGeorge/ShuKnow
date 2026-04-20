@@ -314,7 +314,7 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
         prompt,
         description: createdFolder.description || "",
         sortOrder: createdFolder.sortOrder,
-        fileCount: createdFolder.fileCount,
+        fileCount: createdFolder.fileCount ?? 0,
         subfolders: [],
       };
 

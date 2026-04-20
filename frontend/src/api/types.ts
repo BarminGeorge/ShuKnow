@@ -4,7 +4,7 @@ export interface FolderTreeNodeDto {
   description: string;
   emoji?: string;
   sortOrder: number;
-  fileCount: number;
+  fileCount?: number;
   children: FolderTreeNodeDto[];
 }
 
@@ -15,8 +15,8 @@ export interface FolderDto {
   emoji?: string;
   parentFolderId: string | null;
   sortOrder: number;
-  fileCount: number;
-  hasChildren: boolean;
+  fileCount?: number;
+  hasChildren?: boolean;
   path?: string[];
 }
 
@@ -126,7 +126,7 @@ export function mapFolderTreeNodeToFolder(node: FolderTreeNodeDto): Folder {
     description: node.description,
     emoji: node.emoji,
     sortOrder: node.sortOrder,
-    fileCount: node.fileCount,
+    fileCount: node.fileCount ?? 0,
     subfolders: node.children.map(mapFolderTreeNodeToFolder),
   };
 }

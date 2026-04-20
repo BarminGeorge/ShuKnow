@@ -17,6 +17,7 @@ import { useAtomValue } from "jotai";
 import { toast } from "sonner";
 import { filesInCurrentFolderAtom } from "../store";
 import type { FolderContentViewProps } from "./FolderContentView/types";
+import { fileService } from "../../api";
 import { FolderHeader } from "./FolderContentView/components/FolderHeader";
 import { GridContainer } from "./FolderContentView/components/GridContainer";
 import { UploadZone } from "./FolderContentView/components/UploadZone";
@@ -28,6 +29,7 @@ import {
   isSupportedTextFileName,
   SUPPORTED_TEXT_EXTENSIONS_LABEL,
 } from "../utils/fileValidation";
+import { mapFileDtoToFileItem } from "../../api/types";
 
 export function FolderContentView({
   onBack,
@@ -213,24 +215,35 @@ export function FolderContentView({
     setIsCreateFileModalOpen(true);
   };
 
-  const handleCreateFileFromModal = (name: string, prompt: string) => {
+  const handleCreateFileFromModal = async (name: string, prompt: string) => {
     if (!isSupportedTextFileName(name)) {
       toast.error(`Неподдерживаемый формат файла. Поддерживаются: ${SUPPORTED_TEXT_EXTENSIONS_LABEL}`);
       return;
     }
 
-    const newFile: FileItem = {
-      id: Date.now().toString(),
-      name,
-      type: "text",
-      folderId: folder.id,
-      contentType: getContentTypeForFileName(name),
-      sizeBytes: 0,
-      content: "",
-      prompt: prompt || undefined,
-      createdAt: new Date().toISOString(),
-    };
-    createFile(newFile, true); // Open file after creation
+    try {
+      const emptyTextFile = new File([""], name, {
+        type: getContentTypeForFileName(name),
+      });
+      const createdFile = await fileService.uploadFile(
+        folder.id,
+        emptyTextFile,
+        name,
+        prompt || undefined
+      );
+
+      createFile(
+        {
+          ...mapFileDtoToFileItem(createdFile),
+          type: "text",
+          content: "",
+        },
+        true
+      );
+    } catch (error) {
+      console.error("Failed to create file:", error);
+      toast.error("Не удалось создать файл. Попробуйте ещё раз.");
+    }
   };
 
   const handleCreateFolderFromModal = (name: string, emoji: string, prompt: string) => {

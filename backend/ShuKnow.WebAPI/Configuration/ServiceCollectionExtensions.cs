@@ -28,7 +28,11 @@ public static class ServiceCollectionExtensions
         services.AddProblemDetails();
 
         services.AddControllers().AddApplicationPart(typeof(ServiceCollectionExtensions).Assembly);
-        services.AddSignalR();
+        services.AddSignalR(options =>
+        {
+            options.AddFilter<CurrentConnectionHubFilter>();
+            options.AddFilter<ValidationHubFilter>();
+        });
 
         services.AddValidation();
         services.AddHealthChecks();
@@ -57,8 +61,6 @@ public static class ServiceCollectionExtensions
     {
         services.AddValidatorsFromAssembly(typeof(ServiceCollectionExtensions).Assembly);
         services.AddFluentValidationAutoValidation();
-        services.AddSingleton<IHubFilter, CurrentConnectionHubFilter>();
-        services.AddSingleton<IHubFilter, ValidationHubFilter>();
     }
 
     private static void AddAuth(this IServiceCollection services)

@@ -47,14 +47,9 @@ export async function updateFolder(
 
 export async function deleteFolder(
   folderId: string,
-  shouldDeleteRecursively: boolean = false
+  _shouldDeleteRecursively: boolean = false
 ): Promise<void> {
-  const params = new URLSearchParams();
-  if (shouldDeleteRecursively) {
-    params.set("recursive", "true");
-  }
-  const query = params.toString();
-  return apiRequest<void>(`/api/folders/${folderId}${query ? `?${query}` : ""}`, {
+  return apiRequest<void>(`/api/folders/${folderId}`, {
     method: "DELETE",
   });
 }

@@ -84,6 +84,7 @@ docker compose --env-file .env.prod -f compose.prod.yaml -f compose.override.yam
 
 - не запускает `certbot-init` и `certbot`;
 - использует локально собранные образы (`shuknow-backend-local`, `shuknow-frontend-local`);
+- backend использует `rustfs` (S3-совместимое хранилище) с локальными тестовыми credentials;
 - поднимает nginx только на `http://localhost` без TLS.
 - для мониторинга используйте прямые URL:
   - Grafana: `http://localhost:3000`

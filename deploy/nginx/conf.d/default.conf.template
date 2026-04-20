@@ -29,8 +29,10 @@ server {
     ssl_session_tickets off;
     ssl_stapling on;
     ssl_stapling_verify on;
-    resolver 1.1.1.1 8.8.8.8 valid=300s;
+    resolver 127.0.0.11 1.1.1.1 8.8.8.8 valid=30s;
     resolver_timeout 5s;
+    set $backend_upstream "${BACKEND_UPSTREAM}";
+    set $frontend_upstream "${FRONTEND_UPSTREAM}";
 
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
     add_header X-Frame-Options "DENY" always;
@@ -65,14 +67,14 @@ server {
     location /api/ {
         limit_req zone=api_ratelimit burst=30 nodelay;
         limit_conn per_ip_conn 30;
-        proxy_pass http://${BACKEND_UPSTREAM};
+        proxy_pass http://$backend_upstream;
     }
 
     location /hubs/ {
         limit_conn per_ip_conn 20;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
-        proxy_pass http://${BACKEND_UPSTREAM};
+        proxy_pass http://$backend_upstream;
     }
 
     location = /monitoring {
@@ -110,6 +112,6 @@ server {
     }
 
     location / {
-        proxy_pass http://${FRONTEND_UPSTREAM};
+        proxy_pass http://$frontend_upstream;
     }
 }

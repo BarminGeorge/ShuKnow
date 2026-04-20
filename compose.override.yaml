@@ -6,13 +6,20 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     environment:
-      BlobStorage__Provider: FileSystem
-      BlobStorage__FileSystem__BasePath: /app/data/blobs
+      BlobStorage__Provider: S3
+      BlobStorage__S3__ServiceUrl: http://rustfs:9000
+      BlobStorage__S3__AccessKey: rustfsadmin
+      BlobStorage__S3__SecretKey: rustfsadmin
+      BlobStorage__S3__BucketName: shuknow
+      BlobStorage__S3__Prefix: blobs
+      BlobStorage__S3__ForcePathStyle: "true"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      rustfs:
+        condition: service_started
 
   frontend:
     image: shuknow-frontend-local
@@ -47,12 +54,15 @@ services:
     profiles: ["ssl"]
 
   rustfs:
-    image: alpine:3.20
-    pull_policy: missing
-    command: ["sh", "-c", "while true; do sleep 3600; done"]
-    environment: {}
-    volumes: []
-    ports: []
+    image: rustfs/rustfs:1.0.0-alpha.80
+    command: /data
+    environment:
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_ACCESS_KEY: rustfsadmin
+      RUSTFS_SECRET_KEY: rustfsadmin
+      RUSTFS_CONSOLE_ENABLE: "true"
+    volumes:
+      - rustfs-local-data:/data
 
   prometheus:
     command:
@@ -67,3 +77,6 @@ services:
       GF_SERVER_SERVE_FROM_SUB_PATH: "false"
     ports:
       - "3000:3000"
+
+volumes:
+  rustfs-local-data:

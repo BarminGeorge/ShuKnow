@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
 import { useFileUpload } from '../useFileUpload';
 import { toast } from 'sonner';
+import { fileService } from '../../../../../api';
 
 vi.mock('sonner', () => ({
   toast: {
@@ -9,9 +10,39 @@ vi.mock('sonner', () => ({
   },
 }));
 
+vi.mock('../../../../../api', () => ({
+  fileService: {
+    uploadFile: vi.fn(),
+  },
+}));
+
+function createUploadedFileDto(name: string, folderId: string, contentType: string, sizeBytes: number) {
+  return {
+    id: '11111111-1111-1111-1111-111111111111',
+    folderId,
+    folderName: null,
+    name,
+    description: '',
+    contentType,
+    sizeBytes,
+    version: 1,
+    checksumSha256: null,
+    createdAt: new Date().toISOString(),
+    sortOrder: 0,
+  };
+}
+
 describe('useFileUpload', () => {
-  it('should handle image file upload', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should handle image file upload', async () => {
     const mockCreateFile = vi.fn();
+    vi.mocked(fileService.uploadFile).mockResolvedValueOnce(
+      createUploadedFileDto('test.jpg', 'folder-1', 'image/jpeg', 13)
+    );
+
     const { result } = renderHook(() =>
       useFileUpload({ folderId: 'folder-1', createFile: mockCreateFile })
     );
@@ -20,18 +51,25 @@ describe('useFileUpload', () => {
     
     result.current.handleDroppedFiles([imageFile]);
 
-    expect(mockCreateFile).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: 'test.jpg',
-        type: 'photo',
-        folderId: 'folder-1',
-      }),
-      false
-    );
+    await waitFor(() => {
+      expect(mockCreateFile).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: '11111111-1111-1111-1111-111111111111',
+          name: 'test.jpg',
+          type: 'photo',
+          folderId: 'folder-1',
+        }),
+        false
+      );
+    });
   });
 
-  it('should handle PDF file upload', () => {
+  it('should handle PDF file upload', async () => {
     const mockCreateFile = vi.fn();
+    vi.mocked(fileService.uploadFile).mockResolvedValueOnce(
+      createUploadedFileDto('document.pdf', 'folder-1', 'application/pdf', 11)
+    );
+
     const { result } = renderHook(() =>
       useFileUpload({ folderId: 'folder-1', createFile: mockCreateFile })
     );
@@ -40,18 +78,24 @@ describe('useFileUpload', () => {
     
     result.current.handleDroppedFiles([pdfFile]);
 
-    expect(mockCreateFile).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: 'document.pdf',
-        type: 'pdf',
-        folderId: 'folder-1',
-      }),
-      false
-    );
+    await waitFor(() => {
+      expect(mockCreateFile).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'document.pdf',
+          type: 'pdf',
+          folderId: 'folder-1',
+        }),
+        false
+      );
+    });
   });
 
-  it('should handle multiple files', () => {
+  it('should handle multiple files', async () => {
     const mockCreateFile = vi.fn();
+    vi.mocked(fileService.uploadFile)
+      .mockResolvedValueOnce(createUploadedFileDto('photo1.jpg', 'folder-1', 'image/jpeg', 6))
+      .mockResolvedValueOnce(createUploadedFileDto('photo2.png', 'folder-1', 'image/png', 6));
+
     const { result } = renderHook(() =>
       useFileUpload({ folderId: 'folder-1', createFile: mockCreateFile })
     );
@@ -63,7 +107,9 @@ describe('useFileUpload', () => {
     
     result.current.handleDroppedFiles(files);
 
-    expect(mockCreateFile).toHaveBeenCalledTimes(2);
+    await waitFor(() => {
+      expect(mockCreateFile).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('should skip unsupported files', () => {

@@ -38,7 +38,7 @@ export const loadFoldersAtom = atom(
           name: apiFolder.name,
           description: apiFolder.description,
           sortOrder: apiFolder.sortOrder,
-          fileCount: apiFolder.fileCount,
+          fileCount: apiFolder.fileCount ?? 0,
           subfolders: apiFolder.children?.map(mapFolder) || [],
           emoji: apiFolder.emoji,
           prompt: apiFolder.prompt,

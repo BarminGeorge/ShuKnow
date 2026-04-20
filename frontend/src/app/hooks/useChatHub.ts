@@ -8,8 +8,7 @@ import {
   SendMessageCommand,
   ProcessingStartedEvent,
   MessageChunkEvent,
-  ChatHubMessageDto,
-  ClassificationResultEvent,
+  MessageCompletedEvent,
   ProcessingCompletedEvent,
   ProcessingFailedEvent,
   ProcessingCancelledEvent,
@@ -73,13 +72,8 @@ export function useChatHub(options: UseChatHubOptions = {}): UseChatHubResult {
         externalHandlers?.onMessageChunk?.(event);
       },
       
-      onMessageCompleted: (message: ChatHubMessageDto) => {
-        setStreamingContent(message.content);
-        externalHandlers?.onMessageCompleted?.(message);
-      },
-      
-      onClassificationResult: (event: ClassificationResultEvent) => {
-        externalHandlers?.onClassificationResult?.(event);
+      onMessageCompleted: (event: MessageCompletedEvent) => {
+        externalHandlers?.onMessageCompleted?.(event);
       },
       
       onFileCreated: (file: ChatHubFileDto) => {
@@ -97,7 +91,7 @@ export function useChatHub(options: UseChatHubOptions = {}): UseChatHubResult {
       onProcessingCompleted: (event: ProcessingCompletedEvent) => {
         setIsProcessing(false);
         setCurrentOperationId(null);
-        setLastActionId(event.actionId);
+        setLastActionId(event.operationId);
         externalHandlers?.onProcessingCompleted?.(event);
       },
       
@@ -162,11 +156,18 @@ export function useChatHub(options: UseChatHubOptions = {}): UseChatHubResult {
   }, []);
 
   const cancelProcessing = useCallback(async () => {
+    const operationId = currentOperationId;
+    setIsProcessing(false);
+    setCurrentOperationId(null);
+    setStreamingContent("");
+    if (operationId) {
+      externalHandlers?.onProcessingCancelled?.({ operationId });
+    }
     try {
       await hubRef.current?.cancelProcessing();
     } catch {
     }
-  }, []);
+  }, [currentOperationId, externalHandlers]);
 
   const clearError = useCallback(() => {
     setErrorMessage(null);

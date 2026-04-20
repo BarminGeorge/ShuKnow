@@ -1,5 +1,4 @@
 import * as signalR from "@microsoft/signalr";
-import { getAuthToken } from "./client";
 import {
   CHAT_HUB_URL,
   SIGNALR_RECONNECT_BASE_DELAY_MS,
@@ -22,45 +21,16 @@ export interface MessageChunkEvent {
   chunk: string;
 }
 
-export interface ChatHubMessageDto {
-  id: string;
-  role: "User" | "Ai" | "System";
-  content: string;
-  index?: number | null;
-  attachments?: ChatHubAttachmentDto[] | null;
-}
-
-export interface ChatHubAttachmentDto {
-  id: string;
-  fileName: string;
-  contentType: string;
-  sizeBytes: number;
-}
-
-export interface ClassificationResultEvent {
+export interface MessageCompletedEvent {
   operationId: string;
-  decisions: ClassificationDecisionDto[];
-}
-
-export interface ClassificationDecisionDto {
-  fileName: string;
-  targetFolderName: string;
-  targetFolderId?: string | null;
-  isNewFolder: boolean;
+  messageId: string;
 }
 
 export interface ChatHubFileDto {
-  id: string;
-  folderId: string | null;
-  folderName: string | null;
+  fileId: string;
   name: string;
   description: string;
   contentType: string;
-  sizeBytes: number;
-  version: number;
-  checksumSha256?: string | null;
-  createdAt: string;
-  sortOrder: number;
 }
 
 export interface FileMovedEvent {
@@ -132,8 +102,7 @@ export interface ChatHubEventHandlers {
   onValidationFailed?: (event: ValidationFailedEvent) => void;
   onProcessingStarted?: (event: ProcessingStartedEvent) => void;
   onMessageChunk?: (event: MessageChunkEvent) => void;
-  onMessageCompleted?: (message: ChatHubMessageDto) => void;
-  onClassificationResult?: (event: ClassificationResultEvent) => void;
+  onMessageCompleted?: (event: MessageCompletedEvent) => void;
   onFileCreated?: (file: ChatHubFileDto) => void;
   onFileMoved?: (event: FileMovedEvent) => void;
   onFolderCreated?: (folder: ChatHubFolderDto) => void;
@@ -173,11 +142,8 @@ export class ChatHubClient {
       return;
     }
 
-    const token = getAuthToken();
-
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(CHAT_HUB_URL, {
-        accessTokenFactory: () => token || "",
         skipNegotiation: false,
         transport: signalR.HttpTransportType.WebSockets,
       })
@@ -244,12 +210,8 @@ export class ChatHubClient {
       this.handlers.onMessageChunk?.(event);
     });
 
-    this.connection.on("OnMessageCompleted", (message: ChatHubMessageDto) => {
-      this.handlers.onMessageCompleted?.(message);
-    });
-
-    this.connection.on("OnClassificationResult", (event: ClassificationResultEvent) => {
-      this.handlers.onClassificationResult?.(event);
+    this.connection.on("OnMessageCompleted", (event: MessageCompletedEvent) => {
+      this.handlers.onMessageCompleted?.(event);
     });
 
     this.connection.on("OnFileCreated", (file: ChatHubFileDto) => {

@@ -1,8 +1,9 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import type { FileItem } from "../../../../api/types";
+import { fileService } from "../../../../api";
+import { mapFileDtoToFileItem } from "../../../../api/types";
 import {
-  getContentTypeForFileName,
   getDisplayTypeForFile,
   isSupportedUploadFile,
   SUPPORTED_UPLOAD_EXTENSIONS_LABEL,
@@ -25,74 +26,27 @@ export function useFileUpload({ folderId, createFile }: UseFileUploadProps) {
       );
     }
 
-    files.forEach((file, index) => {
-      if (!isSupportedUploadFile(file)) return;
+    void (async () => {
+      for (const file of files) {
+        if (!isSupportedUploadFile(file)) {
+          continue;
+        }
 
-      const displayType = getDisplayTypeForFile(file);
-      const contentType = file.type || getContentTypeForFileName(file.name);
-      
-      if (displayType === "photo") {
-        // Create object URL for image preview
-        const contentUrl = URL.createObjectURL(file);
-        const newFile: FileItem = {
-          id: `${Date.now()}-${index}`,
-          name: file.name,
-          type: "photo",
-          folderId: folderId,
-          contentType,
-          sizeBytes: file.size,
-          contentUrl,
-          createdAt: new Date().toISOString(),
-        };
-        createFile(newFile, false); // Don't open after drop
-      } else if (displayType === "pdf") {
-        // Create object URL for PDF viewing
-        const pdfUrl = URL.createObjectURL(file);
-        const newFile: FileItem = {
-          id: `${Date.now()}-${index}`,
-          name: file.name,
-          type: "pdf",
-          folderId: folderId,
-          contentType,
-          sizeBytes: file.size,
-          pdfUrl,
-          createdAt: new Date().toISOString(),
-        };
-        createFile(newFile, false); // Don't open after drop
-      } else {
-        // For text files, try to read content
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const content = e.target?.result as string || "";
-          const newFile: FileItem = {
-            id: `${Date.now()}-${index}`,
-            name: file.name,
-            type: "text",
-            folderId: folderId,
-            contentType,
-            sizeBytes: file.size,
-            content,
-            createdAt: new Date().toISOString(),
+        try {
+          const displayType = getDisplayTypeForFile(file);
+          const uploadedFile = await fileService.uploadFile(folderId, file, file.name);
+          const mappedFile: FileItem = {
+            ...mapFileDtoToFileItem(uploadedFile),
+            type: displayType,
+            content: displayType === "text" ? await file.text() : undefined,
           };
-          createFile(newFile, false); // Don't open after drop
-        };
-        reader.onerror = () => {
-          // If reading fails, create empty text file
-          const newFile: FileItem = {
-            id: `${Date.now()}-${index}`,
-            name: file.name,
-            type: "text",
-            folderId: folderId,
-            contentType,
-            sizeBytes: file.size,
-            content: "",
-            createdAt: new Date().toISOString(),
-          };
-          createFile(newFile, false); // Don't open after drop
-        };
-        reader.readAsText(file);
+          createFile(mappedFile, false);
+        } catch (error) {
+          console.error(`Failed to upload file "${file.name}":`, error);
+          toast.error(`Не удалось загрузить файл "${file.name}". Попробуйте ещё раз.`);
+        }
       }
-    });
+    })();
   }, [folderId, createFile]);
 
   return {

@@ -31,6 +31,7 @@ public static class ServiceCollectionExtensions
             var lazyMultiplexer = sp.GetRequiredService<Lazy<IConnectionMultiplexer>>();
             return new RedisMetricsRepository(lazyMultiplexer);
         });
+        services.AddSingleton<MetricsInstruments>();
         services.AddSingleton<IMetricsRepository, RedisMetricsRepository>();
         services.AddSingleton<IMetricsService, MetricsService>();
 
