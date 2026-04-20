@@ -180,7 +180,10 @@ public class TornadoAiServiceTests
     {
         await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
 
-        conversation.Received(1).PrependSystemMessage(Arg.Is<string>(text => text.Contains("Ты - помощник")));
+        conversation.Received(1).PrependSystemMessage(Arg.Is<string>(text =>
+            text.Contains("<system_prompt>") &&
+            text.Contains("START_FOLDER_STRUCTURE") &&
+            text.Contains("use inbox")));
     }
 
     [Test]
