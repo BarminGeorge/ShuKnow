@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using NSubstitute;
 using ShuKnow.Application.Common;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.Application.Models;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Enums;
 using ShuKnow.Infrastructure.Services;
@@ -281,6 +282,7 @@ public class TornadoAiServiceLiveTests
             config.ModelId);
 
         var chatService = Substitute.For<IChatService>();
+        var folderService = Substitute.For<IFolderService>();
         var session = new ChatSession(Guid.NewGuid(), Guid.NewGuid());
         var persistedMessages = new List<ChatMessage>();
 
@@ -288,6 +290,8 @@ public class TornadoAiServiceLiveTests
             .Returns(Task.FromResult(Result.Success(session)));
         chatService.GetMessagesAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success<IReadOnlyCollection<ChatMessage>>([])));
+        folderService.GetFolderTreeForPromptAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success<IReadOnlyList<FolderSummary>>([])));
         chatService.PersistMessageAsync(Arg.Any<ChatMessage>(), Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
@@ -302,7 +306,7 @@ public class TornadoAiServiceLiveTests
                 return Task.FromResult(Result.Success());
             });
 
-        var promptBuilder = new TornadoPromptBuilder(attachmentService, blobStorageService, chatService);
+        var promptBuilder = new TornadoPromptBuilder(folderService, attachmentService, blobStorageService, chatService);
         var toolsService = new TornadoToolsService(aiToolsService);
         var conversationFactory = new TornadoConversationFactory(encryptionService);
         var logger = new TestLogger<TornadoAiService>();

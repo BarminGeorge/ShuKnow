@@ -11,6 +11,7 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using ShuKnow.Application.Common;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.Application.Models;
 using ShuKnow.Application.Models.Notifications;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Enums;
@@ -25,6 +26,7 @@ public class TornadoAiServiceTests
     private IAttachmentService attachmentService = null!;
     private IBlobStorageService blobStorageService = null!;
     private IChatService chatService = null!;
+    private IFolderService folderService = null!;
     private IAiToolsService aiToolsService = null!;
     private IChatNotificationService notificationService = null!;
     private ITornadoConversationFactory conversationFactory = null!;
@@ -42,6 +44,7 @@ public class TornadoAiServiceTests
         attachmentService = Substitute.For<IAttachmentService>();
         blobStorageService = Substitute.For<IBlobStorageService>();
         chatService = Substitute.For<IChatService>();
+        folderService = Substitute.For<IFolderService>();
         aiToolsService = Substitute.For<IAiToolsService>();
         notificationService = Substitute.For<IChatNotificationService>();
         conversationFactory = Substitute.For<ITornadoConversationFactory>();
@@ -55,7 +58,7 @@ public class TornadoAiServiceTests
 
         ConfigureDefaults();
 
-        var promptBuilder = new TornadoPromptBuilder(attachmentService, blobStorageService, chatService);
+        var promptBuilder = new TornadoPromptBuilder(folderService, attachmentService, blobStorageService, chatService);
         var toolsService = new TornadoToolsService(aiToolsService);
         sut = new TornadoAiService(
             promptBuilder,
@@ -183,7 +186,25 @@ public class TornadoAiServiceTests
         conversation.Received(1).PrependSystemMessage(Arg.Is<string>(text =>
             text.Contains("<system_prompt>") &&
             text.Contains("START_FOLDER_STRUCTURE") &&
-            text.Contains("use inbox")));
+            text.Contains("use inbox") &&
+            text.Contains("<folders empty=\"true\" />")));
+    }
+
+    [Test]
+    public async Task ProcessMessageAsync_ShouldIncludeFolderDescriptionAsSystemInstruction()
+    {
+        folderService.GetFolderTreeForPromptAsync(Arg.Any<CancellationToken>())
+            .Returns(Success<IReadOnlyList<FolderSummary>>(
+            [
+                new FolderSummary(Guid.NewGuid(), "Receipts", "Save payment and purchase evidence here.", null)
+            ]));
+
+        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+
+        conversation.Received(1).PrependSystemMessage(Arg.Is<string>(text =>
+            text.Contains("<name>Receipts</name>") &&
+            text.Contains("<description>Save payment and purchase evidence here.</description>") &&
+            text.Contains("<system_instruction>Save payment and purchase evidence here.</system_instruction>")));
     }
 
     [Test]
@@ -703,6 +724,8 @@ public class TornadoAiServiceTests
     {
         chatService.GetOrCreateActiveSessionAsync(Arg.Any<CancellationToken>())
             .Returns(Success(session));
+        folderService.GetFolderTreeForPromptAsync(Arg.Any<CancellationToken>())
+            .Returns(Success<IReadOnlyList<FolderSummary>>([]));
         chatService.GetMessagesAsync(Arg.Any<CancellationToken>())
             .Returns(Success<IReadOnlyCollection<ChatMessage>>([]));
         chatService.PersistMessageAsync(Arg.Any<ChatMessage>(), Arg.Any<CancellationToken>())
