@@ -119,7 +119,7 @@ public class TornadoAiServiceLiveTests
     public async Task ProcessMessageAsync_WhenMoveFileFailsWithNotFound_ShouldHandleGracefully()
     {
         var fixture = CreateFixtureWithToolErrors();
-        const string prompt = "Перемести файл 'nonexistent.txt' в папку 'destination/'.";
+        const string prompt = "Перемести файл 'meow.txt' в папку 'destination/'.";
 
         var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
 

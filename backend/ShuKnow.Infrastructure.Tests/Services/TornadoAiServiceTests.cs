@@ -17,6 +17,7 @@ using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Enums;
 using ShuKnow.Infrastructure.Services;
 using ChatMessage = ShuKnow.Domain.Entities.ChatMessage;
+using File = System.IO.File;
 using TornadoChatMessage = LlmTornado.Chat.ChatMessage;
 
 namespace ShuKnow.Infrastructure.Tests.Services;
@@ -184,20 +185,6 @@ public class TornadoAiServiceTests
     #region ProcessMessageAsync - Prompt Building
 
     [Test]
-    public async Task ProcessMessageAsync_ShouldPrependSystemInstructions()
-    {
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
-
-        conversation.Received(1).PrependSystemMessage(Arg.Is<string>(text =>
-            text.Contains("<CONTEXT>") &&
-            text.Contains("START_FOLDER_CONTEXT") &&
-            text.Contains("use inbox") &&
-            text.Contains("<FOLDERS EMPTY=\"true\" />") &&
-            text.Contains("<EXAMPLES>") &&
-            text.Contains("<DIRECTIVES>")));
-    }
-
-    [Test]
     public async Task ProcessMessageAsync_ShouldIncludeFolderDescriptionAsSystemInstruction()
     {
         folderService.GetFolderTreeForPromptAsync(Arg.Any<CancellationToken>())
@@ -209,9 +196,9 @@ public class TornadoAiServiceTests
         await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         conversation.Received(1).PrependSystemMessage(Arg.Is<string>(text =>
-            text.Contains("PATH: Receipts") &&
-            text.Contains("DESCRIPTION: Save payment and purchase evidence here.") &&
-            text.Contains("SYSTEM_INSTRUCTION: Save payment and purchase evidence here.")));
+            text.Contains("Receipts") &&
+            text.Contains("Save payment and purchase evidence here.") &&
+            text.Contains("Save payment and purchase evidence here.")));
     }
 
     [Test]
@@ -221,13 +208,13 @@ public class TornadoAiServiceTests
 
         try
         {
-            await System.IO.File.WriteAllTextAsync(promptPath, """
-<DIRECTIVES>
-START_DIRECTIVES
-Use the mounted prompt file.
-END_DIRECTIVES
-</DIRECTIVES>
-""");
+            await File.WriteAllTextAsync(promptPath, """
+                                                     <DIRECTIVES>
+                                                     START_DIRECTIVES
+                                                     Use the mounted prompt file.
+                                                     END_DIRECTIVES
+                                                     </DIRECTIVES>
+                                                     """);
 
             options = Options.Create(new TornadoAiOptions
             {
@@ -260,8 +247,8 @@ END_DIRECTIVES
         }
         finally
         {
-            if (System.IO.File.Exists(promptPath))
-                System.IO.File.Delete(promptPath);
+            if (File.Exists(promptPath))
+                File.Delete(promptPath);
         }
     }
 
@@ -414,7 +401,7 @@ END_DIRECTIVES
         capturedParts.Should().NotBeNull();
         capturedParts!.Should().HaveCount(3);
         capturedParts[0].Text.Should().Be(prompt);
-        capturedParts[1].Text.Should().Be("Attachment: `notes.png` (image/png)");
+        capturedParts[1].Text.Should().Be($"Attachment: `notes.png` (Id: `{attachmentId}`)");
         capturedParts[2].Image.Should().NotBeNull();
         capturedParts[2].Image!.MimeType.Should().Be("image/png");
     }
