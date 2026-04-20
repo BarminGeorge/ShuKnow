@@ -58,7 +58,12 @@ public class TornadoAiServiceTests
 
         ConfigureDefaults();
 
-        var promptBuilder = new TornadoPromptBuilder(folderService, attachmentService, blobStorageService, chatService);
+        var promptBuilder = new TornadoPromptBuilder(
+            folderService,
+            attachmentService,
+            blobStorageService,
+            chatService,
+            options);
         var toolsService = new TornadoToolsService(aiToolsService);
         sut = new TornadoAiService(
             promptBuilder,
@@ -184,10 +189,12 @@ public class TornadoAiServiceTests
         await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         conversation.Received(1).PrependSystemMessage(Arg.Is<string>(text =>
-            text.Contains("<system_prompt>") &&
-            text.Contains("START_FOLDER_STRUCTURE") &&
+            text.Contains("<CONTEXT>") &&
+            text.Contains("START_FOLDER_CONTEXT") &&
             text.Contains("use inbox") &&
-            text.Contains("<folders empty=\"true\" />")));
+            text.Contains("<FOLDERS EMPTY=\"true\" />") &&
+            text.Contains("<EXAMPLES>") &&
+            text.Contains("<DIRECTIVES>")));
     }
 
     [Test]
@@ -202,9 +209,60 @@ public class TornadoAiServiceTests
         await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         conversation.Received(1).PrependSystemMessage(Arg.Is<string>(text =>
-            text.Contains("<name>Receipts</name>") &&
-            text.Contains("<description>Save payment and purchase evidence here.</description>") &&
-            text.Contains("<system_instruction>Save payment and purchase evidence here.</system_instruction>")));
+            text.Contains("PATH: Receipts") &&
+            text.Contains("DESCRIPTION: Save payment and purchase evidence here.") &&
+            text.Contains("SYSTEM_INSTRUCTION: Save payment and purchase evidence here.")));
+    }
+
+    [Test]
+    public async Task ProcessMessageAsync_ShouldLoadDirectivesFromExternalFile()
+    {
+        var promptPath = Path.GetTempFileName();
+
+        try
+        {
+            await System.IO.File.WriteAllTextAsync(promptPath, """
+<DIRECTIVES>
+START_DIRECTIVES
+Use the mounted prompt file.
+END_DIRECTIVES
+</DIRECTIVES>
+""");
+
+            options = Options.Create(new TornadoAiOptions
+            {
+                Temperature = 0.3,
+                MaxTurns = 10,
+                SystemPromptPath = promptPath
+            });
+
+            var promptBuilder = new TornadoPromptBuilder(
+                folderService,
+                attachmentService,
+                blobStorageService,
+                chatService,
+                options);
+            var toolsService = new TornadoToolsService(aiToolsService);
+            sut = new TornadoAiService(
+                promptBuilder,
+                attachmentService,
+                chatService,
+                toolsService,
+                notificationService,
+                conversationFactory,
+                options,
+                logger);
+
+            await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+
+            conversation.Received(1).PrependSystemMessage(Arg.Is<string>(text =>
+                text.Contains("Use the mounted prompt file.")));
+        }
+        finally
+        {
+            if (System.IO.File.Exists(promptPath))
+                System.IO.File.Delete(promptPath);
+        }
     }
 
     [Test]

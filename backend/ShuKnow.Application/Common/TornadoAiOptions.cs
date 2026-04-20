@@ -6,6 +6,8 @@ public class TornadoAiOptions
 {
     public const string SectionName = "TornadoAi";
 
+    public string? SystemPromptPath { get; set; }
+
     [Range(0.0, 2.0)]
     public double Temperature { get; set; } = 0.3;
 

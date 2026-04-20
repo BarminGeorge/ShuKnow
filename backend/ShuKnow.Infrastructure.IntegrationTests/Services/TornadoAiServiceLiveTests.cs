@@ -306,11 +306,16 @@ public class TornadoAiServiceLiveTests
                 return Task.FromResult(Result.Success());
             });
 
-        var promptBuilder = new TornadoPromptBuilder(folderService, attachmentService, blobStorageService, chatService);
+        var options = Options.Create(new TornadoAiOptions { Temperature = 0.3, MaxTurns = 10 });
+        var promptBuilder = new TornadoPromptBuilder(
+            folderService,
+            attachmentService,
+            blobStorageService,
+            chatService,
+            options);
         var toolsService = new TornadoToolsService(aiToolsService);
         var conversationFactory = new TornadoConversationFactory(encryptionService);
         var logger = new TestLogger<TornadoAiService>();
-        var options = Options.Create(new TornadoAiOptions { Temperature = 0.3, MaxTurns = 10 });
         var sut = new TornadoAiService(
             promptBuilder,
             attachmentService,

@@ -4,6 +4,8 @@ using Ardalis.Result;
 using LlmTornado.Chat;
 using LlmTornado.Code;
 using LlmTornado.Images;
+using Microsoft.Extensions.Options;
+using ShuKnow.Application.Common;
 using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Models;
@@ -18,101 +20,58 @@ public class TornadoPromptBuilder(
     IFolderService folderService,
     IAttachmentService attachmentService,
     IBlobStorageService blobStorageService,
-    IChatService chatService)
+    IChatService chatService,
+    IOptions<TornadoAiOptions> options)
 {
-    private const string SystemInstructionsTemplate = """
-<system_prompt>
-  <role>
-    You are ShuKnow, an AI assistant that organizes information and files using the tools available to you.
-  </role>
-
-  <objective>
-    Convert the user's incoming information into a saved, organized result.
-    Prefer taking the needed tool actions over only describing what should be done.
-  </objective>
-
-  <context>
-    <folder_structure status="dynamic_user_defined">
-      START_FOLDER_STRUCTURE
-{FOLDER_STRUCTURE}
-      END_FOLDER_STRUCTURE
-    </folder_structure>
-  </context>
-
-  <rules>
-    <rule>Use English for your internal reasoning and tool-facing decisions.</rule>
-    <rule>Be precise and action-oriented.</rule>
-    <rule>Respect folder-specific instructions entered by the user when such folders are available.</rule>
-    <rule>In the current data model, a folder description is the folder's system instruction.</rule>
-    <rule>If no folders exist, save the content to inbox.</rule>
-    <rule>If folders exist but the best destination is unknown, use inbox.</rule>
-    <rule>Do not invent folders that are not present in the provided structure.</rule>
-    <rule>If the user gives content to keep, preserve the important details when saving it.</rule>
-    <rule>If the user asks a question instead of asking to save something, answer it normally unless tool use is clearly needed.</rule>
-  </rules>
-
-  <workflow>
-    START_WORKFLOW
-    1. Identify whether the user wants information to be saved, organized, moved, or answered.
-    2. Check whether the user explicitly named a folder.
-    3. If folders are available, choose the best matching folder by its name and system instruction.
-    4. If no folders exist, or no available folder is a clear match, use inbox.
-    5. Use the available tools to perform the action.
-    6. After tool use, provide a brief result-focused response.
-    END_WORKFLOW
-  </workflow>
-
-  <few_shot_examples>
-    <example>
-      <user_message>
-        Save this idea: Weekly digest with the top AI news and internal updates.
-      </user_message>
-      <assistant_behavior>
-        The content should be saved.
-        No user folder is available.
-        Save it to inbox.
-      </assistant_behavior>
-    </example>
-
-    <example>
-      <user_message>
-        Put these meeting notes into the Project Atlas folder.
-      </user_message>
-      <assistant_behavior>
-        If Project Atlas exists in the available folder structure, save the notes there.
-        If that folder has a description, treat it as the folder's system instruction and follow it.
-        Otherwise, do not invent a new destination and save the notes to inbox.
-      </assistant_behavior>
-    </example>
-
-    <example>
-      <user_message>
-        Save this receipt for later.
-      </user_message>
-      <assistant_behavior>
-        The content should be saved.
-        If no folders exist yet, save it to inbox.
-        If folders exist but none clearly match receipts, still save it to inbox.
-      </assistant_behavior>
-    </example>
-
-    <example>
-      <user_message>
-        What did I save yesterday about onboarding?
-      </user_message>
-      <assistant_behavior>
-        This is primarily a retrieval or question-answering request.
-        Use tools only if needed to find the relevant information, then answer briefly.
-      </assistant_behavior>
-    </example>
-  </few_shot_examples>
-</system_prompt>
+    private const string DefaultDirectives = """
+<DIRECTIVES>
+START_DIRECTIVES
+You are ShuKnow.
+Use English.
+Your job is to organize and save the user's content with the available tools.
+Folder descriptions are folder-specific system instructions entered by the user.
+If no folders exist, save to inbox.
+If folders exist but no folder is a clear match, save to inbox.
+Do not invent folders that are not present in the provided context.
+When the user wants content saved, prefer taking the tool action instead of only describing it.
+When the user is asking a question rather than asking to save or organize content, answer normally unless tool use is needed.
+After tool use, reply briefly and concretely.
+END_DIRECTIVES
+</DIRECTIVES>
 """;
 
-    public Task<Result<string>> CreateSystemInstructions(CancellationToken ct = default)
+    private const string FewShotExamples = """
+<EXAMPLES>
+START_EXAMPLES
+<EXAMPLE>
+USER: Save this idea: Weekly digest with the top AI news and internal updates.
+ASSISTANT: Save the content. No clear user folder is available. Use inbox.
+</EXAMPLE>
+<EXAMPLE>
+USER: Put these meeting notes into the Project Atlas folder.
+ASSISTANT: If Project Atlas exists, save the notes there. Treat that folder's description as its system instruction. If there is no clear matching folder, use inbox.
+</EXAMPLE>
+<EXAMPLE>
+USER: Save this receipt for later.
+ASSISTANT: Save the content. If there is no clear matching folder, use inbox.
+</EXAMPLE>
+<EXAMPLE>
+USER: What did I save yesterday about onboarding?
+ASSISTANT: This is a retrieval request. Use tools only if needed, then answer briefly.
+</EXAMPLE>
+END_EXAMPLES
+</EXAMPLES>
+""";
+
+    public async Task<Result<string>> CreateSystemInstructions(CancellationToken ct = default)
     {
-        return folderService.GetFolderTreeForPromptAsync(ct)
-            .MapAsync(folders => SystemInstructionsTemplate.Replace("{FOLDER_STRUCTURE}", BuildFolderStructure(folders)));
+        var directives = await LoadDirectivesAsync(ct);
+        return await folderService.GetFolderTreeForPromptAsync(ct)
+            .MapAsync(folders => string.Join(
+                Environment.NewLine + Environment.NewLine,
+                BuildFolderContext(folders),
+                FewShotExamples,
+                directives));
     }
 
     public async Task<Result<IEnumerable<ChatMessage>>> GetPreviousMessages(CancellationToken ct = default)
@@ -153,6 +112,27 @@ public class TornadoPromptBuilder(
             });
     }
 
+    private async Task<string> LoadDirectivesAsync(CancellationToken ct)
+    {
+        var configuredPath = options.Value.SystemPromptPath;
+        if (string.IsNullOrWhiteSpace(configuredPath))
+            return DefaultDirectives;
+
+        var fullPath = ResolvePromptPath(configuredPath);
+        if (!System.IO.File.Exists(fullPath))
+            return DefaultDirectives;
+
+        var content = await System.IO.File.ReadAllTextAsync(fullPath, ct);
+        return string.IsNullOrWhiteSpace(content) ? DefaultDirectives : content;
+    }
+
+    private static string ResolvePromptPath(string configuredPath)
+    {
+        return Path.IsPathRooted(configuredPath)
+            ? configuredPath
+            : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, configuredPath));
+    }
+
     private static async Task<Result<ChatMessagePart>> CreateMessagePart(
         Stream stream, ChatAttachment attachment, CancellationToken ct = default)
     {
@@ -166,61 +146,64 @@ public class TornadoPromptBuilder(
         };
     }
 
-    private static string BuildFolderStructure(IReadOnlyList<FolderSummary> folders)
+    private static string BuildFolderContext(IReadOnlyList<FolderSummary> folders)
     {
         var builder = new StringBuilder()
-            .AppendLine("      Users may create their own folders.")
-            .AppendLine("      Each folder may include its own system instructions entered by the user.")
-            .AppendLine("      In the current data model, these instructions are represented by the folder description.")
-            .AppendLine("      Some users may choose not to create any folders at all.")
-            .AppendLine("      When no folders exist, the default destination is the general inbox.")
-            .AppendLine("      <inbox>")
-            .AppendLine("        <path>inbox</path>")
-            .AppendLine("        <description>Default destination for content when no clear folder match exists.</description>")
-            .AppendLine("      </inbox>");
+            .AppendLine("<CONTEXT>")
+            .AppendLine("START_FOLDER_CONTEXT")
+            .AppendLine("Folder descriptions are user-defined folder instructions.")
+            .AppendLine("If no folders exist, or no folder is a clear match, use inbox.")
+            .AppendLine("<INBOX>")
+            .AppendLine("PATH: inbox")
+            .AppendLine("DESCRIPTION: Default destination for content when no clear folder match exists.")
+            .AppendLine("</INBOX>");
 
         if (folders.Count == 0)
         {
-            builder.Append("      <folders empty=\"true\" />");
-            return builder.ToString();
+            builder.AppendLine("<FOLDERS EMPTY=\"true\" />");
+        }
+        else
+        {
+            foreach (var folder in BuildFolderEntries(folders))
+            {
+                builder.AppendLine("<FOLDER>");
+                builder.Append("PATH: ").AppendLine(EscapeText(folder.Path));
+                builder.Append("DESCRIPTION: ").AppendLine(EscapeText(folder.Description));
+                builder.Append("SYSTEM_INSTRUCTION: ").AppendLine(EscapeText(folder.Description));
+                builder.AppendLine("</FOLDER>");
+            }
         }
 
-        builder.AppendLine("      <folders>");
-        AppendFolders(builder, folders.ToLookup(folder => folder.ParentFolderId), parentFolderId: null, parentPath: null, indentLevel: 4);
-        builder.Append("      </folders>");
+        builder.AppendLine("END_FOLDER_CONTEXT")
+            .Append("</CONTEXT>");
+
         return builder.ToString();
     }
 
-    private static void AppendFolders(
-        StringBuilder builder,
+    private static IReadOnlyList<(string Path, string Description)> BuildFolderEntries(IReadOnlyList<FolderSummary> folders)
+    {
+        var foldersByParentId = folders.ToLookup(folder => folder.ParentFolderId);
+        var entries = new List<(string Path, string Description)>();
+
+        AppendFolderEntries(entries, foldersByParentId, parentFolderId: null, parentPath: null);
+        return entries;
+    }
+
+    private static void AppendFolderEntries(
+        ICollection<(string Path, string Description)> entries,
         ILookup<Guid?, FolderSummary> foldersByParentId,
         Guid? parentFolderId,
-        string? parentPath,
-        int indentLevel)
+        string? parentPath)
     {
         foreach (var folder in foldersByParentId[parentFolderId].OrderBy(folder => folder.Name, StringComparer.OrdinalIgnoreCase))
         {
             var path = string.IsNullOrWhiteSpace(parentPath) ? folder.Name : $"{parentPath}/{folder.Name}";
-            var indent = new string(' ', indentLevel * 2);
-
-            builder.Append(indent).AppendLine("<folder>");
-            builder.Append(indent).Append("  ").Append("<name>").Append(EscapeXml(folder.Name)).AppendLine("</name>");
-            builder.Append(indent).Append("  ").Append("<path>").Append(EscapeXml(path)).AppendLine("</path>");
-            builder.Append(indent).Append("  ").Append("<description>").Append(EscapeXml(folder.Description)).AppendLine("</description>");
-            builder.Append(indent).Append("  ").Append("<system_instruction>").Append(EscapeXml(folder.Description)).AppendLine("</system_instruction>");
-
-            if (foldersByParentId[folder.Id].Any())
-            {
-                builder.Append(indent).AppendLine("  <children>");
-                AppendFolders(builder, foldersByParentId, folder.Id, path, indentLevel + 2);
-                builder.Append(indent).AppendLine("  </children>");
-            }
-
-            builder.Append(indent).AppendLine("</folder>");
+            entries.Add((path, folder.Description));
+            AppendFolderEntries(entries, foldersByParentId, folder.Id, path);
         }
     }
 
-    private static string EscapeXml(string value)
+    private static string EscapeText(string value)
     {
         return SecurityElement.Escape(value) ?? string.Empty;
     }
