@@ -16,54 +16,67 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function parseTokenResponse(rawToken: string): string {
-  try {
-    const parsed = JSON.parse(rawToken);
-    return typeof parsed === "string" ? parsed : rawToken;
-  } catch {
-    return rawToken;
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthenticatedUser | null>(() => {
-    try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_USER_DATA_KEY);
-      return stored ? (JSON.parse(stored) as AuthenticatedUser) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [user, setUser] = useState<AuthenticatedUser | null>(null);
 
   const isAuthenticated = user !== null;
 
   useEffect(() => {
-    if (user) {
-      localStorage.setItem(LOCAL_STORAGE_USER_DATA_KEY, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(LOCAL_STORAGE_USER_DATA_KEY);
-      localStorage.removeItem(LOCAL_STORAGE_AUTH_TOKEN_KEY);
-    }
-  }, [user]);
+    localStorage.removeItem(LOCAL_STORAGE_USER_DATA_KEY);
+    localStorage.removeItem(LOCAL_STORAGE_AUTH_TOKEN_KEY);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCurrentUser = async () => {
+      const meResponse = await fetch("/api/auth/me", {
+        credentials: "include",
+      });
+
+      if (!meResponse.ok) {
+        if (meResponse.status === 401) {
+          if (!cancelled) {
+            setUser(null);
+          }
+          return;
+        }
+
+        throw new Error("Failed to fetch user info");
+      }
+
+      const meData = await meResponse.json();
+      if (!cancelled) {
+        setUser({ id: meData.id, login: meData.login });
+      }
+    };
+
+    void loadCurrentUser().catch((error) => {
+      console.error("Failed to restore auth session:", error);
+      if (!cancelled) {
+        setUser(null);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const performLogin = async (loginValue: string, password: string) => {
     const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ login: loginValue, password }),
+      credentials: "include",
     });
 
     if (!response.ok) {
       throw new Error("Login failed");
     }
 
-    const token = parseTokenResponse(await response.text());
-    localStorage.setItem(LOCAL_STORAGE_AUTH_TOKEN_KEY, token);
-
     const meResponse = await fetch("/api/auth/me", {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-      },
+      credentials: "include",
     });
 
     if (!meResponse.ok) {
@@ -80,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ login: loginValue, password }),
+      credentials: "include",
     });
 
     if (!response.ok) {
