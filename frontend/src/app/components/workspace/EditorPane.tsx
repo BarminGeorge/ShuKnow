@@ -953,12 +953,24 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     return (
       <div className="h-full flex flex-col bg-[#0e0e0e]">
         {pdfPreviewUrl ? (
-          <iframe
-            src={pdfPreviewUrl}
-            title={file.name}
+          <object
+            data={pdfPreviewUrl}
+            type="application/pdf"
             className="w-full h-full border-0"
-            style={{ minHeight: "100%" }}
-          />
+            aria-label={file.name}
+          >
+            <div className="h-full flex flex-col items-center justify-center gap-2 text-gray-400 px-6 text-center">
+              <p className="text-sm">Предпросмотр PDF недоступен в этом браузере.</p>
+              <a
+                href={pdfPreviewUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-indigo-300 hover:text-indigo-200 underline"
+              >
+                Открыть PDF в новой вкладке
+              </a>
+            </div>
+          </object>
         ) : (
           <div className="h-full flex flex-col items-center justify-center gap-3 text-gray-700">
             <FileText size={56} className="opacity-30" />
