@@ -146,18 +146,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setModelId(settings.isConfigured ? settings.modelId || "" : "");
       setApiKey(""); // Don't load key for security
       
-      // Auto-test connection if configured
-      if (settings.isConfigured) {
-        setIsTesting(true);
-        try {
-          const result = await settingsService.testAiConnection();
-          setTestResult(result);
-        } catch (error) {
-          console.error("Auto-test failed:", error);
-        } finally {
-          setIsTesting(false);
-        }
-      }
+      // Disable automatic connectivity checks to avoid extra background requests.
+      setTestResult(null);
     } catch (error) {
       console.error("Failed to load settings:", error);
       toast.error("Не удалось загрузить настройки");
@@ -167,11 +157,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   if (!isOpen) return null;
 
   const handleClose = () => {
-    if (isLoading || isTesting) return;
     setIsEditingKey(false);
     setShowKey(false);
     setSaveError(null);
-    setTestResult(null);
     setApiKey("");
     onClose();
   };
@@ -187,43 +175,19 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setSaveError(null);
       setTestResult(null);
       
-      // Save settings
+      // Save settings without auto-testing connectivity
       await settingsService.updateAiSettings({
         baseUrl,
         apiKey,
         provider: provider ? provider.toLowerCase() as AiProvider : undefined,
         modelId: modelId || undefined,
       });
-      
-      // Automatically run connection test
-      setIsTesting(true);
-      try {
-        const result = await settingsService.testAiConnection();
-        setTestResult(result);
-        
-        if (result.success) {
-          setIsConfigured(true);
-          setApiKeyMasked(maskApiKey(apiKey));
-          // Close editing form immediately on successful test
-          setIsEditingKey(false);
-          setApiKey("");
-        } else {
-          setTestResult({
-            ...result,
-            errorMessage: result.errorMessage || "Не удалось подключиться",
-          });
-        }
-      } catch (testError) {
-        console.error("Test failed:", testError);
-        const errorMsg = testError instanceof Error ? testError.message : "Не удалось выполнить тест";
-        setTestResult({
-          success: false,
-          latencyMs: null,
-          errorMessage: errorMsg,
-        });
-      } finally {
-        setIsTesting(false);
-      }
+
+      setIsConfigured(true);
+      setApiKeyMasked(maskApiKey(apiKey));
+      setTestResult(null);
+      setIsEditingKey(false);
+      setApiKey("");
     } catch (error) {
       console.error("Failed to save settings:", error);
       const errorMsg = error instanceof Error ? error.message : "Не удалось сохранить настройки";
@@ -354,6 +318,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             Ошибка
                           </Badge>
                         )}
+                        {isConfigured && !testResult && (
+                          <Badge className="w-[120px] border-white/[0.08] bg-white/[0.035] text-gray-300">
+                            Настроено
+                          </Badge>
+                        )}
                         {!isConfigured && (
                           <Badge className="w-[120px] border-white/[0.08] bg-white/[0.035] text-gray-400">
                             Не настроено
@@ -421,7 +390,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <Select
                   value={provider}
                   onValueChange={handleProviderChange}
-                  disabled={isLoading || isTesting}
+                  disabled={isLoading}
                 >
                   <SelectTrigger
                     className="h-[46px] w-full rounded-lg border border-white/10 bg-[#101010] px-4 py-3 text-sm text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] outline-none focus:border-violet-300/28 focus:ring-0 focus-visible:border-violet-300/28 focus-visible:ring-0 disabled:opacity-50"
@@ -450,7 +419,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   type="url"
                   value={baseUrl}
                   onChange={(e) => setBaseUrl(e.target.value)}
-                  disabled={isLoading || isTesting}
+                  disabled={isLoading}
                   placeholder="https://api.openai.com/v1"
                   autoComplete="off"
                   data-form-type="other"
@@ -464,7 +433,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   type="text"
                   value={modelId}
                   onChange={(e) => setModelId(e.target.value)}
-                  disabled={isLoading || isTesting}
+                  disabled={isLoading}
                   placeholder="Например: gpt-4o"
                   autoComplete="off"
                   data-form-type="other"
@@ -494,7 +463,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         e.clipboardData.setData("text/plain", apiKey);
                       }
                     }}
-                    disabled={isLoading || isTesting}
+                    disabled={isLoading}
                     placeholder="Введите ваш API ключ"
                     autoComplete="off"
                     autoCorrect="off"
@@ -509,7 +478,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <button 
                       type="button"
                       onClick={() => setShowKey(!showKey)}
-                      disabled={isLoading || isTesting}
+                      disabled={isLoading}
                       className="absolute right-3 top-0 z-20 flex h-[46px] w-8 items-center justify-center text-gray-500 transition-colors hover:text-gray-300 disabled:opacity-50"
                     >
                       {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -534,11 +503,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <button
                   type="button"
                   onClick={handleSave}
-                  disabled={isLoading || isTesting}
+                  disabled={isLoading}
                   className={`flex items-center gap-2 px-5 py-2.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${primaryButtonClass}`}
                 >
-                  {(isLoading || isTesting) && <Loader2 size={14} className="animate-spin" />}
-                  {isLoading ? "Сохранение..." : isTesting ? "Тестирование..." : "Сохранить"}
+                  {isLoading && <Loader2 size={14} className="animate-spin" />}
+                  {isLoading ? "Сохранение..." : "Сохранить"}
                 </button>
               </div>
             </div>
