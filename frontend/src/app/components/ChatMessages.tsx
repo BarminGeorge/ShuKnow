@@ -389,35 +389,39 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 </div>
               )}
               
-              {message.status === "success" && message.result && (
+              {message.status === "success" && (
                 <div className="space-y-4">
                   <AgentMessageContent content={message.content} />
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={18} className="text-violet-200" />
                     <span className="text-sm font-medium">Сохранено</span>
                   </div>
-                  
-                  <FileResultGroups result={message.result} />
-                  
-                  {message.cancelled ? (
-                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                      <XCircle size={14} />
-                      <span>Отменено</span>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2 pt-2">
-                      {message.result[0]?.folderId && onOpenFolder && (
-                        <button 
-                          onClick={() => onOpenFolder(message.result![0].folderId!)}
-                          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-violet-100
-                                     bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))]
-                                     border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)]"
-                        >
-                          <FolderOpen size={14} />
-                          <span>Открыть папку</span>
-                        </button>
+
+                  {message.result && (
+                    <>
+                      <FileResultGroups result={message.result} />
+
+                      {message.cancelled ? (
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                          <XCircle size={14} />
+                          <span>Отменено</span>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2 pt-2">
+                          {message.result[0]?.folderId && onOpenFolder && (
+                            <button 
+                              onClick={() => onOpenFolder(message.result![0].folderId!)}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-violet-100
+                                         bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))]
+                                         border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)]"
+                            >
+                              <FolderOpen size={14} />
+                              <span>Открыть папку</span>
+                            </button>
+                          )}
+                        </div>
                       )}
-                    </div>
+                    </>
                   )}
                 </div>
               )}
