@@ -88,12 +88,12 @@ export function DraggableGridItem({
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-    end: (_item, _monitor) => {
+    end: (_item, monitor) => {
       // 启动 landing 动画
       setJustDropped(true);
       setDropIntent(null);
       lastIntentRef.current = null;
-      onDragEnd();
+      onDragEnd(monitor.getDropResult() as { movedIntoFolder?: boolean; moved?: boolean } | undefined);
 
       // 动画结束后清除状态
       setTimeout(() => setJustDropped(false), 400);
