@@ -57,17 +57,13 @@ public class TornadoAiService(
     private async Task<Result> PrepareConversation<T>(T conversation, string content,
         IReadOnlyCollection<Guid>? attachmentIds, CancellationToken ct = default) where T : ITornadoConversation
     {
-        var systemTask = promptBuilder.CreateSystemInstructions(ct);
-        var historyTask = promptBuilder.GetPreviousMessages(ct);
-        var userTask = promptBuilder.CreateUserMessages(content, attachmentIds, ct);
-
-        await Task.WhenAll(systemTask, historyTask, userTask);
-
-        return systemTask.Result
+        return await promptBuilder.CreateSystemInstructions(ct)
             .Act(conversation.PrependSystemMessage)
-            .Act(_ => historyTask.Result.Act(conversation.AddMessages))
-            .Act(_ => userTask.Result.Act(conversation.AddUserMessage))
-            .Map();
+            .BindAsync(_ => promptBuilder.GetPreviousMessages(ct))
+            .Act(conversation.AddMessages)
+            .BindAsync(_ => promptBuilder.CreateUserMessages(content, attachmentIds, ct))
+            .Act(conversation.AddUserMessage)
+            .BindAsync(_ => Result.Success());
     }
     
     private async Task<Result<List<ChatMessage>>> RunWithTools(
