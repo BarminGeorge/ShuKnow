@@ -34,7 +34,7 @@ export function useFileUpload({ folderId, createFile }: UseFileUploadProps) {
 
         try {
           const displayType = getDisplayTypeForFile(file);
-          const uploadedFile = await fileService.uploadFile(folderId, file, file.name);
+          const uploadedFile = await fileService.uploadFileWithConflictRename(folderId, file, file.name);
           const mappedFile: FileItem = {
             ...mapFileDtoToFileItem(uploadedFile),
             type: displayType,

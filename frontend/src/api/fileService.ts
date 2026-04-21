@@ -1,4 +1,4 @@
-import { apiRequest, getAuthToken } from "./client";
+import { ApiError, apiRequest, getAuthToken } from "./client";
 import {
   FileDto,
   PagedFileResult,
@@ -78,6 +78,57 @@ export async function uploadFile(
   return response.json();
 }
 
+function appendConflictSuffix(fileName: string, attempt: number): string {
+  const lastDotIndex = fileName.lastIndexOf(".");
+  const hasExtension = lastDotIndex > 0 && lastDotIndex < fileName.length - 1;
+
+  if (!hasExtension) {
+    return `${fileName} (${attempt})`;
+  }
+
+  const baseName = fileName.slice(0, lastDotIndex);
+  const extension = fileName.slice(lastDotIndex);
+  return `${baseName} (${attempt})${extension}`;
+}
+
+function isConflictError(error: unknown): boolean {
+  if (error instanceof ApiError) {
+    return error.status === 409;
+  }
+
+  if (error instanceof Error) {
+    return error.message.includes("409");
+  }
+
+  return false;
+}
+
+export async function uploadFileWithConflictRename(
+  folderId: string,
+  file: File,
+  preferredName: string,
+  description?: string,
+  maxRenameAttempts: number = 20
+): Promise<FileDto> {
+  let attempt = 0;
+  let fileName = preferredName;
+
+  while (attempt <= maxRenameAttempts) {
+    try {
+      return await uploadFile(folderId, file, fileName, description);
+    } catch (error) {
+      if (!isConflictError(error) || attempt === maxRenameAttempts) {
+        throw error;
+      }
+
+      attempt += 1;
+      fileName = appendConflictSuffix(preferredName, attempt);
+    }
+  }
+
+  throw new Error("Unable to upload file: exhausted rename attempts.");
+}
+
 export async function updateFile(
   fileId: string,
   request: UpdateFileRequest
@@ -130,6 +181,32 @@ export async function fetchFileContentAsText(fileId: string): Promise<string> {
     throw new Error(`Failed to fetch content: ${response.status}`);
   }
   return response.text();
+}
+
+export async function fetchFileContentAsBlobUrl(fileId: string): Promise<string> {
+  return fetchFileContentAsBlobUrlWithType(fileId);
+}
+
+export async function fetchFileContentAsBlobUrlWithType(
+  fileId: string,
+  forcedContentType?: string
+): Promise<string> {
+  const token = getAuthToken();
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`/api/files/${fileId}/content`, { headers });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch content: ${response.status}`);
+  }
+
+  const responseBlob = await response.blob();
+  const blob = forcedContentType && responseBlob.type !== forcedContentType
+    ? new Blob([responseBlob], { type: forcedContentType })
+    : responseBlob;
+  return URL.createObjectURL(blob);
 }
 
 export async function updateFileContent(

@@ -225,7 +225,7 @@ export function FolderContentView({
       const emptyTextFile = new File([""], name, {
         type: getContentTypeForFileName(name),
       });
-      const createdFile = await fileService.uploadFile(
+      const createdFile = await fileService.uploadFileWithConflictRename(
         folder.id,
         emptyTextFile,
         name,

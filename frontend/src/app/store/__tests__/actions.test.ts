@@ -31,9 +31,11 @@ describe('Store Actions', () => {
       const store = createStore();
       await store.set(loadFoldersAtom);
       const folders = store.get(foldersAtom);
+      const files = store.get(filesAtom);
       expect(folders.length).toBeGreaterThan(0);
       expect(folders[0]).toHaveProperty('id');
       expect(folders[0]).toHaveProperty('name');
+      expect(files.length).toBeGreaterThan(0);
     });
   });
 
