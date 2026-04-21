@@ -180,6 +180,7 @@ public class FileServiceTests
         ReturnsFolderExists(file.FolderId);
         ReturnsFileNameAvailable(file.Name, file.FolderId, file.Id);
         fileRepository.AddAsync(file).Returns(Success());
+        fileRepository.GetByIdAsync(file.Id, currentUserId).Returns(Success(file));
         blobStorageService.SaveAsync(content, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(Success());
 
         var result = await sut.UploadAsync(file, content);
@@ -190,6 +191,31 @@ public class FileServiceTests
         await fileRepository.Received(1).AddAsync(file);
         await blobStorageService.Received(1).SaveAsync(content, file.BlobId, Arg.Any<CancellationToken>());
         await unitOfWork.Received(1).SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task UploadAsync_WhenFileBelongsToFolder_ShouldReturnReloadedFileWithFolderNavigation()
+    {
+        var folderId = Guid.NewGuid();
+        var file = CreateFile(folderId: folderId);
+        var uploadedFile = CreateFile(fileId: file.Id, folderId: folderId);
+        var folder = new Folder(folderId, currentUserId, "Docs", "description");
+        typeof(File).GetProperty(nameof(File.Folder))!.SetValue(uploadedFile, folder);
+
+        using var content = CreateStream("payload");
+        ReturnsFolderExists(folderId);
+        ReturnsFileNameAvailable(file.Name, file.FolderId, file.Id);
+        fileRepository.AddAsync(file).Returns(Success());
+        fileRepository.GetByIdAsync(file.Id, currentUserId).Returns(Success(uploadedFile));
+        blobStorageService.SaveAsync(content, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(Success());
+
+        var result = await sut.UploadAsync(file, content);
+
+        result.Status.Should().Be(ResultStatus.Created);
+        result.Value.Should().BeSameAs(uploadedFile);
+        result.Value.Folder.Should().NotBeNull();
+        result.Value.Folder!.Name.Should().Be("Docs");
+        await fileRepository.Received(1).GetByIdAsync(file.Id, currentUserId);
     }
 
     [Test]

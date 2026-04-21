@@ -174,7 +174,7 @@ public class ChatHubTests
     }
 
     [Test]
-    public async Task SendMessage_WhenNonMatchingOperationCanceledExceptionIsThrown_ShouldPropagateAndCompleteOperation()
+    public async Task SendMessage_WhenNonMatchingOperationCanceledExceptionIsThrown_ShouldSendGenericFailureAndCompleteOperation()
     {
         var command = new SendMessageCommand("Sort these files");
         var operation = new ProcessingOperation(Guid.NewGuid(), new CancellationTokenSource());
@@ -193,8 +193,38 @@ public class ChatHubTests
 
         var act = async () => await sut.SendMessage(command);
 
-        await act.Should().ThrowAsync<OperationCanceledException>();
+        await act.Should().NotThrowAsync();
+        await chatNotificationService.Received(1).SendProcessingFailedAsync(
+            operation.OperationId,
+            "processing failed.",
+            ChatProcessingErrorCode.InternalError,
+            operation.CancellationTokenSource.Token);
+        operationService.Received(1).CompleteOperation(ConnectionId, operation.OperationId);
 
+        operation.CancellationTokenSource.Dispose();
+    }
+
+    [Test]
+    public async Task SendMessage_WhenUnexpectedExceptionOccurs_ShouldSendGenericFailureAndCompleteOperation()
+    {
+        var command = new SendMessageCommand("Sort these files");
+        var operation = new ProcessingOperation(Guid.NewGuid(), new CancellationTokenSource());
+
+        operationService.BeginOperation(ConnectionId).Returns(operation);
+        settingsService.GetOrCreateAsync(operation.CancellationTokenSource.Token)
+            .Returns(Task.FromException<Result<UserAiSettings>>(new InvalidOperationException("boom")));
+
+        var act = async () => await sut.SendMessage(command);
+
+        await act.Should().NotThrowAsync();
+        await chatNotificationService.Received(1).SendProcessingStartedAsync(
+            operation.OperationId,
+            operation.CancellationTokenSource.Token);
+        await chatNotificationService.Received(1).SendProcessingFailedAsync(
+            operation.OperationId,
+            "processing failed.",
+            ChatProcessingErrorCode.InternalError,
+            operation.CancellationTokenSource.Token);
         operationService.Received(1).CompleteOperation(ConnectionId, operation.OperationId);
 
         operation.CancellationTokenSource.Dispose();

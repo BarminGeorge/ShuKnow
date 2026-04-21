@@ -51,7 +51,7 @@ public class FileService(
             .BindAsync(_ => blobStorageService.SaveAsync(content, file.BlobId, ct))
             .BindAsync(_ => fileRepository.AddAsync(file))
             .SaveChangesAsync(unitOfWork)
-            .MapAsync(() => file)
+            .BindAsync(_ => LoadUploadedFileAsync(file))
             .ToCreatedAsync();
     }
 
@@ -191,6 +191,13 @@ public class FileService(
     private Task<Result<File>> FindByPathAsync(ResolvedFilePath path)
     {
         return fileRepository.GetByFolderAndFileNameAsync(path.FolderId, CurrentUserId, path.FileName);
+    }
+
+    private async Task<Result<File>> LoadUploadedFileAsync(File file)
+    {
+        return file.FolderId is null
+            ? Result.Success(file)
+            : await fileRepository.GetByIdAsync(file.Id, CurrentUserId);
     }
 
     private async Task<Result> EnsureFolderExistsAsync(Guid? folderId)

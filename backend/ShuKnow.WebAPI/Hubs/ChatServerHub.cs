@@ -23,6 +23,15 @@ public partial class ChatHub
         {
             logger.LogInformation("Chat processing cancelled for connection {ConnectionId}", ConnectionId);
         }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Chat processing failed for connection {ConnectionId}", ConnectionId);
+            await chatNotificationService.SendProcessingFailedAsync(
+                operationId,
+                "processing failed.",
+                Application.Models.Notifications.ChatProcessingErrorCode.InternalError,
+                ct);
+        }
         finally
         {
             operationService.CompleteOperation(ConnectionId, operationId);

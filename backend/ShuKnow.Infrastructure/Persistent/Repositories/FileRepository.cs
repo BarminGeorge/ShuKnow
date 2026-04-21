@@ -22,6 +22,7 @@ public class FileRepository(AppDbContext context) : IFileRepository
     {
         var query = context.Files
             .AsNoTracking()
+            .Include(file => file.Folder)
             .Where(file => file.FolderId == folderId && file.UserId == userId)
             .OrderBy(file => file.Name);
 
@@ -112,6 +113,7 @@ public class FileRepository(AppDbContext context) : IFileRepository
     {
         return await context.Files
             .AsNoTracking()
+            .Include(file => file.Folder)
             .Where(file => file.FolderId == folderId && file.UserId == userId)
             .OrderBy(file => file.Name)
             .ToListAsync();
@@ -122,6 +124,7 @@ public class FileRepository(AppDbContext context) : IFileRepository
     {
         var file = await context.Files
             .AsNoTracking()
+            .Include(file => file.Folder)
             .FirstOrDefaultAsync(file =>
                 file.FolderId == folderId &&
                 file.UserId == userId &&
@@ -151,7 +154,10 @@ public class FileRepository(AppDbContext context) : IFileRepository
 
     private async Task<Result<File>> GetByIdAsync(Guid fileId, Guid userId, bool trackChanges)
     {
-        var query = context.Files.Where(file => file.Id == fileId && file.UserId == userId);
+        var query = context.Files
+            .Include(file => file.Folder)
+            .Where(file => file.Id == fileId && file.UserId == userId);
+
         if (!trackChanges)
             query = query.AsNoTracking();
 
