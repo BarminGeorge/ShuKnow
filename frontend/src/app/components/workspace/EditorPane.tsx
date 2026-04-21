@@ -23,6 +23,7 @@ import "katex/dist/katex.min.css";
 import { flushSync } from "react-dom";
 import type { FileItem } from "../../Workspace";
 import { getFileExtension, isCodeFileName } from "../../utils/fileValidation";
+import { fileService } from "../../../api";
 
 interface EditorPaneProps {
   file: FileItem;
@@ -263,13 +264,17 @@ function MarkdownCode({ className, children, ...props }: { className?: string; c
 export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   const isMarkdownFile = file.name.endsWith(".md");
   const isCodeFile = isCodeFileName(file.name);
+  const isTextLikeFile = file.type === "text" || isMarkdownFile || isCodeFile;
   const hasContent = Boolean(file.content?.trim());
 
   const [localContent, setLocalContent] = useState(file.content || "");
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [isRemoteContentLoading, setIsRemoteContentLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(!isMarkdownFile || !hasContent);
   const [isMarkdownScrollRestoring, setIsMarkdownScrollRestoring] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const localContentRef = useRef(localContent);
+  const hasUserEditedRef = useRef(false);
   const fileIdRef = useRef(file.id);
   const onUpdateRef = useRef(onUpdateContent);
   const editorViewRef = useRef<EditorView | null>(null);
@@ -288,6 +293,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   // Sync content when file changes (e.g. external update)
   useEffect(() => {
     setLocalContent(file.content || "");
+    hasUserEditedRef.current = false;
   }, [file.id, file.content]);
 
   useEffect(() => {
@@ -297,6 +303,69 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     markdownScrollRatioRef.current = 0;
     shouldRestoreMarkdownScrollRef.current = false;
   }, [file.id]);
+
+  useEffect(() => {
+    if (file.type !== "pdf") {
+      setPdfPreviewUrl(null);
+      return;
+    }
+
+    let isCancelled = false;
+    let objectUrlToRevoke: string | null = null;
+
+    setPdfPreviewUrl(null);
+    void fileService.fetchFileContentAsBlobUrlWithType(file.id, "application/pdf")
+      .then((blobUrl) => {
+        if (isCancelled) {
+          URL.revokeObjectURL(blobUrl);
+          return;
+        }
+        objectUrlToRevoke = blobUrl;
+        setPdfPreviewUrl(blobUrl);
+      })
+      .catch((error) => {
+        console.error("Failed to load PDF preview:", error);
+      });
+
+    return () => {
+      isCancelled = true;
+      if (objectUrlToRevoke) {
+        URL.revokeObjectURL(objectUrlToRevoke);
+      }
+    };
+  }, [file.id, file.type]);
+
+  useEffect(() => {
+    if (!isTextLikeFile || file.content !== undefined) {
+      setIsRemoteContentLoading(false);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsRemoteContentLoading(true);
+
+    void fileService.fetchFileContentAsText(file.id)
+      .then((textContent) => {
+        if (isCancelled) {
+          return;
+        }
+
+        setLocalContent(textContent);
+        localContentRef.current = textContent;
+      })
+      .catch((error) => {
+        console.error("Failed to load text content:", error);
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsRemoteContentLoading(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [file.id, file.content, isTextLikeFile]);
 
   useLayoutEffect(() => {
     if (!isEditing || isCodeFile || !textareaRef.current) return;
@@ -333,8 +402,9 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
       }
-      // Always save on unmount to prevent data loss on tab switch
-      onUpdateRef.current(fileIdRef.current, localContentRef.current);
+      if (hasUserEditedRef.current) {
+        onUpdateRef.current(fileIdRef.current, localContentRef.current);
+      }
     };
   }, []);
 
@@ -342,7 +412,9 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      onUpdateRef.current(fileIdRef.current, localContentRef.current);
+      if (hasUserEditedRef.current) {
+        onUpdateRef.current(fileIdRef.current, localContentRef.current);
+      }
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
@@ -350,17 +422,21 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
 
   const handleChange = (newValue: string) => {
     setLocalContent(newValue);
+    hasUserEditedRef.current = true;
     // 800ms debounced save
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       onUpdateContent(file.id, newValue);
+      hasUserEditedRef.current = false;
     }, 800);
   };
 
   const handleBlur = useCallback(() => {
+    if (!hasUserEditedRef.current) return;
     // Immediate save on focus loss
     if (debounceRef.current) clearTimeout(debounceRef.current);
     onUpdateContent(file.id, localContent);
+    hasUserEditedRef.current = false;
   }, [file.id, localContent, onUpdateContent]);
 
   const getScrollRatio = (element: HTMLElement | null) => {
@@ -604,7 +680,10 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     if (isEditing) {
       captureEditorSelection();
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      onUpdateContent(file.id, localContent);
+      if (hasUserEditedRef.current) {
+        onUpdateContent(file.id, localContent);
+        hasUserEditedRef.current = false;
+      }
     }
 
     flushSync(() => {
@@ -873,13 +952,25 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   if (file.type === "pdf") {
     return (
       <div className="h-full flex flex-col bg-[#0e0e0e]">
-        {file.pdfUrl ? (
-          <iframe
-            src={file.pdfUrl}
-            title={file.name}
+        {pdfPreviewUrl ? (
+          <object
+            data={pdfPreviewUrl}
+            type="application/pdf"
             className="w-full h-full border-0"
-            style={{ minHeight: "100%" }}
-          />
+            aria-label={file.name}
+          >
+            <div className="h-full flex flex-col items-center justify-center gap-2 text-gray-400 px-6 text-center">
+              <p className="text-sm">Предпросмотр PDF недоступен в этом браузере.</p>
+              <a
+                href={pdfPreviewUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-indigo-300 hover:text-indigo-200 underline"
+              >
+                Открыть PDF в новой вкладке
+              </a>
+            </div>
+          </object>
         ) : (
           <div className="h-full flex flex-col items-center justify-center gap-3 text-gray-700">
             <FileText size={56} className="opacity-30" />
@@ -891,6 +982,14 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   }
 
   // ── Text / Markdown editor ─────────────────────────────────────────
+  if (isRemoteContentLoading) {
+    return (
+      <div className="h-full flex items-center justify-center text-sm text-gray-500">
+        Загружаем содержимое файла...
+      </div>
+    );
+  }
+
   return (
     <div className="relative h-full bg-[#111111]">
       {/* Floating toggle button for markdown files */}

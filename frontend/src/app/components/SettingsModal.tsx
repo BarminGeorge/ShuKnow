@@ -111,14 +111,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [isConfigured, setIsConfigured] = useState(false);
   const { user } = useAuth();
 
-  // Update base URL and model when provider changes
-  useEffect(() => {
-    if (!provider) return;
-
-    setBaseUrl(PROVIDER_URLS[provider] || "");
-    setModelId(PROVIDER_MODELS[provider] || "");
-  }, [provider]);
-
   // Load settings when modal opens (only on initial open)
   useEffect(() => {
     if (isOpen) {
@@ -239,6 +231,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleProviderChange = (nextProvider: string) => {
+    setProvider(nextProvider);
+    setBaseUrl(PROVIDER_URLS[nextProvider] || "");
+    setModelId(PROVIDER_MODELS[nextProvider] || "");
   };
 
   const renderSettingValue = (value?: string | null, className = "text-sm font-medium") => {
@@ -422,7 +420,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <label className={labelClass}>Провайдер</label>
                 <Select
                   value={provider}
-                  onValueChange={setProvider}
+                  onValueChange={handleProviderChange}
                   disabled={isLoading || isTesting}
                 >
                   <SelectTrigger

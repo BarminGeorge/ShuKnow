@@ -1,17 +1,3 @@
-import { LOCAL_STORAGE_AUTH_TOKEN_KEY } from "../constants";
-
-export function getAuthToken(): string | null {
-  return localStorage.getItem(LOCAL_STORAGE_AUTH_TOKEN_KEY);
-}
-
-export function setAuthToken(token: string): void {
-  localStorage.setItem(LOCAL_STORAGE_AUTH_TOKEN_KEY, token);
-}
-
-export function clearAuthToken(): void {
-  localStorage.removeItem(LOCAL_STORAGE_AUTH_TOKEN_KEY);
-}
-
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -32,15 +18,8 @@ export async function apiRequest<ResponseType>(
   options: ApiRequestOptions = {}
 ): Promise<ResponseType> {
   const { shouldSkipAuth, ...fetchOptions } = options;
-  
+
   const headers = new Headers(fetchOptions.headers);
-  
-  if (!shouldSkipAuth) {
-    const token = getAuthToken();
-    if (token) {
-      headers.set("Authorization", `Bearer ${token}`);
-    }
-  }
 
   const hasStringBody = fetchOptions.body && typeof fetchOptions.body === "string";
   if (!headers.has("Content-Type") && hasStringBody) {
@@ -50,6 +29,7 @@ export async function apiRequest<ResponseType>(
   const response = await fetch(url, {
     ...fetchOptions,
     headers,
+    credentials: shouldSkipAuth ? fetchOptions.credentials : (fetchOptions.credentials ?? "include"),
   });
 
   if (!response.ok) {

@@ -12,6 +12,7 @@ import {
 } from './atoms';
 import { folderService, fileService } from '../../api';
 import type { Folder, FileItem } from '../../api/types';
+import { getFileDisplayType, mapFileDtoToFileItem } from '../../api/types';
 import type { Message } from '../components/ChatMessages';
 
 // ── Folder actions ──────────────────────────────────────────────────────────
@@ -19,33 +20,62 @@ import type { Message } from '../components/ChatMessages';
 export const loadFoldersAtom = atom(
   null,
   async (get, set) => {
+    const mapFolder = (apiFolder: any): Folder => {
+      // If it's already a Folder with subfolders, return as is
+      if (apiFolder.subfolders !== undefined) {
+        return {
+          ...apiFolder,
+          subfolders: apiFolder.subfolders.map(mapFolder),
+        };
+      }
+      // Otherwise map from FolderTreeNodeDto
+      return {
+        id: apiFolder.id,
+        name: apiFolder.name,
+        description: apiFolder.description,
+        sortOrder: apiFolder.sortOrder,
+        fileCount: apiFolder.fileCount ?? 0,
+        subfolders: apiFolder.children?.map(mapFolder) || [],
+        emoji: apiFolder.emoji,
+        prompt: apiFolder.prompt,
+        customOrder: apiFolder.customOrder,
+      };
+    };
+
+    const collectFolders = (folderList: Folder[]): Folder[] => (
+      folderList.flatMap((folder) => [folder, ...collectFolders(folder.subfolders || [])])
+    );
+
+    const fetchAllFolderFiles = async (folderId: string): Promise<FileItem[]> => {
+      const loadedFiles: FileItem[] = [];
+      let page = 1;
+      const pageSize = 100;
+      let hasNextPage = true;
+
+      while (hasNextPage) {
+        const pageResult = await fileService.fetchFolderFiles(folderId, page, pageSize);
+        const mappedPageFiles = pageResult.items.map((fileDto) => ({
+          ...mapFileDtoToFileItem(fileDto),
+          type: getFileDisplayType(fileDto.contentType),
+        }));
+        loadedFiles.push(...mappedPageFiles);
+        hasNextPage = pageResult.hasNextPage;
+        page += 1;
+      }
+
+      return loadedFiles;
+    };
+
     set(isLoadingFoldersAtom, true);
     try {
       const apiTree = await folderService.fetchFolderTree();
-      // In mock mode, API returns full Folder objects with emoji
-      // In real mode, API returns FolderTreeNodeDto, so we need to map
-      const mapFolder = (apiFolder: any): Folder => {
-        // If it's already a Folder with subfolders, return as is
-        if (apiFolder.subfolders !== undefined) {
-          return {
-            ...apiFolder,
-            subfolders: apiFolder.subfolders.map(mapFolder),
-          };
-        }
-        // Otherwise map from FolderTreeNodeDto
-        return {
-          id: apiFolder.id,
-          name: apiFolder.name,
-          description: apiFolder.description,
-          sortOrder: apiFolder.sortOrder,
-          fileCount: apiFolder.fileCount ?? 0,
-          subfolders: apiFolder.children?.map(mapFolder) || [],
-          emoji: apiFolder.emoji,
-          prompt: apiFolder.prompt,
-          customOrder: apiFolder.customOrder,
-        };
-      };
       const folders = apiTree.map(mapFolder);
+      const foldersWithFiles = collectFolders(folders);
+      const allFiles = (
+        await Promise.all(foldersWithFiles.map((folder) => fetchAllFolderFiles(folder.id)))
+      ).flat();
+
+      set(filesAtom, allFiles);
       set(foldersAtom, folders);
     } catch (error) {
       console.error('Failed to load folders:', error);

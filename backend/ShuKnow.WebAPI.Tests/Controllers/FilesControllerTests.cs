@@ -121,7 +121,7 @@ public class FilesControllerTests
         var response = await sut.DownloadFileContent(file.Id, "bytes= 10 - 20 ", CancellationToken.None);
 
         var fileResult = response.Should().BeOfType<FileStreamResult>().Subject;
-        fileResult.FileDownloadName.Should().Be("report.pdf");
+        fileResult.FileDownloadName.Should().BeNullOrEmpty();
         fileResult.ContentType.Should().Be("application/pdf");
         await fileService.Received(1)
             .GetContentAsync(file.Id, 10, 21, Arg.Any<CancellationToken>());

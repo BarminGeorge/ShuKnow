@@ -12,7 +12,7 @@ vi.mock('sonner', () => ({
 
 vi.mock('../../../../../api', () => ({
   fileService: {
-    uploadFile: vi.fn(),
+    uploadFileWithConflictRename: vi.fn(),
   },
 }));
 
@@ -39,7 +39,7 @@ describe('useFileUpload', () => {
 
   it('should handle image file upload', async () => {
     const mockCreateFile = vi.fn();
-    vi.mocked(fileService.uploadFile).mockResolvedValueOnce(
+    vi.mocked(fileService.uploadFileWithConflictRename).mockResolvedValueOnce(
       createUploadedFileDto('test.jpg', 'folder-1', 'image/jpeg', 13)
     );
 
@@ -66,7 +66,7 @@ describe('useFileUpload', () => {
 
   it('should handle PDF file upload', async () => {
     const mockCreateFile = vi.fn();
-    vi.mocked(fileService.uploadFile).mockResolvedValueOnce(
+    vi.mocked(fileService.uploadFileWithConflictRename).mockResolvedValueOnce(
       createUploadedFileDto('document.pdf', 'folder-1', 'application/pdf', 11)
     );
 
@@ -92,7 +92,7 @@ describe('useFileUpload', () => {
 
   it('should handle multiple files', async () => {
     const mockCreateFile = vi.fn();
-    vi.mocked(fileService.uploadFile)
+    vi.mocked(fileService.uploadFileWithConflictRename)
       .mockResolvedValueOnce(createUploadedFileDto('photo1.jpg', 'folder-1', 'image/jpeg', 6))
       .mockResolvedValueOnce(createUploadedFileDto('photo2.png', 'folder-1', 'image/png', 6));
 

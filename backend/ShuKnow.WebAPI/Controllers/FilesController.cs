@@ -63,12 +63,12 @@ public class FilesController(
             return BadRequest("Only single byte ranges in the format 'bytes=start-end' are supported.");
 
         var result = await fileService.GetByIdAsync(fileId, ct)
-            .BindAsync(file => fileService.GetContentAsync(fileId, rangeStart, rangeEnd, ct)
-                .MapAsync(content => (content.Content, content.ContentType, file.Name)))
+            .BindAsync(_ => fileService.GetContentAsync(fileId, rangeStart, rangeEnd, ct)
+                .MapAsync(content => (content.Content, content.ContentType)))
             .TapAsync(async _ => await metricsService.RecordContentOpenedAsync(fileId));
 
         return result.IsSuccess
-            ? File(result.Value.Content, result.Value.ContentType, result.Value.Name)
+            ? File(result.Value.Content, result.Value.ContentType)
             : result.Map().ToActionResult(this);
     }
 

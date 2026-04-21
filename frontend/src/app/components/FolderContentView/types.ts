@@ -22,12 +22,12 @@ export interface DraggableGridItemProps {
   item: GridItem;
   index: number;
   moveItem: (dragIndex: number, hoverIndex: number) => void;
-  onDragEnd: () => void;
+  onDragEnd: (dropResult?: { movedIntoFolder?: boolean; moved?: boolean }) => void;
   onFileContextMenu: (fileId: string, event: React.MouseEvent) => void;
   onFolderContextMenu: (folderId: string, event: React.MouseEvent) => void;
   onFolderClick: (folder: Folder) => void;
   onFileDoubleClick: (fileId: string) => void;
-  onMoveItemToFolder: (itemId: string, destFolderId: string, itemType: GridItemType) => void;
+  onMoveItemToFolder: (itemId: string, destFolderId: string, itemType: GridItemType) => void | Promise<void>;
   editingFileId: string | null;
   onFileNameChange: (fileId: string, newName: string) => void;
   onEditingComplete: () => void;

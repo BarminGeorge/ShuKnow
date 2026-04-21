@@ -24,7 +24,8 @@ public class FileRepository(AppDbContext context) : IFileRepository
             .AsNoTracking()
             .Include(file => file.Folder)
             .Where(file => file.FolderId == folderId && file.UserId == userId)
-            .OrderBy(file => file.Name);
+            .OrderBy(file => file.SortOrder)
+            .ThenBy(file => file.Name);
 
         var totalCount = await query.CountAsync();
 
@@ -115,7 +116,8 @@ public class FileRepository(AppDbContext context) : IFileRepository
             .AsNoTracking()
             .Include(file => file.Folder)
             .Where(file => file.FolderId == folderId && file.UserId == userId)
-            .OrderBy(file => file.Name)
+            .OrderBy(file => file.SortOrder)
+            .ThenBy(file => file.Name)
             .ToListAsync();
     }
 

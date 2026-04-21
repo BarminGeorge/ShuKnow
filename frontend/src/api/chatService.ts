@@ -1,4 +1,4 @@
-import { apiRequest, getAuthToken } from "./client";
+import { apiRequest } from "./client";
 
 export type ChatSessionStatus = "Active" | "Closed";
 
@@ -59,16 +59,10 @@ export async function uploadChatAttachments(files: File[]): Promise<AttachmentDt
     formData.append("files", file);
   }
   
-  const token = getAuthToken();
-  const headers: HeadersInit = {};
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-  
   const response = await fetch("/api/chat/attachments", {
     method: "POST",
-    headers,
     body: formData,
+    credentials: "include",
   });
   
   if (!response.ok) {

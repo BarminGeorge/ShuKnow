@@ -17,7 +17,7 @@ import { useAtomValue } from "jotai";
 import { toast } from "sonner";
 import { filesInCurrentFolderAtom } from "../store";
 import type { FolderContentViewProps } from "./FolderContentView/types";
-import { fileService } from "../../api";
+import { fileService, folderService } from "../../api";
 import { FolderHeader } from "./FolderContentView/components/FolderHeader";
 import { GridContainer } from "./FolderContentView/components/GridContainer";
 import { UploadZone } from "./FolderContentView/components/UploadZone";
@@ -38,7 +38,7 @@ export function FolderContentView({
 }: FolderContentViewProps) {
   // Jotai hooks
   const { currentFolder, breadcrumbs, selectedFolderPath } = useWorkspaceView();
-  const { updateFolder } = useFolders();
+  const { updateFolder, loadFolders } = useFolders();
   const { createFile, updateFile, deleteFile } = useFiles();
   const { openTab } = useTabs();
   const files = useAtomValue(filesInCurrentFolderAtom);
@@ -225,7 +225,7 @@ export function FolderContentView({
       const emptyTextFile = new File([""], name, {
         type: getContentTypeForFileName(name),
       });
-      const createdFile = await fileService.uploadFile(
+      const createdFile = await fileService.uploadFileWithConflictRename(
         folder.id,
         emptyTextFile,
         name,
@@ -354,6 +354,28 @@ export function FolderContentView({
     moveItem(dragIndex, hoverIndex);
   }, [captureGridPositions, moveItem]);
 
+  const persistGridOrder = useCallback(async () => {
+    const folderOrder = gridItems
+      .filter((item) => item.type === "folder")
+      .map((item) => item.id);
+    const fileOrder = gridItems
+      .filter((item) => item.type === "file")
+      .map((item) => item.id);
+
+    try {
+      for (const [position, folderId] of folderOrder.entries()) {
+        await folderService.reorderFolder(folderId, { position });
+      }
+
+      for (const [position, fileId] of fileOrder.entries()) {
+        await fileService.reorderFile(fileId, { position });
+      }
+    } catch (error) {
+      console.error("Failed to persist reordered items:", error);
+      toast.error("Не удалось сохранить порядок элементов");
+    }
+  }, [gridItems]);
+
   const handleFolderClick = (subfolder: Folder) => {
     const subfolderIndex = folder.subfolders?.findIndex((f) => f.id === subfolder.id) ?? -1;
     if (subfolderIndex !== -1) {
@@ -464,14 +486,29 @@ export function FolderContentView({
         isFileOver={isFileOver}
         emoji={emoji}
         moveItem={moveGridItemWithFlip}
-        onDragEnd={handleDragEnd}
+        onDragEnd={(dropResult) => {
+          handleDragEnd();
+          if (!dropResult?.movedIntoFolder) {
+            void persistGridOrder();
+          }
+        }}
         onFileContextMenu={handleFileContextMenu}
         onFolderContextMenu={handleFolderContextMenu}
         onFolderClick={handleFolderClick}
         onFileDoubleClick={openTab}
-        onMoveItemToFolder={(itemId, destFolderId, itemType) => {
+        onMoveItemToFolder={async (itemId, destFolderId, itemType) => {
           if (itemType === "file") {
             updateFile(itemId, { folderId: destFolderId });
+            setGridItems((prev) => prev.filter(i => i.id !== itemId));
+
+            try {
+              await fileService.moveFile(itemId, { targetFolderId: destFolderId });
+              await loadFolders();
+            } catch (error) {
+              console.error("Failed to move file:", error);
+              await loadFolders();
+              toast.error("Не удалось переместить файл");
+            }
           } else if (itemType === "folder") {
             const items = folder.subfolders || [];
             const draggedFolder = items.find(f => f.id === itemId);
@@ -483,9 +520,18 @@ export function FolderContentView({
                 return f;
               }).filter(f => f.id !== itemId);
               handleUpdateFolder({ subfolders: newSubfolders });
+              setGridItems((prev) => prev.filter(i => i.id !== itemId));
+
+              try {
+                await folderService.moveFolder(itemId, { newParentFolderId: destFolderId });
+                await loadFolders();
+              } catch (error) {
+                console.error("Failed to move folder:", error);
+                await loadFolders();
+                toast.error("Не удалось переместить папку");
+              }
             }
           }
-          setGridItems((prev) => prev.filter(i => i.id !== itemId));
         }}
         editingFileId={editingFileId}
         onFileNameChange={handleFileNameChange}
