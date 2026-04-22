@@ -8,6 +8,8 @@ interface InputConsoleProps {
   onSend?: (text: string, attachments?: Attachment[]) => void;
 }
 
+const CHAT_DRAFT_STORAGE_KEY = "shuknow-chat-draft";
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -20,7 +22,10 @@ function isImageFile(filename: string): boolean {
 }
 
 export function InputConsole({ onSend }: InputConsoleProps) {
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return window.sessionStorage.getItem(CHAT_DRAFT_STORAGE_KEY) ?? "";
+  });
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -83,6 +88,9 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     
     setInput("");
     setAttachments([]);
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(CHAT_DRAFT_STORAGE_KEY);
+    }
   };
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
@@ -157,6 +165,15 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     }
     e.target.value = "";
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (input.trim().length === 0) {
+      window.sessionStorage.removeItem(CHAT_DRAFT_STORAGE_KEY);
+      return;
+    }
+    window.sessionStorage.setItem(CHAT_DRAFT_STORAGE_KEY, input);
+  }, [input]);
 
   useEffect(() => {
     const textarea = textareaRef.current;
