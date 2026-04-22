@@ -75,7 +75,7 @@
       },
       "targets": [
         {
-          "expr": "100 * (1 - (sum(increase(shuknow_ai_items_manually_moved_total[30d])) / clamp_min(sum(increase(shuknow_ai_items_processed_total[30d])), 1)))",
+          "expr": "clamp_min(clamp_max(100 * (1 - ((sum(increase(shuknow_ai_items_manually_moved_total[30d])) or vector(0)) / clamp_min((sum(increase(shuknow_ai_items_processed_total[30d])) or vector(0)), 1))), 100), 0)",
           "refId": "A"
         }
       ],
@@ -136,7 +136,7 @@
       },
       "targets": [
         {
-          "expr": "100 * (sum(increase(shuknow_content_retrieved_30d_total[30d])) / clamp_min(sum(increase(shuknow_content_items_saved_total[30d])), 1))",
+          "expr": "100 * ((sum(increase(shuknow_content_retrieved_30d_total[30d])) or vector(0)) / clamp_min((sum(increase(shuknow_content_items_saved_total[30d])) or vector(0)), 1))",
           "refId": "A"
         }
       ],
@@ -197,7 +197,7 @@
       },
       "targets": [
         {
-          "expr": "100 * (sum(increase(shuknow_retention_returned_total[7d])) / clamp_min(sum(increase(shuknow_retention_cohort_total[7d] offset 7d)), 1))",
+          "expr": "100 * ((sum(increase(shuknow_retention_returned_total[7d])) or vector(0)) / clamp_min((sum(increase(shuknow_retention_cohort_total[7d] offset 7d)) or vector(0)), 1))",
           "refId": "A"
         }
       ],
@@ -248,7 +248,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(shuknow_events_total[$__rate_interval])) by (event_type)",
+          "expr": "sum(rate(shuknow_events_total[$__rate_interval])) by (event_type) or vector(0)",
           "legendFormat": "{{event_type}}",
           "refId": "A"
         }
@@ -300,7 +300,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(shuknow_content_access_total[$__rate_interval])) by (access_type)",
+          "expr": "sum(rate(shuknow_content_access_total[$__rate_interval])) by (access_type) or vector(0)",
           "legendFormat": "{{access_type}}",
           "refId": "A"
         }
@@ -352,22 +352,22 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(shuknow_content_items_saved_total[$__range]))",
+          "expr": "sum(increase(shuknow_content_items_saved_total[$__range])) or vector(0)",
           "legendFormat": "Saved",
           "refId": "A"
         },
         {
-          "expr": "sum(increase(shuknow_ai_items_processed_total[$__range]))",
+          "expr": "sum(increase(shuknow_ai_items_processed_total[$__range])) or vector(0)",
           "legendFormat": "AI processed",
           "refId": "B"
         },
         {
-          "expr": "sum(increase(shuknow_ai_items_manually_moved_total[$__range]))",
+          "expr": "sum(increase(shuknow_ai_items_manually_moved_total[$__range])) or vector(0)",
           "legendFormat": "Manually moved",
           "refId": "C"
         },
         {
-          "expr": "sum(increase(shuknow_content_retrieved_30d_total[$__range]))",
+          "expr": "sum(increase(shuknow_content_retrieved_30d_total[$__range])) or vector(0)",
           "legendFormat": "Retrieved in 30d",
           "refId": "D"
         }
@@ -479,7 +479,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(http_server_request_duration_seconds_count[$__rate_interval])) by (http_response_status_code)",
+          "expr": "sum(rate(http_server_request_duration_seconds_count[$__rate_interval])) by (http_response_status_code) or vector(0)",
           "legendFormat": "{{http_response_status_code}}",
           "refId": "A"
         }
@@ -531,12 +531,12 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket[$__rate_interval])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket[$__rate_interval])) by (le)) or vector(0)",
           "legendFormat": "p95",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.50, sum(rate(http_server_request_duration_seconds_bucket[$__rate_interval])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(http_server_request_duration_seconds_bucket[$__rate_interval])) by (le)) or vector(0)",
           "legendFormat": "p50",
           "refId": "B"
         }
@@ -591,7 +591,7 @@
       },
       "targets": [
         {
-          "expr": "sum(http_server_active_requests)",
+          "expr": "sum(http_server_active_requests) or vector(0)",
           "refId": "A"
         }
       ],
@@ -642,12 +642,12 @@
       },
       "targets": [
         {
-          "expr": "process_runtime_dotnet_gc_objects_size_bytes",
+          "expr": "process_runtime_dotnet_gc_objects_size_bytes or vector(0)",
           "legendFormat": "GC heap",
           "refId": "A"
         },
         {
-          "expr": "process_runtime_dotnet_gc_allocations_size_bytes_total",
+          "expr": "process_runtime_dotnet_gc_allocations_size_bytes_total or vector(0)",
           "legendFormat": "GC allocations total",
           "refId": "B"
         }
@@ -699,12 +699,12 @@
       },
       "targets": [
         {
-          "expr": "process_runtime_dotnet_thread_pool_queue_length",
+          "expr": "process_runtime_dotnet_thread_pool_queue_length or vector(0)",
           "legendFormat": "Thread pool queue",
           "refId": "A"
         },
         {
-          "expr": "process_runtime_dotnet_thread_pool_threads_count",
+          "expr": "process_runtime_dotnet_thread_pool_threads_count or vector(0)",
           "legendFormat": "Thread pool threads",
           "refId": "B"
         }
