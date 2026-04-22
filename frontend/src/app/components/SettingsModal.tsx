@@ -143,16 +143,18 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const loadSettings = async () => {
     try {
       const settings = await settingsService.fetchAiSettings();
-      
-      setBaseUrl(settings.isConfigured ? settings.baseUrl || "" : "");
-      setIsConfigured(settings.isConfigured);
+
+      const providerKey = normalizeProviderName(settings.provider);
+      const hasRequiredSettings =
+        !!settings.apiKeyMasked?.trim() &&
+        !!providerKey &&
+        !!settings.modelId?.trim();
+
+      setBaseUrl(settings.baseUrl || "");
+      setIsConfigured(settings.isConfigured || hasRequiredSettings);
       setApiKeyMasked(settings.apiKeyMasked || "");
-      
-      // Convert provider from lowercase to PascalCase for UI
-      const providerKey = settings.isConfigured ? normalizeProviderName(settings.provider) : "";
       setProvider(providerKey);
-      
-      setModelId(settings.isConfigured ? settings.modelId || "" : "");
+      setModelId(settings.modelId || "");
       setApiKey(""); // Don't load key for security
       
       // Disable automatic connectivity checks to avoid extra background requests.
@@ -430,7 +432,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </Select>
               </div>
               <div>
-                <label className={labelClass}>Base URL</label>
+                <div className="mb-2 flex items-center gap-2">
+                  <label className="text-sm font-medium text-gray-400">Base URL</label>
+                  <span className="rounded-full border border-white/[0.08] bg-white/[0.035] px-2 py-0.5 text-[11px] font-medium text-gray-500">
+                    необязательно
+                  </span>
+                </div>
                 <input
                   type="url"
                   value={baseUrl}
