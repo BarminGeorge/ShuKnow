@@ -24,15 +24,9 @@ public class ChatController(
     [HttpGet("session")]
     public async Task<ActionResult<ChatSessionDto>> GetChatSession(CancellationToken ct)
     {
-        var sessionResult = await chatService.GetOrCreateActiveSessionAsync(ct);
-        if (!sessionResult.IsSuccess)
-            return sessionResult
-                .Map(_ => new ChatSessionDto(Guid.Empty, default, 0, false))
-                .ToActionResult(this);
-
-        var countResult = await chatService.GetMessageCountAsync(ct);
-        return countResult
-            .Map(count => sessionResult.Value.ToDto(count))
+        return (await chatService.GetOrCreateActiveSessionAsync(ct)
+            .BindAsync(session => chatService.GetMessageCountAsync(ct)
+                .MapAsync(session.ToDto)))
             .ToActionResult(this);
     }
 
