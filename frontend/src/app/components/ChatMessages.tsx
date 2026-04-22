@@ -480,6 +480,7 @@ export function ChatMessages({ messages, onOpenFolder, onRetry, onResend, bottom
       <Virtuoso
         className="h-full"
         data={messages}
+        followOutput="smooth"
         computeItemKey={(_, message) => message.id}
         defaultItemHeight={360}
         overscan={{ main: 16800, reverse: 16800 }}
