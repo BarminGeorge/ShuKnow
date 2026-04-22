@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Ardalis.Result;
 using Microsoft.EntityFrameworkCore;
@@ -22,8 +23,7 @@ public class ChatMessageRepository(AppDbContext context) : IChatMessageRepositor
 
     public async Task<Result<IReadOnlyCollection<ChatMessage>>> GetBySessionAsync(Guid sessionId)
     {
-        var messages = await GetOrderedSessionMessagesQuery(sessionId).ToListAsync();
-        return Result.Success<IReadOnlyCollection<ChatMessage>>(messages.AsReadOnly());
+        return await GetOrderedSessionMessagesQuery(sessionId).ToListAsync();
     }
 
     public async Task<Result<(IReadOnlyList<ChatMessage> Messages, string? NextCursor)>> GetPageAsync(
@@ -83,7 +83,7 @@ public class ChatMessageRepository(AppDbContext context) : IChatMessageRepositor
         if (parts.Length != 3) return false;
 
         if (!Guid.TryParse(parts[0], out var sessionId) || sessionId != expectedSessionId) return false;
-        if (!DateTimeOffset.TryParse(parts[1], null, System.Globalization.DateTimeStyles.RoundtripKind, out var createdAt))
+        if (!DateTimeOffset.TryParse(parts[1], null, DateTimeStyles.RoundtripKind, out var createdAt))
             return false;
 
         if (!Guid.TryParse(parts[2], out var id)) return false;
