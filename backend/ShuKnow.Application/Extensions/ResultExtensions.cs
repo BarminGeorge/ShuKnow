@@ -99,11 +99,7 @@ public static class ResultExtensions
     
     public static async Task<Result<TSource>> Act<TSource>(this Task<Result<TSource>> result, Action<TSource> actFunc)
     {
-        return await result.MapAsync(source =>
-        {
-            actFunc(source);
-            return Task.FromResult(source);
-        });
+        return (await result).Act(actFunc);
     }
     
     public static Result<TSource> Act<TSource>(this Result<TSource> result, Action<TSource> actFunc)
