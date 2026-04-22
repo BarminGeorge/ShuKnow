@@ -22,10 +22,5 @@ internal class ChatSessionConfiguration : IEntityTypeConfiguration<ChatSession>
             .WithMany()
             .HasForeignKey(session => session.UserId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        builder.HasMany(session => session.Messages)
-            .WithOne()
-            .HasForeignKey(message => message.SessionId)
-            .OnDelete(DeleteBehavior.Cascade);
     }
 }

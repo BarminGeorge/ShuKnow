@@ -34,27 +34,6 @@ public class ChatSessionRepositoryTests : BaseRepositoryTests
     }
 
     [Test]
-    public async Task GetActiveAsync_ShouldIncludeOrderedMessages()
-    {
-        var user = await SeedUserAsync();
-        var session = await SeedSessionAsync(user.Id);
-        var laterMessage = ChatMessage.CreateUserMessage(session.Id, "later", index: 2);
-        var earlierMessage = ChatMessage.CreateSystemMessage(session.Id, "earlier", index: 1);
-
-        await using (var seedContext = CreateDbContext())
-        {
-            seedContext.ChatMessages.AddRange(laterMessage, earlierMessage);
-            await seedContext.SaveChangesAsync();
-        }
-
-        var result = await sut.GetActiveAsync(user.Id);
-
-        result.Status.Should().Be(ResultStatus.Ok);
-        result.Value.Messages.Should().NotBeNull();
-        result.Value.Messages.Select(message => message.Content).Should().Equal("earlier", "later");
-    }
-
-    [Test]
     public async Task GetActiveAsync_WhenOnlyClosedSessionExists_ShouldReturnNotFound()
     {
         var user = await SeedUserAsync();

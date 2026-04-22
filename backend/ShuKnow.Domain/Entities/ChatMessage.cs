@@ -9,48 +9,57 @@ public class ChatMessage : IEntity<Guid>
     public Guid SessionId { get; private set; }
     public ChatMessageRole Role { get; private set; }
     public string Content { get; private set; } = string.Empty;
-    public int? Index { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
 
     protected ChatMessage()
     {
     }
 
-    private ChatMessage(Guid chatMessageId, Guid sessionId, ChatMessageRole role, string content, int? index = null)
+    private ChatMessage(
+        Guid chatMessageId,
+        Guid sessionId,
+        ChatMessageRole role,
+        string content,
+        DateTimeOffset? createdAt = null)
     {
         Id = chatMessageId;
         SessionId = sessionId;
         Role = role;
         Content = content;
-        Index = index;
+        CreatedAt = createdAt ?? DateTimeOffset.UtcNow;
     }
 
-    public static ChatMessage CreateUserMessage(Guid sessionId, string content, int? index = null)
+    public static ChatMessage CreateUserMessage(Guid sessionId, string content, DateTimeOffset? createdAt = null)
     {
         return new ChatMessage(
             chatMessageId: Guid.NewGuid(),
             sessionId: sessionId,
             role: ChatMessageRole.User,
             content: content,
-            index: index);
+            createdAt: createdAt);
     }
 
-    public static ChatMessage CreateAiMessage(Guid messageId, Guid sessionId, string content, int? index = null)
+    public static ChatMessage CreateAiMessage(
+        Guid messageId,
+        Guid sessionId,
+        string content,
+        DateTimeOffset? createdAt = null)
     {
         return new ChatMessage(
             chatMessageId: messageId,
             sessionId: sessionId,
             role: ChatMessageRole.Ai,
             content: content,
-            index: index);
+            createdAt: createdAt);
     }
 
-    public static ChatMessage CreateSystemMessage(Guid sessionId, string content, int? index = null)
+    public static ChatMessage CreateSystemMessage(Guid sessionId, string content, DateTimeOffset? createdAt = null)
     {
         return new ChatMessage(
             chatMessageId: Guid.NewGuid(),
             sessionId: sessionId,
             role: ChatMessageRole.System,
             content: content,
-            index: index);
+            createdAt: createdAt);
     }
 }

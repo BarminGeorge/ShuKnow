@@ -9,8 +9,6 @@ public class ChatSession : IEntity<Guid>
 
     public Guid UserId { get; private set; }
     public ChatSessionStatus Status { get; private set; } = ChatSessionStatus.Active;
-    
-    public virtual IReadOnlyCollection<ChatMessage> Messages { get; private set; } = new List<ChatMessage>();
 
     protected ChatSession()
     {

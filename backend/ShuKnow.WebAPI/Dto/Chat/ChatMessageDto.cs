@@ -6,5 +6,5 @@ public record ChatMessageDto(
     Guid Id,
     ChatMessageRole Role,
     string Content,
-    int? Index,
+    DateTimeOffset CreatedAt,
     IReadOnlyList<AttachmentDto>? Attachments);

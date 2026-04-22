@@ -20,7 +20,7 @@ export interface ChatMessageDto {
   id: string;
   role: "User" | "Ai" | "System";
   content: string;
-  index?: number | null;
+  createdAt: string;
   attachments?: AttachmentDto[] | null;
 }
 
