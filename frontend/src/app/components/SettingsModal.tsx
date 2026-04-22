@@ -82,6 +82,15 @@ const normalizeProviderName = (value?: string | null) => {
   return PROVIDERS.find((providerName) => providerName.toLowerCase() === normalized) || value;
 };
 
+const isValidHttpUrl = (value: string) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
 const maskApiKey = (key: string, emptyValue = EMPTY_SETTING_VALUE, maskChar = "*") => {
   const trimmedKey = key.trim();
   const length = trimmedKey.length;
@@ -165,8 +174,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   };
 
   const handleSave = async () => {
-    if (!provider || !baseUrl.trim() || !modelId.trim() || !apiKey.trim()) {
-      setSaveError("Заполните провайдера, Base URL, модель и API ключ");
+    const trimmedBaseUrl = baseUrl.trim();
+
+    if (!provider || !modelId.trim() || !apiKey.trim()) {
+      setSaveError("Заполните провайдера, модель и API ключ");
+      return;
+    }
+
+    if (trimmedBaseUrl && !isValidHttpUrl(trimmedBaseUrl)) {
+      setSaveError("Base URL должен быть корректным HTTP(S) URL");
       return;
     }
     
@@ -177,7 +193,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       
       // Save settings without auto-testing connectivity
       await settingsService.updateAiSettings({
-        baseUrl,
+        baseUrl: trimmedBaseUrl,
         apiKey,
         provider: provider ? provider.toLowerCase() as AiProvider : undefined,
         modelId: modelId || undefined,

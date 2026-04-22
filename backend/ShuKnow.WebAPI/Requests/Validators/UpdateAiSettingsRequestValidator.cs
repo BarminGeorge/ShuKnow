@@ -8,8 +8,7 @@ public class UpdateAiSettingsRequestValidator : AbstractValidator<UpdateAiSettin
     public UpdateAiSettingsRequestValidator()
     {
         RuleFor(x => x.BaseUrl)
-            .NotEmpty().WithMessage("BaseUrl is required")
-            .Must(BeAValidUrl).WithMessage("BaseUrl must be a valid URL");
+            .Must(BeEmptyOrAValidUrl).WithMessage("BaseUrl must be a valid URL");
 
         RuleFor(x => x.ApiKey)
             .NotEmpty().WithMessage("ApiKey is required");
@@ -17,6 +16,14 @@ public class UpdateAiSettingsRequestValidator : AbstractValidator<UpdateAiSettin
         RuleFor(x => x.Provider)
             .IsInEnum().WithMessage("Invalid provider value")
             .When(x => x.Provider is not null);
+    }
+
+    private static bool BeEmptyOrAValidUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return true;
+
+        return BeAValidUrl(url.Trim());
     }
 
     private static bool BeAValidUrl(string url)
