@@ -13,10 +13,10 @@ interface SettingsModalProps {
 }
 
 const PROVIDER_MODELS: Record<string, string> = {
-  OpenAI: "gpt-4o",
-  OpenRouter: "openai/gpt-4o",
-  Gemini: "gemini-pro",
-  Anthropic: "claude-3-5-sonnet-20241022",
+  OpenAI: "gpt-5.4",
+  OpenRouter: "openrouter/free",
+  Gemini: "gemma-4-31b-it",
+  Anthropic: "claude-4-6-sonnet",
 };
 
 const PROVIDERS = ["OpenAI", "OpenRouter", "Gemini", "Anthropic"];
