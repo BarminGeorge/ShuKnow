@@ -107,8 +107,8 @@ public class TornadoAiService(
         }
         catch (HttpRequestException e)
         {
-            logger.LogError(e, "LLM invalid response");
-            return Invalid("LLM invalid response", ChatProcessingErrorCode.LlmInvalidResponse);
+            logger.LogError(e, "LLM internal error");
+            return Invalid($"LLM internal error: {e.StatusCode} '{e.Message}'", ChatProcessingErrorCode.LlmInvalidResponse);
         }
     }
 
