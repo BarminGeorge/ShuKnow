@@ -12,14 +12,6 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
-// Default base URLs for each provider
-const PROVIDER_URLS: Record<string, string> = {
-  OpenAI: "https://api.openai.com/v1",
-  OpenRouter: "https://openrouter.ai/api/v1",
-  Gemini: "https://generativelanguage.googleapis.com/v1beta",
-  Anthropic: "https://api.anthropic.com/v1",
-};
-
 const PROVIDER_MODELS: Record<string, string> = {
   OpenAI: "gpt-4o",
   OpenRouter: "openai/gpt-4o",
@@ -217,7 +209,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   const handleProviderChange = (nextProvider: string) => {
     setProvider(nextProvider);
-    setBaseUrl(PROVIDER_URLS[nextProvider] || "");
     setModelId(PROVIDER_MODELS[nextProvider] || "");
   };
 
