@@ -51,6 +51,7 @@ export function useChatController({
   const operationsRef = useRef(new Map<string, ChatOperation>());
   const latestOperationIdRef = useRef<string | null>(null);
   const backendMessageOperationIdsRef = useRef(new Map<string, string>());
+  const hasSessionResetRef = useRef(false);
 
   const extractOperationIdFromEvent = (event: unknown) => {
     if (event && typeof event === "object" && "operationId" in event) {
@@ -221,6 +222,22 @@ export function useChatController({
       },
     },
   });
+
+  useEffect(() => {
+    if (isMockMode || hasSessionResetRef.current) {
+      return;
+    }
+
+    hasSessionResetRef.current = true;
+    setMessages([]);
+    operationsRef.current.clear();
+    latestOperationIdRef.current = null;
+    backendMessageOperationIdsRef.current.clear();
+
+    void chatService.deleteChatSession().catch((error) => {
+      console.warn("Failed to reset chat session on startup:", error);
+    });
+  }, [isMockMode, setMessages]);
 
   useEffect(() => {
     if (isChatView) {
