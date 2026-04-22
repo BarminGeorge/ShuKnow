@@ -186,7 +186,15 @@ export function useChatController({
       },
 
       onFileMoved: (event) => {
-        markFoldersForRefresh(getOperationIdFromEvent(event));
+        const operationId = getOperationIdFromEvent(event);
+        const operation = operationId ? operationsRef.current.get(operationId) : undefined;
+        operation?.createdFiles.push({
+          name: event.fileName,
+          folder: event.toFolderId ? "Перемещено в папку" : "Перемещено в корень",
+          folderId: event.toFolderId ?? undefined,
+          action: "sorted",
+        });
+        markFoldersForRefresh(operationId);
       },
 
       onProcessingCompleted: (event: ProcessingCompletedEvent) => {

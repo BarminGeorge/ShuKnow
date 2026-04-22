@@ -357,6 +357,8 @@ const ChatMessageRow = memo(function ChatMessageRow({
   onRetry,
   onResend,
 }: ChatMessageRowProps) {
+  const hasPersistedChanges = (message.result?.length ?? 0) > 0;
+
   return (
     <div className={`px-4 py-5 ${index === 0 ? "pt-8" : ""}`}>
       <div className={`flex gap-4 ${message.type === "user" ? "justify-end" : ""}`}>
@@ -392,10 +394,12 @@ const ChatMessageRow = memo(function ChatMessageRow({
               {message.status === "success" && (
                 <div className="space-y-4">
                   <AgentMessageContent content={message.content} />
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 size={18} className="text-violet-200" />
-                    <span className="text-sm font-medium">Сохранено</span>
-                  </div>
+                  {hasPersistedChanges && (
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={18} className="text-violet-200" />
+                      <span className="text-sm font-medium">Сохранено</span>
+                    </div>
+                  )}
 
                   {message.result && (
                     <>
