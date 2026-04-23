@@ -9,15 +9,14 @@ using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Models;
 using ShuKnow.Domain.Entities;
-using ShuKnow.Infrastructure.Extensions;
 using ShuKnow.Infrastructure.Misc;
-using ChatMessage = LlmTornado.Chat.ChatMessage;
 using File = System.IO.File;
 
 namespace ShuKnow.Infrastructure.Services;
 
 public class TornadoPromptBuilder(
     IFolderService folderService,
+    IFileService fileService,
     IAttachmentService attachmentService,
     IBlobStorageService blobStorageService,
     IChatService chatService,
@@ -85,17 +84,11 @@ Prefer taking the needed tool actions over only describing what should be done.
 
     public async Task<Result<string>> CreateSystemInstructions(CancellationToken ct = default)
     {
-        // TODO: добавить файлы, а не только FolderSummary
         var promptBase = await LoadPromptBaseAsync(ct);
-        return await folderService.GetFolderTreeForPromptAsync(ct)
-            .MapAsync(folders => $"{BuildFolderContext(folders)}\n\n{promptBase}");
-    }
 
-    public async Task<Result<IEnumerable<ChatMessage>>> GetPreviousMessages(CancellationToken ct = default)
-    {
-        return await chatService.GetMessagesAsync(ct)
-            .MapAsync(messages => messages
-                .Select(message => message.MapToChatMessagePart()));
+        return await folderService.GetFolderTreeForPromptAsync(ct)
+            .BindAsync(async folders => await fileService.GetFileTreeForPromptAsync(ct)
+                .MapAsync(files => $"{BuildFolderContext(folders)}\n\n{BuildFileContext(files, folders)}\n\n{promptBase}"));
     }
 
     public async Task<Result<List<ChatMessagePart>>> CreateUserMessages(
@@ -186,6 +179,28 @@ Prefer taking the needed tool actions over only describing what should be done.
         return builder.ToString();
     }
 
+    private static string BuildFileContext(IReadOnlyList<FileSummary> files, IReadOnlyList<FolderSummary> folders)
+    {
+        var builder = new StringBuilder()
+            .AppendLine("<files>\n");
+
+        if (files.Count == 0)
+            builder.AppendLine("File list is empty");
+        else
+        {
+            foreach (var path in BuildFilePaths(files, folders))
+            {
+                builder.AppendLine("<file>");
+                builder.AppendLine($"Path: `{path}`");
+                builder.AppendLine("</file>");
+            }
+        }
+
+        builder.AppendLine("\n</files>");
+
+        return builder.ToString();
+    }
+
     private static IReadOnlyList<(string Path, string Description)> BuildFolderEntries(IReadOnlyList<FolderSummary> folders)
     {
         var foldersByParentId = folders.ToLookup(folder => folder.ParentFolderId);
@@ -206,6 +221,43 @@ Prefer taking the needed tool actions over only describing what should be done.
             var path = string.IsNullOrWhiteSpace(parentPath) ? folder.Name : $"{parentPath}/{folder.Name}";
             entries.Add((path, folder.Description));
             AppendFolderEntries(entries, foldersByParentId, folder.Id, path);
+        }
+    }
+
+    private static IReadOnlyList<string> BuildFilePaths(
+        IReadOnlyList<FileSummary> files,
+        IReadOnlyList<FolderSummary> folders)
+    {
+        var folderPaths = BuildFolderPathLookup(folders);
+
+        return files
+            .Select(file => file.FolderId.HasValue && folderPaths.TryGetValue(file.FolderId.Value, out var folderPath)
+                ? $"{folderPath}/{file.Name}"
+                : file.Name)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static IReadOnlyDictionary<Guid, string> BuildFolderPathLookup(IReadOnlyList<FolderSummary> folders)
+    {
+        var folderPaths = new Dictionary<Guid, string>();
+        var foldersByParentId = folders.ToLookup(folder => folder.ParentFolderId);
+
+        AppendFolderPaths(folderPaths, foldersByParentId, parentFolderId: null, parentPath: null);
+        return folderPaths;
+    }
+
+    private static void AppendFolderPaths(
+        IDictionary<Guid, string> folderPaths,
+        ILookup<Guid?, FolderSummary> foldersByParentId,
+        Guid? parentFolderId,
+        string? parentPath)
+    {
+        foreach (var folder in foldersByParentId[parentFolderId].OrderBy(folder => folder.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            var path = string.IsNullOrWhiteSpace(parentPath) ? folder.Name : $"{parentPath}/{folder.Name}";
+            folderPaths[folder.Id] = path;
+            AppendFolderPaths(folderPaths, foldersByParentId, folder.Id, path);
         }
     }
 }

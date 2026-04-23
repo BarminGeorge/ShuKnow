@@ -29,6 +29,14 @@ public class FileService(
         return await fileRepository.GetByIdAsync(fileId, CurrentUserId);
     }
 
+    public async Task<Result<IReadOnlyList<FileSummary>>> GetFileTreeForPromptAsync(CancellationToken ct = default)
+    {
+        return await fileRepository.GetByUserAsync(CurrentUserId)
+            .MapAsync(files => (IReadOnlyList<FileSummary>)files
+                .Select(file => new FileSummary(file.Id, file.Name, file.FolderId))
+                .ToList());
+    }
+
     public async Task<Result<File>> GetByPathAsync(string filePath, CancellationToken ct = default)
     {
         return await workspacePathService.ResolveFilePathAsync(filePath, ct)
