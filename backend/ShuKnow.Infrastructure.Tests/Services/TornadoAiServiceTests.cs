@@ -150,6 +150,33 @@ public class TornadoAiServiceTests
     }
 
     [Test]
+    public async Task ProcessMessageAsync_WhenUserMessagePersistenceFails_ShouldReturnFailure()
+    {
+        chatService.PersistMessageAsync(Arg.Any<ChatMessage>(), Arg.Any<CancellationToken>())
+            .Returns(Error<ChatMessage>("persist failed"));
+
+        var result = await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+
+        result.Status.Should().Be(ResultStatus.Error);
+        result.Errors.Should().ContainSingle().Which.Should().Be("persist failed");
+    }
+
+    [Test]
+    public async Task ProcessMessageAsync_WhenUserMessagePersistenceFails_ShouldNotStartStreamingResponse()
+    {
+        chatService.PersistMessageAsync(Arg.Any<ChatMessage>(), Arg.Any<CancellationToken>())
+            .Returns(Error<ChatMessage>("persist failed"));
+
+        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+
+        await conversation.DidNotReceive()
+            .StreamResponseWithToolsAsync(
+                Arg.Any<Func<List<FunctionCall>, CancellationToken, ValueTask>>(),
+                Arg.Any<Func<string, ValueTask>>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Test]
     public async Task ProcessMessageAsync_ShouldCreateConversationWithCorrectSettings()
     {
         UserAiSettings? capturedSettings = null;
@@ -268,6 +295,19 @@ public class TornadoAiServiceTests
     }
 
     [Test]
+    public async Task ProcessMessageAsync_ShouldNotDuplicateCurrentUserMessageInPreviousHistory()
+    {
+        var previousMessage = ChatMessage.CreateSystemMessage(session.Id, "existing instruction");
+        chatService.GetMessagesAsync(Arg.Any<CancellationToken>())
+            .Returns(Success<IReadOnlyCollection<ChatMessage>>([previousMessage]));
+
+        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+
+        conversation.Received(1).AddMessages(Arg.Is<IEnumerable<TornadoChatMessage>>(messages =>
+            messages.Select(message => message.Content).SequenceEqual(new[] { previousMessage.Content })));
+    }
+
+    [Test]
     public async Task ProcessMessageAsync_WhenNoPreviousMessages_ShouldAddEmptyList()
     {
         chatService.GetMessagesAsync(Arg.Any<CancellationToken>())
@@ -308,6 +348,23 @@ public class TornadoAiServiceTests
                 m.Role == ChatMessageRole.User &&
                 m.Content == prompt),
             Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task ProcessMessageAsync_WhenSuccessful_ShouldPersistUserMessageBeforeStreamingResponse()
+    {
+        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+
+        Received.InOrder(() =>
+        {
+            chatService.PersistMessageAsync(
+                Arg.Is<ChatMessage>(message => message.Role == ChatMessageRole.User && message.Content == "hello"),
+                Arg.Any<CancellationToken>());
+            conversation.StreamResponseWithToolsAsync(
+                Arg.Any<Func<List<FunctionCall>, CancellationToken, ValueTask>>(),
+                Arg.Any<Func<string, ValueTask>>(),
+                Arg.Any<CancellationToken>());
+        });
     }
 
     [Test]
@@ -628,7 +685,7 @@ public class TornadoAiServiceTests
     }
 
     [Test]
-    public async Task ProcessMessageAsync_WhenConversationDoesNotConverge_ShouldNotPersistMessages()
+    public async Task ProcessMessageAsync_WhenConversationDoesNotConverge_ShouldNotPersistAiMessages()
     {
         conversation.StreamResponseWithToolsAsync(
                 Arg.Any<Func<List<FunctionCall>, CancellationToken, ValueTask>>(),
@@ -638,8 +695,6 @@ public class TornadoAiServiceTests
 
         await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
 
-        await chatService.DidNotReceive()
-            .PersistMessageAsync(Arg.Any<ChatMessage>(), Arg.Any<CancellationToken>());
         await chatService.DidNotReceive()
             .PersistMessagesAsync(Arg.Any<IReadOnlyCollection<ChatMessage>>(), Arg.Any<CancellationToken>());
     }

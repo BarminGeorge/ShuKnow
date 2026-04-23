@@ -6,6 +6,7 @@ using ShuKnow.Application.Common;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Models.Notifications;
 using ShuKnow.Domain.Entities;
+using ShuKnow.Infrastructure.Extensions;
 using ShuKnow.Infrastructure.Misc;
 using static ShuKnow.Application.Extensions.ResultExtensions;
 using ChatMessage = ShuKnow.Domain.Entities.ChatMessage;
@@ -30,14 +31,24 @@ public class TornadoAiService(
         UserAiSettings settings, Guid operationId, CancellationToken ct = default)
     {
         return await chatService.GetOrCreateActiveSessionAsync(ct)
-            .BindAsync(session => conversationFactory.CreateConversation(settings, toolsService.Tools, temperature)
-                .ActAsync(conversation => PrepareConversation(conversation, content, attachmentIds, ct))
-                .BindAsync(conversation => RunWithTools(conversation, session.Id, operationId, ct))
-                .ActAsync(_ => attachmentIds is null or { Count: 0 }
-                    ? Task.FromResult(Result.Success())
-                    : attachmentService.MarkConsumedAsync(attachmentIds, ct))
-                .ActAsync(_ => chatService.PersistMessageAsync(ChatMessage.CreateUserMessage(session.Id, content), ct))
-                .ActAsync(messages => chatService.PersistMessagesAsync(messages, ct))
+            .BindAsync(session => chatService.GetMessagesAsync(ct)
+                .Map(previousMessages => new ConversationContext(
+                    session,
+                    previousMessages,
+                    ChatMessage.CreateUserMessage(session.Id, content))))
+            .BindAsync(context => conversationFactory.CreateConversation(settings, toolsService.Tools, temperature)
+                .ActAsync(_ => chatService.PersistMessageAsync(context.UserMessage, ct))
+                .ActAsync(conversation => PrepareConversation(
+                    conversation,
+                    context.PreviousMessages,
+                    context.UserMessage.Content,
+                    attachmentIds,
+                    ct))
+                .BindAsync(conversation => RunWithTools(conversation, context.Session.Id, operationId, ct)
+                    .ActAsync(_ => attachmentIds is null or { Count: 0 }
+                        ? Task.FromResult(Result.Success())
+                        : attachmentService.MarkConsumedAsync(attachmentIds, ct))
+                    .ActAsync(messages => chatService.PersistMessagesAsync(messages, ct)))
             )
             .BindAsync(_ => Result.Success());
     }
@@ -54,13 +65,14 @@ public class TornadoAiService(
         return settings;
     }
 
-    private async Task<Result> PrepareConversation<T>(T conversation, string content,
+    private async Task<Result> PrepareConversation<T>(T conversation,
+        IReadOnlyCollection<ChatMessage> previousMessages,
+        string content,
         IReadOnlyCollection<Guid>? attachmentIds, CancellationToken ct = default) where T : ITornadoConversation
     {
         return await promptBuilder.CreateSystemInstructions(ct)
             .Act(conversation.PrependSystemMessage)
-            .BindAsync(_ => promptBuilder.GetPreviousMessages(ct))
-            .Act(conversation.AddMessages)
+            .Act(_ => conversation.AddMessages(previousMessages.Select(message => message.MapToChatMessagePart())))
             .BindAsync(_ => promptBuilder.CreateUserMessages(content, attachmentIds, ct))
             .Act(conversation.AddUserMessage)
             .BindAsync(_ => Result.Success());
@@ -123,4 +135,9 @@ public class TornadoAiService(
         logger.LogError(response.Exception, "Error while processing message with Tornado API");
         return Result.Error("Error while processing message");
     }
+
+    private sealed record ConversationContext(
+        ChatSession Session,
+        IReadOnlyCollection<ChatMessage> PreviousMessages,
+        ChatMessage UserMessage);
 }
