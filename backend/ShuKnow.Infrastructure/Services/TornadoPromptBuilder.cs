@@ -80,6 +80,7 @@ Prefer taking the needed tool actions over only describing what should be done.
 - Before creating new files or folders, make sure the existing ones aren't suitable.
 - If the user gives content to keep, preserve the important details when saving it. 
 - If the user asks a question instead of asking to save something, answer it normally unless tool use is clearly needed.
+- Before creating or saving a file, make sure the parent folder exists.
 </rules>
 """;
 
