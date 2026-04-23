@@ -20,7 +20,11 @@ services:
         condition: service_healthy
       rustfs:
         condition: service_started
-
+  
+  postgres:
+    ports:
+      - "127.0.0.1:54322:5432"
+  
   frontend:
     image: shuknow-frontend-local
     pull_policy: never

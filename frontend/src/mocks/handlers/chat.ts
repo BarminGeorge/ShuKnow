@@ -34,7 +34,18 @@ export const chatHandlers = [
   // GET /api/chat/session/messages
   http.get(`${API_BASE}/chat/session/messages`, () => {
     return HttpResponse.json({
-      items: [],
+      items: [] as Array<{
+        id: string;
+        role: "User" | "Ai" | "System";
+        content: string;
+        createdAt: string;
+        attachments?: Array<{
+          id: string;
+          fileName: string;
+          contentType: string;
+          sizeBytes: number;
+        }> | null;
+      }>,
       nextCursor: null,
       hasMore: false,
     });

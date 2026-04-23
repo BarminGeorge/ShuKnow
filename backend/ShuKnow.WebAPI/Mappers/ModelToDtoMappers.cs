@@ -18,12 +18,12 @@ public static class ModelToDtoMappers
         return new UserDto(user.Id, user.Login);
     }
 
-    public static ChatSessionDto ToDto(this ChatSession session)
+    public static ChatSessionDto ToDto(this ChatSession session, int messageCount)
     {
         return new ChatSessionDto(
             session.Id,
             (ApiChatSessionStatus)session.Status,
-            session.Messages?.Count ?? 0,
+            messageCount,
             false);
     }
 
@@ -33,7 +33,7 @@ public static class ModelToDtoMappers
             message.Id,
             (ApiChatMessageRole)message.Role,
             message.Content,
-            message.Index,
+            message.CreatedAt,
             null);
     }
 

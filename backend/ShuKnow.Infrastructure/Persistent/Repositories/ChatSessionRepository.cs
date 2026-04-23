@@ -12,7 +12,6 @@ public class ChatSessionRepository(AppDbContext context) : IChatSessionRepositor
     {
         var session = await context.ChatSessions
             .AsNoTracking()
-            .Include(session => session.Messages.OrderBy(message => message.Index).ThenBy(message => message.Id))
             .SingleOrDefaultAsync(session => session.UserId == userId && session.Status == ChatSessionStatus.Active);
 
         return session is null ? Result.NotFound() : Result.Success(session);

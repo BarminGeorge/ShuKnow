@@ -45,26 +45,26 @@ public class ModelToDtoMappersTests
     }
 
     [Test]
-    public void ToDto_WhenChatSessionHasMessages_ShouldMapMessageCount()
+    public void ToDto_WhenChatSessionMapped_ShouldMapProvidedMessageCount()
     {
         var session = new ChatSession(Guid.NewGuid(), Guid.NewGuid());
-        var messages = new[]
-        {
-            ChatMessage.CreateUserMessage(session.Id, "Hello"),
-            ChatMessage.CreateAiMessage(Guid.NewGuid(), session.Id, "Hi")
-        };
-        SetMessages(session, messages);
 
-        var dto = session.ToDto();
+        var dto = session.ToDto(messageCount: 2);
 
-        dto.MessageCount.Should().Be(messages.Length);
+        dto.MessageCount.Should().Be(2);
         dto.CanRollback.Should().BeFalse();
     }
 
-    private static void SetMessages(ChatSession session, IReadOnlyCollection<ChatMessage> messages)
+    [Test]
+    public void ToDto_WhenChatMessageMapped_ShouldUseCreatedAtInsteadOfIndex()
     {
-        typeof(ChatSession)
-            .GetProperty(nameof(ChatSession.Messages))!
-            .SetValue(session, messages);
+        var createdAt = new DateTimeOffset(2026, 04, 01, 12, 00, 00, TimeSpan.Zero);
+        var message = ChatMessage.CreateUserMessage(Guid.NewGuid(), "Hello", createdAt);
+
+        var dto = message.ToDto();
+
+        dto.Id.Should().Be(message.Id);
+        dto.Content.Should().Be("Hello");
+        dto.CreatedAt.Should().Be(createdAt);
     }
 }

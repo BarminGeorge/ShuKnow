@@ -49,7 +49,13 @@ public class ChatService(
     public async Task<Result<IReadOnlyCollection<ChatMessage>>> GetMessagesAsync(CancellationToken ct = default)
     {
         return await GetOrCreateActiveSessionAsync(ct)
-            .MapAsync(session => session.Messages);
+            .BindAsync(session => chatMessageRepository.GetBySessionAsync(session.Id));
+    }
+
+    public async Task<Result<int>> GetMessageCountAsync(CancellationToken ct = default)
+    {
+        return await GetOrCreateActiveSessionAsync(ct)
+            .BindAsync(session => chatMessageRepository.CountBySessionAsync(session.Id));
     }
 
     public async Task<Result<ChatMessage>> PersistMessageAsync(ChatMessage message, CancellationToken ct = default)

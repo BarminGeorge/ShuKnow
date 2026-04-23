@@ -17,12 +17,20 @@ public class ChatMessageRepositoryTests : BaseRepositoryTests
     }
 
     [Test]
-    public async Task WithMixedNullAndNonNullIndexes_ShouldReturnCorrectOrderAndPages()
+    public async Task WithMixedCreatedAtValues_ShouldReturnCorrectOrderAndPages()
     {
         var user = await SeedUserAsync();
         var session = await SeedSessionAsync(user.Id);
+        var start = new DateTimeOffset(2026, 04, 01, 12, 00, 00, TimeSpan.Zero);
 
-        await SeedMessagesAsync(session.Id, null, null, 1, 2, null, 3);
+        await SeedMessagesAsync(
+            session.Id,
+            start,
+            start.AddMinutes(3),
+            start.AddMinutes(1),
+            start.AddMinutes(4),
+            start.AddMinutes(2),
+            start.AddMinutes(5));
         
         var expectedOrder = await GetExpectedOrderAsync(session.Id);
 
@@ -38,12 +46,13 @@ public class ChatMessageRepositoryTests : BaseRepositoryTests
     }
 
     [Test]
-    public async Task WithDuplicateIndexes_ShouldUseIdAsTieBreaker()
+    public async Task WithDuplicateCreatedAtValues_ShouldUseIdAsTieBreaker()
     {
         var user = await SeedUserAsync();
         var session = await SeedSessionAsync(user.Id);
+        var createdAt = new DateTimeOffset(2026, 04, 01, 12, 00, 00, TimeSpan.Zero);
 
-        await SeedMessagesAsync(session.Id, 5, 5, 5, 5, 5);
+        await SeedMessagesAsync(session.Id, createdAt, createdAt, createdAt, createdAt, createdAt);
         
         var expectedOrder = await GetExpectedOrderAsync(session.Id);
 
@@ -63,8 +72,14 @@ public class ChatMessageRepositoryTests : BaseRepositoryTests
     {
         var user = await SeedUserAsync();
         var session = await SeedSessionAsync(user.Id);
+        var start = new DateTimeOffset(2026, 04, 01, 12, 00, 00, TimeSpan.Zero);
 
-        await SeedMessagesAsync(session.Id, null, 1, 1, 2);
+        await SeedMessagesAsync(
+            session.Id,
+            start,
+            start.AddMinutes(1),
+            start.AddMinutes(1),
+            start.AddMinutes(2));
         var expectedOrder = await GetExpectedOrderAsync(session.Id);
 
         var page1 = await sut.GetPageAsync(session.Id, null, 2);
@@ -87,7 +102,10 @@ public class ChatMessageRepositoryTests : BaseRepositoryTests
         var user2 = await SeedUserAsync();
         var session2 = await SeedSessionAsync(user2.Id);
 
-        await SeedMessagesAsync(session1.Id, 1, 2);
+        await SeedMessagesAsync(
+            session1.Id,
+            new DateTimeOffset(2026, 04, 01, 12, 00, 00, TimeSpan.Zero),
+            new DateTimeOffset(2026, 04, 01, 12, 01, 00, TimeSpan.Zero));
         var s1Page = await sut.GetPageAsync(session1.Id, null, 1);
         
         var foreignCursor = s1Page.Value.NextCursor;
@@ -126,12 +144,12 @@ public class ChatMessageRepositoryTests : BaseRepositoryTests
         return session;
     }
 
-    private async Task SeedMessagesAsync(Guid sessionId, params int?[] indexes)
+    private async Task SeedMessagesAsync(Guid sessionId, params DateTimeOffset[] createdAtValues)
     {
         await using var seedContext = CreateDbContext();
-        foreach (var index in indexes)
+        foreach (var createdAt in createdAtValues)
         {
-            var msg = ChatMessage.CreateUserMessage(sessionId, $"Message {index}", index);
+            var msg = ChatMessage.CreateUserMessage(sessionId, $"Message {createdAt:O}", createdAt);
             seedContext.ChatMessages.Add(msg);
         }
         await seedContext.SaveChangesAsync();
@@ -142,7 +160,7 @@ public class ChatMessageRepositoryTests : BaseRepositoryTests
         await using var ctx = CreateDbContext();
         return await ctx.ChatMessages
             .Where(m => m.SessionId == sessionId)
-            .OrderBy(m => m.Index)
+            .OrderBy(m => m.CreatedAt)
             .ThenBy(m => m.Id)
             .ToListAsync();
     }

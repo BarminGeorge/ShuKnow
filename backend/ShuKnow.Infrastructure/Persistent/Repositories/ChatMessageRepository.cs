@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Ardalis.Result;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,11 @@ public class ChatMessageRepository(AppDbContext context) : IChatMessageRepositor
         return Task.FromResult(Result.Success());
     }
 
+    public async Task<Result<IReadOnlyCollection<ChatMessage>>> GetBySessionAsync(Guid sessionId)
+    {
+        return await GetOrderedSessionMessagesQuery(sessionId).ToListAsync();
+    }
+
     public async Task<Result<(IReadOnlyList<ChatMessage> Messages, string? NextCursor)>> GetPageAsync(
         Guid sessionId,
         string? cursor,
@@ -32,18 +38,9 @@ public class ChatMessageRepository(AppDbContext context) : IChatMessageRepositor
             if (!TryParseCursor(cursor, sessionId, out var cursorData))
                 return Result.Invalid(new ValidationError("Invalid or tampered cursor provided."));
 
-            if (cursorData.Index.HasValue)
-            {
-                query = query.Where(m =>
-                    m.Index > cursorData.Index ||
-                    m.Index == null ||
-                    (m.Index == cursorData.Index && m.Id.CompareTo(cursorData.Id) > 0));
-            }
-            else
-            {
-                query = query.Where(m =>
-                    m.Index == null && m.Id.CompareTo(cursorData.Id) > 0);
-            }
+            query = query.Where(m =>
+                m.CreatedAt > cursorData.CreatedAt ||
+                (m.CreatedAt == cursorData.CreatedAt && m.Id.CompareTo(cursorData.Id) > 0));
         }
 
         var messages = await query.Take(limit + 1).ToListAsync();
@@ -60,11 +57,17 @@ public class ChatMessageRepository(AppDbContext context) : IChatMessageRepositor
         return Result.Success();
     }
 
+    public async Task<Result<int>> CountBySessionAsync(Guid sessionId)
+    {
+        var count = await context.ChatMessages.CountAsync(message => message.SessionId == sessionId);
+        return Result.Success(count);
+    }
+
     private IQueryable<ChatMessage> GetOrderedSessionMessagesQuery(Guid sessionId) =>
         context.ChatMessages
             .AsNoTracking()
             .Where(m => m.SessionId == sessionId)
-            .OrderBy(m => m.Index)
+            .OrderBy(m => m.CreatedAt)
             .ThenBy(m => m.Id);
 
     private static bool TryParseCursor(string encodedCursor, Guid expectedSessionId, out CursorData cursorData)
@@ -80,23 +83,18 @@ public class ChatMessageRepository(AppDbContext context) : IChatMessageRepositor
         if (parts.Length != 3) return false;
 
         if (!Guid.TryParse(parts[0], out var sessionId) || sessionId != expectedSessionId) return false;
-
-        int? index = null;
-        if (!string.IsNullOrEmpty(parts[1]))
-        {
-            if (!int.TryParse(parts[1], out var parsedIndex)) return false;
-            index = parsedIndex;
-        }
+        if (!DateTimeOffset.TryParse(parts[1], null, DateTimeStyles.RoundtripKind, out var createdAt))
+            return false;
 
         if (!Guid.TryParse(parts[2], out var id)) return false;
 
-        cursorData = new CursorData(index, id);
+        cursorData = new CursorData(createdAt, id);
         return true;
     }
 
     private static string EncodeCursor(ChatMessage message)
     {
-        var str = $"{message.SessionId:N}|{message.Index}|{message.Id:N}";
+        var str = $"{message.SessionId:N}|{message.CreatedAt:O}|{message.Id:N}";
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(str));
     }
 
@@ -105,5 +103,5 @@ public class ChatMessageRepository(AppDbContext context) : IChatMessageRepositor
             ? (messages.GetRange(0, limit).AsReadOnly(), EncodeCursor(messages[limit - 1]))
             : (messages.AsReadOnly(), null);
 
-    private readonly record struct CursorData(int? Index, Guid Id);
+    private readonly record struct CursorData(DateTimeOffset CreatedAt, Guid Id);
 }

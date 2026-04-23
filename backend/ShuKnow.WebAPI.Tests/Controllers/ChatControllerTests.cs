@@ -43,6 +43,25 @@ public class ChatControllerTests
     }
 
     [Test]
+    public async Task GetChatSession_WhenActiveSessionExists_ShouldReturnDtoWithRepositoryBackedMessageCount()
+    {
+        var session = new ChatSession(Guid.NewGuid(), currentUserId);
+        chatService.GetOrCreateActiveSessionAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success(session)));
+        chatService.GetMessageCountAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success(4)));
+
+        var response = await sut.GetChatSession(CancellationToken.None);
+
+        var objectResult = response.Result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(StatusCodes.Status200OK);
+        var dto = objectResult.Value.Should().BeOfType<ChatSessionDto>().Subject;
+        dto.Id.Should().Be(session.Id);
+        dto.MessageCount.Should().Be(4);
+        dto.CanRollback.Should().BeFalse();
+    }
+
+    [Test]
     public async Task UploadChatAttachments_WhenFilesProvided_ShouldPersistAttachmentsAndReturnDtos()
     {
         var formFiles = new FormFileCollection

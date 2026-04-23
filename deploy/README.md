@@ -80,6 +80,12 @@ Workflow: `.github/workflows/publish-docker-ghcr.yml`
 docker compose --env-file .env.prod -f compose.prod.yaml -f compose.override.yaml up -d --build
 ```
 
+Для миграции:
+
+```bash
+docker compose --env-file .env.prod -f compose.prod.yaml -f compose.override.yaml up migrator --build
+```
+
 Этот режим:
 
 - не запускает `certbot-init` и `certbot`;

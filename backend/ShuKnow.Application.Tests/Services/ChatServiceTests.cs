@@ -136,6 +136,41 @@ public class ChatServiceTests
     }
 
     [Test]
+    public async Task GetMessagesAsync_WithoutCursor_ShouldReturnSortedMessagesFromRepository()
+    {
+        var session = CreateSession();
+        var messages = new[]
+        {
+            ChatMessage.CreateUserMessage(session.Id, "hello")
+        };
+
+        chatSessionRepository.GetActiveAsync(currentUserId).Returns(Success(session));
+        chatMessageRepository.GetBySessionAsync(session.Id)
+            .Returns(Success<IReadOnlyCollection<ChatMessage>>(messages));
+
+        var result = await sut.GetMessagesAsync();
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().BeEquivalentTo(messages);
+        await chatMessageRepository.Received(1).GetBySessionAsync(session.Id);
+    }
+
+    [Test]
+    public async Task GetMessageCountAsync_WhenCalled_ShouldReturnRepositoryCountForActiveSession()
+    {
+        var session = CreateSession();
+
+        chatSessionRepository.GetActiveAsync(currentUserId).Returns(Success(session));
+        chatMessageRepository.CountBySessionAsync(session.Id).Returns(Success(3));
+
+        var result = await sut.GetMessageCountAsync();
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().Be(3);
+        await chatMessageRepository.Received(1).CountBySessionAsync(session.Id);
+    }
+
+    [Test]
     public async Task PersistMessageAsync_WhenSessionDoesNotExist_ShouldReturnNotFound()
     {
         var session = CreateSession();
@@ -171,9 +206,13 @@ public class ChatServiceTests
         chatSessionRepository.AddAsync(Arg.Any<ChatSession>()).Returns(Success());
         chatSessionRepository.DeleteAsync(Arg.Any<Guid>()).Returns(Success());
         chatMessageRepository.AddAsync(Arg.Any<ChatMessage>()).Returns(Success());
+        chatMessageRepository.AddRangeAsync(Arg.Any<IReadOnlyCollection<ChatMessage>>()).Returns(Success());
+        chatMessageRepository.GetBySessionAsync(Arg.Any<Guid>())
+            .Returns(Success<IReadOnlyCollection<ChatMessage>>([]));
         chatMessageRepository.DeleteBySessionAsync(Arg.Any<Guid>()).Returns(Success());
         chatMessageRepository.GetPageAsync(Arg.Any<Guid>(), Arg.Any<string?>(), Arg.Any<int>())
             .Returns(Success<(IReadOnlyList<ChatMessage> Messages, string? NextCursor)>(([], null)));
+        chatMessageRepository.CountBySessionAsync(Arg.Any<Guid>()).Returns(Success(0));
     }
 
     private ChatSession CreateSession(Guid? sessionId = null)

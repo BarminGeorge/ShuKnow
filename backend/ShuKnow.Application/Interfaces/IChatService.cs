@@ -16,6 +16,8 @@ public interface IChatService
     
     Task<Result<IReadOnlyCollection<ChatMessage>>> GetMessagesAsync(CancellationToken ct = default);
 
+    Task<Result<int>> GetMessageCountAsync(CancellationToken ct = default);
+
     Task<Result<ChatMessage>> PersistMessageAsync(ChatMessage message, CancellationToken ct = default);
     
     Task<Result> PersistMessagesAsync(
