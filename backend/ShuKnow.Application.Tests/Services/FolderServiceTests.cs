@@ -5,6 +5,7 @@ using NSubstitute;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Models;
 using ShuKnow.Domain.Entities;
+using ShuKnow.Domain.Errors;
 using ShuKnow.Domain.Repositories;
 using DomainFile = ShuKnow.Domain.Entities.File;
 
@@ -454,9 +455,9 @@ public class FolderServiceTests
     {
         unitOfWork.SaveChangesAsync().Returns(Success());
         workspacePathService.ResolveFolderAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result<Folder>.NotFound()));
+            .Returns(Task.FromResult(Result<Folder>.NotFound(ResultErrorMessages.NotFound)));
         workspacePathService.ResolveFolderCreationPathAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result<ResolvedFolderCreationPath>.NotFound()));
+            .Returns(Task.FromResult(Result<ResolvedFolderCreationPath>.NotFound(ResultErrorMessages.NotFound)));
         folderRepository.GetTreeAsync(Arg.Any<Guid>()).Returns(Success<IReadOnlyList<Folder>>([]));
         folderRepository.GetRootFoldersAsync(Arg.Any<Guid>()).Returns(Success<IReadOnlyList<Folder>>([]));
         folderRepository.GetChildrenAsync(Arg.Any<Guid?>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<Folder>>([]));
@@ -534,6 +535,6 @@ public class FolderServiceTests
 
     private static Task<Result<T>> NotFound<T>()
     {
-        return Task.FromResult(Result<T>.NotFound());
+        return Task.FromResult(Result<T>.NotFound(ResultErrorMessages.NotFound));
     }
 }

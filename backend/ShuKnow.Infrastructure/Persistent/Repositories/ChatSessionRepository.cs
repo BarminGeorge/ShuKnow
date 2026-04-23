@@ -2,6 +2,7 @@ using Ardalis.Result;
 using Microsoft.EntityFrameworkCore;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Enums;
+using ShuKnow.Domain.Errors;
 using ShuKnow.Domain.Repositories;
 
 namespace ShuKnow.Infrastructure.Persistent.Repositories;
@@ -14,7 +15,7 @@ public class ChatSessionRepository(AppDbContext context) : IChatSessionRepositor
             .AsNoTracking()
             .SingleOrDefaultAsync(session => session.UserId == userId && session.Status == ChatSessionStatus.Active);
 
-        return session is null ? Result.NotFound() : Result.Success(session);
+        return session is null ? Result.NotFound(ResultErrorMessages.NotFound) : Result.Success(session);
     }
 
     public Task<Result> AddAsync(ChatSession session)

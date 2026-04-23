@@ -2,6 +2,7 @@ using Ardalis.Result;
 using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Domain.Entities;
+using ShuKnow.Domain.Errors;
 using ShuKnow.Domain.Repositories;
 
 namespace ShuKnow.Application.Services;
@@ -63,7 +64,7 @@ public class ChatService(
         return await chatSessionRepository.GetActiveAsync(CurrentUserId)
             .BindAsync(session => message.SessionId == session.Id
                 ? Result.Success(session)
-                : Result<ChatSession>.NotFound())
+                : Result<ChatSession>.NotFound(ResultErrorMessages.NotFound))
             .BindAsync(_ => chatMessageRepository.AddAsync(message))
             .SaveChangesAsync(unitOfWork)
             .MapAsync(() => message);
@@ -75,7 +76,7 @@ public class ChatService(
         return await chatSessionRepository.GetActiveAsync(CurrentUserId)
             .BindAsync(session => messages.All(message => message.SessionId == session.Id)
                 ? Result.Success(session)
-                : Result<ChatSession>.NotFound())
+                : Result<ChatSession>.NotFound(ResultErrorMessages.NotFound))
             .BindAsync(_ => chatMessageRepository.AddRangeAsync(messages))
             .SaveChangesAsync(unitOfWork);
     }

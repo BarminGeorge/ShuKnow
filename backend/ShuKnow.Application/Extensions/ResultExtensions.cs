@@ -10,7 +10,7 @@ public static class ResultExtensions
     {
         return result.Errors.FirstOrDefault()
                ?? result.ValidationErrors.FirstOrDefault()?.ErrorMessage
-               ?? defaultMessage;
+               ?? $"{result.Status.ToString()}: {defaultMessage}";
     }
 
     public static ChatProcessingErrorCode GetChatProcessingErrorCodeOrDefault(

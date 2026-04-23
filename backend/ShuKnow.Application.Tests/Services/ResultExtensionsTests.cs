@@ -1,9 +1,11 @@
 using Ardalis.Result;
 using AwesomeAssertions;
+using NSubstitute;
 using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Models.Notifications;
-using NSubstitute;
+using ShuKnow.Domain.Errors;
+using ResultExtensions = ShuKnow.Application.Extensions.ResultExtensions;
 
 namespace ShuKnow.Application.Tests.Services;
 
@@ -156,7 +158,7 @@ public class ResultExtensionsTests
     [Test]
     public async Task ToCreatedAsync_WhenStatusIsNotOk_ShouldPreserveOriginalStatus()
     {
-        var result = await Task.FromResult(Result<string>.Conflict())
+        var result = await Task.FromResult(Result<string>.Conflict(ResultErrorMessages.Conflict))
             .ToCreatedAsync();
 
         result.Status.Should().Be(ResultStatus.Conflict);
@@ -252,7 +254,7 @@ public class ResultExtensionsTests
     [Test]
     public void InvalidGeneric_WhenCalled_ShouldBuildValidationErrorWithChatErrorCode()
     {
-        var result = ShuKnow.Application.Extensions.ResultExtensions.Invalid<int>(
+        var result = ResultExtensions.Invalid<int>(
             "failed",
             ChatProcessingErrorCode.InternalError);
 

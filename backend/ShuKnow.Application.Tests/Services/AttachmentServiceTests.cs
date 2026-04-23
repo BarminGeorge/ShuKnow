@@ -4,6 +4,7 @@ using NSubstitute;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Services;
 using ShuKnow.Domain.Entities;
+using ShuKnow.Domain.Errors;
 using ShuKnow.Domain.Repositories;
 
 namespace ShuKnow.Application.Tests.Services;
@@ -120,7 +121,7 @@ public class AttachmentServiceTests
     {
         var attachmentId = Guid.NewGuid();
         attachmentRepository.GetByIdAsync(attachmentId, currentUserId)
-            .Returns(Task.FromResult(Result<ChatAttachment>.NotFound()));
+            .Returns(Task.FromResult(Result<ChatAttachment>.NotFound(ResultErrorMessages.NotFound)));
 
         var result = await sut.GetByIdAsync(attachmentId);
 
@@ -149,7 +150,7 @@ public class AttachmentServiceTests
     {
         var ids = new[] { Guid.NewGuid() };
         attachmentRepository.GetByIdsAsync(ids, currentUserId)
-            .Returns(Task.FromResult(Result<IReadOnlyList<ChatAttachment>>.NotFound()));
+            .Returns(Task.FromResult(Result<IReadOnlyList<ChatAttachment>>.NotFound(ResultErrorMessages.NotFound)));
 
         var result = await sut.GetByIdsAsync(ids);
 

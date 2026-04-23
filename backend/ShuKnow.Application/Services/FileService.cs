@@ -4,6 +4,7 @@ using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Models;
 using ShuKnow.Domain.Entities;
+using ShuKnow.Domain.Errors;
 using ShuKnow.Domain.Interfaces;
 using ShuKnow.Domain.Repositories;
 using File = ShuKnow.Domain.Entities.File;
@@ -185,7 +186,7 @@ public class FileService(
     private async Task<Result> EnsureFileNameUnique(string name, Guid? folderId, Guid fileId)
     {
         return await fileRepository.ExistsByNameInFolderAsync(name, folderId, CurrentUserId, fileId)
-            .BindAsync(exists => exists ? Result.Conflict() : Result.Success());
+            .BindAsync(exists => exists ? Result.Conflict("Conflict: File already exists") : Result.Success());
     }
 
     private Task<Result<File>> FindByPathAsync(ResolvedFilePath path)
@@ -206,7 +207,7 @@ public class FileService(
             return Result.Success();
 
         return await folderRepository.ExistsByIdAsync(folderId.Value, CurrentUserId)
-            .BindAsync(exists => exists ? Result.Success() : Result.NotFound());
+            .BindAsync(exists => exists ? Result.Success() : Result.NotFound(ResultErrorMessages.NotFound));
     }
 
     private async Task<Result<IReadOnlyList<Folder>>> GetChildrenFoldersAsync(Guid? folderId)
@@ -268,7 +269,7 @@ public class FileService(
 
         var currentIndex = siblings.FindIndex(item => item is File siblingFile && siblingFile.Id == file.Id);
         if (currentIndex < 0)
-            return Result.NotFound();
+            return Result.NotFound(ResultErrorMessages.NotFound);
 
         siblings.RemoveAt(currentIndex);
         siblings.Insert(position, file);

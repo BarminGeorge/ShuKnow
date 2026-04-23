@@ -6,6 +6,7 @@ using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Models;
 using ShuKnow.Application.Services;
 using ShuKnow.Domain.Entities;
+using ShuKnow.Domain.Errors;
 using File = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.Application.Tests.Services;
@@ -225,13 +226,13 @@ public class AiToolsServiceTests
     private void ConfigureDefaults()
     {
         folderService.CreateByPathAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result<Folder>.NotFound()));
+            .Returns(Task.FromResult(Result<Folder>.NotFound(ResultErrorMessages.NotFound)));
         workspacePathService.ResolveFilePathAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result<ResolvedFilePath>.NotFound()));
+            .Returns(Task.FromResult(Result<ResolvedFilePath>.NotFound(ResultErrorMessages.NotFound)));
         fileService.UploadAsync(Arg.Any<File>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>())
             .Returns(call => Success(call.Arg<File>()));
         fileService.GetByPathAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result<File>.NotFound()));
+            .Returns(Task.FromResult(Result<File>.NotFound(ResultErrorMessages.NotFound)));
         fileService.GetContentAsync(Arg.Any<Guid>(), Arg.Any<long?>(), Arg.Any<long?>(), Arg.Any<CancellationToken>())
             .Returns(Success<(Stream Content, string ContentType, long SizeBytes)>(
                 (new MemoryStream(), "text/plain", 0L)));
@@ -240,7 +241,7 @@ public class AiToolsServiceTests
         fileService.MoveAsync(Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(call => Success(CreateFile(fileId: call.Arg<Guid>())));
         attachmentService.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result<ChatAttachment>.NotFound()));
+            .Returns(Task.FromResult(Result<ChatAttachment>.NotFound(ResultErrorMessages.NotFound)));
         attachmentService.GetByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success<IReadOnlyList<ChatAttachment>>([])));
         attachmentService.MarkConsumedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())

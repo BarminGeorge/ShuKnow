@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using NSubstitute;
 using ShuKnow.Application.Interfaces;
+using ShuKnow.Domain.Errors;
 using ShuKnow.Metrics.Services;
 using ShuKnow.WebAPI.Controllers;
 using ShuKnow.WebAPI.Dto.Files;
@@ -82,7 +83,7 @@ public class FilesControllerTests
     {
         var fileId = Guid.NewGuid();
         fileService.GetByIdAsync(fileId, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result<DomainFile>.NotFound()));
+            .Returns(Task.FromResult(Result<DomainFile>.NotFound(ResultErrorMessages.NotFound)));
 
         var response = await sut.UpdateFileMetadata(
             fileId,

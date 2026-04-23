@@ -1,6 +1,7 @@
 using Ardalis.Result;
 using AwesomeAssertions;
 using NSubstitute;
+using ShuKnow.Domain.Errors;
 using ShuKnow.Infrastructure.Interfaces;
 using ShuKnow.Infrastructure.Services;
 
@@ -65,7 +66,7 @@ public class BlobStorageServiceTests
     {
         var blobId = Guid.NewGuid();
         provider.GetAsync(blobId, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result<Stream>.NotFound()));
+            .Returns(Task.FromResult(Result<Stream>.NotFound(ResultErrorMessages.NotFound)));
 
         var result = await sut.GetAsync(blobId);
 
@@ -158,7 +159,7 @@ public class BlobStorageServiceTests
     {
         var blobId = Guid.NewGuid();
         provider.GetSizeAsync(blobId, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result<long>.NotFound()));
+            .Returns(Task.FromResult(Result<long>.NotFound(ResultErrorMessages.NotFound)));
 
         var result = await sut.GetSizeAsync(blobId);
 

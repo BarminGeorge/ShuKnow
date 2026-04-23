@@ -6,6 +6,7 @@ using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Models;
 using ShuKnow.Application.Services;
 using ShuKnow.Domain.Entities;
+using ShuKnow.Domain.Errors;
 using ShuKnow.Domain.Repositories;
 using File = ShuKnow.Domain.Entities.File;
 
@@ -866,7 +867,7 @@ public class FileServiceTests
     {
         unitOfWork.SaveChangesAsync().Returns(Success());
         workspacePathService.ResolveFilePathAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result<ResolvedFilePath>.NotFound()));
+            .Returns(Task.FromResult(Result<ResolvedFilePath>.NotFound(ResultErrorMessages.NotFound)));
         folderRepository.ExistsByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success(true));
         fileRepository.ExistsByNameInFolderAsync(Arg.Any<string>(), Arg.Any<Guid?>(), Arg.Any<Guid>(), Arg.Any<Guid?>())
             .Returns(Success(false));
@@ -983,7 +984,7 @@ public class FileServiceTests
 
     private static Task<Result> Conflict()
     {
-        return Task.FromResult(Result.Conflict());
+        return Task.FromResult(Result.Conflict(ResultErrorMessages.Conflict));
     }
 
     private static Task<Result<T>> Success<T>(T value)
@@ -993,6 +994,6 @@ public class FileServiceTests
 
     private static Task<Result<T>> NotFound<T>()
     {
-        return Task.FromResult(Result<T>.NotFound());
+        return Task.FromResult(Result<T>.NotFound(ResultErrorMessages.NotFound));
     }
 }

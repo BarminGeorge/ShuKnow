@@ -3,6 +3,7 @@ using ShuKnow.Application.Extensions;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Models;
 using ShuKnow.Domain.Entities;
+using ShuKnow.Domain.Errors;
 using ShuKnow.Domain.Repositories;
 
 namespace ShuKnow.Application.Services;
@@ -140,7 +141,7 @@ internal class FolderService(
         var reorderedFolders = siblings.ToList();
         var currentIndex = reorderedFolders.FindIndex(folder => folder.Id == folderId);
         if (currentIndex < 0)
-            return Result.NotFound();
+            return Result.NotFound(ResultErrorMessages.NotFound);
 
         var targetIndex = Math.Min(position, reorderedFolders.Count - 1);
         if (currentIndex == targetIndex)
@@ -183,7 +184,7 @@ internal class FolderService(
         if (!existsResult.IsSuccess)
             return existsResult.Map();
 
-        return existsResult.Value ? Result.Success() : Result.NotFound();
+        return existsResult.Value ? Result.Success() : Result.NotFound(ResultErrorMessages.NotFound);
     }
 
     private Task<Result> EnsureParentFolderExistsAsync(Guid? parentFolderId)
@@ -207,7 +208,7 @@ internal class FolderService(
         if (!existsResult.IsSuccess)
             return existsResult.Map();
 
-        return existsResult.Value ? Result.Conflict() : Result.Success();
+        return existsResult.Value ? Result.Conflict("Conflict: Folder already exists") : Result.Success();
     }
 
     private async Task<Result> EnsureMoveIsValidAsync(Guid folderId, string folderName, Guid? newParentFolderId)

@@ -4,6 +4,7 @@ using NSubstitute;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Services;
 using ShuKnow.Domain.Entities;
+using ShuKnow.Domain.Errors;
 using ShuKnow.Domain.Repositories;
 
 namespace ShuKnow.Application.Tests.Services;
@@ -70,7 +71,7 @@ public class ChatServiceTests
     [Test]
     public async Task GetOrCreateActiveSessionAsync_WhenActiveSessionReturnsError_ShouldReturnError()
     {
-        var error = Result.Error();
+        var error = Result.Error(ResultErrorMessages.Error);
         chatSessionRepository.GetActiveAsync(currentUserId).Returns(error);
 
         var result = await sut.GetOrCreateActiveSessionAsync();
@@ -232,6 +233,6 @@ public class ChatServiceTests
 
     private static Task<Result<T>> NotFound<T>()
     {
-        return Task.FromResult(Result<T>.NotFound());
+        return Task.FromResult(Result<T>.NotFound(ResultErrorMessages.NotFound));
     }
 }

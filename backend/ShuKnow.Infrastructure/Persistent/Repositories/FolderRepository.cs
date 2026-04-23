@@ -2,6 +2,7 @@ using Ardalis.Result;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using ShuKnow.Domain.Entities;
+using ShuKnow.Domain.Errors;
 using ShuKnow.Domain.Repositories;
 
 namespace ShuKnow.Infrastructure.Persistent.Repositories;
@@ -14,7 +15,7 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
             .AsNoTracking()
             .FirstOrDefaultAsync(folder => folder.Id == folderId && folder.UserId == userId);
 
-        return folder is null ? Result.NotFound() : Result.Success(folder);
+        return folder is null ? Result.NotFound(ResultErrorMessages.NotFound) : Result.Success(folder);
     }
 
     public async Task<Result<bool>> ExistsByIdAsync(Guid folderId, Guid userId)
@@ -206,7 +207,7 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
             .FirstOrDefaultAsync(folder => folder.Id == folderId && folder.UserId == userId);
 
         if (folder is null)
-            return Result.NotFound();
+            return Result.NotFound(ResultErrorMessages.NotFound);
 
         context.Folders.Remove(folder);
         return Result.Success();

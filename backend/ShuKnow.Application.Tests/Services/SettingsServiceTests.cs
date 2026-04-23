@@ -5,6 +5,7 @@ using ShuKnow.Application.Interfaces;
 using ShuKnow.Application.Services;
 using ShuKnow.Domain.Entities;
 using ShuKnow.Domain.Enums;
+using ShuKnow.Domain.Errors;
 using ShuKnow.Domain.Repositories;
 using ShuKnow.Domain.VO;
 
@@ -281,11 +282,11 @@ public class SettingsServiceTests
 
     private static Task<Result<T>> NotFound<T>()
     {
-        return Task.FromResult(Result<T>.NotFound());
+        return Task.FromResult(Result<T>.NotFound(ResultErrorMessages.NotFound));
     }
 
     private static Task<Result<T>> Error<T>()
     {
-        return Task.FromResult(Result<T>.Error());
+        return Task.FromResult(Result<T>.Error(ResultErrorMessages.Error));
     }
 }

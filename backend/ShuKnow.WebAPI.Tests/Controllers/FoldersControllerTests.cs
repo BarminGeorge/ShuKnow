@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using NSubstitute;
 using ShuKnow.Application.Interfaces;
 using ShuKnow.Domain.Entities;
+using ShuKnow.Domain.Errors;
 using ShuKnow.Metrics.Services;
 using ShuKnow.WebAPI.Controllers;
 using ShuKnow.WebAPI.Dto.Files;
@@ -152,7 +153,7 @@ public class FoldersControllerTests
     {
         var folderId = Guid.NewGuid();
         folderService.GetByIdAsync(folderId, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result<Folder>.NotFound()));
+            .Returns(Task.FromResult(Result<Folder>.NotFound(ResultErrorMessages.NotFound)));
 
         var response = await sut.UpdateFolder(
             folderId,
