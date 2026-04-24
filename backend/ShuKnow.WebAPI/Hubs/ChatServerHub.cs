@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Saunter.Attributes;
 using ShuKnow.Application.Extensions;
+using ShuKnow.Application.Models.Notifications;
 using ShuKnow.WebAPI.Events;
 
 namespace ShuKnow.WebAPI.Hubs;
@@ -29,7 +30,7 @@ public partial class ChatHub
             await chatNotificationService.SendProcessingFailedAsync(
                 operationId,
                 "processing failed.",
-                Application.Models.Notifications.ChatProcessingErrorCode.InternalError,
+                ChatProcessingErrorCode.InternalError,
                 ct);
         }
         finally
@@ -50,10 +51,12 @@ public partial class ChatHub
     {
         await chatNotificationService.SendProcessingStartedAsync(operationId, ct);
 
+        var content = string.IsNullOrEmpty(command.Content) ? "Save this content" : command.Content;
+        
         var processingResult = await settingsService.GetOrCreateAsync(ct)
             .BindAsync(settings => aiService.ProcessMessageAsync(
                     command.SessionId,
-                    command.Content,
+                    content,
                     command.AttachmentIds,
                     settings,
                     operationId,

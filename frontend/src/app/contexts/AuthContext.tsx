@@ -8,6 +8,7 @@ interface AuthenticatedUser {
 
 interface AuthContextValue {
   isAuthenticated: boolean;
+  isAuthChecked: boolean;
   user: AuthenticatedUser | null;
   login: (loginValue: string, password: string) => Promise<void>;
   register: (loginValue: string, password: string) => Promise<void>;
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
 
   const isAuthenticated = user !== null;
 
@@ -38,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (meResponse.status === 401) {
           if (!cancelled) {
             setUser(null);
+            setIsAuthChecked(true);
           }
           return;
         }
@@ -48,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const meData = await meResponse.json();
       if (!cancelled) {
         setUser({ id: meData.id, login: meData.login });
+        setIsAuthChecked(true);
       }
     };
 
@@ -55,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Failed to restore auth session:", error);
       if (!cancelled) {
         setUser(null);
+        setIsAuthChecked(true);
       }
     });
 
@@ -108,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login: performLogin, register: performRegister, logout: performLogout }}>
+    <AuthContext.Provider value={{ isAuthenticated, isAuthChecked, user, login: performLogin, register: performRegister, logout: performLogout }}>
       {children}
     </AuthContext.Provider>
   );
