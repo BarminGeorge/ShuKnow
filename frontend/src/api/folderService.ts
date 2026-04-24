@@ -47,11 +47,25 @@ export async function updateFolder(
 
 export async function deleteFolder(
   folderId: string,
-  _shouldDeleteRecursively: boolean = false
+  shouldDeleteRecursively: boolean = false
 ): Promise<void> {
-  return apiRequest<void>(`/api/folders/${folderId}`, {
+  const params = new URLSearchParams();
+  if (shouldDeleteRecursively) {
+    params.set("recursive", "true");
+  }
+  const query = params.toString();
+
+  return apiRequest<void>(`/api/folders/${folderId}${query ? `?${query}` : ""}`, {
     method: "DELETE",
   });
+}
+
+export async function deleteFolderSubtree(folder: Pick<Folder, "id" | "subfolders">): Promise<void> {
+  for (const subfolder of folder.subfolders || []) {
+    await deleteFolderSubtree(subfolder);
+  }
+
+  await deleteFolder(folder.id, true);
 }
 
 export async function moveFolder(

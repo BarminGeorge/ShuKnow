@@ -22,6 +22,32 @@ interface SidebarProps {
   isCollapsed?: boolean;
 }
 
+const isNotFoundDeleteError = (error: unknown) => {
+  if (error instanceof ApiError && error.status === 404) {
+    return true;
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    return message.includes("not found") || message.includes("requested resource was not found");
+  }
+
+  return false;
+};
+
+const isNonEmptyFolderError = (error: unknown) => {
+  if (error instanceof ApiError && error.status === 409) {
+    return true;
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    return message.includes("non-empty") || message.includes("conflict");
+  }
+
+  return false;
+};
+
 export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarProps) {
   // Jotai hooks
   const { folders, setFolders, updateFolder, createFolder, moveFolderAtom } = useFolders();
@@ -371,7 +397,21 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
     const { folder, path } = deleteFolderState;
     if (!folder) return;
 
-    await folderService.deleteFolder(folder.id, isRecursiveDelete);
+    try {
+      if (isRecursiveDelete) {
+        await folderService.deleteFolderSubtree(folder);
+      } else {
+        await folderService.deleteFolder(folder.id, false);
+      }
+    } catch (error) {
+      if (isNotFoundDeleteError(error)) {
+        toast.info("Папка уже отсутствует на сервере. Убираю её из списка.");
+      } else if (!isRecursiveDelete && isNonEmptyFolderError(error)) {
+        await folderService.deleteFolderSubtree(folder);
+      } else {
+        throw error;
+      }
+    }
 
     setFolders((previousFolders) => {
       const clonedFolders = JSON.parse(JSON.stringify(previousFolders)) as Folder[];

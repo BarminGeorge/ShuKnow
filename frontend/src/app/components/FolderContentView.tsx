@@ -194,18 +194,26 @@ export function FolderContentView({
     setFolderContextMenu({ ...folderContextMenu, isOpen: false });
   };
 
-  const handleConfirmDelete = () => {
-    if (deleteConfirm.type === "file") {
-      deleteFile(deleteConfirm.id);
-    } else {
-      const updatedSubfolders = folder.subfolders?.filter((f) => f.id !== deleteConfirm.id);
-      handleUpdateFolder({ subfolders: updatedSubfolders });
+  const handleConfirmDelete = async () => {
+    try {
+      if (deleteConfirm.type === "file") {
+        await fileService.deleteFile(deleteConfirm.id);
+        deleteFile(deleteConfirm.id);
+      } else {
+        const targetFolder = folder.subfolders?.find((subfolder) => subfolder.id === deleteConfirm.id);
+        if (targetFolder) {
+          await folderService.deleteFolderSubtree(targetFolder);
+        } else {
+          await folderService.deleteFolder(deleteConfirm.id, true);
+        }
+        await loadFolders();
+      }
 
-      const filesToDelete = files.filter((f) => f.folderId === deleteConfirm.id);
-      filesToDelete.forEach((file) => deleteFile(file.id));
+      setDeleteConfirm({ isOpen: false, type: "file", id: "", name: "" });
+    } catch (error) {
+      console.error("Failed to delete item:", error);
+      toast.error(deleteConfirm.type === "folder" ? "Не удалось удалить папку" : "Не удалось удалить файл");
     }
-
-    setDeleteConfirm({ isOpen: false, type: "file", id: "", name: "" });
   };
 
   const [isCreateFileModalOpen, setIsCreateFileModalOpen] = useState(false);
@@ -246,21 +254,20 @@ export function FolderContentView({
     }
   };
 
-  const handleCreateFolderFromModal = (name: string, emoji: string, prompt: string) => {
-    const newFolder: Folder = {
-      id: Date.now().toString(),
-      name,
-      emoji,
-      prompt,
-      description: "",
-      sortOrder: (folder.subfolders || []).length,
-      fileCount: 0,
-      subfolders: [],
-    };
-    handleUpdateFolder({
-      subfolders: [...(folder.subfolders || []), newFolder]
-    });
-    setIsCreateFolderModalOpen(false);
+  const handleCreateFolderFromModal = async (name: string, emoji: string, _prompt: string) => {
+    try {
+      await folderService.createFolder({
+        name,
+        description: "",
+        emoji,
+        parentFolderId: folder.id,
+      });
+      await loadFolders();
+      setIsCreateFolderModalOpen(false);
+    } catch (error) {
+      console.error("Failed to create folder:", error);
+      toast.error("Не удалось создать папку");
+    }
   };
 
   const handleFileNameChange = (fileId: string, newName: string) => {

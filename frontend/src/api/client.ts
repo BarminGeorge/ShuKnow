@@ -46,5 +46,10 @@ export async function apiRequest<ResponseType>(
     return undefined as ResponseType;
   }
 
-  return response.json();
+  const responseText = await response.text();
+  if (!responseText.trim()) {
+    return undefined as ResponseType;
+  }
+
+  return JSON.parse(responseText);
 }
