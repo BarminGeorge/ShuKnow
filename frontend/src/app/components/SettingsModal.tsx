@@ -26,7 +26,7 @@ const modalButtonClass = "rounded-lg border border-white/10 bg-white/[0.045] sha
 const primaryButtonClass = "rounded-lg border border-violet-300/12 bg-[linear-gradient(135deg,rgba(76,29,149,0.26),rgba(17,16,24,0.58)_60%,rgba(109,40,217,0.08))] text-violet-200/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_14px_rgba(91,33,182,0.045)] transition-all hover:border-violet-300/20 hover:text-violet-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_18px_rgba(91,33,182,0.075)]";
 const fieldClass = "w-full rounded-lg border border-white/10 bg-[#101010] px-4 py-3 text-sm text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] outline-none transition-colors placeholder:text-gray-600 focus:border-violet-300/28 focus:bg-[#121212] disabled:opacity-50";
 const labelClass = "mb-2 block text-sm font-medium text-gray-400";
-const guideImageClass = "h-[260px] w-full rounded-2xl border border-white/[0.08] bg-[#080808] object-contain shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]";
+const guideImageClass = "h-[340px] w-full rounded-2xl border border-white/[0.08] bg-[#080808] object-contain shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]";
 
 type SettingVisualKind = "provider" | "baseUrl" | "model" | "apiKey";
 
@@ -81,14 +81,14 @@ const PROVIDER_GUIDES: Record<string, ProviderGuideSlide[]> = {
     {
       title: "Откройте OpenRouter",
       description: "Зарегистрируйтесь или войдите на странице API Keys. OpenRouter дает один ключ для множества моделей, включая бесплатные.",
-      image: "/provider-guide/OpenRouter1.png",
+      image: "/provider-guide/OpenRouter2.png",
       linkLabel: "openrouter.ai/keys",
       linkUrl: "https://openrouter.ai/keys",
     },
     {
       title: "Создайте новый ключ",
       description: "В разделе API Keys нажмите Create API Key. Название можно выбрать любое, например ShuKnow.",
-      image: "/provider-guide/OpenRouter2.png",
+      image: "/provider-guide/OpenRouter1.png",
     },
     {
       title: "Заполните форму",
@@ -98,6 +98,7 @@ const PROVIDER_GUIDES: Record<string, ProviderGuideSlide[]> = {
     {
       title: "Вставьте в ShuKnow",
       description: "Выберите OpenRouter, укажите модель с бесплатным доступом и вставьте скопированный API ключ. Ключ показывается только один раз.",
+      image: "/provider-guide/ShuKnowOpenRouter.png",
     },
   ],
   Gemini: [
@@ -116,6 +117,7 @@ const PROVIDER_GUIDES: Record<string, ProviderGuideSlide[]> = {
     {
       title: "Скопируйте ключ",
       description: "Скопируйте строку, которая начинается с AIza. В ShuKnow выберите Gemini, вставьте ключ и укажите нужный ID модели.",
+      image: "/provider-guide/ShuKnowGemini.png",
     },
   ],
   OpenAI: [
@@ -137,12 +139,14 @@ const PROVIDER_GUIDES: Record<string, ProviderGuideSlide[]> = {
     {
       title: "Сохраните настройки",
       description: "В ShuKnow выберите OpenAI, вставьте API ключ, заполните ID модели и Base URL, если он отличается от стандартного.",
+      image: "/provider-guide/ShuKnowOpenAI.png",
     },
   ],
   Anthropic: [
     {
       title: "Anthropic",
       description: "Ой, бесплатных ключей у этого провайдера нет. Если у вас уже есть платный ключ Anthropic, выберите Anthropic в настройках и вставьте его вручную.",
+      image: "/provider-guide/ShuKnowAnthropic.png",
     },
   ],
 };
@@ -175,14 +179,9 @@ function ProviderGuideModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/76 px-4 backdrop-blur-sm"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
+    <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 pointer-events-none">
       <div
-        className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-white/[0.09] bg-[#0d0d0d] shadow-[0_28px_90px_rgba(0,0,0,0.66),inset_0_1px_0_rgba(255,255,255,0.045)]"
+        className="pointer-events-auto relative max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/[0.09] bg-[#0d0d0d] shadow-[0_28px_90px_rgba(0,0,0,0.66),inset_0_1px_0_rgba(255,255,255,0.045)]"
         onPointerDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-white/[0.07] px-6 py-4">
@@ -200,7 +199,7 @@ function ProviderGuideModal({
           </button>
         </div>
 
-        <div className="space-y-5 px-6 py-5">
+        <div className="max-h-[calc(88vh-81px)] space-y-5 overflow-y-auto px-6 py-5">
           <Select value={selectedProvider} onValueChange={handleProviderChange}>
             <SelectTrigger className="h-[46px] w-full rounded-xl border border-white/10 bg-[#101010] px-4 py-3 text-sm text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] outline-none focus:border-violet-300/28 focus:ring-0 focus-visible:border-violet-300/28 focus-visible:ring-0">
               <SelectValue />
@@ -227,7 +226,7 @@ function ProviderGuideModal({
               {slide.image ? (
                 <img src={slide.image} alt={slide.title} className={guideImageClass} />
               ) : (
-                <div className="flex h-[260px] items-center justify-center rounded-2xl border border-violet-200/12 bg-[linear-gradient(135deg,rgba(76,29,149,0.13),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))] px-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+                <div className="flex h-[340px] items-center justify-center rounded-2xl border border-violet-200/12 bg-[linear-gradient(135deg,rgba(76,29,149,0.13),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))] px-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
                   <Sparkles size={42} className="text-violet-200/80" />
                 </div>
               )}
