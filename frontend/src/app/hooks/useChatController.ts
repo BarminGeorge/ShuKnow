@@ -53,6 +53,7 @@ export function useChatController({
   const operationsRef = useRef(new Map<string, ChatOperation>());
   const latestOperationIdRef = useRef<string | null>(null);
   const backendMessageOperationIdsRef = useRef(new Map<string, string>());
+  const pendingUserMessageIdsRef = useRef<string[]>([]);
   const hasSessionResetRef = useRef(false);
 
   const extractOperationIdFromEvent = (event: unknown) => {
@@ -125,6 +126,7 @@ export function useChatController({
     shouldAutoConnect: !isMockMode,
     handlers: {
       onProcessingStarted: (event) => {
+        const replyTo = pendingUserMessageIdsRef.current.shift();
         const agentMessageId = Date.now().toString();
         operationsRef.current.set(event.operationId, {
           messageId: agentMessageId,
@@ -141,6 +143,7 @@ export function useChatController({
             content: "",
             timestamp: new Date(),
             status: "processing",
+            replyTo,
           },
         ]);
       },
@@ -244,6 +247,7 @@ export function useChatController({
     operationsRef.current.clear();
     latestOperationIdRef.current = null;
     backendMessageOperationIdsRef.current.clear();
+    pendingUserMessageIdsRef.current = [];
 
     void chatService.deleteChatSession().catch((error) => {
       console.warn("Failed to reset chat session on startup:", error);
@@ -338,6 +342,7 @@ export function useChatController({
       timestamp: new Date(),
       status: "sending",
     };
+    pendingUserMessageIdsRef.current.push(userMessage.id);
     setMessages((prev) => [...prev, userMessage]);
 
     try {
@@ -376,6 +381,9 @@ export function useChatController({
         )
       );
     } catch (sendError) {
+      pendingUserMessageIdsRef.current = pendingUserMessageIdsRef.current.filter(
+        (id) => id !== userMessage.id
+      );
       console.error("Failed to send message:", sendError);
       toast.error("Не удалось отправить сообщение");
 
@@ -424,12 +432,30 @@ export function useChatController({
   }, [chatHub, setMessages]);
 
   const handleRetryMessage = useCallback((messageId: string) => {
-    setMessages((prev) =>
-      prev.map((message) =>
-        message.id === messageId ? { ...message, status: "processing" as const } : message
-      )
+    const failedAgentMessage = messages.find(
+      (candidate) => candidate.id === messageId && candidate.type === "agent"
     );
-  }, [setMessages]);
+    if (!failedAgentMessage) {
+      return;
+    }
+
+    const sourceUserMessage = failedAgentMessage.replyTo
+      ? messages.find(
+          (candidate) =>
+            candidate.id === failedAgentMessage.replyTo && candidate.type === "user"
+        )
+      : [...messages]
+          .slice(0, Math.max(messages.findIndex((candidate) => candidate.id === messageId), 0))
+          .reverse()
+          .find((candidate) => candidate.type === "user");
+
+    if (!sourceUserMessage) {
+      toast.error("Не удалось найти исходное сообщение для повтора");
+      return;
+    }
+
+    handleSendMessage(sourceUserMessage.content, sourceUserMessage.attachments);
+  }, [handleSendMessage, messages]);
 
   const handleResendMessage = useCallback((messageId: string) => {
     const message = messages.find((candidate) => candidate.id === messageId);

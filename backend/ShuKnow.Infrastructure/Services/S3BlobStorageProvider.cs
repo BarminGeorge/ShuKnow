@@ -16,15 +16,18 @@ public class S3BlobStorageProvider(
 {
     public async Task<Result> SaveAsync(Stream content, Guid blobId, CancellationToken ct = default)
     {
+        PreparedContent? preparedContent = null;
         try
         {
+            preparedContent = await PrepareContentAsync(content, ct);
             var request = new PutObjectRequest
             {
                 BucketName = bucketName,
                 Key = GetObjectKey(blobId),
-                InputStream = content,
+                InputStream = preparedContent.Stream,
                 AutoCloseStream = false
             };
+            request.Headers.ContentLength = preparedContent.ContentLength;
 
             await s3Client.PutObjectAsync(request, ct);
             return Result.Success();
@@ -32,7 +35,15 @@ public class S3BlobStorageProvider(
         catch (AmazonS3Exception ex)
         {
             logger.LogError(ex, "Failed to save blob {BlobId} to S3", blobId);
+            if (ex.Message.Contains("Could not determine content length", StringComparison.OrdinalIgnoreCase))
+                return Result.Error("Failed to save blob to S3: unknown content length.");
+
             return Result.Error($"Failed to save blob to S3: {ex.Message}");
+        }
+        finally
+        {
+            if (preparedContent?.Disposable is not null)
+                await preparedContent.Disposable.DisposeAsync();
         }
     }
 
@@ -201,5 +212,23 @@ public class S3BlobStorageProvider(
     {
         var fileName = key.Contains('/') ? key[(key.LastIndexOf('/') + 1)..] : key;
         return Guid.TryParse(fileName, out blobId);
+    }
+
+    private static async Task<PreparedContent> PrepareContentAsync(Stream content, CancellationToken ct)
+    {
+        if (content.CanSeek)
+            return new PreparedContent(content, content.Length - content.Position);
+
+        var bufferedStream = new MemoryStream();
+        await content.CopyToAsync(bufferedStream, ct);
+        bufferedStream.Position = 0;
+        return new PreparedContent(bufferedStream, bufferedStream.Length, bufferedStream);
+    }
+
+    private sealed class PreparedContent(Stream stream, long contentLength, IAsyncDisposable? disposable = null)
+    {
+        public Stream Stream { get; } = stream;
+        public long ContentLength { get; } = contentLength;
+        public IAsyncDisposable? Disposable { get; } = disposable;
     }
 }
