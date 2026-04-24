@@ -34,14 +34,15 @@
 
 ### 2.1 `IChatService`
 
-Теперь у чат-сервиса две read-ветки и одна write-ветка:
+Теперь у чат-сервиса explicit-session read/write API:
 
 | Метод | Текущая роль |
 |---|---|
-| `GetOrCreateActiveSessionAsync()` | Разрешает единственную активную сессию текущего пользователя. |
-| `DeleteSessionAsync()` | Удаляет активную сессию и её сообщения. |
-| `GetMessagesAsync(cursor, limit)` | Курсорно-пагинированное чтение для публичного chat-history API. |
-| `GetMessagesAsync(ct)` | Возвращает in-memory коллекцию сообщений активной сессии. Используется `TornadoPromptBuilder` для гидрации истории разговора. |
+| `CreateSessionAsync()` | Создаёт новую чат-сессию для текущего пользователя. |
+| `GetSessionAsync(sessionId)` | Возвращает конкретную сессию текущего пользователя. |
+| `DeleteSessionAsync(sessionId)` | Удаляет конкретную сессию и её сообщения. |
+| `GetMessagesAsync(sessionId, cursor, limit)` | Курсорно-пагинированное чтение для публичного chat-history API. |
+| `GetMessagesAsync(sessionId, ct)` | Возвращает in-memory коллекцию сообщений конкретной сессии. Используется `TornadoPromptBuilder` для гидрации истории разговора. |
 | `PersistMessageAsync(message)` | Унифицированная точка записи и для user-, и для AI-сообщений. |
 
 Примечания по реализации:

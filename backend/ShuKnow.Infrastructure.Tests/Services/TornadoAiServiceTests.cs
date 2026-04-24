@@ -83,39 +83,17 @@ public class TornadoAiServiceTests
     #region ProcessMessageAsync - Session Handling
 
     [Test]
-    public async Task ProcessMessageAsync_WhenActiveSessionLookupFails_ShouldReturnFailure()
+    public async Task ProcessMessageAsync_WhenSessionLookupFails_ShouldReturnFailureWithoutCreatingConversation()
     {
-        chatService.GetOrCreateActiveSessionAsync(Arg.Any<CancellationToken>())
+        chatService.GetSessionAsync(session.Id, Arg.Any<CancellationToken>())
             .Returns(Error<ChatSession>("session failed"));
 
-        var result = await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        var result = await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         result.Status.Should().Be(ResultStatus.Error);
         result.Errors.Should().ContainSingle().Which.Should().Be("session failed");
-    }
-
-    [Test]
-    public async Task ProcessMessageAsync_WhenActiveSessionLookupFails_ShouldNotCreateConversation()
-    {
-        chatService.GetOrCreateActiveSessionAsync(Arg.Any<CancellationToken>())
-            .Returns(Error<ChatSession>("session failed"));
-
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
-
         conversationFactory.DidNotReceiveWithAnyArgs()
             .CreateConversation(default!, default!, default);
-    }
-
-    [Test]
-    public async Task ProcessMessageAsync_WhenActiveSessionLookupFails_ShouldNotPersistMessages()
-    {
-        chatService.GetOrCreateActiveSessionAsync(Arg.Any<CancellationToken>())
-            .Returns(Error<ChatSession>("session failed"));
-
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
-
-        await chatService.DidNotReceive()
-            .PersistMessageAsync(Arg.Any<ChatMessage>(), Arg.Any<CancellationToken>());
     }
 
     #endregion
@@ -131,7 +109,7 @@ public class TornadoAiServiceTests
                 Arg.Any<double>())
             .Returns(Result<ITornadoConversation>.Error("API key is not configured"));
 
-        var result = await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        var result = await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         result.Status.Should().Be(ResultStatus.Error);
         result.Errors.Should().ContainSingle().Which.Should().Be("API key is not configured");
@@ -146,7 +124,7 @@ public class TornadoAiServiceTests
                 Arg.Any<double>())
             .Returns(Result<ITornadoConversation>.Error("API key is not configured"));
 
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         await chatService.DidNotReceive()
             .PersistMessageAsync(Arg.Any<ChatMessage>(), Arg.Any<CancellationToken>());
@@ -158,7 +136,7 @@ public class TornadoAiServiceTests
         chatService.PersistMessageAsync(Arg.Any<ChatMessage>(), Arg.Any<CancellationToken>())
             .Returns(Error<ChatMessage>("persist failed"));
 
-        var result = await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        var result = await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         result.Status.Should().Be(ResultStatus.Error);
         result.Errors.Should().ContainSingle().Which.Should().Be("persist failed");
@@ -170,7 +148,7 @@ public class TornadoAiServiceTests
         chatService.PersistMessageAsync(Arg.Any<ChatMessage>(), Arg.Any<CancellationToken>())
             .Returns(Error<ChatMessage>("persist failed"));
 
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         await conversation.DidNotReceive()
             .StreamResponseWithToolsAsync(
@@ -189,7 +167,7 @@ public class TornadoAiServiceTests
                 Arg.Any<double>())
             .Returns(Result.Success(conversation));
 
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         capturedSettings.Should().BeSameAs(settings);
     }
@@ -204,7 +182,7 @@ public class TornadoAiServiceTests
                 Arg.Any<double>())
             .Returns(Result.Success(conversation));
 
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         capturedTools.Should().NotBeNull();
         capturedTools!.Should().NotBeEmpty();
@@ -223,7 +201,7 @@ public class TornadoAiServiceTests
                 new FolderSummary(Guid.NewGuid(), "Receipts", "Save payment and purchase evidence here.", null)
             ]));
 
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         conversation.Received(1).PrependSystemMessage(Arg.Is<string>(text =>
             text.Contains("Receipts") &&
@@ -247,7 +225,7 @@ public class TornadoAiServiceTests
                 new FileSummary(Guid.NewGuid(), "inbox.txt", null)
             ]));
 
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         conversation.Received(1).PrependSystemMessage(Arg.Is<string>(text =>
             text.Contains("<files>") &&
@@ -295,7 +273,7 @@ public class TornadoAiServiceTests
                 options,
                 logger);
 
-            await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+            await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
             conversation.Received(1).PrependSystemMessage(Arg.Is<string>(text =>
                 text.Contains("Use the mounted prompt file.")));
@@ -311,10 +289,10 @@ public class TornadoAiServiceTests
     public async Task ProcessMessageAsync_ShouldAddPreviousMessages()
     {
         var previousMessage = ChatMessage.CreateSystemMessage(session.Id, "existing instruction");
-        chatService.GetMessagesAsync(Arg.Any<CancellationToken>())
+        chatService.GetMessagesAsync(session.Id, Arg.Any<CancellationToken>())
             .Returns(Success<IReadOnlyCollection<ChatMessage>>([previousMessage]));
 
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         conversation.Received(1).AddMessages(Arg.Is<IEnumerable<TornadoChatMessage>>(messages =>
             messages.Count() == 1 &&
@@ -326,10 +304,10 @@ public class TornadoAiServiceTests
     public async Task ProcessMessageAsync_ShouldNotDuplicateCurrentUserMessageInPreviousHistory()
     {
         var previousMessage = ChatMessage.CreateSystemMessage(session.Id, "existing instruction");
-        chatService.GetMessagesAsync(Arg.Any<CancellationToken>())
+        chatService.GetMessagesAsync(session.Id, Arg.Any<CancellationToken>())
             .Returns(Success<IReadOnlyCollection<ChatMessage>>([previousMessage]));
 
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         conversation.Received(1).AddMessages(Arg.Is<IEnumerable<TornadoChatMessage>>(messages =>
             messages.Select(message => message.Content).SequenceEqual(new[] { previousMessage.Content })));
@@ -338,10 +316,10 @@ public class TornadoAiServiceTests
     [Test]
     public async Task ProcessMessageAsync_WhenNoPreviousMessages_ShouldAddEmptyList()
     {
-        chatService.GetMessagesAsync(Arg.Any<CancellationToken>())
+        chatService.GetMessagesAsync(session.Id, Arg.Any<CancellationToken>())
             .Returns(Success<IReadOnlyCollection<ChatMessage>>([]));
 
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         conversation.Received(1).AddMessages(Arg.Is<IEnumerable<TornadoChatMessage>>(messages =>
             !messages.Any()));
@@ -352,7 +330,7 @@ public class TornadoAiServiceTests
     {
         const string prompt = "Explain the latest note.";
 
-        await sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, prompt, attachmentIds: null, settings: settings, operationId: operationId);
 
         conversation.Received(1).AddUserMessage(Arg.Is<IEnumerable<ChatMessagePart>>(parts =>
             parts.Count() == 1 &&
@@ -368,7 +346,7 @@ public class TornadoAiServiceTests
     {
         const string prompt = "Explain the latest note.";
 
-        await sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, prompt, attachmentIds: null, settings: settings, operationId: operationId);
 
         await chatService.Received(1).PersistMessageAsync(
             Arg.Is<ChatMessage>(m =>
@@ -381,7 +359,7 @@ public class TornadoAiServiceTests
     [Test]
     public async Task ProcessMessageAsync_WhenSuccessful_ShouldPersistUserMessageBeforeStreamingResponse()
     {
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         Received.InOrder(() =>
         {
@@ -404,7 +382,7 @@ public class TornadoAiServiceTests
                 Arg.Any<CancellationToken>())
             .Returns(("AI response text", 0));
 
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         await chatService.Received(1).PersistMessagesAsync(
             Arg.Is<IReadOnlyCollection<ChatMessage>>(messages =>
@@ -418,7 +396,7 @@ public class TornadoAiServiceTests
     [Test]
     public async Task ProcessMessageAsync_WhenSuccessful_ShouldSendMessageChunkAndCompletion()
     {
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         await notificationService.Received(1).SendMessageChunkAsync(
             operationId,
@@ -434,7 +412,7 @@ public class TornadoAiServiceTests
     [Test]
     public async Task ProcessMessageAsync_WhenSuccessful_ShouldReturnOkStatus()
     {
-        var result = await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        var result = await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         result.Status.Should().Be(ResultStatus.Ok);
     }
@@ -450,7 +428,7 @@ public class TornadoAiServiceTests
         var attachment = CreateImageAttachment(attachmentId);
         ConfigureAttachment(attachmentId, attachment);
 
-        await sut.ProcessMessageAsync("hello", [attachmentId], settings, operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", [attachmentId], settings, operationId);
 
         await attachmentService.Received(1).GetByIdsAsync(
             Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { attachmentId })),
@@ -464,7 +442,7 @@ public class TornadoAiServiceTests
         var attachment = CreateImageAttachment(attachmentId);
         ConfigureAttachment(attachmentId, attachment);
 
-        await sut.ProcessMessageAsync("hello", [attachmentId], settings, operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", [attachmentId], settings, operationId);
 
         await blobStorageService.Received(1).GetAsync(attachment.BlobId, Arg.Any<CancellationToken>());
     }
@@ -481,7 +459,7 @@ public class TornadoAiServiceTests
         conversation.When(c => c.AddUserMessage(Arg.Any<IEnumerable<ChatMessagePart>>()))
             .Do(callInfo => capturedParts = callInfo.Arg<IEnumerable<ChatMessagePart>>().ToList());
 
-        await sut.ProcessMessageAsync(prompt, [attachmentId], settings, operationId);
+        await sut.ProcessMessageAsync(session.Id, prompt, [attachmentId], settings, operationId);
 
         capturedParts.Should().NotBeNull();
         capturedParts!.Should().HaveCount(3);
@@ -509,7 +487,7 @@ public class TornadoAiServiceTests
         conversation.When(c => c.AddUserMessage(Arg.Any<IEnumerable<ChatMessagePart>>()))
             .Do(callInfo => capturedParts = callInfo.Arg<IEnumerable<ChatMessagePart>>().ToList());
 
-        await sut.ProcessMessageAsync(prompt, [attachmentId], settings, operationId);
+        await sut.ProcessMessageAsync(session.Id, prompt, [attachmentId], settings, operationId);
 
         capturedParts.Should().NotBeNull();
         capturedParts!.Should().HaveCount(3);
@@ -533,7 +511,7 @@ public class TornadoAiServiceTests
         blobStorageService.GetAsync(attachment.BlobId, Arg.Any<CancellationToken>())
             .Returns(Success<Stream>(stream));
 
-        await sut.ProcessMessageAsync("hello", [attachmentId], settings, operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", [attachmentId], settings, operationId);
 
         stream.IsDisposed.Should().BeTrue();
     }
@@ -541,7 +519,7 @@ public class TornadoAiServiceTests
     [Test]
     public async Task ProcessMessageAsync_WhenAttachmentsNull_ShouldNotLoadAttachments()
     {
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         await attachmentService.DidNotReceive()
             .GetByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
@@ -550,7 +528,7 @@ public class TornadoAiServiceTests
     [Test]
     public async Task ProcessMessageAsync_WhenAttachmentsEmpty_ShouldNotLoadAttachments()
     {
-        await sut.ProcessMessageAsync("hello", [], settings, operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", [], settings, operationId);
 
         await attachmentService.DidNotReceive()
             .GetByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
@@ -569,7 +547,7 @@ public class TornadoAiServiceTests
         blobStorageService.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(callInfo => Success<Stream>(new MemoryStream([1, 2, 3])));
 
-        await sut.ProcessMessageAsync("hello", [attachmentId1, attachmentId2], settings, operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", [attachmentId1, attachmentId2], settings, operationId);
 
         await blobStorageService.Received(1).GetAsync(attachment1.BlobId, Arg.Any<CancellationToken>());
         await blobStorageService.Received(1).GetAsync(attachment2.BlobId, Arg.Any<CancellationToken>());
@@ -583,7 +561,7 @@ public class TornadoAiServiceTests
         attachmentService.GetByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result<IReadOnlyList<ChatAttachment>>.Error("attachment not found")));
 
-        var result = await sut.ProcessMessageAsync("hello", [attachmentId], settings, operationId);
+        var result = await sut.ProcessMessageAsync(session.Id, "hello", [attachmentId], settings, operationId);
 
         result.Status.Should().Be(ResultStatus.Error);
         result.Errors.Should().ContainSingle().Which.Should().Be("attachment not found");
@@ -600,7 +578,7 @@ public class TornadoAiServiceTests
         blobStorageService.GetAsync(attachment.BlobId, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result<Stream>.Error("blob not found")));
 
-        var result = await sut.ProcessMessageAsync("hello", [attachmentId], settings, operationId);
+        var result = await sut.ProcessMessageAsync(session.Id, "hello", [attachmentId], settings, operationId);
 
         result.Status.Should().Be(ResultStatus.Error);
         result.Errors.Should().ContainSingle().Which.Should().Be("blob not found");
@@ -613,7 +591,7 @@ public class TornadoAiServiceTests
         var attachment = CreateImageAttachment(attachmentId);
         ConfigureAttachment(attachmentId, attachment);
 
-        await sut.ProcessMessageAsync("hello", [attachmentId], settings, operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", [attachmentId], settings, operationId);
 
         await attachmentService.Received(1).MarkConsumedAsync(
             Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { attachmentId })),
@@ -633,7 +611,7 @@ public class TornadoAiServiceTests
         blobStorageService.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(callInfo => Success<Stream>(new MemoryStream([1, 2, 3])));
 
-        await sut.ProcessMessageAsync("hello", [attachmentId1, attachmentId2], settings, operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", [attachmentId1, attachmentId2], settings, operationId);
 
         await attachmentService.Received(1).MarkConsumedAsync(
             Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Count == 2 && ids.Contains(attachmentId1) && ids.Contains(attachmentId2)),
@@ -643,7 +621,7 @@ public class TornadoAiServiceTests
     [Test]
     public async Task ProcessMessageAsync_WhenAttachmentsNull_ShouldNotMarkConsumed()
     {
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         await attachmentService.DidNotReceive()
             .MarkConsumedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
@@ -652,7 +630,7 @@ public class TornadoAiServiceTests
     [Test]
     public async Task ProcessMessageAsync_WhenAttachmentsEmpty_ShouldNotMarkConsumed()
     {
-        await sut.ProcessMessageAsync("hello", [], settings, operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", [], settings, operationId);
 
         await attachmentService.DidNotReceive()
             .MarkConsumedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
@@ -672,7 +650,7 @@ public class TornadoAiServiceTests
                 ? ToolCallResponse("move_file", """{"sourcePath":"from.txt","destinationPath":"to.txt"}""")
                 : FinalResponse("done"));
 
-        await sut.ProcessMessageAsync("Move the file.", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "Move the file.", attachmentIds: null, settings: settings, operationId: operationId);
 
         await aiToolsService.Received(1).MoveFileAsync("from.txt", "to.txt", Arg.Any<CancellationToken>());
     }
@@ -692,7 +670,7 @@ public class TornadoAiServiceTests
                     : FinalResponse("done");
             });
 
-        await sut.ProcessMessageAsync("Move the file.", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "Move the file.", attachmentIds: null, settings: settings, operationId: operationId);
 
         invocationCount.Should().Be(2);
     }
@@ -707,7 +685,7 @@ public class TornadoAiServiceTests
                 ? ToolCallResponse("move_file", """{"sourcePath":"from.txt","destinationPath":"to.txt"}""")
                 : FinalResponse("done"));
 
-        await sut.ProcessMessageAsync("Move the file.", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "Move the file.", attachmentIds: null, settings: settings, operationId: operationId);
 
         await chatService.Received(1).PersistMessagesAsync(
             Arg.Is<IReadOnlyCollection<ChatMessage>>(messages =>
@@ -731,7 +709,7 @@ public class TornadoAiServiceTests
                 return ("tool call", 1);
             });
 
-        var result = await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        var result = await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         result.Status.Should().Be(ResultStatus.Invalid);
         result.ValidationErrors.Should().ContainSingle(error =>
@@ -749,7 +727,7 @@ public class TornadoAiServiceTests
                 Arg.Any<CancellationToken>())
             .Returns(("tool call", 1));
 
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         await chatService.DidNotReceive()
             .PersistMessagesAsync(Arg.Any<IReadOnlyCollection<ChatMessage>>(), Arg.Any<CancellationToken>());
@@ -768,7 +746,7 @@ public class TornadoAiServiceTests
                 Arg.Any<CancellationToken>())
             .Returns((string.Empty, 0));
 
-        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        await sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         await chatService.Received(1)
             .PersistMessagesAsync(Arg.Any<IReadOnlyCollection<ChatMessage>>(), Arg.Any<CancellationToken>());
@@ -787,7 +765,7 @@ public class TornadoAiServiceTests
                 Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("boom"));
 
-        var act = () => sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+        var act = () => sut.ProcessMessageAsync(session.Id, "hello", attachmentIds: null, settings: settings, operationId: operationId);
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("boom");
     }
@@ -878,13 +856,13 @@ public class TornadoAiServiceTests
 
     private void ConfigureDefaults()
     {
-        chatService.GetOrCreateActiveSessionAsync(Arg.Any<CancellationToken>())
+        chatService.GetSessionAsync(session.Id, Arg.Any<CancellationToken>())
             .Returns(Success(session));
         folderService.GetFolderTreeForPromptAsync(Arg.Any<CancellationToken>())
             .Returns(Success<IReadOnlyList<FolderSummary>>([]));
         fileService.GetFileTreeForPromptAsync(Arg.Any<CancellationToken>())
             .Returns(Success<IReadOnlyList<FileSummary>>([]));
-        chatService.GetMessagesAsync(Arg.Any<CancellationToken>())
+        chatService.GetMessagesAsync(session.Id, Arg.Any<CancellationToken>())
             .Returns(Success<IReadOnlyCollection<ChatMessage>>([]));
         chatService.PersistMessageAsync(Arg.Any<ChatMessage>(), Arg.Any<CancellationToken>())
             .Returns(callInfo => Success(callInfo.Arg<ChatMessage>()));

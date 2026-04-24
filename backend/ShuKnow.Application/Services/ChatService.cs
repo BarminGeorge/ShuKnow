@@ -16,12 +16,8 @@ public class ChatService(
 {
     private Guid CurrentUserId => currentUserService.UserId;
 
-    public async Task<Result<ChatSession>> GetOrCreateActiveSessionAsync(CancellationToken ct = default)
+    public async Task<Result<ChatSession>> CreateSessionAsync(CancellationToken ct = default)
     {
-        var activeSessionResult = await chatSessionRepository.GetActiveAsync(CurrentUserId);
-        if (!activeSessionResult.IsNotFound())
-            return activeSessionResult;
-
         var session = new ChatSession(Guid.NewGuid(), CurrentUserId);
 
         return await chatSessionRepository.AddAsync(session)
@@ -29,42 +25,45 @@ public class ChatService(
             .MapAsync(() => session);
     }
 
-    public async Task<Result> DeleteSessionAsync(CancellationToken ct = default)
+    public async Task<Result<ChatSession>> GetSessionAsync(Guid sessionId, CancellationToken ct = default)
     {
-        return await chatSessionRepository.GetActiveAsync(CurrentUserId)
+        return await chatSessionRepository.GetByIdAsync(sessionId, CurrentUserId);
+    }
+
+    public async Task<Result> DeleteSessionAsync(Guid sessionId, CancellationToken ct = default)
+    {
+        return await chatSessionRepository.GetByIdAsync(sessionId, CurrentUserId)
             .ActAsync(session => chatMessageRepository.DeleteBySessionAsync(session.Id))
             .BindAsync(session => chatSessionRepository.DeleteAsync(session.Id))
             .SaveChangesAsync(unitOfWork);
     }
 
     public async Task<Result<(IReadOnlyList<ChatMessage> Messages, string? NextCursor)>> GetMessagesAsync(
-        string? cursor, int limit, CancellationToken ct = default)
+        Guid sessionId, string? cursor, int limit, CancellationToken ct = default)
     {
         if (limit is < 1 or > 100)
             return Result.Error("The limit must be between 1 and 100.");
 
-        return await GetOrCreateActiveSessionAsync(ct)
+        return await GetSessionAsync(sessionId, ct)
             .BindAsync(session => chatMessageRepository.GetPageAsync(session.Id, cursor, limit));
     }
 
-    public async Task<Result<IReadOnlyCollection<ChatMessage>>> GetMessagesAsync(CancellationToken ct = default)
+    public async Task<Result<IReadOnlyCollection<ChatMessage>>> GetMessagesAsync(Guid sessionId, CancellationToken ct = default)
     {
-        return await GetOrCreateActiveSessionAsync(ct)
+        return await GetSessionAsync(sessionId, ct)
             .BindAsync(session => chatMessageRepository.GetBySessionAsync(session.Id));
     }
 
-    public async Task<Result<int>> GetMessageCountAsync(CancellationToken ct = default)
+    public async Task<Result<int>> GetMessageCountAsync(Guid sessionId, CancellationToken ct = default)
     {
-        return await GetOrCreateActiveSessionAsync(ct)
+        return await GetSessionAsync(sessionId, ct)
             .BindAsync(session => chatMessageRepository.CountBySessionAsync(session.Id));
     }
 
     public async Task<Result<ChatMessage>> PersistMessageAsync(ChatMessage message, CancellationToken ct = default)
     {
-        return await chatSessionRepository.GetActiveAsync(CurrentUserId)
-            .BindAsync(session => message.SessionId == session.Id
-                ? Result.Success(session)
-                : Result<ChatSession>.NotFound(ResultErrorMessages.NotFound))
+        return await GetSessionAsync(message.SessionId, ct)
+            .Act(session => session.Touch())
             .BindAsync(_ => chatMessageRepository.AddAsync(message))
             .SaveChangesAsync(unitOfWork)
             .MapAsync(() => message);
@@ -73,11 +72,24 @@ public class ChatService(
     public async Task<Result> PersistMessagesAsync(IReadOnlyCollection<ChatMessage> messages,
         CancellationToken ct = default)
     {
-        return await chatSessionRepository.GetActiveAsync(CurrentUserId)
+        if (messages.Count == 0)
+            return Result.Success();
+
+        var sessionId = messages.First().SessionId;
+
+        return await GetSessionAsync(sessionId, ct)
             .BindAsync(session => messages.All(message => message.SessionId == session.Id)
                 ? Result.Success(session)
                 : Result<ChatSession>.NotFound(ResultErrorMessages.NotFound))
+            .Act(session => session.Touch())
             .BindAsync(_ => chatMessageRepository.AddRangeAsync(messages))
+            .SaveChangesAsync(unitOfWork);
+    }
+
+    public async Task<Result<int>> DeleteExpiredSessionsAsync(TimeSpan maxAge, CancellationToken ct = default)
+    {
+        var cutoff = DateTimeOffset.UtcNow - maxAge;
+        return await chatSessionRepository.DeleteOlderThanAsync(cutoff, ct)
             .SaveChangesAsync(unitOfWork);
     }
 }

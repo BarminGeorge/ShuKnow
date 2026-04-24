@@ -43,15 +43,15 @@ public class ChatControllerTests
     }
 
     [Test]
-    public async Task GetChatSession_WhenActiveSessionExists_ShouldReturnDtoWithRepositoryBackedMessageCount()
+    public async Task CreateChatSession_WhenCalled_ShouldReturnDtoWithRepositoryBackedMessageCount()
     {
         var session = new ChatSession(Guid.NewGuid(), currentUserId);
-        chatService.GetOrCreateActiveSessionAsync(Arg.Any<CancellationToken>())
+        chatService.CreateSessionAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success(session)));
-        chatService.GetMessageCountAsync(Arg.Any<CancellationToken>())
+        chatService.GetMessageCountAsync(session.Id, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success(4)));
 
-        var response = await sut.GetChatSession(CancellationToken.None);
+        var response = await sut.CreateChatSession(CancellationToken.None);
 
         var objectResult = response.Result.Should().BeOfType<ObjectResult>().Subject;
         objectResult.StatusCode.Should().Be(StatusCodes.Status200OK);

@@ -31,7 +31,7 @@ public class TornadoAiServiceLiveTests
         var fixture = CreateFixture(attachments: []);
         const string prompt = "Ответь одним словом: да.";
 
-        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
+        var result = await fixture.Sut.ProcessMessageAsync(fixture.Session.Id, prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
 
         AssertSuccess(result, fixture.Logs);
     }
@@ -42,7 +42,7 @@ public class TornadoAiServiceLiveTests
         var fixture = CreateFixture(attachments: []);
         const string prompt = "Ответь одним словом: да.";
 
-        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
+        var result = await fixture.Sut.ProcessMessageAsync(fixture.Session.Id, prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
         
         AssertSuccess(result, fixture.Logs);
         fixture.PersistedMessages.Should().Contain(m =>
@@ -56,7 +56,7 @@ public class TornadoAiServiceLiveTests
         var fixture = CreateFixture(attachments: []);
         const string prompt = "Ответь одним словом: да.";
 
-        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
+        var result = await fixture.Sut.ProcessMessageAsync(fixture.Session.Id, prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
         
         AssertSuccess(result, fixture.Logs);
         fixture.PersistedMessages.Should().Contain(m =>
@@ -70,7 +70,7 @@ public class TornadoAiServiceLiveTests
         var fixture = CreateFixture(attachments: []);
         const string prompt = "Коротко представься без markdown и перечисли доступные tools с сигнатурами.";
 
-        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
+        var result = await fixture.Sut.ProcessMessageAsync(fixture.Session.Id, prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
 
         AssertSuccess(result, fixture.Logs);
         fixture.PersistedMessages.Should().HaveCount(2);
@@ -85,6 +85,7 @@ public class TornadoAiServiceLiveTests
         var fixture = CreateFixture([attachment]);
 
         var result = await fixture.Sut.ProcessMessageAsync(
+            fixture.Session.Id,
             "Подтверди, что получил описание вложения, одним коротким предложением.",
             [attachmentId],
             fixture.Settings, Guid.NewGuid());
@@ -103,6 +104,7 @@ public class TornadoAiServiceLiveTests
         var fixture = CreateFixture([attachment]);
 
         var result = await fixture.Sut.ProcessMessageAsync(
+            fixture.Session.Id,
             "Подтверди, что получил описание вложения, одним коротким предложением.",
             [attachmentId],
             fixture.Settings, Guid.NewGuid());
@@ -121,7 +123,7 @@ public class TornadoAiServiceLiveTests
         var fixture = CreateFixtureWithToolErrors();
         const string prompt = "Перемести файл 'meow.txt' в папку 'destination/'.";
 
-        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
+        var result = await fixture.Sut.ProcessMessageAsync(fixture.Session.Id, prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
 
         AssertSuccess(result, fixture.Logs);
         await fixture.AiToolsService.Received().MoveFileAsync(
@@ -145,7 +147,7 @@ public class TornadoAiServiceLiveTests
             Подтверди выполнение кратко.
             """;
 
-        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
+        var result = await fixture.Sut.ProcessMessageAsync(fixture.Session.Id, prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
 
         AssertSuccess(result, fixture.Logs);
         await fixture.AiToolsService.Received().CreateFolderAsync(
@@ -170,7 +172,7 @@ public class TornadoAiServiceLiveTests
             Подтверди выполнение кратко.
             """;
 
-        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
+        var result = await fixture.Sut.ProcessMessageAsync(fixture.Session.Id, prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
         
         AssertSuccess(result, fixture.Logs);
         fixture.PersistedMessages[0].Role.Should().Be(ChatMessageRole.User);
@@ -188,7 +190,7 @@ public class TornadoAiServiceLiveTests
             Подтверди кратко.
             """;
 
-        var result = await fixture.Sut.ProcessMessageAsync(prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
+        var result = await fixture.Sut.ProcessMessageAsync(fixture.Session.Id, prompt, attachmentIds: null, settings: fixture.Settings, operationId: Guid.NewGuid());
 
         AssertSuccess(result, fixture.Logs);
         await fixture.AiToolsService.Received().PrependTextAsync(
@@ -287,9 +289,9 @@ public class TornadoAiServiceLiveTests
         var session = new ChatSession(Guid.NewGuid(), Guid.NewGuid());
         var persistedMessages = new List<ChatMessage>();
 
-        chatService.GetOrCreateActiveSessionAsync(Arg.Any<CancellationToken>())
+        chatService.GetSessionAsync(session.Id, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success(session)));
-        chatService.GetMessagesAsync(Arg.Any<CancellationToken>())
+        chatService.GetMessagesAsync(session.Id, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success<IReadOnlyCollection<ChatMessage>>([])));
         folderService.GetFolderTreeForPromptAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success<IReadOnlyList<FolderSummary>>([])));
@@ -332,6 +334,7 @@ public class TornadoAiServiceLiveTests
 
         return new TornadoAiLiveFixture(
             sut,
+            session,
             settings,
             attachmentService,
             blobStorageService,
@@ -450,6 +453,7 @@ public class TornadoAiServiceLiveTests
 
     private sealed record TornadoAiLiveFixture(
         TornadoAiService Sut,
+        ChatSession Session,
         UserAiSettings Settings,
         IAttachmentService AttachmentService,
         IBlobStorageService BlobStorageService,

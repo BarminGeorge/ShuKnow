@@ -6,6 +6,7 @@ import {
 } from "../constants";
 
 export interface SendMessageCommand {
+  sessionId: string;
   content: string;
   context?: string | null;
   attachmentIds?: string[] | null;

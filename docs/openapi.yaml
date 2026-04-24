@@ -717,17 +717,15 @@ paths:
   # ──────────────────────────────────────────────
 
   /api/chat/session:
-    get:
-      operationId: getChatSession
+    post:
+      operationId: createChatSession
       tags: [Chat]
-      summary: Get or create the active chat session
+      summary: Create a chat session
       description: |
-        Returns the current active chat session. If none exists, a new session
-        is created transparently (idempotent). There is always at most one
-        active session per user.
+        Creates a new chat session for the current user.
       responses:
         '200':
-          description: Active chat session.
+          description: Created chat session.
           content:
             application/json:
               schema:
@@ -735,29 +733,65 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/chat/session/{sessionId}:
+    get:
+      operationId: getChatSession
+      tags: [Chat]
+      summary: Get a chat session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Chat session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatSessionDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
     delete:
       operationId: deleteChatSession
       tags: [Chat]
-      summary: Close and discard the current session
-      description: |
-        Closes the current session. The next `GET /api/chat/session` will
-        create a fresh one.
+      summary: Delete a chat session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '204':
-          description: Session closed.
+          description: Session deleted.
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
-  /api/chat/session/messages:
+  /api/chat/session/{sessionId}/messages:
     get:
       operationId: getChatMessages
       tags: [Chat]
-      summary: List messages in the current session (cursor-paginated)
+      summary: List messages in a chat session (cursor-paginated)
       description: |
-        Returns messages in the current chat session using cursor-based pagination
+        Returns messages in a chat session using cursor-based pagination
         (keyset on `CreatedAt` descending with `Id` tiebreaking). This avoids
         page drift when new messages are appended during browsing.
       parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
         - name: cursor
           in: query
           required: false
