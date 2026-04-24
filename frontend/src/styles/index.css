@@ -3,5 +3,14 @@
 @import './theme.css';
 
 html, body {
+  width: 100%;
+  min-height: 100%;
+  background: #0a0a0a;
   overscroll-behavior: none;
+}
+
+#root {
+  width: 100%;
+  min-height: 100%;
+  background: #0a0a0a;
 }

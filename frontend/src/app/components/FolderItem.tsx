@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDrag, useDragLayer, useDrop } from "react-dnd";
 import { getEmptyImage } from "react-dnd-html5-backend";
 import { ChevronRight, ChevronDown } from "lucide-react";
@@ -21,6 +21,36 @@ interface FolderItemProps {
 
 const FOLDER_TYPE = "FOLDER";
 const HOVER_TO_NEST_DELAY = 600;
+const SIDEBAR_EXPANDED_FOLDERS_KEY = "shuknow.sidebar.expandedFolderIds";
+
+const readExpandedFolderIds = () => {
+  try {
+    const rawValue = window.localStorage.getItem(SIDEBAR_EXPANDED_FOLDERS_KEY);
+    if (!rawValue) return null;
+
+    const parsedValue = JSON.parse(rawValue);
+    return Array.isArray(parsedValue)
+      ? new Set(parsedValue.filter((value): value is string => typeof value === "string"))
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeExpandedFolderState = (folderId: string, isExpanded: boolean) => {
+  const expandedFolderIds = readExpandedFolderIds() ?? new Set<string>();
+
+  if (isExpanded) {
+    expandedFolderIds.add(folderId);
+  } else {
+    expandedFolderIds.delete(folderId);
+  }
+
+  window.localStorage.setItem(
+    SIDEBAR_EXPANDED_FOLDERS_KEY,
+    JSON.stringify(Array.from(expandedFolderIds))
+  );
+};
 
 interface DragItem {
   path: string[];
@@ -48,7 +78,10 @@ export function FolderItem({
   depth = 0,
 }: FolderItemProps) {
   const { setSelectedFolderPath, setViewMode } = useWorkspaceView();
-  const [isExpanded, setIsExpanded] = useState(depth === 0);
+  const [isExpanded, setIsExpanded] = useState(() => {
+    const expandedFolderIds = readExpandedFolderIds();
+    return expandedFolderIds ? expandedFolderIds.has(folder.id) : depth === 0;
+  });
   const [dropZone, setDropZone] = useState<DropZone>(null);
   const [isPointerHovered, setIsPointerHovered] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -95,6 +128,11 @@ export function FolderItem({
       hoverTimeoutRef.current = null;
     }
   };
+
+  const setExpandedPersistently = useCallback((nextIsExpanded: boolean) => {
+    setIsExpanded(nextIsExpanded);
+    writeExpandedFolderState(folder.id, nextIsExpanded);
+  }, [folder.id]);
 
   const updateDropZone = (nextDropZone: DropZone) => {
     latestDropZoneRef.current = nextDropZone;
@@ -164,7 +202,7 @@ export function FolderItem({
         if (!hoverTimeoutRef.current) {
           hoverTimeoutRef.current = setTimeout(() => {
             if (hasSubfolders && !isExpanded) {
-              setIsExpanded(true);
+              setExpandedPersistently(true);
             }
           }, HOVER_TO_NEST_DELAY);
         }
@@ -241,7 +279,7 @@ export function FolderItem({
 
   const handleToggleExpand = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsExpanded(!isExpanded);
+    setExpandedPersistently(!isExpanded);
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {

@@ -18,6 +18,14 @@ import { useTabs } from "./hooks/useTabs";
 import { useWorkspaceView } from "./hooks/useWorkspaceView";
 import { useChatController } from "./hooks/useChatController";
 
+const WORKSPACE_LOCATION_STORAGE_KEY = "shuknow.workspace.location";
+
+type PersistedWorkspaceLocation = {
+  viewMode: "chat" | "folder" | "editor";
+  selectedFolderId: string | null;
+  activeFileId: string | null;
+};
+
 function mapApiFolderToLocalFolder(apiFolder: ApiFolder): Folder {
   return {
     ...apiFolder,
@@ -47,6 +55,68 @@ function mapApiFileToLocalFile(apiFile: ApiFileItem): FileItem {
   };
 }
 
+function readWorkspaceLocation(): PersistedWorkspaceLocation | null {
+  try {
+    const rawValue = window.localStorage.getItem(WORKSPACE_LOCATION_STORAGE_KEY);
+    if (!rawValue) return null;
+
+    const parsedValue = JSON.parse(rawValue) as Partial<PersistedWorkspaceLocation>;
+    if (
+      parsedValue.viewMode !== "chat" &&
+      parsedValue.viewMode !== "folder" &&
+      parsedValue.viewMode !== "editor"
+    ) {
+      return null;
+    }
+
+    return {
+      viewMode: parsedValue.viewMode,
+      selectedFolderId: typeof parsedValue.selectedFolderId === "string" ? parsedValue.selectedFolderId : null,
+      activeFileId: typeof parsedValue.activeFileId === "string" ? parsedValue.activeFileId : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeWorkspaceLocation(location: PersistedWorkspaceLocation) {
+  window.localStorage.setItem(WORKSPACE_LOCATION_STORAGE_KEY, JSON.stringify(location));
+}
+
+function findFolderPathByIdInTree(folders: Folder[], folderId: string): string[] | null {
+  const search = (list: Folder[], path: string[]): string[] | null => {
+    for (let i = 0; i < list.length; i++) {
+      const folder = list[i];
+      const currentPath = [...path, i.toString()];
+      if (folder.id === folderId) return currentPath;
+
+      const nestedPath = search(folder.subfolders || [], currentPath);
+      if (nestedPath) return nestedPath;
+    }
+
+    return null;
+  };
+
+  return search(folders, []);
+}
+
+function findFolderByPath(folders: Folder[], path: string[] | null): Folder | null {
+  if (!path || path.length === 0) return null;
+
+  let currentFolderList = folders;
+  let currentFolder: Folder | null = null;
+
+  for (const pathSegment of path) {
+    const folderIndex = parseInt(pathSegment);
+    if (!currentFolderList[folderIndex]) return null;
+
+    currentFolder = currentFolderList[folderIndex];
+    currentFolderList = currentFolder.subfolders || [];
+  }
+
+  return currentFolder;
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
 export default function Workspace() {
@@ -58,6 +128,8 @@ export default function Workspace() {
   const { folders, setFolders, isLoading: isLoadingFolders, loadFolders } = useFolders();
   const { files, createFile, updateFile, deleteFile } = useFiles();
   const { openTabs, activeTab, activeTabId, openTab, closeTab, switchTab } = useTabs();
+  const [hasLoadedInitialWorkspace, setHasLoadedInitialWorkspace] = useState(false);
+  const [isWorkspaceLocationReady, setIsWorkspaceLocationReady] = useState(false);
   const getFolderDisplayPathById = useCallback((folderId: string): string | null => {
     const search = (items: Folder[], parentPath: string[]): string | null => {
       for (const folder of items) {
@@ -87,7 +159,7 @@ export default function Workspace() {
     handleResendMessage,
   } = useChatController({
     isMockMode,
-    isChatView: viewMode === "chat",
+    isChatView: isWorkspaceLocationReady && viewMode === "chat",
     loadFolders,
     getFolderPathById: getFolderDisplayPathById,
   });
@@ -97,6 +169,7 @@ export default function Workspace() {
   const latestAutosaveByFileRef = useRef<Map<string, number>>(new Map());
   const lastAutosavedContentRef = useRef<Map<string, string>>(new Map());
   const autosaveFailureNotifiedRef = useRef<Set<string>>(new Set());
+  const hasRestoredWorkspaceLocationRef = useRef(false);
   const [composerBottomPadding, setComposerBottomPadding] = useState(176);
 
   useEffect(() => {
@@ -117,8 +190,67 @@ export default function Workspace() {
 
   // Load folders from API
   useEffect(() => {
-    loadFolders();
+    let cancelled = false;
+
+    void loadFolders().finally(() => {
+      if (!cancelled) {
+        setHasLoadedInitialWorkspace(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [loadFolders]);
+
+  useEffect(() => {
+    if (hasRestoredWorkspaceLocationRef.current || !hasLoadedInitialWorkspace || isLoadingFolders) {
+      return;
+    }
+
+    hasRestoredWorkspaceLocationRef.current = true;
+    const savedLocation = readWorkspaceLocation();
+    if (!savedLocation) {
+      setIsWorkspaceLocationReady(true);
+      return;
+    }
+
+    if (savedLocation.viewMode === "editor" && savedLocation.activeFileId) {
+      const activeFileExists = files.some((file) => file.id === savedLocation.activeFileId);
+      if (activeFileExists) {
+        openTab(savedLocation.activeFileId);
+        setIsWorkspaceLocationReady(true);
+        return;
+      }
+    }
+
+    if (savedLocation.viewMode === "folder" && savedLocation.selectedFolderId) {
+      const folderPath = findFolderPathByIdInTree(folders, savedLocation.selectedFolderId);
+      if (folderPath) {
+        setSelectedFolderPath(folderPath);
+        setViewMode("folder");
+        setIsWorkspaceLocationReady(true);
+        return;
+      }
+    }
+
+    setViewMode("chat");
+    setSelectedFolderPath(null);
+    setIsWorkspaceLocationReady(true);
+  }, [files, folders, hasLoadedInitialWorkspace, isLoadingFolders, openTab, setSelectedFolderPath, setViewMode]);
+
+  useEffect(() => {
+    if (!hasRestoredWorkspaceLocationRef.current) {
+      return;
+    }
+
+    const selectedFolderId = findFolderByPath(folders, selectedFolderPath)?.id ?? null;
+    writeWorkspaceLocation({
+      viewMode,
+      selectedFolderId,
+      activeFileId: activeTabId,
+    });
+  }, [activeTabId, folders, selectedFolderPath, viewMode]);
 
   // ── Tab management ──────────────────────────────────────────────────────────
 
@@ -254,21 +386,9 @@ export default function Workspace() {
 
   // ── Navigate to folder by file's folderId ──────────────────────────────────
 
-  const findFolderPathById = useCallback((folderId: string): string[] | null => {
-    const search = (list: Folder[], path: string[]): string[] | null => {
-      for (let i = 0; i < list.length; i++) {
-        const f = list[i];
-        const currentPath = [...path, i.toString()];
-        if (f.id === folderId) return currentPath;
-        if (f.subfolders) {
-          const found = search(f.subfolders, currentPath);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-    return search(folders, []);
-  }, [folders]);
+  const findFolderPathById = useCallback((folderId: string): string[] | null => (
+    findFolderPathByIdInTree(folders, folderId)
+  ), [folders]);
 
   const handleNavigateToFolder = useCallback((folderId: string) => {
     const path = findFolderPathById(folderId);
@@ -316,7 +436,10 @@ export default function Workspace() {
 
               {/* ── Content area ──────────────────────────────────────── */}
               <div className="flex-1 overflow-hidden">
-                {viewMode === "editor" ? (
+                {!isWorkspaceLocationReady ? (
+                  <div className="h-full w-full bg-[#0a0a0a]" />
+
+                ) : viewMode === "editor" ? (
                   <TabsWorkspace
                     activeFile={activeTab}
                     onUpdateFileContent={handleUpdateFileContent}
