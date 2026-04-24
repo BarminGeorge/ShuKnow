@@ -54,7 +54,7 @@ export function useChatController({
   const latestOperationIdRef = useRef<string | null>(null);
   const backendMessageOperationIdsRef = useRef(new Map<string, string>());
   const pendingUserMessageIdsRef = useRef<string[]>([]);
-  const hasSessionResetRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
 
   const extractOperationIdFromEvent = (event: unknown) => {
     if (event && typeof event === "object" && "operationId" in event) {
@@ -238,20 +238,14 @@ export function useChatController({
   });
 
   useEffect(() => {
-    if (isMockMode || hasSessionResetRef.current) {
-      return;
-    }
+    if (isMockMode) return;
 
-    hasSessionResetRef.current = true;
     setMessages([]);
+    sessionIdRef.current = null;
     operationsRef.current.clear();
     latestOperationIdRef.current = null;
     backendMessageOperationIdsRef.current.clear();
     pendingUserMessageIdsRef.current = [];
-
-    void chatService.deleteChatSession().catch((error) => {
-      console.warn("Failed to reset chat session on startup:", error);
-    });
   }, [isMockMode, setMessages]);
 
   useEffect(() => {
@@ -348,6 +342,11 @@ export function useChatController({
     try {
       let normalizedAttachments = attachments;
       let attachmentIds = getAttachmentIds(normalizedAttachments);
+      if (!sessionIdRef.current) {
+        const session = await chatService.createChatSession();
+        sessionIdRef.current = session.id;
+      }
+      const sessionId = sessionIdRef.current;
 
       if (attachments && attachments.length > 0) {
         const filesToUpload = attachments
@@ -370,6 +369,7 @@ export function useChatController({
       }
 
       await chatHub.sendMessage({
+        sessionId,
         content: content.trim(),
         attachmentIds: attachmentIds.length > 0 ? attachmentIds : null,
         context: null,

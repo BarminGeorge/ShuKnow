@@ -45,14 +45,19 @@ public partial class ChatHub
         operationService.CancelOperation(ConnectionId);
         return Task.CompletedTask;
     }
-    
+
     private async Task TryProcessMessage(SendMessageCommand command, Guid operationId, CancellationToken ct)
     {
         await chatNotificationService.SendProcessingStartedAsync(operationId, ct);
 
         var processingResult = await settingsService.GetOrCreateAsync(ct)
-            .BindAsync(settings =>
-                aiService.ProcessMessageAsync(command.Content, command.AttachmentIds, settings, operationId, ct));
+            .BindAsync(settings => aiService.ProcessMessageAsync(
+                    command.SessionId,
+                    command.Content,
+                    command.AttachmentIds,
+                    settings,
+                    operationId,
+                    ct));
         await NotifyProcessingResultAsync(operationId, processingResult, ct);
     }
 

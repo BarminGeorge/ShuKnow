@@ -30,15 +30,20 @@ export interface CursorPagedChatMessageResult {
   hasMore: boolean;
 }
 
-export async function fetchChatSession(): Promise<ChatSessionDto> {
-  return apiRequest<ChatSessionDto>("/api/chat/session");
+export async function createChatSession(): Promise<ChatSessionDto> {
+  return apiRequest<ChatSessionDto>("/api/chat/session", { method: "POST" });
 }
 
-export async function deleteChatSession(): Promise<void> {
-  return apiRequest<void>("/api/chat/session", { method: "DELETE" });
+export async function fetchChatSession(sessionId: string): Promise<ChatSessionDto> {
+  return apiRequest<ChatSessionDto>(`/api/chat/session/${sessionId}`);
+}
+
+export async function deleteChatSession(sessionId: string): Promise<void> {
+  return apiRequest<void>(`/api/chat/session/${sessionId}`, { method: "DELETE" });
 }
 
 export async function fetchChatMessages(
+  sessionId: string,
   cursor?: string,
   limit: number = 50
 ): Promise<CursorPagedChatMessageResult> {
@@ -48,7 +53,7 @@ export async function fetchChatMessages(
   
   const query = params.toString();
   return apiRequest<CursorPagedChatMessageResult>(
-    `/api/chat/session/messages${query ? `?${query}` : ""}`
+    `/api/chat/session/${sessionId}/messages${query ? `?${query}` : ""}`
   );
 }
 
