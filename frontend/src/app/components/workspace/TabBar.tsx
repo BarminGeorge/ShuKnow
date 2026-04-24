@@ -1,4 +1,4 @@
-import { X, FileText, ImageIcon, ArrowLeft, FolderOpen, Menu } from "lucide-react";
+import { X, FileText, ImageIcon, ArrowLeft, FolderOpen, PanelLeftClose } from "lucide-react";
 import type { FileItem } from "../../Workspace";
 
 interface TabBarProps {
@@ -33,7 +33,7 @@ export function TabBar({
           title="Открыть меню"
           aria-label="Открыть меню"
         >
-          <Menu size={16} />
+          <PanelLeftClose size={16} />
         </button>
       )}
 

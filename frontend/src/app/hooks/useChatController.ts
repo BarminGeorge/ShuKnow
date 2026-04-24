@@ -30,6 +30,8 @@ const CHAT_TITLES = [
   "42?",
 ];
 
+const getRandomChatTitle = () => CHAT_TITLES[Math.floor(Math.random() * CHAT_TITLES.length)];
+
 interface ChatOperation {
   messageId: string;
   createdFiles: FileResult[];
@@ -250,10 +252,19 @@ export function useChatController({
 
   useEffect(() => {
     if (isChatView) {
-      const randomIndex = Math.floor(Math.random() * CHAT_TITLES.length);
-      setCurrentTitle(CHAT_TITLES[randomIndex]);
+      setCurrentTitle(getRandomChatTitle());
     }
   }, [isChatView, setCurrentTitle]);
+
+  const handleStartNewChat = useCallback(() => {
+    setMessages([]);
+    sessionIdRef.current = null;
+    operationsRef.current.clear();
+    latestOperationIdRef.current = null;
+    backendMessageOperationIdsRef.current.clear();
+    pendingUserMessageIdsRef.current = [];
+    setCurrentTitle(getRandomChatTitle());
+  }, [setCurrentTitle, setMessages]);
 
   const handleSendMessageMock = useCallback((content: string, attachments?: Attachment[]) => {
     const userMessage: Message = {
@@ -471,5 +482,6 @@ export function useChatController({
     handleCancelMessage,
     handleRetryMessage,
     handleResendMessage,
+    handleStartNewChat,
   };
 }

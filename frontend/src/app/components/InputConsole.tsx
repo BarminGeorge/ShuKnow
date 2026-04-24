@@ -242,7 +242,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
   };
 
   return (
-    <div className="bg-transparent px-3 pb-3 pt-2 lg:px-4 lg:pb-6 lg:pt-4">
+    <div className="bg-transparent px-3 pb-2 pt-1.5 lg:px-4 lg:pb-6 lg:pt-4">
       <div className="max-w-7xl mx-auto px-0 lg:px-9">
         <input
           ref={fileInputRef}
@@ -254,35 +254,35 @@ export function InputConsole({ onSend }: InputConsoleProps) {
 
         {/* Attachments preview - horizontal scrollable strip */}
         {attachments.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-2 mb-2 max-w-full [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div className="mb-1.5 flex max-w-full gap-2 overflow-x-auto pb-1.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] lg:mb-2 lg:pb-2">
             {attachments.map((attachment) => (
               <div
                 key={attachment.localId}
-                className="flex-shrink-0 w-[min(220px,78vw)] flex items-center gap-3 px-3 py-2.5 rounded-xl
+                className="flex w-[min(160px,52vw)] flex-shrink-0 items-center gap-2 rounded-lg px-2 py-1.5 lg:w-[min(200px,64vw)] lg:gap-2.5 lg:rounded-xl lg:px-2.5 lg:py-2
                            bg-[linear-gradient(135deg,rgb(31,31,33),rgb(24,24,24)_52%,rgb(18,18,20))]
                            border border-white/[0.07] shadow-[0_10px_28px_rgba(0,0,0,0.22)]
                            group transition-all hover:border-violet-200/18 hover:shadow-[0_12px_32px_rgba(0,0,0,0.26),0_0_20px_rgba(167,139,250,0.05)]"
               >
-                <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-black/30 border border-white/[0.06] flex items-center justify-center">
+                <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-white/[0.06] bg-black/30 lg:h-9 lg:w-9 lg:rounded-lg">
                   {isImageFile(attachment.name) && attachment.url ? (
                     <img src={attachment.url} alt={attachment.name} className="w-full h-full object-cover" />
                   ) : (
-                    <FileText size={20} className="text-muted-foreground" />
+                    <FileText size={15} className="text-muted-foreground lg:h-[18px] lg:w-[18px]" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground truncate">{attachment.name}</p>
+                  <p className="truncate text-[11px] text-foreground lg:text-xs">{attachment.name}</p>
                   {attachment.sizeBytes && (
-                    <p className="text-xs text-muted-foreground">{formatFileSize(attachment.sizeBytes)}</p>
+                    <p className="text-[10px] text-muted-foreground lg:text-[11px]">{formatFileSize(attachment.sizeBytes)}</p>
                   )}
                 </div>
                 <button
                   onClick={() => removeAttachment(attachment.localId)}
                   disabled={isUploading}
-                  className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-gray-500
+                  className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md text-gray-500 lg:h-6 lg:w-6 lg:rounded-lg
                              hover:bg-violet-500/10 hover:text-violet-100 transition-colors disabled:opacity-50"
                 >
-                  <X size={14} />
+                  <X size={12} className="lg:h-[13px] lg:w-[13px]" />
                 </button>
               </div>
             ))}
@@ -291,7 +291,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
 
         {/* Input container */}
         <div
-          className={`relative flex items-end gap-2 px-3 py-2 rounded-xl overflow-hidden border lg:items-center lg:rounded-2xl lg:px-4 lg:py-3
+          className={`relative flex items-center gap-2 overflow-hidden rounded-xl border px-2.5 py-1.5 lg:rounded-2xl lg:px-4 lg:py-3
             shadow-[inset_0_1px_0_rgba(255,255,255,0.055),inset_0_-18px_36px_rgba(0,0,0,0.22),0_18px_46px_rgba(0,0,0,0.34)]
             transition-all duration-150
             before:absolute before:inset-x-5 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent
@@ -309,7 +309,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
         >
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="relative z-10 flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-lg text-gray-400 lg:h-8 lg:w-8
+            className="relative z-10 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-gray-400 lg:h-8 lg:w-8
                        hover:text-violet-100 hover:bg-violet-500/10 transition-colors"
             title="Прикрепить файлы"
           >
@@ -323,15 +323,15 @@ export function InputConsole({ onSend }: InputConsoleProps) {
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             placeholder={isDragging ? "Отпустите файлы здесь..." : "Спросите ShuKnow..."}
-            className="relative z-10 flex-1 max-h-[132px] min-h-[22px] bg-transparent text-gray-100 placeholder:text-gray-500 lg:max-h-[200px] lg:min-h-[24px]
-                       focus:placeholder:text-gray-400 resize-none outline-none text-sm leading-relaxed overflow-y-auto lg:text-[15px]"
+            className="relative z-10 flex-1 max-h-[112px] min-h-[20px] bg-transparent pt-[1px] text-sm leading-5 text-gray-100 placeholder:text-gray-500 lg:max-h-[200px] lg:min-h-[24px] lg:pt-0 lg:text-[15px] lg:leading-relaxed
+                       focus:placeholder:text-gray-400 resize-none outline-none overflow-y-auto"
             rows={1}
           />
 
           <button
             onClick={handleSend}
             disabled={isUploading || (!input.trim() && attachments.length === 0)}
-            className="relative z-10 flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-lg text-violet-100 lg:h-8 lg:w-8
+            className="relative z-10 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-violet-100 lg:h-8 lg:w-8
                        bg-[linear-gradient(135deg,rgb(36,31,48),rgb(20,22,31)_58%,rgb(28,26,39))]
                        border border-violet-200/14 shadow-[0_0_14px_rgba(167,139,250,0.035)] transition-all duration-150
                        hover:border-violet-200/22 hover:text-white hover:shadow-[0_0_18px_rgba(167,139,250,0.07)]

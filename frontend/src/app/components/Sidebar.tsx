@@ -18,6 +18,7 @@ import type { GridItemType } from "./FolderContentView/types";
 
 interface SidebarProps {
   onLogoClick: () => void;
+  onChatClick: () => void;
   onToggleSidebar?: () => void;
   isCollapsed?: boolean;
   onNavigateComplete?: () => void;
@@ -49,7 +50,7 @@ const isNonEmptyFolderError = (error: unknown) => {
   return false;
 };
 
-export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed, onNavigateComplete }: SidebarProps) {
+export function Sidebar({ onLogoClick, onChatClick, onToggleSidebar, isCollapsed, onNavigateComplete }: SidebarProps) {
   // Jotai hooks
   const { folders, setFolders, updateFolder, createFolder, moveFolderAtom } = useFolders();
   const { files, setFiles } = useFiles();
@@ -442,6 +443,11 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed, onNavigateC
   };
 
   const handleChatClick = () => {
+    onChatClick();
+    onNavigateComplete?.();
+  };
+
+  const handleLogoClick = () => {
     onLogoClick();
     onNavigateComplete?.();
   };
@@ -574,7 +580,7 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed, onNavigateC
       <div className="flex items-center justify-between px-4 py-4">
         <h1 
           className="text-xl font-semibold text-white select-none cursor-pointer hover:text-white/80 transition-colors"
-          onClick={handleChatClick}
+          onClick={handleLogoClick}
         >
           ShuKnow
         </h1>

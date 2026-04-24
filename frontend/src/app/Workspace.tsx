@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { ChatMessages } from "./components/ChatMessages";
 import { InputConsole } from "./components/InputConsole";
-import { Menu, Sparkles } from "lucide-react";
+import { PanelLeftClose, Sparkles } from "lucide-react";
 import { FolderContentView } from "./components/FolderContentView";
 import { TabsWorkspace } from "./components/workspace/TabsWorkspace";
 import { TabBar } from "./components/workspace/TabBar";
@@ -157,6 +157,7 @@ export default function Workspace() {
     handleCancelMessage,
     handleRetryMessage,
     handleResendMessage,
+    handleStartNewChat,
   } = useChatController({
     isMockMode,
     isChatView: isWorkspaceLocationReady && viewMode === "chat",
@@ -338,6 +339,11 @@ export default function Workspace() {
     setIsMobileSidebarOpen(false);
   };
 
+  const handleLogoNewChat = () => {
+    handleStartNewChat();
+    handleGoToChat();
+  };
+
   const handleNavigateBack = () => {
     if (viewMode === "editor") {
       if (selectedFolderPath) {
@@ -417,7 +423,8 @@ export default function Workspace() {
             className={`hidden lg:block ${isSidebarCollapsed ? "w-16" : "w-80"} h-full flex-none border-r border-white/10 transition-[width] duration-200 ease-out`}
           >
             <Sidebar
-              onLogoClick={handleGoToChat}
+              onLogoClick={handleLogoNewChat}
+              onChatClick={handleGoToChat}
               onToggleSidebar={handleToggleSidebar}
               isCollapsed={isSidebarCollapsed}
             />
@@ -431,12 +438,15 @@ export default function Workspace() {
                 className="absolute inset-0 bg-black/70 backdrop-blur-sm"
                 onClick={() => setIsMobileSidebarOpen(false)}
               />
-              <aside className="absolute inset-y-0 left-0 w-[min(86vw,320px)] border-r border-white/10 shadow-[20px_0_70px_rgba(0,0,0,0.52)]">
-                <Sidebar
-                  onLogoClick={handleGoToChat}
-                  isCollapsed={false}
-                  onNavigateComplete={() => setIsMobileSidebarOpen(false)}
-                />
+              <aside className="absolute inset-y-0 left-0 w-[min(78vw,280px)] overflow-hidden border-r border-white/10 shadow-[20px_0_70px_rgba(0,0,0,0.52)]">
+                <div className="h-[117.65%] w-[117.65%] origin-top-left scale-[0.85]">
+                  <Sidebar
+                    onLogoClick={handleLogoNewChat}
+                    onChatClick={handleGoToChat}
+                    isCollapsed={false}
+                    onNavigateComplete={() => setIsMobileSidebarOpen(false)}
+                  />
+                </div>
               </aside>
             </div>
           )}
@@ -445,15 +455,15 @@ export default function Workspace() {
           <main className="min-w-0 flex-1">
             <div className="h-full flex flex-col relative">
               {viewMode === "chat" && openTabs.length === 0 && (
-              <div className="lg:hidden h-10 flex flex-shrink-0 items-center gap-2.5 border-b border-white/[0.08] bg-[#0e0e0e] px-3">
+              <div className="lg:hidden h-9 flex flex-shrink-0 items-center gap-2.5 border-b border-white/[0.08] bg-[#0e0e0e] px-3">
                 <button
                   type="button"
                   onClick={() => setIsMobileSidebarOpen((open) => !open)}
-                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
+                  className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
                   title={isMobileSidebarOpen ? "Закрыть меню" : "Открыть меню"}
                   aria-label={isMobileSidebarOpen ? "Закрыть меню" : "Открыть меню"}
                 >
-                  <Menu size={17} />
+                  <PanelLeftClose size={16} />
                 </button>
               </div>
               )}
