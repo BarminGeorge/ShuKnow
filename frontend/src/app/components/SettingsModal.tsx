@@ -96,8 +96,15 @@ const PROVIDER_GUIDES: Record<string, ProviderGuideSlide[]> = {
       image: "/provider-guide/OpenRouter3.png",
     },
     {
+      title: "Найдите ID модели",
+      description: "Откройте каталог моделей OpenRouter, выберите модель и скопируйте её ID. Для бесплатных моделей ищите суффикс :free, например openai/gpt-oss-120b:free.",
+      image: "/provider-guide/OpenRouterModels.png",
+      linkLabel: "openrouter.ai/models",
+      linkUrl: "https://openrouter.ai/models",
+    },
+    {
       title: "Вставьте в ShuKnow",
-      description: "Выберите OpenRouter, укажите модель с бесплатным доступом и вставьте скопированный API ключ. Ключ показывается только один раз.",
+      description: "Выберите OpenRouter, вставьте API ключ и укажите точный ID модели из каталога. Название модели должно совпадать с ID у провайдера.",
       image: "/provider-guide/ShuKnowOpenRouter.png",
     },
   ],
@@ -116,7 +123,18 @@ const PROVIDER_GUIDES: Record<string, ProviderGuideSlide[]> = {
     },
     {
       title: "Скопируйте ключ",
-      description: "Скопируйте строку, которая начинается с AIza. В ShuKnow выберите Gemini, вставьте ключ и укажите нужный ID модели.",
+      description: "Скопируйте строку, которая начинается с AIza. Этот ключ понадобится для поля API ключ в ShuKnow.",
+    },
+    {
+      title: "Найдите ID модели",
+      description: "В Google AI Studio откройте список моделей или документацию Gemini API и скопируйте точное имя модели. Примеры: gemini-2.5-flash, gemini-2.5-pro.",
+      image: "/provider-guide/GeminiModelId.png",
+      linkLabel: "ai.google.dev/gemini-api/docs/models",
+      linkUrl: "https://ai.google.dev/gemini-api/docs/models",
+    },
+    {
+      title: "Вставьте в ShuKnow",
+      description: "Выберите Gemini, вставьте API ключ и укажите точный ID модели из документации или AI Studio.",
       image: "/provider-guide/ShuKnowGemini.png",
     },
   ],
@@ -124,6 +142,7 @@ const PROVIDER_GUIDES: Record<string, ProviderGuideSlide[]> = {
     {
       title: "OpenAI Compatible",
       description: "Этот режим подходит для OpenAI, DeepSeek, Qwen, локальных моделей и сервисов с OpenAI-compatible API. Нужны API Key и при необходимости Base URL.",
+      image: "/provider-guide/OpenAICompatible.png",
     },
     {
       title: "Пример: DeepSeek",
@@ -135,10 +154,18 @@ const PROVIDER_GUIDES: Record<string, ProviderGuideSlide[]> = {
     {
       title: "Укажите Base URL",
       description: "Для DeepSeek используйте https://api.deepseek.com. Для официального OpenAI обычно подходит https://api.openai.com/v1.",
+      image: "/provider-guide/DeepSeekBaseUrl.png",
+      linkLabel: "api-docs.deepseek.com",
+      linkUrl: "https://api-docs.deepseek.com",
+    },
+    {
+      title: "Найдите ID модели",
+      description: "Берите ID модели из документации выбранного OpenAI-compatible сервиса. Для OpenAI это может быть gpt-5.4, для DeepSeek — deepseek-chat или deepseek-reasoner.",
+      image: "/provider-guide/DeepSeekModelId.png",
     },
     {
       title: "Сохраните настройки",
-      description: "В ShuKnow выберите OpenAI, вставьте API ключ, заполните ID модели и Base URL, если он отличается от стандартного.",
+      description: "В ShuKnow выберите OpenAI, вставьте API ключ, заполните точный ID модели и Base URL, если он отличается от стандартного.",
       image: "/provider-guide/ShuKnowOpenAI.png",
     },
   ],
