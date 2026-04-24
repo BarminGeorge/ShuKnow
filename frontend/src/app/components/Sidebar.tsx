@@ -159,11 +159,71 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
     return clonedFolders;
   };
 
+  const moveFolderRelativeById = (
+    foldersList: Folder[],
+    folderId: string,
+    targetFolderId: string,
+    dropZone: "before" | "after" | "inside"
+  ): Folder[] => {
+    if (dropZone === "inside") {
+      return moveFolderIntoFolderById(foldersList, folderId, targetFolderId);
+    }
+
+    const clonedFolders = JSON.parse(JSON.stringify(foldersList)) as Folder[];
+    let removedFolder: Folder | null = null;
+
+    const removeFolder = (items: Folder[]): boolean => {
+      const folderIndex = items.findIndex((item) => item.id === folderId);
+
+      if (folderIndex >= 0) {
+        removedFolder = items.splice(folderIndex, 1)[0];
+        return true;
+      }
+
+      return items.some((item) => removeFolder(item.subfolders || []));
+    };
+
+    const insertFolder = (items: Folder[]): boolean => {
+      const targetIndex = items.findIndex((item) => item.id === targetFolderId);
+
+      if (targetIndex >= 0) {
+        items.splice(targetIndex + (dropZone === "after" ? 1 : 0), 0, removedFolder!);
+        return true;
+      }
+
+      return items.some((item) => insertFolder(item.subfolders || []));
+    };
+
+    const draggedFolder = findFolderById(clonedFolders, folderId);
+    if (!draggedFolder || folderId === targetFolderId || containsFolderId(draggedFolder, targetFolderId)) {
+      return foldersList;
+    }
+
+    removeFolder(clonedFolders);
+    if (!removedFolder || !insertFolder(clonedFolders)) {
+      return foldersList;
+    }
+
+    return clonedFolders;
+  };
+
   const findFolderById = (foldersList: Folder[], folderId: string): Folder | null => {
     for (const folder of foldersList) {
       if (folder.id === folderId) return folder;
       const subfolder = findFolderById(folder.subfolders || [], folderId);
       if (subfolder) return subfolder;
+    }
+
+    return null;
+  };
+
+  const findFolderSiblingIndex = (foldersList: Folder[], folderId: string): number | null => {
+    const directIndex = foldersList.findIndex((folder) => folder.id === folderId);
+    if (directIndex >= 0) return directIndex;
+
+    for (const folder of foldersList) {
+      const nestedIndex = findFolderSiblingIndex(folder.subfolders || [], folderId);
+      if (nestedIndex !== null) return nestedIndex;
     }
 
     return null;
@@ -211,96 +271,28 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
 
   const moveFolder = useCallback(async (dragPath: string[], hoverPath: string[], dropZone: "before" | "after" | "inside") => {
     const draggedFolder = findFolderByPath(dragPath);
-    if (!draggedFolder) return;
+    const targetFolder = findFolderByPath(hoverPath);
+    if (!draggedFolder || !targetFolder) return;
 
     const previousFolders = JSON.parse(JSON.stringify(folders)) as Folder[];
 
     const newParentFolderId = computeNewParentIdFromPath(hoverPath, dropZone);
 
-    const applyMove = (foldersList: Folder[]): Folder[] => {
-      const clonedFolders = JSON.parse(JSON.stringify(foldersList)) as Folder[];
+    if (draggedFolder.id === targetFolder.id || containsFolderId(draggedFolder, targetFolder.id)) {
+      toast.error("Нельзя переместить папку внутрь самой себя");
+      return;
+    }
 
-      const findDraggedFolderInList = (path: string[]): Folder | null => {
-        if (path.length === 1) {
-          return clonedFolders[parseInt(path[0])];
-        }
-        let currentFolderList: Folder[] = clonedFolders;
-        for (let pathIndex = 0; pathIndex < path.length - 1; pathIndex++) {
-          const folderIndex = parseInt(path[pathIndex]);
-          if (!currentFolderList[folderIndex] || !currentFolderList[folderIndex].subfolders) return null;
-          currentFolderList = currentFolderList[folderIndex].subfolders!;
-        }
-        return currentFolderList[parseInt(path[path.length - 1])];
-      };
+    const nextFolders = moveFolderRelativeById(folders, draggedFolder.id, targetFolder.id, dropZone);
+    const newPosition = dropZone === "inside" ? null : findFolderSiblingIndex(nextFolders, draggedFolder.id);
 
-      const removeFolderAtPath = (path: string[]) => {
-        if (path.length === 1) {
-          return clonedFolders.splice(parseInt(path[0]), 1)[0];
-        }
-        let currentFolderList: Folder[] = clonedFolders;
-        for (let pathIndex = 0; pathIndex < path.length - 1; pathIndex++) {
-          const folderIndex = parseInt(path[pathIndex]);
-          if (!currentFolderList[folderIndex].subfolders) return null;
-          currentFolderList = currentFolderList[folderIndex].subfolders!;
-        }
-        return currentFolderList.splice(parseInt(path[path.length - 1]), 1)[0];
-      };
-
-      const insertFolderAtPath = (folder: Folder, targetPath: string[], zone: "before" | "after" | "inside") => {
-        if (zone === "inside") {
-          if (targetPath.length === 1) {
-            const targetFolderIndex = parseInt(targetPath[0]);
-            if (!clonedFolders[targetFolderIndex].subfolders) {
-              clonedFolders[targetFolderIndex].subfolders = [];
-            }
-            clonedFolders[targetFolderIndex].subfolders!.unshift(folder);
-          } else {
-            let currentFolderList: Folder[] = clonedFolders;
-            for (let pathIndex = 0; pathIndex < targetPath.length - 1; pathIndex++) {
-              const folderIndex = parseInt(targetPath[pathIndex]);
-              if (!currentFolderList[folderIndex].subfolders) return;
-              currentFolderList = currentFolderList[folderIndex].subfolders!;
-            }
-            const targetFolderIndex = parseInt(targetPath[targetPath.length - 1]);
-            if (!currentFolderList[targetFolderIndex].subfolders) {
-              currentFolderList[targetFolderIndex].subfolders = [];
-            }
-            currentFolderList[targetFolderIndex].subfolders!.unshift(folder);
-          }
-        } else {
-          const insertIndex = parseInt(targetPath[targetPath.length - 1]) + (zone === "after" ? 1 : 0);
-          
-          if (targetPath.length === 1) {
-            clonedFolders.splice(insertIndex, 0, folder);
-          } else {
-            let currentFolderList: Folder[] = clonedFolders;
-            for (let pathIndex = 0; pathIndex < targetPath.length - 1; pathIndex++) {
-              const folderIndex = parseInt(targetPath[pathIndex]);
-              if (!currentFolderList[folderIndex].subfolders) {
-                currentFolderList[folderIndex].subfolders = [];
-              }
-              currentFolderList = currentFolderList[folderIndex].subfolders!;
-            }
-            currentFolderList.splice(insertIndex, 0, folder);
-          }
-        }
-      };
-
-      const folderToMove = findDraggedFolderInList(dragPath);
-      if (!folderToMove) return foldersList;
-
-      const removedFolder = removeFolderAtPath(dragPath);
-      if (!removedFolder) return foldersList;
-
-      insertFolderAtPath(removedFolder, hoverPath, dropZone);
-
-      return clonedFolders;
-    };
-
-    setFolders(applyMove);
+    setFolders(nextFolders);
 
     try {
       await folderService.moveFolder(draggedFolder.id, { newParentFolderId });
+      if (newPosition !== null) {
+        await folderService.reorderFolder(draggedFolder.id, { position: newPosition });
+      }
     } catch (apiError) {
       setFolders(previousFolders);
 
