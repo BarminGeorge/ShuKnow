@@ -21,6 +21,24 @@ function isImageFile(filename: string): boolean {
   return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '');
 }
 
+function extensionFromMimeType(mimeType: string): string {
+  if (!mimeType) return "";
+
+  const map: Record<string, string> = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "image/svg+xml": ".svg",
+    "image/bmp": ".bmp",
+    "image/heic": ".heic",
+    "image/heif": ".heif",
+  };
+
+  return map[mimeType.toLowerCase()] ?? "";
+}
+
 export function InputConsole({ onSend }: InputConsoleProps) {
   const [input, setInput] = useState(() => {
     if (typeof window === "undefined") return "";
@@ -166,6 +184,35 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     e.target.value = "";
   };
 
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const clipboardItems = Array.from(e.clipboardData?.items ?? []);
+    if (clipboardItems.length === 0) return;
+
+    const clipboardFiles = clipboardItems
+      .filter((item) => item.kind === "file")
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file !== null);
+
+    if (clipboardFiles.length === 0) return;
+
+    e.preventDefault();
+
+    const now = Date.now();
+    const normalizedFiles = clipboardFiles.map((file, index) => {
+      if (file.name) return file;
+
+      const extension = extensionFromMimeType(file.type);
+      const fallbackName = `pasted-file-${now}-${index + 1}${extension}`;
+
+      return new File([file], fallbackName, {
+        type: file.type || "application/octet-stream",
+        lastModified: now,
+      });
+    });
+
+    addFiles(normalizedFiles);
+  }, [addFiles]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (input.trim().length === 0) {
@@ -274,6 +321,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             placeholder={isDragging ? "Отпустите файлы здесь..." : "Спросите ShuKnow..."}
             className="relative z-10 flex-1 max-h-[200px] min-h-[24px] bg-transparent text-gray-100 placeholder:text-gray-500
                        focus:placeholder:text-gray-400 resize-none outline-none text-[15px] leading-relaxed overflow-y-auto"
