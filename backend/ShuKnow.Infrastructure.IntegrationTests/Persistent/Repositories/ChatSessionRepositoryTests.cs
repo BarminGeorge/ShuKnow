@@ -18,34 +18,6 @@ public class ChatSessionRepositoryTests : BaseRepositoryTests
     }
 
     [Test]
-    public async Task GetActiveAsync_WhenActiveSessionExists_ShouldReturnSessionWithoutTracking()
-    {
-        var user = await SeedUserAsync();
-        var activeSession = await SeedSessionAsync(user.Id);
-        await SeedSessionAsync(user.Id, ChatSessionStatus.Closed);
-
-        var result = await sut.GetActiveAsync(user.Id);
-
-        result.Status.Should().Be(ResultStatus.Ok);
-        result.Value.Id.Should().Be(activeSession.Id);
-        result.Value.UserId.Should().Be(user.Id);
-        result.Value.Status.Should().Be(ChatSessionStatus.Active);
-        Context.ChangeTracker.Entries<ChatSession>().Should().BeEmpty();
-    }
-
-    [Test]
-    public async Task GetActiveAsync_WhenOnlyClosedSessionExists_ShouldReturnNotFound()
-    {
-        var user = await SeedUserAsync();
-        await SeedSessionAsync(user.Id, ChatSessionStatus.Closed);
-
-        var result = await sut.GetActiveAsync(user.Id);
-
-        result.Status.Should().Be(ResultStatus.NotFound);
-        Context.ChangeTracker.Entries<ChatSession>().Should().BeEmpty();
-    }
-
-    [Test]
     public async Task AddAsync_WhenCommitted_ShouldPersistSession()
     {
         var user = await SeedUserAsync();
@@ -61,21 +33,6 @@ public class ChatSessionRepositoryTests : BaseRepositoryTests
 
         persistedSession.UserId.Should().Be(user.Id);
         persistedSession.Status.Should().Be(ChatSessionStatus.Active);
-    }
-
-    [Test]
-    public async Task AddAsync_WhenUserAlreadyHasActiveSession_ShouldFailOnSave()
-    {
-        var user = await SeedUserAsync();
-        await SeedSessionAsync(user.Id);
-
-        var anotherActiveSession = new ChatSession(Guid.NewGuid(), user.Id);
-
-        var result = await sut.AddAsync(anotherActiveSession);
-        var act = async () => await Context.SaveChangesAsync();
-
-        result.Status.Should().Be(ResultStatus.Ok);
-        await act.Should().ThrowAsync<DbUpdateException>();
     }
 
     [Test]

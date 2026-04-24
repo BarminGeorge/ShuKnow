@@ -34,14 +34,15 @@ The table below focuses on the interfaces that changed or whose runtime role cha
 
 ### 2.1 `IChatService`
 
-The chat service now has two read paths and one write path:
+The chat service now has an explicit-session read/write API:
 
 | Method | Current role |
 |---|---|
-| `GetOrCreateActiveSessionAsync()` | Resolve the single active session for the current user. |
-| `DeleteSessionAsync()` | Delete the active session and its messages. |
-| `GetMessagesAsync(cursor, limit)` | Cursor-paginated read for the public chat-history API. |
-| `GetMessagesAsync(ct)` | Return the in-memory message collection for the active session. Used by `TornadoPromptBuilder` to hydrate conversation history. |
+| `CreateSessionAsync()` | Create a new chat session for the current user. |
+| `GetSessionAsync(sessionId)` | Return a specific session for the current user. |
+| `DeleteSessionAsync(sessionId)` | Delete a specific session and its messages. |
+| `GetMessagesAsync(sessionId, cursor, limit)` | Cursor-paginated read for the public chat-history API. |
+| `GetMessagesAsync(sessionId, ct)` | Return the in-memory message collection for a specific session. Used by `TornadoPromptBuilder` to hydrate conversation history. |
 | `PersistMessageAsync(message)` | Unified persistence entry point for user and AI messages. |
 
 Implementation notes:

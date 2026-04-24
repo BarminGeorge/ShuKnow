@@ -24,13 +24,4 @@ public class SendMessageCommand
         this.Context = Context;
         this.AttachmentIds = AttachmentIds;
     }
-
-    [Obsolete("Use the constructor that includes SessionId.")]
-    public SendMessageCommand(
-        string Content,
-        string? Context = null,
-        IReadOnlyList<Guid>? AttachmentIds = null)
-        : this(Guid.Empty, Content, Context, AttachmentIds)
-    {
-    }
 }

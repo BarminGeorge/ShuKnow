@@ -16,12 +16,6 @@ public class ChatService(
 {
     private Guid CurrentUserId => currentUserService.UserId;
 
-    [Obsolete("Use CreateSessionAsync or GetSessionAsync with an explicit session id.")]
-    public Task<Result<ChatSession>> GetOrCreateActiveSessionAsync(CancellationToken ct = default)
-    {
-        return CreateSessionAsync(ct);
-    }
-
     public async Task<Result<ChatSession>> CreateSessionAsync(CancellationToken ct = default)
     {
         var session = new ChatSession(Guid.NewGuid(), CurrentUserId);
@@ -36,26 +30,12 @@ public class ChatService(
         return await chatSessionRepository.GetByIdAsync(sessionId, CurrentUserId);
     }
 
-    [Obsolete("Use DeleteSessionAsync with an explicit session id.")]
-    public Task<Result> DeleteSessionAsync(CancellationToken ct = default)
-    {
-        return Task.FromResult(Result.NotFound(ResultErrorMessages.NotFound));
-    }
-
     public async Task<Result> DeleteSessionAsync(Guid sessionId, CancellationToken ct = default)
     {
         return await chatSessionRepository.GetByIdAsync(sessionId, CurrentUserId)
             .ActAsync(session => chatMessageRepository.DeleteBySessionAsync(session.Id))
             .BindAsync(session => chatSessionRepository.DeleteAsync(session.Id))
             .SaveChangesAsync(unitOfWork);
-    }
-
-    [Obsolete("Use GetMessagesAsync with an explicit session id.")]
-    public Task<Result<(IReadOnlyList<ChatMessage> Messages, string? NextCursor)>> GetMessagesAsync(
-        string? cursor, int limit, CancellationToken ct = default)
-    {
-        return Task.FromResult(Result<(IReadOnlyList<ChatMessage> Messages, string? NextCursor)>.NotFound(
-            ResultErrorMessages.NotFound));
     }
 
     public async Task<Result<(IReadOnlyList<ChatMessage> Messages, string? NextCursor)>> GetMessagesAsync(
@@ -74,22 +54,10 @@ public class ChatService(
             .BindAsync(session => chatMessageRepository.GetBySessionAsync(session.Id));
     }
 
-    [Obsolete("Use GetMessagesAsync with an explicit session id.")]
-    public Task<Result<IReadOnlyCollection<ChatMessage>>> GetMessagesAsync(CancellationToken ct = default)
-    {
-        return Task.FromResult(Result<IReadOnlyCollection<ChatMessage>>.NotFound(ResultErrorMessages.NotFound));
-    }
-
     public async Task<Result<int>> GetMessageCountAsync(Guid sessionId, CancellationToken ct = default)
     {
         return await GetSessionAsync(sessionId, ct)
             .BindAsync(session => chatMessageRepository.CountBySessionAsync(session.Id));
-    }
-
-    [Obsolete("Use GetMessageCountAsync with an explicit session id.")]
-    public Task<Result<int>> GetMessageCountAsync(CancellationToken ct = default)
-    {
-        return Task.FromResult(Result<int>.NotFound(ResultErrorMessages.NotFound));
     }
 
     public async Task<Result<ChatMessage>> PersistMessageAsync(ChatMessage message, CancellationToken ct = default)

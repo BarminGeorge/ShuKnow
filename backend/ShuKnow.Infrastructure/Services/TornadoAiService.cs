@@ -27,14 +27,6 @@ public class TornadoAiService(
     private readonly int maxTurns = options.Value.MaxTurns;
     private const string DefaultProcessingErrorMessage = "Error while processing message";
 
-    [Obsolete("Use ProcessMessageAsync with an explicit session id.")]
-    public async Task<Result> ProcessMessageAsync(string content, IReadOnlyCollection<Guid>? attachmentIds,
-        UserAiSettings settings, Guid operationId, CancellationToken ct = default)
-    {
-        return await chatService.CreateSessionAsync(ct)
-            .BindAsync(session => ProcessMessageAsync(session.Id, content, attachmentIds, settings, operationId, ct));
-    }
-    
     public async Task<Result> ProcessMessageAsync(Guid sessionId, string content, IReadOnlyCollection<Guid>? attachmentIds,
         UserAiSettings settings, Guid operationId, CancellationToken ct = default)
     {

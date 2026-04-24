@@ -4,7 +4,7 @@ const API_BASE = '/api';
 
 // Mock chat session
 const mockSession = {
-  id: 'mock-session-id',
+  id: '00000000-0000-4000-8000-000000000001',
   status: 'Active' as const,
   messageCount: 0,
   canRollback: false,
@@ -19,20 +19,25 @@ const uploadedAttachments: Array<{
 }> = [];
 
 export const chatHandlers = [
-  // GET /api/chat/session
-  http.get(`${API_BASE}/chat/session`, () => {
+  // POST /api/chat/session
+  http.post(`${API_BASE}/chat/session`, () => {
     return HttpResponse.json(mockSession);
   }),
 
-  // DELETE /api/chat/session
-  http.delete(`${API_BASE}/chat/session`, () => {
+  // GET /api/chat/session/{sessionId}
+  http.get(`${API_BASE}/chat/session/:sessionId`, () => {
+    return HttpResponse.json(mockSession);
+  }),
+
+  // DELETE /api/chat/session/{sessionId}
+  http.delete(`${API_BASE}/chat/session/:sessionId`, () => {
     mockSession.messageCount = 0;
     mockSession.canRollback = false;
     return new HttpResponse(null, { status: 204 });
   }),
 
-  // GET /api/chat/session/messages
-  http.get(`${API_BASE}/chat/session/messages`, () => {
+  // GET /api/chat/session/{sessionId}/messages
+  http.get(`${API_BASE}/chat/session/:sessionId/messages`, () => {
     return HttpResponse.json({
       items: [] as Array<{
         id: string;

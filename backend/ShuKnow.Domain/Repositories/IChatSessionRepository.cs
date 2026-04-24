@@ -5,9 +5,6 @@ namespace ShuKnow.Domain.Repositories;
 
 public interface IChatSessionRepository
 {
-    [Obsolete("Use GetByIdAsync with an explicit session id.")]
-    Task<Result<ChatSession>> GetActiveAsync(Guid userId);
-
     Task<Result<ChatSession>> GetByIdAsync(Guid sessionId, Guid userId);
 
     Task<Result> AddAsync(ChatSession session);

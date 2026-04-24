@@ -30,13 +30,6 @@ public class ChatController(
             .ToActionResult(this);
     }
 
-    [NonAction]
-    [Obsolete("Use CreateChatSession or GetChatSession with an explicit session id.")]
-    public Task<ActionResult<ChatSessionDto>> GetChatSession(CancellationToken ct)
-    {
-        return CreateChatSession(ct);
-    }
-
     [HttpGet("session/{sessionId:guid}")]
     public async Task<ActionResult<ChatSessionDto>> GetChatSession(Guid sessionId, CancellationToken ct)
     {

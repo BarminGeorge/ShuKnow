@@ -164,13 +164,14 @@ public class ChatHubIntegrationTests
         public List<AiCall> Calls { get; } = [];
 
         public Task<Result> ProcessMessageAsync(
+            Guid sessionId,
             string content,
             IReadOnlyCollection<Guid>? attachmentIds,
             UserAiSettings settings,
             Guid operationId,
             CancellationToken ct = default)
         {
-            Calls.Add(new AiCall(content, attachmentIds?.ToArray() ?? [], settings, operationId));
+            Calls.Add(new AiCall(sessionId, content, attachmentIds?.ToArray() ?? [], settings, operationId));
             return Task.FromResult(Result.Success());
         }
 
@@ -181,6 +182,7 @@ public class ChatHubIntegrationTests
     }
 
     private sealed record AiCall(
+        Guid SessionId,
         string Content,
         IReadOnlyCollection<Guid> AttachmentIds,
         UserAiSettings Settings,
