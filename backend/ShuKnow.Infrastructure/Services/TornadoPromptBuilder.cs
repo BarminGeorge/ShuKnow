@@ -147,11 +147,16 @@ Prefer taking the needed tool actions over only describing what should be done.
     private static async Task<Result<ChatMessagePart>> CreateMessagePart(
         Stream stream, ChatAttachment attachment, CancellationToken ct = default)
     {
-        var prefix = attachment.ContentType.Split('/', 2)[0];
+        var contentType = attachment.ContentType.Trim();
+        var prefix = contentType.Split('/', 2)[0];
+
         return prefix switch
         {
-            "image" => new ChatMessagePart(await stream.ToBase64Async(ct), ImageDetail.Auto, attachment.ContentType),
-            "application" => new ChatMessagePart(new ChatDocument(await stream.ToBase64Async(ct))),
+            "image" => new ChatMessagePart(await stream.ToBase64Async(ct), ImageDetail.Auto, contentType),
+            "application" when string.Equals(contentType, "application/pdf", StringComparison.OrdinalIgnoreCase) =>
+                new ChatMessagePart(new ChatDocument(await stream.ToBase64Async(ct))),
+            "application" => new ChatMessagePart(
+                $"Binary attachment '{attachment.FileName}' ({contentType}) is available by attachment id and should be saved with tools when requested."),
             "text" => new ChatMessagePart(await stream.ToStringAsync(ct)),
             _ => Result.Invalid(new ValidationError($"Unsupported attachment type '{attachment.ContentType}'"))
         };
