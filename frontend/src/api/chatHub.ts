@@ -121,6 +121,10 @@ export interface ChatHubEventHandlers {
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 
+function logFailedServerEvent(eventName: string, event: unknown): void {
+  console.warn(`[ChatHub] ${eventName}`, event);
+}
+
 export class ChatHubClient {
   private connection: signalR.HubConnection | null = null;
   private handlers: ChatHubEventHandlers = {};
@@ -200,6 +204,7 @@ export class ChatHubClient {
     if (!this.connection) return;
 
     this.connection.on("OnValidationFailed", (event: ValidationFailedEvent) => {
+      logFailedServerEvent("OnValidationFailed", event);
       this.handlers.onValidationFailed?.(event);
     });
 
@@ -244,6 +249,7 @@ export class ChatHubClient {
     });
 
     this.connection.on("OnProcessingFailed", (event: ProcessingFailedEvent) => {
+      logFailedServerEvent("OnProcessingFailed", event);
       this.handlers.onProcessingFailed?.(event);
     });
 
