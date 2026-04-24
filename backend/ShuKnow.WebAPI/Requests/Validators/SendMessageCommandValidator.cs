@@ -11,7 +11,8 @@ public class SendMessageCommandValidator : AbstractValidator<SendMessageCommand>
             .NotEmpty().WithMessage("SessionId is required");
 
         RuleFor(x => x.Content)
-            .NotEmpty().WithMessage("Content is required");
+            .NotEmpty().WithMessage("Content is required")
+            .When(x => x.AttachmentIds is null || x.AttachmentIds.Count == 0);
 
         RuleFor(x => x.Context)
             .MaximumLength(5000).WithMessage("Context must not exceed 5000 characters")
