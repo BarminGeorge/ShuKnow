@@ -1,8 +1,6 @@
 using System.Text;
 using Ardalis.Result;
 using LlmTornado.Chat;
-using LlmTornado.Code;
-using LlmTornado.Images;
 using Microsoft.Extensions.Options;
 using ShuKnow.Application.Common;
 using ShuKnow.Application.Extensions;
@@ -72,6 +70,10 @@ You are ShuKnow, an AI assistant that organizes information and files using the 
 Convert the user's incoming information into a saved, organized result.
 Prefer taking the needed tool actions over only describing what should be done.
 </task>
+
+<info>
+- At this time, ShuKnow can only view the contents of text attachments. For other file types, you should rely on the context and the file name.
+</info>
 
 <rules>
 - Use English for your internal reasoning and tool-facing decisions. Use the user's language when communicating with them.
@@ -149,16 +151,11 @@ Prefer taking the needed tool actions over only describing what should be done.
     {
         var contentType = attachment.ContentType.Trim();
         var prefix = contentType.Split('/', 2)[0];
-
+        
         return prefix switch
         {
-            "image" => new ChatMessagePart(await stream.ToBase64Async(ct), ImageDetail.Auto, contentType),
-            "application" when string.Equals(contentType, "application/pdf", StringComparison.OrdinalIgnoreCase) =>
-                new ChatMessagePart(new ChatDocument(await stream.ToBase64Async(ct))),
-            "application" => new ChatMessagePart(
-                $"Binary attachment '{attachment.FileName}' ({contentType}) is available by attachment id and should be saved with tools when requested."),
             "text" => new ChatMessagePart(await stream.ToStringAsync(ct)),
-            _ => Result.Invalid(new ValidationError($"Unsupported attachment type '{attachment.ContentType}'"))
+            _ => new ChatMessagePart("INFO: The exact contents of the file are not available.")
         };
     }
 
