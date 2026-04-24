@@ -76,14 +76,15 @@ export default function Workspace() {
   const latestAutosaveByFileRef = useRef<Map<string, number>>(new Map());
   const lastAutosavedContentRef = useRef<Map<string, string>>(new Map());
   const autosaveFailureNotifiedRef = useRef<Set<string>>(new Set());
-  const [composerBottomPadding, setComposerBottomPadding] = useState(128);
+  const [composerBottomPadding, setComposerBottomPadding] = useState(176);
 
   useEffect(() => {
     const composer = composerRef.current;
     if (!composer) return;
 
     const updatePadding = () => {
-      setComposerBottomPadding(Math.ceil(composer.getBoundingClientRect().height + 20));
+      // Keep extra breathing room so the last/streaming message never hides under the composer.
+      setComposerBottomPadding(Math.ceil(composer.getBoundingClientRect().height + 84));
     };
 
     updatePadding();

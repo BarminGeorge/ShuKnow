@@ -1,4 +1,5 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo, useState, forwardRef } from "react";
+import type { HTMLAttributes } from "react";
 import { Undo2, Sparkles, Loader2, CheckCircle2, XCircle, FolderOpen, FileText, Image as ImageIcon, GripVertical, Copy, RefreshCw, Check } from "lucide-react";
 import { Virtuoso } from "react-virtuoso";
 import type { AttachmentDto } from "../../api/chatService";
@@ -126,6 +127,17 @@ interface ChatMessagesProps {
   onResend?: (messageId: string) => void;
   bottomPadding?: number;
 }
+
+const ChatScroller = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={`chat-scrollbar ${className ?? ""}`.trim()}
+      {...props}
+    />
+  )
+);
+ChatScroller.displayName = "ChatScroller";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -484,7 +496,7 @@ export function ChatMessages({ messages, onOpenFolder, onRetry, onResend, bottom
       <Virtuoso
         className="h-full"
         data={messages}
-        followOutput="smooth"
+        followOutput={() => "smooth"}
         computeItemKey={(_, message) => message.id}
         defaultItemHeight={360}
         overscan={{ main: 16800, reverse: 16800 }}
@@ -501,6 +513,7 @@ export function ChatMessages({ messages, onOpenFolder, onRetry, onResend, bottom
           </div>
         )}
         components={{
+          Scroller: ChatScroller,
           Footer: () => <div style={{ height: bottomPadding }} />,
         }}
       />

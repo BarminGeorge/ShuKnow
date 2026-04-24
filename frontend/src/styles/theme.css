@@ -174,6 +174,31 @@
     display: none;
   }
 
+  /* Chat messages scroller */
+  .chat-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.45) rgba(255, 255, 255, 0.03);
+  }
+
+  .chat-scrollbar::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .chat-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 9999px;
+  }
+
+  .chat-scrollbar::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(167, 139, 250, 0.58), rgba(148, 163, 184, 0.58));
+    border-radius: 9999px;
+    border: 2px solid rgba(10, 10, 10, 0.82);
+  }
+
+  .chat-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(167, 139, 250, 0.72), rgba(148, 163, 184, 0.72));
+  }
+
   /* Tooltip background */
   .bg-tooltip {
     background-color: var(--tooltip);
