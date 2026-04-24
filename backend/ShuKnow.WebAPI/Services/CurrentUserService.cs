@@ -7,11 +7,11 @@ namespace ShuKnow.WebAPI.Services;
 
 public class CurrentUserService(IHttpContextAccessor httpContextAccessor) : ICurrentUserService
 {
-    public Guid UserId => Guid.TryParse(User?.FindFirstValue(JwtRegisteredClaimNames.Sub), out var userId)
+    private readonly ClaimsPrincipal? user = httpContextAccessor.HttpContext?.User;
+
+    public Guid UserId => Guid.TryParse(user?.FindFirstValue(JwtRegisteredClaimNames.Sub), out var userId)
             ? userId
             : throw new UnauthorizedAccessException("User is not authenticated.");
 
-    public bool IsAuthenticated => User?.Identity?.IsAuthenticated ?? false;
-
-    private ClaimsPrincipal? User => httpContextAccessor.HttpContext?.User;
+    public bool IsAuthenticated => user?.Identity?.IsAuthenticated ?? false;
 }

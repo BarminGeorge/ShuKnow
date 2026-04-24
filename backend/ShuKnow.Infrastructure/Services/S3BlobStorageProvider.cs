@@ -25,13 +25,14 @@ public class S3BlobStorageProvider(
                 InputStream = content,
                 AutoCloseStream = false
             };
-
+            
             await s3Client.PutObjectAsync(request, ct);
             return Result.Success();
         }
         catch (AmazonS3Exception ex)
         {
             logger.LogError(ex, "Failed to save blob {BlobId} to S3", blobId);
+            
             return Result.Error($"Failed to save blob to S3: {ex.Message}");
         }
     }
