@@ -24,6 +24,7 @@ import { flushSync } from "react-dom";
 import type { FileItem } from "../../Workspace";
 import { getFileExtension, isCodeFileName } from "../../utils/fileValidation";
 import { fileService } from "../../../api";
+import { PdfViewer } from "./PdfViewer";
 
 interface EditorPaneProps {
   file: FileItem;
@@ -268,7 +269,6 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   const hasContent = Boolean(file.content?.trim());
 
   const [localContent, setLocalContent] = useState(file.content || "");
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [isRemoteContentLoading, setIsRemoteContentLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(!isMarkdownFile || !hasContent);
   const [isMarkdownScrollRestoring, setIsMarkdownScrollRestoring] = useState(false);
@@ -303,37 +303,6 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     markdownScrollRatioRef.current = 0;
     shouldRestoreMarkdownScrollRef.current = false;
   }, [file.id]);
-
-  useEffect(() => {
-    if (file.type !== "pdf") {
-      setPdfPreviewUrl(null);
-      return;
-    }
-
-    let isCancelled = false;
-    let objectUrlToRevoke: string | null = null;
-
-    setPdfPreviewUrl(null);
-    void fileService.fetchFileContentAsBlobUrlWithType(file.id, "application/pdf")
-      .then((blobUrl) => {
-        if (isCancelled) {
-          URL.revokeObjectURL(blobUrl);
-          return;
-        }
-        objectUrlToRevoke = blobUrl;
-        setPdfPreviewUrl(blobUrl);
-      })
-      .catch((error) => {
-        console.error("Failed to load PDF preview:", error);
-      });
-
-    return () => {
-      isCancelled = true;
-      if (objectUrlToRevoke) {
-        URL.revokeObjectURL(objectUrlToRevoke);
-      }
-    };
-  }, [file.id, file.type]);
 
   useEffect(() => {
     if (!isTextLikeFile || file.content !== undefined) {
@@ -951,33 +920,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
   // ── PDF viewer ──────────────────────────────────────────────────
   if (file.type === "pdf") {
     return (
-      <div className="h-full flex flex-col bg-[#0e0e0e]">
-        {pdfPreviewUrl ? (
-          <object
-            data={pdfPreviewUrl}
-            type="application/pdf"
-            className="w-full h-full border-0"
-            aria-label={file.name}
-          >
-            <div className="h-full flex flex-col items-center justify-center gap-2 text-gray-400 px-6 text-center">
-              <p className="text-sm">Предпросмотр PDF недоступен в этом браузере.</p>
-              <a
-                href={pdfPreviewUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-indigo-300 hover:text-indigo-200 underline"
-              >
-                Открыть PDF в новой вкладке
-              </a>
-            </div>
-          </object>
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center gap-3 text-gray-700">
-            <FileText size={56} className="opacity-30" />
-            <p className="text-sm italic">PDF не загружен</p>
-          </div>
-        )}
-      </div>
+      <PdfViewer fileId={file.id} fileName={file.name} />
     );
   }
 

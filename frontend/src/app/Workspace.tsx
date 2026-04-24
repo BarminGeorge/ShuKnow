@@ -58,6 +58,26 @@ export default function Workspace() {
   const { folders, setFolders, isLoading: isLoadingFolders, loadFolders } = useFolders();
   const { files, createFile, updateFile, deleteFile } = useFiles();
   const { openTabs, activeTab, activeTabId, openTab, closeTab, switchTab } = useTabs();
+  const getFolderDisplayPathById = useCallback((folderId: string): string | null => {
+    const search = (items: Folder[], parentPath: string[]): string | null => {
+      for (const folder of items) {
+        const currentPath = [...parentPath, folder.name];
+        if (folder.id === folderId) {
+          return currentPath.join("/");
+        }
+
+        const nestedPath = search(folder.subfolders ?? [], currentPath);
+        if (nestedPath) {
+          return nestedPath;
+        }
+      }
+
+      return null;
+    };
+
+    return search(folders, []);
+  }, [folders]);
+
   const {
     messages,
     currentTitle,
@@ -69,6 +89,7 @@ export default function Workspace() {
     isMockMode,
     isChatView: viewMode === "chat",
     loadFolders,
+    getFolderPathById: getFolderDisplayPathById,
   });
   
   const composerRef = useRef<HTMLDivElement>(null);

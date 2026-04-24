@@ -40,12 +40,14 @@ interface UseChatControllerOptions {
   isMockMode: boolean;
   isChatView: boolean;
   loadFolders: () => Promise<void>;
+  getFolderPathById?: (folderId: string) => string | null;
 }
 
 export function useChatController({
   isMockMode,
   isChatView,
   loadFolders,
+  getFolderPathById,
 }: UseChatControllerOptions) {
   const { messages, setMessages, currentTitle, setCurrentTitle } = useChat();
   const operationsRef = useRef(new Map<string, ChatOperation>());
@@ -188,9 +190,10 @@ export function useChatController({
       onFileMoved: (event) => {
         const operationId = getOperationIdFromEvent(event);
         const operation = operationId ? operationsRef.current.get(operationId) : undefined;
+        const folderPath = event.toFolderId ? getFolderPathById?.(event.toFolderId) : null;
         operation?.createdFiles.push({
           name: event.fileName,
-          folder: event.toFolderId ? "Перемещено в папку" : "Перемещено в корень",
+          folder: folderPath || "Корень",
           folderId: event.toFolderId ?? undefined,
           action: "sorted",
         });
