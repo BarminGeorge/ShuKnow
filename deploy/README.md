@@ -24,6 +24,10 @@ cp .env.prod.example .env.prod
 - `PROMETHEUS_BASIC_AUTH_USER`
 - `PROMETHEUS_BASIC_AUTH_PASSWORD`
 
+Рекомендуется сразу задать retention метрик Prometheus (чтобы не потерять историю через несколько недель/месяцев):
+
+- `PROMETHEUS_RETENTION_TIME` (например `365d`, `730d`)
+
 ## 2. Запуск production-стека (включая авто-получение первого SSL)
 
 ```bash
@@ -54,6 +58,17 @@ Prometheus и Grafana запускаются этой же командой вм
 - Вход только по `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`
 - Prometheus доступен через `https://<SERVER_NAME>/monitoring/prometheus/` и защищён Basic Auth (`PROMETHEUS_BASIC_AUTH_USER` + `PROMETHEUS_BASIC_AUTH_PASSWORD`)
 - Прямые внешние порты `3000/9090` не публикуются
+
+История в Grafana сохраняется настолько, насколько Prometheus хранит TSDB на томе `prometheus-data`.  
+Чтобы видеть графики "за всё время", используйте достаточно большое значение `PROMETHEUS_RETENTION_TIME` (например `365d`+) и не удаляйте volume `prometheus-data`.
+
+Быстрая проверка retention после запуска:
+
+```bash
+docker compose --env-file .env.prod -f compose.prod.yaml -f compose.override.yaml exec prometheus wget -qO- http://127.0.0.1:9090/api/v1/status/flags
+```
+
+В ответе должен быть `storage.tsdb.retention.time` с ожидаемым значением.
 
 ## 5. Обновление образов из GHCR
 
