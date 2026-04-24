@@ -9,6 +9,8 @@ public class ChatSession : IEntity<Guid>
 
     public Guid UserId { get; private set; }
     public ChatSessionStatus Status { get; private set; } = ChatSessionStatus.Active;
+    public DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset LastActivityAt { get; private set; }
 
     protected ChatSession()
     {
@@ -19,10 +21,17 @@ public class ChatSession : IEntity<Guid>
         Id = chatSessionId;
         UserId = userId;
         Status = status;
+        CreatedAt = DateTimeOffset.UtcNow;
+        LastActivityAt = CreatedAt;
     }
 
     public void Close()
     {
         Status = ChatSessionStatus.Closed;
+    }
+
+    public void Touch(DateTimeOffset? timestamp = null)
+    {
+        LastActivityAt = timestamp ?? DateTimeOffset.UtcNow;
     }
 }

@@ -14,9 +14,18 @@ internal class ChatSessionConfiguration : IEntityTypeConfiguration<ChatSession>
         builder.Property(session => session.Status)
             .HasConversion<int>();
 
+        builder.Property(session => session.CreatedAt)
+            .ValueGeneratedOnAdd()
+            .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+        builder.Property(session => session.LastActivityAt)
+            .ValueGeneratedOnAdd()
+            .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
         builder.HasIndex(session => session.UserId)
-            .HasFilter("\"status\" = 1")
-            .IsUnique();
+            .IsUnique(false);
+
+        builder.HasIndex(session => session.LastActivityAt);
 
         builder.HasOne<User>()
             .WithMany()

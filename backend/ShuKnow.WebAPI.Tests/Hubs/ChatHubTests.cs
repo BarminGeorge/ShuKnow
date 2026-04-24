@@ -57,7 +57,7 @@ public class ChatHubTests
     [Test]
     public async Task SendMessage_WhenProcessingSucceeds_ShouldNotifyAndCompleteOperation()
     {
-        var command = new SendMessageCommand("Sort these files", AttachmentIds: [Guid.NewGuid(), Guid.NewGuid()]);
+        var command = new SendMessageCommand(Guid.NewGuid(), "Sort these files", AttachmentIds: [Guid.NewGuid(), Guid.NewGuid()]);
         var operation = new ProcessingOperation(Guid.NewGuid(), new CancellationTokenSource());
         var settings = CreateSettings();
 
@@ -65,6 +65,7 @@ public class ChatHubTests
         settingsService.GetOrCreateAsync(operation.CancellationTokenSource.Token)
             .Returns(Result.Success(settings));
         aiService.ProcessMessageAsync(
+                command.SessionId,
                 command.Content,
                 command.AttachmentIds,
                 settings,
@@ -77,6 +78,7 @@ public class ChatHubTests
         await chatNotificationService.Received(1)
             .SendProcessingStartedAsync(operation.OperationId, operation.CancellationTokenSource.Token);
         await aiService.Received(1).ProcessMessageAsync(
+            command.SessionId,
             command.Content,
             command.AttachmentIds,
             settings,
@@ -98,7 +100,7 @@ public class ChatHubTests
     [Test]
     public async Task SendMessage_WhenProcessingFails_ShouldSendFailureAndCompleteOperation()
     {
-        var command = new SendMessageCommand("Sort these files");
+        var command = new SendMessageCommand(Guid.NewGuid(), "Sort these files");
         var operation = new ProcessingOperation(Guid.NewGuid(), new CancellationTokenSource());
         var settings = CreateSettings();
         var processingResult = ResultExtensions.Invalid(
@@ -109,6 +111,7 @@ public class ChatHubTests
         settingsService.GetOrCreateAsync(operation.CancellationTokenSource.Token)
             .Returns(Result.Success(settings));
         aiService.ProcessMessageAsync(
+                command.SessionId,
                 command.Content,
                 command.AttachmentIds,
                 settings,
@@ -136,7 +139,7 @@ public class ChatHubTests
     [Test]
     public async Task SendMessage_WhenOperationIsCancelled_ShouldSwallowCancellationAndCompleteOperation()
     {
-        var command = new SendMessageCommand("Sort these files");
+        var command = new SendMessageCommand(Guid.NewGuid(), "Sort these files");
         var operation = new ProcessingOperation(Guid.NewGuid(), new CancellationTokenSource());
         var settings = CreateSettings();
 
@@ -144,6 +147,7 @@ public class ChatHubTests
         settingsService.GetOrCreateAsync(operation.CancellationTokenSource.Token)
             .Returns(Result.Success(settings));
         aiService.ProcessMessageAsync(
+                command.SessionId,
                 command.Content,
                 command.AttachmentIds,
                 settings,
@@ -176,7 +180,7 @@ public class ChatHubTests
     [Test]
     public async Task SendMessage_WhenNonMatchingOperationCanceledExceptionIsThrown_ShouldSendGenericFailureAndCompleteOperation()
     {
-        var command = new SendMessageCommand("Sort these files");
+        var command = new SendMessageCommand(Guid.NewGuid(), "Sort these files");
         var operation = new ProcessingOperation(Guid.NewGuid(), new CancellationTokenSource());
         var settings = CreateSettings();
 
@@ -184,6 +188,7 @@ public class ChatHubTests
         settingsService.GetOrCreateAsync(operation.CancellationTokenSource.Token)
             .Returns(Result.Success(settings));
         aiService.ProcessMessageAsync(
+                command.SessionId,
                 command.Content,
                 command.AttachmentIds,
                 settings,
@@ -207,7 +212,7 @@ public class ChatHubTests
     [Test]
     public async Task SendMessage_WhenUnexpectedExceptionOccurs_ShouldSendGenericFailureAndCompleteOperation()
     {
-        var command = new SendMessageCommand("Sort these files");
+        var command = new SendMessageCommand(Guid.NewGuid(), "Sort these files");
         var operation = new ProcessingOperation(Guid.NewGuid(), new CancellationTokenSource());
 
         operationService.BeginOperation(ConnectionId).Returns(operation);

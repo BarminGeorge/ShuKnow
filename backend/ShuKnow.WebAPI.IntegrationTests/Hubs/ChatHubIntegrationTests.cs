@@ -87,9 +87,12 @@ public class ChatHubIntegrationTests
     {
         await using var connection = CreateConnection();
         var attachmentId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
 
         await connection.StartAsync();
-        await connection.InvokeAsync(nameof(ChatHub.SendMessage), new SendMessageCommand("Organize this", AttachmentIds: [attachmentId]));
+        await connection.InvokeAsync(
+            nameof(ChatHub.SendMessage),
+            new SendMessageCommand(sessionId, "Organize this", AttachmentIds: [attachmentId]));
 
         aiService.Calls.Should().HaveCount(1);
         aiService.Calls[0].Content.Should().Be("Organize this");
@@ -114,7 +117,9 @@ public class ChatHubIntegrationTests
 
         await connection.StartAsync();
 
-        var act = async () => await connection.InvokeAsync(nameof(ChatHub.SendMessage), new SendMessageCommand(string.Empty));
+        var act = async () => await connection.InvokeAsync(
+            nameof(ChatHub.SendMessage),
+            new SendMessageCommand(Guid.NewGuid(), string.Empty));
 
         await act.Should().ThrowAsync<HubException>();
         await WaitForAsync(() => validationFailed is not null);

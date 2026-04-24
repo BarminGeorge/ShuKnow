@@ -7,6 +7,9 @@ public class SendMessageCommandValidator : AbstractValidator<SendMessageCommand>
 {
     public SendMessageCommandValidator()
     {
+        RuleFor(x => x.SessionId)
+            .NotEmpty().WithMessage("SessionId is required");
+
         RuleFor(x => x.Content)
             .NotEmpty().WithMessage("Content is required");
 

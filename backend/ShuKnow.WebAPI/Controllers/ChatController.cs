@@ -21,26 +21,42 @@ public class ChatController(
     IMetricsService metricsService)
     : ControllerBase
 {
-    [HttpGet("session")]
-    public async Task<ActionResult<ChatSessionDto>> GetChatSession(CancellationToken ct)
+    [HttpPost("session")]
+    public async Task<ActionResult<ChatSessionDto>> CreateChatSession(CancellationToken ct)
     {
-        return (await chatService.GetOrCreateActiveSessionAsync(ct)
-            .BindAsync(session => chatService.GetMessageCountAsync(ct)
+        return (await chatService.CreateSessionAsync(ct)
+            .BindAsync(session => chatService.GetMessageCountAsync(session.Id, ct)
                 .MapAsync(session.ToDto)))
             .ToActionResult(this);
     }
 
-    [HttpDelete("session")]
-    public async Task<ActionResult> DeleteChatSession(CancellationToken ct)
+    [NonAction]
+    [Obsolete("Use CreateChatSession or GetChatSession with an explicit session id.")]
+    public Task<ActionResult<ChatSessionDto>> GetChatSession(CancellationToken ct)
     {
-        return (await chatService.DeleteSessionAsync(ct)).ToActionResult(this);
+        return CreateChatSession(ct);
     }
 
-    [HttpGet("session/messages")]
-    public async Task<ActionResult<CursorPagedChatMessageResult>> GetChatMessages(
-        [FromQuery] string? cursor = null, [FromQuery] int limit = 50, CancellationToken ct = default)
+    [HttpGet("session/{sessionId:guid}")]
+    public async Task<ActionResult<ChatSessionDto>> GetChatSession(Guid sessionId, CancellationToken ct)
     {
-        return (await chatService.GetMessagesAsync(cursor, limit, ct))
+        return (await chatService.GetSessionAsync(sessionId, ct)
+            .BindAsync(session => chatService.GetMessageCountAsync(session.Id, ct)
+                .MapAsync(session.ToDto)))
+            .ToActionResult(this);
+    }
+
+    [HttpDelete("session/{sessionId:guid}")]
+    public async Task<ActionResult> DeleteChatSession(Guid sessionId, CancellationToken ct)
+    {
+        return (await chatService.DeleteSessionAsync(sessionId, ct)).ToActionResult(this);
+    }
+
+    [HttpGet("session/{sessionId:guid}/messages")]
+    public async Task<ActionResult<CursorPagedChatMessageResult>> GetChatMessages(
+        Guid sessionId, [FromQuery] string? cursor = null, [FromQuery] int limit = 50, CancellationToken ct = default)
+    {
+        return (await chatService.GetMessagesAsync(sessionId, cursor, limit, ct))
             .Map(page => page.ToDto())
             .ToActionResult(this);
     }

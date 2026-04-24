@@ -9,11 +9,20 @@ namespace ShuKnow.Infrastructure.Persistent.Repositories;
 
 public class ChatSessionRepository(AppDbContext context) : IChatSessionRepository
 {
+    [Obsolete("Use GetByIdAsync with an explicit session id.")]
     public async Task<Result<ChatSession>> GetActiveAsync(Guid userId)
     {
         var session = await context.ChatSessions
             .AsNoTracking()
-            .SingleOrDefaultAsync(session => session.UserId == userId && session.Status == ChatSessionStatus.Active);
+            .FirstOrDefaultAsync(session => session.UserId == userId && session.Status == ChatSessionStatus.Active);
+
+        return session is null ? Result.NotFound(ResultErrorMessages.NotFound) : Result.Success(session);
+    }
+
+    public async Task<Result<ChatSession>> GetByIdAsync(Guid sessionId, Guid userId)
+    {
+        var session = await context.ChatSessions
+            .SingleOrDefaultAsync(session => session.Id == sessionId && session.UserId == userId);
 
         return session is null ? Result.NotFound(ResultErrorMessages.NotFound) : Result.Success(session);
     }
@@ -36,7 +45,16 @@ public class ChatSessionRepository(AppDbContext context) : IChatSessionRepositor
             return Task.FromResult(Result.Success());
         }
 
-        context.ChatSessions.Remove(new ChatSession(sessionId, Guid.Empty, ChatSessionStatus.Closed));
+        context.ChatSessions.Remove(new ChatSession(sessionId, Guid.Empty));
         return Task.FromResult(Result.Success());
+    }
+
+    public async Task<Result<int>> DeleteOlderThanAsync(DateTimeOffset cutoff, CancellationToken ct = default)
+    {
+        var deleted = await context.ChatSessions
+            .Where(session => session.LastActivityAt < cutoff)
+            .ExecuteDeleteAsync(ct);
+
+        return Result.Success(deleted);
     }
 }

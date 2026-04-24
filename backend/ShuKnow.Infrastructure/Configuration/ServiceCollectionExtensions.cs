@@ -27,6 +27,7 @@ public static class ServiceCollectionExtensions
         services.AddServices();
         services.AddRepositories();
         services.AddHostedService<BlobOrphanCleanupService>();
+        services.AddHostedService<ChatSessionCleanupService>();
     }
 
     private static void AddPostgres(this IServiceCollection services, IConfiguration configuration)
@@ -163,6 +164,11 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => options.GracePeriodMinutes <= options.IntervalHours * 60,
                 $"{OrphanCleanupOptions.SectionName}:GracePeriodMinutes must be less than or equal to IntervalHours * 60")
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddOptions<ChatSessionCleanupOptions>()
+            .BindConfiguration(ChatSessionCleanupOptions.SectionName)
             .ValidateDataAnnotations()
             .ValidateOnStart();
     }
