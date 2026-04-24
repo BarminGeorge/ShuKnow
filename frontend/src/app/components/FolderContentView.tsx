@@ -78,6 +78,7 @@ export function FolderContentView({
   const [title, setTitle] = useState(folder.name);
   const [emoji, setEmoji] = useState(folder.emoji || "");
   const [aiPrompt, setAiPrompt] = useState(folder.prompt ?? folder.description ?? "");
+  const promptSaveTimerRef = useRef<number | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
@@ -138,6 +139,36 @@ export function FolderContentView({
     setEmoji(folder.emoji || "");
     setAiPrompt(folder.prompt ?? folder.description ?? "");
   }, [folder]);
+
+  useEffect(() => {
+    if (!selectedFolderPath) {
+      return;
+    }
+
+    const currentPrompt = folder.prompt ?? folder.description ?? "";
+    if (aiPrompt === currentPrompt) {
+      return;
+    }
+
+    if (promptSaveTimerRef.current) {
+      window.clearTimeout(promptSaveTimerRef.current);
+    }
+
+    promptSaveTimerRef.current = window.setTimeout(() => {
+      promptSaveTimerRef.current = null;
+      void persistFolderUpdates(folder, selectedFolderPath, { prompt: aiPrompt }).catch((error) => {
+        console.error("Failed to update folder prompt:", error);
+        setAiPrompt(folder.prompt ?? folder.description ?? "");
+        toast.error("Не удалось сохранить инструкцию папки");
+      });
+    }, 700);
+
+    return () => {
+      if (promptSaveTimerRef.current) {
+        window.clearTimeout(promptSaveTimerRef.current);
+      }
+    };
+  }, [aiPrompt, folder, persistFolderUpdates, selectedFolderPath]);
 
   const handleFileContextMenu = (fileId: string, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -481,6 +512,11 @@ export function FolderContentView({
   };
 
   const handlePromptBlur = () => {
+    if (promptSaveTimerRef.current) {
+      window.clearTimeout(promptSaveTimerRef.current);
+      promptSaveTimerRef.current = null;
+    }
+
     if (aiPrompt !== (folder.prompt ?? folder.description ?? "") && selectedFolderPath) {
       void persistFolderUpdates(folder, selectedFolderPath, { prompt: aiPrompt }).catch((error) => {
         console.error("Failed to update folder prompt:", error);
