@@ -239,11 +239,11 @@ public class ChatHubTests
     }
 
     [Test]
-    public async Task OnDisconnectedAsync_ShouldCancelCurrentOperation()
+    public async Task OnDisconnectedAsync_ShouldNotCancelCurrentOperation()
     {
         await sut.OnDisconnectedAsync(null);
 
-        operationService.Received(1).CancelOperation(ConnectionId);
+        operationService.DidNotReceive().CancelOperation(ConnectionId);
     }
 
     [Test]

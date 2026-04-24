@@ -22,7 +22,6 @@ public partial class ChatHub(
 
     public override Task OnDisconnectedAsync(Exception? exception)
     {
-        operationService.CancelOperation(ConnectionId);
         return base.OnDisconnectedAsync(exception);
     }
 }

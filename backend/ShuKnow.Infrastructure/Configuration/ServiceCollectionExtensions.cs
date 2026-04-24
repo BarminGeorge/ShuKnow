@@ -57,7 +57,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<TornadoPromptBuilder>();
         services.AddScoped<TornadoToolsService>();
         services.AddScoped<ITornadoConversationFactory, TornadoConversationFactory>();
-        services.AddScoped<IProcessingOperationService, ProcessingOperationService>();
+        services.AddSingleton<IProcessingOperationService, ProcessingOperationService>();
     }
 
     private static void AddBlobStorage(this IServiceCollection services, IConfiguration configuration)
