@@ -13,6 +13,25 @@ import {
   calculateDropIntent,
 } from "../helpers";
 
+function getFolderStats(folder: Folder, allFiles: FileItem[]) {
+  const subfolderCount = folder.subfolders?.length || 0;
+  const folderFiles = allFiles.filter((file) => file.folderId === folder.id);
+
+  if (folderFiles.length === 0 && folder.fileCount > 0) {
+    return {
+      subfolderCount,
+      fileCount: folder.fileCount,
+      photoCount: 0,
+    };
+  }
+
+  return {
+    subfolderCount,
+    fileCount: folderFiles.filter((file) => file.type !== "photo").length,
+    photoCount: folderFiles.filter((file) => file.type === "photo").length,
+  };
+}
+
 export function DraggableGridItem({
   item,
   index,
@@ -59,10 +78,7 @@ export function DraggableGridItem({
   const getMetaText = () => {
     if (item.type !== "folder") return null;
     const folder = folderData!;
-    const subfolderCount = folder.subfolders?.length || 0;
-    const folderFiles = allFiles.filter((f) => f.folderId === folder.id);
-    const fileCount = folderFiles.filter(f => f.type !== "photo").length;
-    const photoCount = folderFiles.filter(f => f.type === "photo").length;
+    const { subfolderCount, fileCount, photoCount } = getFolderStats(folder, allFiles);
     return formatFolderStats(subfolderCount, fileCount, photoCount);
   };
   const metaText = getMetaText();
@@ -266,10 +282,7 @@ export function DraggableGridItem({
     const folder = item.data as Folder;
     
     // Count all items in folder for meta info
-    const subfolderCount = folder.subfolders?.length || 0;
-    const folderFiles = allFiles.filter((f) => f.folderId === folder.id);
-    const fileCount = folderFiles.filter(f => f.type !== "photo").length;
-    const photoCount = folderFiles.filter(f => f.type === "photo").length;
+    const { subfolderCount, fileCount, photoCount } = getFolderStats(folder, allFiles);
     const metaText = formatFolderStats(subfolderCount, fileCount, photoCount);
 
     // 根据 dropIntent 决定视觉样式

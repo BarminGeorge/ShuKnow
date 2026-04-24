@@ -15,7 +15,7 @@ import { useFolders } from "../hooks/useFolders";
 import { useTabs } from "../hooks/useTabs";
 import { useAtomValue } from "jotai";
 import { toast } from "sonner";
-import { filesInCurrentFolderAtom } from "../store";
+import { filesAtom, filesInCurrentFolderAtom } from "../store";
 import type { FolderContentViewProps } from "./FolderContentView/types";
 import { fileService, folderService } from "../../api";
 import { FolderHeader } from "./FolderContentView/components/FolderHeader";
@@ -46,6 +46,7 @@ export function FolderContentView({
   const { createFile, updateFile, deleteFile } = useFiles();
   const { openTab } = useTabs();
   const files = useAtomValue(filesInCurrentFolderAtom);
+  const allFiles = useAtomValue(filesAtom);
   
   // Early return if no folder selected
   if (!currentFolder) {
@@ -645,7 +646,7 @@ export function FolderContentView({
         editingFileId={editingFileId}
         onFileNameChange={handleFileNameChange}
         onEditingComplete={() => setEditingFileId(null)}
-        allFiles={files}
+        allFiles={allFiles}
         openContextMenuId={
           fileContextMenu.isOpen ? fileContextMenu.fileId :
           folderContextMenu.isOpen ? folderContextMenu.folderId : null

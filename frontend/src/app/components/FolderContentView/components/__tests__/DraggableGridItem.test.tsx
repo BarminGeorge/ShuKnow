@@ -204,6 +204,57 @@ describe('DraggableGridItem', () => {
     expect(getByText(/папк/)).toBeInTheDocument();
   });
 
+  it('should count child files and photos from the full files list', () => {
+    const files: FileItem[] = [
+      ...Array.from({ length: 7 }, (_, index) => ({
+        ...mockFile,
+        id: `child-file-${index}`,
+        name: `child-file-${index}.md`,
+        type: 'text' as const,
+        folderId: mockFolder.id,
+      })),
+      ...Array.from({ length: 4 }, (_, index) => ({
+        ...mockFile,
+        id: `child-photo-${index}`,
+        name: `child-photo-${index}.jpg`,
+        type: 'photo' as const,
+        folderId: mockFolder.id,
+      })),
+      {
+        ...mockFile,
+        id: 'sibling-file',
+        folderId: 'other-folder',
+      },
+    ];
+
+    const { getByText, queryByText } = render(
+      <DndProvider backend={HTML5Backend}>
+        <DraggableGridItem
+          item={mockFolderGridItem}
+          {...defaultProps}
+          allFiles={files}
+        />
+      </DndProvider>
+    );
+
+    expect(getByText('7 файлов · 4 фото')).toBeInTheDocument();
+    expect(queryByText('Пусто')).not.toBeInTheDocument();
+  });
+
+  it('should fall back to folder fileCount before child files are loaded', () => {
+    const { getByText } = render(
+      <DndProvider backend={HTML5Backend}>
+        <DraggableGridItem
+          item={mockFolderGridItem}
+          {...defaultProps}
+          allFiles={[]}
+        />
+      </DndProvider>
+    );
+
+    expect(getByText('5 файлов')).toBeInTheDocument();
+  });
+
   it('should render with context menu open', () => {
     const { container } = render(
       <DndProvider backend={HTML5Backend}>
