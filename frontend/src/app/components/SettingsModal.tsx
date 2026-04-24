@@ -26,7 +26,7 @@ const modalButtonClass = "rounded-lg border border-white/10 bg-white/[0.045] sha
 const primaryButtonClass = "rounded-lg border border-violet-300/12 bg-[linear-gradient(135deg,rgba(76,29,149,0.26),rgba(17,16,24,0.58)_60%,rgba(109,40,217,0.08))] text-violet-200/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_14px_rgba(91,33,182,0.045)] transition-all hover:border-violet-300/20 hover:text-violet-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_18px_rgba(91,33,182,0.075)]";
 const fieldClass = "w-full rounded-lg border border-white/10 bg-[#101010] px-4 py-3 text-sm text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] outline-none transition-colors placeholder:text-gray-600 focus:border-violet-300/28 focus:bg-[#121212] disabled:opacity-50";
 const labelClass = "mb-2 block text-sm font-medium text-gray-400";
-const guideImageClass = "h-[340px] w-full rounded-2xl border border-white/[0.08] bg-[#080808] object-contain shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]";
+const guideImageClass = "h-[300px] w-full rounded-2xl border border-white/[0.08] bg-[#080808] object-contain shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] lg:h-[420px]";
 
 type SettingVisualKind = "provider" | "baseUrl" | "model" | "apiKey";
 
@@ -208,7 +208,7 @@ function ProviderGuideModal({
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 pointer-events-none">
       <div
-        className="pointer-events-auto relative max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/[0.09] bg-[#0d0d0d] shadow-[0_28px_90px_rgba(0,0,0,0.66),inset_0_1px_0_rgba(255,255,255,0.045)]"
+        className="pointer-events-auto relative max-h-[96vh] w-full max-w-5xl overflow-hidden rounded-3xl border border-white/[0.09] bg-[#0d0d0d] shadow-[0_28px_90px_rgba(0,0,0,0.66),inset_0_1px_0_rgba(255,255,255,0.045)]"
         onPointerDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-white/[0.07] px-6 py-4">
@@ -226,7 +226,7 @@ function ProviderGuideModal({
           </button>
         </div>
 
-        <div className="max-h-[calc(88vh-81px)] space-y-5 overflow-y-auto px-6 py-5">
+        <div className="max-h-[calc(96vh-81px)] space-y-4 overflow-y-auto px-6 py-4 lg:overflow-visible">
           <Select value={selectedProvider} onValueChange={handleProviderChange}>
             <SelectTrigger className="h-[46px] w-full rounded-xl border border-white/10 bg-[#101010] px-4 py-3 text-sm text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] outline-none focus:border-violet-300/28 focus:ring-0 focus-visible:border-violet-300/28 focus-visible:ring-0">
               <SelectValue />
@@ -247,37 +247,41 @@ function ProviderGuideModal({
             </SelectContent>
           </Select>
 
-          <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(255,255,255,0.045),rgba(18,18,19,0.98)_54%,rgba(10,10,11,0.99))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_16px_44px_rgba(0,0,0,0.28)]">
+          <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(255,255,255,0.045),rgba(18,18,19,0.98)_54%,rgba(10,10,11,0.99))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_16px_44px_rgba(0,0,0,0.28)]">
             <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-violet-200/22 to-transparent" />
-            <div className="space-y-4">
-              {slide.image ? (
-                <img src={slide.image} alt={slide.title} className={guideImageClass} />
-              ) : (
-                <div className="flex h-[340px] items-center justify-center rounded-2xl border border-violet-200/12 bg-[linear-gradient(135deg,rgba(76,29,149,0.13),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))] px-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
-                  <Sparkles size={42} className="text-violet-200/80" />
-                </div>
-              )}
-
-              <div className="min-h-[116px]">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="rounded-full border border-violet-200/14 bg-violet-500/10 px-2.5 py-1 text-xs font-medium text-violet-200">
-                    {slideIndex + 1}/{slides.length}
-                  </span>
-                  <span className="text-xs text-gray-500">{selectedProvider}</span>
-                </div>
-                <h4 className="text-xl font-semibold text-white">{slide.title}</h4>
-                <p className="mt-2 text-sm leading-6 text-gray-400">{slide.description}</p>
-                {slide.linkUrl && (
-                  <a
-                    href={slide.linkUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-violet-300/85 transition-colors hover:text-violet-200"
-                  >
-                    {slide.linkLabel}
-                    <ExternalLink size={14} />
-                  </a>
+            <div className="space-y-4 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-5 lg:space-y-0">
+              <div className="min-w-0">
+                {slide.image ? (
+                  <img src={slide.image} alt={slide.title} className={guideImageClass} />
+                ) : (
+                  <div className="flex h-[300px] items-center justify-center rounded-2xl border border-violet-200/12 bg-[linear-gradient(135deg,rgba(76,29,149,0.13),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))] px-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] lg:h-[420px]">
+                    <Sparkles size={42} className="text-violet-200/80" />
+                  </div>
                 )}
+              </div>
+
+              <div className="min-h-[116px] lg:flex lg:min-h-0 lg:flex-col lg:justify-center">
+                <div>
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="rounded-full border border-violet-200/14 bg-violet-500/10 px-2.5 py-1 text-xs font-medium text-violet-200">
+                      {slideIndex + 1}/{slides.length}
+                    </span>
+                    <span className="text-xs text-gray-500">{selectedProvider}</span>
+                  </div>
+                  <h4 className="text-xl font-semibold text-white">{slide.title}</h4>
+                  <p className="mt-2 text-sm leading-6 text-gray-400">{slide.description}</p>
+                  {slide.linkUrl && (
+                    <a
+                      href={slide.linkUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-violet-300/85 transition-colors hover:text-violet-200"
+                    >
+                      {slide.linkLabel}
+                      <ExternalLink size={14} />
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -286,7 +290,7 @@ function ProviderGuideModal({
             <button
               type="button"
               onClick={goToPrevious}
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition-colors hover:border-violet-200/18 hover:bg-white/[0.07] hover:text-violet-100"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition-colors hover:border-violet-200/18 hover:bg-white/[0.07] hover:text-violet-100"
               aria-label="Предыдущий слайд"
             >
               <ChevronLeft size={20} />
@@ -311,7 +315,7 @@ function ProviderGuideModal({
             <button
               type="button"
               onClick={goToNext}
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition-colors hover:border-violet-200/18 hover:bg-white/[0.07] hover:text-violet-100"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition-colors hover:border-violet-200/18 hover:bg-white/[0.07] hover:text-violet-100"
               aria-label="Следующий слайд"
             >
               <ChevronRight size={20} />

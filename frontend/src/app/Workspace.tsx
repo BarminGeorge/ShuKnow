@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { ChatMessages } from "./components/ChatMessages";
 import { InputConsole } from "./components/InputConsole";
-import { Sparkles } from "lucide-react";
+import { Menu, Sparkles } from "lucide-react";
 import { FolderContentView } from "./components/FolderContentView";
 import { TabsWorkspace } from "./components/workspace/TabsWorkspace";
 import { TabBar } from "./components/workspace/TabBar";
@@ -171,6 +171,7 @@ export default function Workspace() {
   const autosaveFailureNotifiedRef = useRef<Set<string>>(new Set());
   const hasRestoredWorkspaceLocationRef = useRef(false);
   const [composerBottomPadding, setComposerBottomPadding] = useState(176);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     const composer = composerRef.current;
@@ -328,11 +329,13 @@ export default function Workspace() {
   const handleFolderClick = (_folder: Folder, path: string[]) => {
     setSelectedFolderPath(path);
     setViewMode("folder");
+    setIsMobileSidebarOpen(false);
   };
 
   const handleGoToChat = () => {
     setViewMode("chat");
     setSelectedFolderPath(null);
+    setIsMobileSidebarOpen(false);
   };
 
   const handleNavigateBack = () => {
@@ -395,6 +398,7 @@ export default function Workspace() {
     if (path) {
       setSelectedFolderPath(path);
       setViewMode("folder");
+      setIsMobileSidebarOpen(false);
     }
   }, [findFolderPathById]);
 
@@ -406,11 +410,11 @@ export default function Workspace() {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="h-screen w-screen bg-[#0a0a0a] text-white overflow-hidden">
+      <div className="h-screen h-[100svh] w-screen bg-[#0a0a0a] text-white overflow-hidden">
         <div className="h-full w-full flex">
           {/* ── Sidebar ─────────────────────────────────────────────── */}
           <aside
-            className={`${isSidebarCollapsed ? "w-16" : "w-80"} h-full flex-none border-r border-white/10 transition-[width] duration-200 ease-out`}
+            className={`hidden lg:block ${isSidebarCollapsed ? "w-16" : "w-80"} h-full flex-none border-r border-white/10 transition-[width] duration-200 ease-out`}
           >
             <Sidebar
               onLogoClick={handleGoToChat}
@@ -419,9 +423,40 @@ export default function Workspace() {
             />
           </aside>
 
+          {isMobileSidebarOpen && (
+            <div className="fixed inset-0 z-50 lg:hidden">
+              <button
+                type="button"
+                aria-label="Закрыть меню"
+                className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                onClick={() => setIsMobileSidebarOpen(false)}
+              />
+              <aside className="absolute inset-y-0 left-0 w-[min(86vw,320px)] border-r border-white/10 shadow-[20px_0_70px_rgba(0,0,0,0.52)]">
+                <Sidebar
+                  onLogoClick={handleGoToChat}
+                  isCollapsed={false}
+                  onNavigateComplete={() => setIsMobileSidebarOpen(false)}
+                />
+              </aside>
+            </div>
+          )}
+
           {/* ── Main workspace ──────────────────────────────────────── */}
           <main className="min-w-0 flex-1">
             <div className="h-full flex flex-col relative">
+              {viewMode === "chat" && openTabs.length === 0 && (
+              <div className="lg:hidden h-10 flex flex-shrink-0 items-center gap-2.5 border-b border-white/[0.08] bg-[#0e0e0e] px-3">
+                <button
+                  type="button"
+                  onClick={() => setIsMobileSidebarOpen((open) => !open)}
+                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
+                  title={isMobileSidebarOpen ? "Закрыть меню" : "Открыть меню"}
+                  aria-label={isMobileSidebarOpen ? "Закрыть меню" : "Открыть меню"}
+                >
+                  <Menu size={17} />
+                </button>
+              </div>
+              )}
 
               {/* ── Global Tab Bar ────────────────────────────────────── */}
               <TabBar
@@ -432,6 +467,7 @@ export default function Workspace() {
                 onCloseTab={handleCloseTab}
                 onBack={handleNavigateBack}
                 onNavigateToFolder={handleNavigateToFolder}
+                onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
               />
 
               {/* ── Content area ──────────────────────────────────────── */}
@@ -462,17 +498,17 @@ export default function Workspace() {
                 ) : (
                   <div className="h-full flex flex-col relative w-full">
                     {messages.length === 0 ? (
-                      <div className="flex-1 flex flex-col items-center justify-center pb-20">
-                        <div className="flex items-center gap-3 mb-6">
-                          <div className="relative flex h-9 w-9 items-center justify-center">
+                      <div className="flex-1 flex flex-col items-center justify-center px-4 pb-8 lg:pb-20">
+                        <div className="flex max-w-full items-center gap-2 mb-4 lg:gap-3 lg:mb-6">
+                          <div className="relative flex h-6 w-6 items-center justify-center lg:h-9 lg:w-9">
                             <div className="absolute inset-2 rounded-full bg-[#4c1d95]/7 blur-sm" />
                             <Sparkles
-                              size={26}
+                              size={19}
                               className="relative text-violet-300/62 drop-shadow-[0_0_5px_rgba(91,33,182,0.16)]"
                               strokeWidth={2.25}
                             />
                           </div>
-                          <h2 className="text-2xl font-semibold text-gray-100/90 text-center">{currentTitle}</h2>
+                          <h2 className="min-w-0 truncate text-center text-lg font-semibold leading-tight text-gray-100/90 lg:text-2xl">{currentTitle}</h2>
                         </div>
                         <div className="w-full max-w-3xl">
                           <InputConsole onSend={handleSendMessage} />

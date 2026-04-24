@@ -58,7 +58,7 @@ export function GridContainer({
   });
 
   return (
-    <div ref={dropGrid} className="flex-1 overflow-y-auto px-8 py-6 relative">
+    <div ref={dropGrid} className="flex-1 overflow-y-auto px-3 py-3 sm:px-4 lg:px-8 lg:py-6 relative">
       {/* Drop overlay when dragging files */}
       {isFileOver && gridItems.length > 0 && (
         <div className="absolute inset-0 bg-violet-500/5 border-2 border-dashed border-violet-300/35 rounded-xl z-10 flex items-center justify-center pointer-events-none">
@@ -74,7 +74,7 @@ export function GridContainer({
       {/* Custom drag layer */}
       <CustomDragLayer />
       
-      <div ref={gridRef} className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+      <div ref={gridRef} className="grid gap-3 lg:gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 220px), 1fr))' }}>
         {gridItems.map((item, index) => (
           <DraggableGridItem
             key={item.id}
@@ -117,7 +117,7 @@ export function GridContainer({
             {isFileOver ? "" : "Перетащите файлы сюда или создайте новый"}
           </p>
           {!isFileOver && (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-3">
               <button
                 onClick={onCreateFolder}
                 className={secondaryActionClass}

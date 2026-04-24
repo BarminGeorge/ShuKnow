@@ -16,6 +16,7 @@ interface FolderItemProps {
   onDeleteFolder: (path: string[]) => void;
   onOpenContextMenu: (folder: Folder, path: string[], position: { x: number; y: number }) => void;
   onMoveGridItemToFolder?: (itemId: string, targetFolderId: string, itemType: GridItemType) => void;
+  onNavigateComplete?: () => void;
   depth?: number;
 }
 
@@ -75,6 +76,7 @@ export function FolderItem({
   onDeleteFolder,
   onOpenContextMenu,
   onMoveGridItemToFolder,
+  onNavigateComplete,
   depth = 0,
 }: FolderItemProps) {
   const { setSelectedFolderPath, setViewMode } = useWorkspaceView();
@@ -274,6 +276,7 @@ export function FolderItem({
     }
     setSelectedFolderPath(path);
     setViewMode('folder');
+    onNavigateComplete?.();
     dragStartPosRef.current = null;
   };
 
@@ -360,6 +363,7 @@ export function FolderItem({
               onDeleteFolder={onDeleteFolder}
               onOpenContextMenu={onOpenContextMenu}
               onMoveGridItemToFolder={onMoveGridItemToFolder}
+              onNavigateComplete={onNavigateComplete}
               depth={depth + 1}
             />
           ))}

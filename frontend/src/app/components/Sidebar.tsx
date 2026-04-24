@@ -20,6 +20,7 @@ interface SidebarProps {
   onLogoClick: () => void;
   onToggleSidebar?: () => void;
   isCollapsed?: boolean;
+  onNavigateComplete?: () => void;
 }
 
 const isNotFoundDeleteError = (error: unknown) => {
@@ -48,7 +49,7 @@ const isNonEmptyFolderError = (error: unknown) => {
   return false;
 };
 
-export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarProps) {
+export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed, onNavigateComplete }: SidebarProps) {
   // Jotai hooks
   const { folders, setFolders, updateFolder, createFolder, moveFolderAtom } = useFolders();
   const { files, setFiles } = useFiles();
@@ -440,6 +441,17 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
     });
   };
 
+  const handleChatClick = () => {
+    onLogoClick();
+    onNavigateComplete?.();
+  };
+
+  const handleSidebarFolderClick = (path: string[]) => {
+    setSelectedFolderPath(path);
+    setViewMode("folder");
+    onNavigateComplete?.();
+  };
+
   if (isCollapsed) {
     return (
       <div className="w-full h-full bg-[#0d0d0d] flex flex-col items-center py-4">
@@ -454,7 +466,7 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
         )}
 
         <button
-          onClick={onLogoClick}
+          onClick={handleChatClick}
           className="w-10 h-10 mb-2 flex items-center justify-center rounded-lg text-violet-200/85
                      bg-[linear-gradient(135deg,rgba(76,29,149,0.26),rgba(17,16,24,0.58)_60%,rgba(109,40,217,0.08))]
                      border border-violet-300/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_14px_rgba(91,33,182,0.045)]
@@ -493,8 +505,7 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
                 });
               }}
               onClick={() => {
-                setSelectedFolderPath([index.toString()]);
-                setViewMode('folder');
+                handleSidebarFolderClick([index.toString()]);
               }}
             >
               <span className="text-xl select-none">{folder.emoji || "📁"}</span>
@@ -563,7 +574,7 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
       <div className="flex items-center justify-between px-4 py-4">
         <h1 
           className="text-xl font-semibold text-white select-none cursor-pointer hover:text-white/80 transition-colors"
-          onClick={onLogoClick}
+          onClick={handleChatClick}
         >
           ShuKnow
         </h1>
@@ -580,7 +591,7 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
 
       <div className="px-4 mb-4 flex flex-col gap-2">
         <button
-          onClick={onLogoClick}
+          onClick={handleChatClick}
           className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium text-violet-200/85
                      bg-[linear-gradient(135deg,rgba(76,29,149,0.26),rgba(17,16,24,0.58)_60%,rgba(109,40,217,0.08))]
                      border border-violet-300/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_14px_rgba(91,33,182,0.045)]
@@ -620,6 +631,7 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
               onDeleteFolder={handleDeleteFolder}
               onOpenContextMenu={handleOpenFolderContextMenu}
               onMoveGridItemToFolder={handleMoveGridItemToSidebarFolder}
+              onNavigateComplete={onNavigateComplete}
             />
           ))}
         </div>

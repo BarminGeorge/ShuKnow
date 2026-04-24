@@ -197,7 +197,7 @@ const DraggableAttachment = memo(function DraggableAttachment({ attachment }: { 
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      className={`flex-shrink-0 w-[220px] flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-grab active:cursor-grabbing
+      className={`flex-shrink-0 w-[min(220px,72vw)] flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-grab active:cursor-grabbing
                   bg-[linear-gradient(135deg,rgba(255,255,255,0.052),rgba(27,27,28,0.96)_52%,rgba(18,18,19,0.98))]
                   border border-white/[0.07] shadow-[0_10px_28px_rgba(0,0,0,0.22)]
                   transition-all hover:border-violet-200/18 hover:shadow-[0_12px_32px_rgba(0,0,0,0.26),0_0_20px_rgba(167,139,250,0.05)] ${isDragging ? 'opacity-50' : ''}`}
@@ -281,7 +281,7 @@ const UserMessage = memo(function UserMessage({
 
       {/* Actions float outside the message surface, so they don't create an empty block inside it. */}
       {(hasText || onResend) && (
-        <div className="absolute right-3 top-full z-20 flex gap-1.5 opacity-0 translate-y-[-25%] pointer-events-none transition-all duration-150 group-hover:opacity-100 group-hover:translate-y-[-25%] group-hover:pointer-events-auto">
+        <div className="absolute right-3 top-full z-20 flex gap-1.5 translate-y-[-25%] transition-all duration-150 opacity-100 pointer-events-auto lg:opacity-0 lg:pointer-events-none lg:group-hover:opacity-100 lg:group-hover:translate-y-[-25%] lg:group-hover:pointer-events-auto">
           {hasText && (
             <button
               onClick={handleCopy}
@@ -372,19 +372,19 @@ const ChatMessageRow = memo(function ChatMessageRow({
   const hasPersistedChanges = (message.result?.length ?? 0) > 0;
 
   return (
-    <div className={`px-4 py-5 ${index === 0 ? "pt-8" : ""}`}>
-      <div className={`flex gap-4 ${message.type === "user" ? "justify-end" : ""}`}>
+    <div className={`px-0 py-4 lg:px-4 lg:py-5 ${index === 0 ? "pt-5 lg:pt-8" : ""}`}>
+      <div className={`flex gap-3 lg:gap-4 ${message.type === "user" ? "justify-end" : ""}`}>
         {message.type === "user" ? (
-          <div className="max-w-[85%]">
+          <div className="max-w-[92%] lg:max-w-[85%]">
             <UserMessage message={message} onResend={onResend} />
           </div>
         ) : (
           <div className="w-full max-w-5xl">
-            <div className="relative flex gap-4 rounded-2xl overflow-hidden border border-white/[0.055]
+            <div className="relative flex gap-3 rounded-2xl overflow-hidden border border-white/[0.055] lg:gap-4
                             bg-[linear-gradient(135deg,rgba(255,255,255,0.035),rgba(18,18,19,0.97)_52%,rgba(12,12,13,0.98))]
-                            px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_16px_44px_rgba(0,0,0,0.24)]
+                            px-3 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_16px_44px_rgba(0,0,0,0.24)] lg:px-5 lg:py-5
                             before:absolute before:inset-y-5 before:left-0 before:w-px before:bg-gradient-to-b before:from-transparent before:via-violet-200/22 before:to-transparent">
-              <div className="relative z-10 w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-violet-100
+              <div className="relative z-10 hidden w-8 h-8 rounded-full items-center justify-center flex-shrink-0 text-violet-100 sm:flex
                               bg-[linear-gradient(135deg,rgba(124,58,237,0.78),rgba(15,23,42,0.56)_58%,rgba(167,139,250,0.38))]
                               border border-violet-200/20 shadow-[0_0_22px_rgba(167,139,250,0.14)]">
                 <Sparkles size={16} />
@@ -502,7 +502,7 @@ export function ChatMessages({ messages, onOpenFolder, onRetry, onResend, bottom
         overscan={{ main: 16800, reverse: 16800 }}
         increaseViewportBy={{ top: 16800, bottom: 16800 }}
         itemContent={(index, message) => (
-          <div className="max-w-7xl mx-auto px-9">
+          <div className="max-w-7xl mx-auto px-4 lg:px-9">
             <ChatMessageRow
               message={message}
               index={index}

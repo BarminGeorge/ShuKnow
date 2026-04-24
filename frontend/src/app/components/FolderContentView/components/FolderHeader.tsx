@@ -1,11 +1,13 @@
-import { useRef } from "react";
-import { ChevronRight, FolderIcon, Plus, Paperclip } from "lucide-react";
+import { useRef, useState } from "react";
+import { ChevronRight, FolderIcon, Plus, Paperclip, Sparkles } from "lucide-react";
 import { EmojiPicker } from "../../EmojiPicker";
 import { formatFolderStatsHeader } from "../helpers";
 import { ACCEPTED_UPLOAD_FILE_TYPES } from "../../../utils/fileValidation";
 
-const secondaryActionClass = "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-white/[0.045] border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] hover:text-gray-100 hover:border-white/14 hover:bg-white/[0.065] transition-colors";
-const promptFieldClass = "w-full px-4 py-3 bg-[#101010] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] focus:border-violet-300/28 focus:bg-[#121212] transition-colors";
+const secondaryActionClass = "flex h-8 w-8 shrink-0 items-center justify-center gap-2 rounded-lg text-sm font-medium text-gray-300 bg-white/[0.045] border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] hover:text-gray-100 hover:border-white/14 hover:bg-white/[0.065] transition-colors lg:h-10 lg:w-auto lg:px-4";
+const primaryActionClass = "flex h-8 w-8 shrink-0 items-center justify-center gap-2 rounded-lg text-sm font-medium text-violet-100 bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))] border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)] lg:h-10 lg:w-auto lg:px-4";
+const promptToggleClass = "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-medium text-gray-300 bg-white/[0.045] border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] hover:text-gray-100 hover:border-white/14 hover:bg-white/[0.065] transition-colors lg:h-10 lg:w-10";
+const promptFieldClass = "w-full px-3 py-2.5 bg-[#101010] border border-white/10 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 resize-none outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] focus:border-violet-300/28 focus:bg-[#121212] transition-colors lg:px-4 lg:py-3";
 const FOLDER_PROMPT_MAX_LENGTH = 2000;
 
 interface FolderHeaderProps {
@@ -62,11 +64,18 @@ export function FolderHeader({
   onPromptBlur,
 }: FolderHeaderProps) {
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
+  const [isPromptOpen, setIsPromptOpen] = useState(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return true;
+    }
+
+    return window.matchMedia("(min-width: 1024px)").matches;
+  });
 
   return (
-    <div className="border-b border-white/[0.07] px-8 py-6">
+    <div className="border-b border-white/[0.07] px-3 py-2.5 lg:px-8 lg:pt-6 lg:pb-3">
       {/* Breadcrumbs */}
-      <div className="flex items-center gap-2 text-sm text-gray-400 mb-4 overflow-x-auto scrollbar-none" style={{ scrollbarWidth: "none" }}>
+      <div className="mb-4 hidden items-center gap-2 overflow-x-auto text-sm text-gray-400 scrollbar-none lg:flex" style={{ scrollbarWidth: "none" }}>
         <div className="flex items-center gap-2 flex-shrink-0">
           {breadcrumbs.map((crumb, index) => (
             <div key={index} className="flex items-center gap-2 flex-shrink-0">
@@ -87,21 +96,21 @@ export function FolderHeader({
       </div>
 
       {/* Title & Emoji */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className={`flex items-center gap-2.5 lg:gap-3 ${isPromptOpen ? "lg:mb-4" : ""}`}>
         {/* Emoji picker trigger */}
         <button
           ref={emojiTriggerRef}
           onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
           className={`flex-shrink-0 flex items-center justify-center rounded-xl transition-colors group ${
-            emoji ? "w-14 h-14 text-4xl" : "w-14 h-14"
+            emoji ? "h-8 w-8 text-2xl lg:h-14 lg:w-14 lg:text-4xl" : "h-8 w-8 lg:h-14 lg:w-14"
           }`}
           title={emoji ? "Изменить иконку" : "Добавить иконку"}
         >
           {emoji ? (
             <span className="leading-none">{emoji}</span>
           ) : (
-            <span className="flex h-12 w-12 items-center justify-center text-gray-600/80 transition-colors group-hover:text-gray-400">
-              <FolderIcon size={30} strokeWidth={1.45} />
+            <span className="flex h-8 w-8 items-center justify-center text-gray-600/80 transition-colors group-hover:text-gray-400 lg:h-12 lg:w-12">
+              <FolderIcon size={22} strokeWidth={1.45} />
             </span>
           )}
         </button>
@@ -114,25 +123,33 @@ export function FolderHeader({
             onBlur={onTitleBlur}
             onKeyDown={(e) => { if (e.key === "Enter") onTitleBlur(); }}
             maxLength={50}
-            className="text-3xl font-semibold bg-transparent text-white border-b-2 border-indigo-500 outline-none"
+            className="min-w-0 flex-1 text-lg font-semibold bg-transparent text-white border-b-2 border-indigo-500 outline-none lg:text-3xl"
             autoFocus
           />
         ) : (
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <h1
-              className="text-3xl font-semibold text-white cursor-pointer hover:text-gray-300 transition-colors"
+              className="truncate text-lg font-semibold leading-tight text-white cursor-pointer hover:text-gray-300 transition-colors lg:text-3xl"
               onClick={() => setIsEditingTitle(true)}
               title="Кликните чтобы изменить название"
             >
               {title}
             </h1>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="mt-1 hidden text-sm text-gray-400 lg:block">
               {formatFolderStatsHeader(subfolderCount, fileCount, photoCount)}
             </p>
           </div>
         )}
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex flex-shrink-0 items-center gap-1.5 lg:ml-auto lg:gap-2">
+          <button
+            onClick={() => setIsPromptOpen((open) => !open)}
+            className={`${promptToggleClass} ${isPromptOpen ? "border-violet-200/20 text-violet-100 bg-violet-500/10" : ""}`}
+            title="Инструкция"
+            aria-expanded={isPromptOpen}
+          >
+            <Sparkles size={15} />
+          </button>
           {hasGridItems && (
             <>
               <button
@@ -141,17 +158,15 @@ export function FolderHeader({
                 title="Создать папку"
               >
                 <FolderIcon size={16} />
-                Создать папку
+                <span className="hidden lg:inline">Создать папку</span>
               </button>
               <button
                 onClick={onCreateFile}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-violet-100
-                           bg-[linear-gradient(135deg,rgba(124,58,237,0.18),rgba(15,23,42,0.46)_58%,rgba(167,139,250,0.09))]
-                           border border-violet-200/18 shadow-[0_0_18px_rgba(167,139,250,0.06)] hover:border-violet-200/30 hover:text-white hover:shadow-[0_0_24px_rgba(167,139,250,0.12)]"
+                className={primaryActionClass}
                 title="Создать файл"
               >
                 <Plus size={16} />
-                Создать файл
+                <span className="hidden lg:inline">Создать файл</span>
               </button>
             </>
           )}
@@ -161,7 +176,7 @@ export function FolderHeader({
             title="Прикрепить файл"
           >
             <Paperclip size={16} />
-            Прикрепить файл
+            <span className="hidden lg:inline">Прикрепить файл</span>
           </button>
         </div>
       </div>
@@ -177,7 +192,7 @@ export function FolderHeader({
       />
 
       {/* AI Prompt Field */}
-      <div>
+      <div className={`${isPromptOpen ? "mt-2 block lg:mt-4" : "hidden"}`}>
         <textarea
           value={aiPrompt}
           onChange={(e) => setAiPrompt(e.target.value.slice(0, FOLDER_PROMPT_MAX_LENGTH))}

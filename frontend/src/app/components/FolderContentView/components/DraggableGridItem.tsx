@@ -312,7 +312,7 @@ export function DraggableGridItem({
         ref={ref}
         data-grid-item-id={item.id}
         className={`
-          group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
+          group relative h-[116px] rounded-xl overflow-hidden cursor-pointer lg:h-[180px] lg:rounded-2xl
           ${getItemAnimationClass()} ${getDropZoneStyles()}
           bg-[linear-gradient(135deg,rgba(76,29,149,0.13),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))]
           border-violet-200/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_26px_rgba(0,0,0,0.16)]
@@ -323,17 +323,17 @@ export function DraggableGridItem({
         onClick={() => onFolderClick(folder)}
       >
         {/* Content - Single unified block */}
-        <div className="h-full px-7 py-6 flex flex-col justify-between">
+        <div className="h-full px-4 py-3.5 flex flex-col justify-between lg:px-7 lg:py-6">
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-200/32 to-transparent" />
 
           {/* Top: Emoji */}
           <div className="flex items-start justify-between">
-            <span className="text-[40px] leading-none">
+            <span className="text-[28px] leading-none lg:text-[40px]">
               {folder.emoji || "📁"}
             </span>
             {/* Context menu button - always visible when menu is open */}
             <button
-              className={`w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center transition-opacity ${openContextMenuId === item.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+              className={`w-7 h-7 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center transition-opacity lg:h-6 lg:w-6 ${openContextMenuId === item.id ? 'opacity-100' : 'opacity-100 lg:opacity-0 lg:group-hover:opacity-100'}`}
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
@@ -346,7 +346,7 @@ export function DraggableGridItem({
           
           {/* Bottom: Name and Meta */}
           <div className="min-w-0">
-            <p className="text-[18px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis">
+            <p className="text-[15px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis lg:text-[18px]">
               {folder.name}
             </p>
             <p className="text-[13px] text-[rgba(255,255,255,0.60)] mt-1 font-normal">
@@ -433,7 +433,7 @@ export function DraggableGridItem({
           ref={ref}
           data-grid-item-id={item.id}
           className={`
-            group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
+            group relative h-[116px] rounded-xl overflow-hidden cursor-pointer lg:h-[180px] lg:rounded-2xl
             ${getItemAnimationClass()} ${getFileDropStyles()}
             shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_26px_rgba(0,0,0,0.16)]
             hover:-translate-y-[1px] hover:ring-1 hover:ring-white/10 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_14px_30px_rgba(0,0,0,0.20)]
@@ -452,12 +452,12 @@ export function DraggableGridItem({
           <div className="absolute inset-0 bg-gradient-to-t from-black/74 via-black/16 to-black/4" />
           
           {/* Format badge - top left */}
-          <span className="absolute top-6 left-7 text-[12px] font-semibold uppercase tracking-wide px-3 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-white/85">
+          <span className="absolute left-4 top-4 text-[11px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-white/85 lg:left-7 lg:top-6 lg:text-[12px] lg:px-3">
             {fileExtension}
           </span>
           
           {/* Content at bottom */}
-          <div className="absolute bottom-0 left-0 right-0 px-7 py-6 min-w-0">
+          <div className="absolute bottom-0 left-0 right-0 px-4 py-3.5 min-w-0 lg:px-7 lg:py-6">
             {editingFileId === file.id ? (
               <input
                 type="text"
@@ -472,11 +472,11 @@ export function DraggableGridItem({
               />
             ) : (
               <>
-                <p className="text-[18px] font-medium text-white whitespace-nowrap overflow-hidden text-ellipsis">
+                <p className="text-[15px] font-medium text-white whitespace-nowrap overflow-hidden text-ellipsis lg:text-[18px]">
                   {displayName}
                 </p>
                 {relativeDate && (
-                  <p className="text-[13px] text-white/60 mt-1 font-normal">
+                  <p className="text-xs text-white/60 mt-1 font-normal lg:text-[13px]">
                     {relativeDate}
                   </p>
                 )}
@@ -487,7 +487,7 @@ export function DraggableGridItem({
           {/* Context menu button - always visible when menu is open */}
           <button
             aria-label="More options"
-            className={`absolute top-6 right-7 w-6 h-6 rounded-md bg-black/50 backdrop-blur-sm hover:bg-black/70 flex items-center justify-center transition-opacity z-10 ${openContextMenuId === item.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+            className={`absolute right-4 top-4 w-7 h-7 rounded-md bg-black/50 backdrop-blur-sm hover:bg-black/70 flex items-center justify-center transition-opacity z-10 lg:right-7 lg:top-6 lg:h-6 lg:w-6 ${openContextMenuId === item.id ? 'opacity-100' : 'opacity-100 lg:opacity-0 lg:group-hover:opacity-100'}`}
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
@@ -506,7 +506,7 @@ export function DraggableGridItem({
         ref={ref}
         data-grid-item-id={item.id}
         className={`
-          group relative h-[180px] rounded-2xl overflow-hidden cursor-pointer
+          group relative h-[116px] rounded-xl overflow-hidden cursor-pointer lg:h-[180px] lg:rounded-2xl
           ${getItemAnimationClass()} ${getFileDropStyles()}
           ${fileVisualStyle.card}
           hover:-translate-y-[1px]
@@ -516,7 +516,7 @@ export function DraggableGridItem({
         title="Нажмите для открытия"
       >
         {/* Content - Single unified block */}
-        <div className="h-full px-7 py-6 flex flex-col justify-between">
+        <div className="h-full px-4 py-3.5 flex flex-col justify-between lg:px-7 lg:py-6">
           <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${fileVisualStyle.line} to-transparent`} />
 
           {/* Top: Type badge and menu */}
@@ -530,7 +530,7 @@ export function DraggableGridItem({
             </span>
             {/* Context menu button - always visible when menu is open */}
             <button
-              className={`w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center transition-opacity ${openContextMenuId === item.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+              className={`w-7 h-7 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center transition-opacity lg:h-6 lg:w-6 ${openContextMenuId === item.id ? 'opacity-100' : 'opacity-100 lg:opacity-0 lg:group-hover:opacity-100'}`}
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
@@ -558,11 +558,11 @@ export function DraggableGridItem({
               />
             ) : (
               <>
-                <p className="text-[18px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis">
+                <p className="text-[15px] font-medium text-[rgba(255,255,255,0.92)] whitespace-nowrap overflow-hidden text-ellipsis lg:text-[18px]">
                   {displayName}
                 </p>
                 {relativeDate && (
-                  <p className="text-[13px] text-[rgba(255,255,255,0.60)] mt-1 font-normal">
+                  <p className="text-xs text-[rgba(255,255,255,0.60)] mt-1 font-normal lg:text-[13px]">
                     {relativeDate}
                   </p>
                 )}

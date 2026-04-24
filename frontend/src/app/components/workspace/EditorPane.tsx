@@ -848,7 +848,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     return (
       <div
         ref={containerRef}
-        className="h-full flex flex-col items-center justify-center p-10 bg-[#0e0e0e] relative overflow-hidden"
+        className="h-full flex flex-col items-center justify-center p-4 bg-[#0e0e0e] relative overflow-hidden lg:p-10"
         onWheel={onWheel}
         style={{ cursor: "default" }}
       >
@@ -858,7 +858,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
               ref={imageRef}
               src={file.contentUrl}
               alt={file.name}
-              className="max-w-full max-h-[75vh] object-contain rounded-xl shadow-2xl ring-1 ring-white/10 select-none"
+              className="max-w-full max-h-[68vh] object-contain rounded-xl shadow-2xl ring-1 ring-white/10 select-none lg:max-h-[75vh]"
               style={{
                 transform: `translate(${pos.x}px, ${pos.y}px) scale(${scale})`,
                 transformOrigin: "0 0",
@@ -870,7 +870,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
             <p className="mt-5 text-sm text-gray-500">{file.name}</p>
 
             {/* Zoom controls */}
-            <div className="absolute bottom-6 right-6 flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-full px-3 py-2 opacity-0 hover:opacity-100 transition-opacity group">
+            <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-sm rounded-full px-3 py-2 opacity-100 transition-opacity group lg:bottom-6 lg:right-6 lg:opacity-0 lg:hover:opacity-100">
               <button
                 onClick={zoomOut}
                 disabled={scale <= 1}
@@ -902,7 +902,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
 
             {/* Zoom hint */}
             {scale === 1 && (
-              <p className="absolute bottom-6 left-6 text-xs text-gray-600">
+              <p className="absolute bottom-4 left-4 hidden text-xs text-gray-600 lg:bottom-6 lg:left-6 lg:block">
                 Прокрутка для масштабирования • Двойной клик для заполнения
               </p>
             )}
@@ -937,7 +937,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
     <div className="relative h-full bg-[#111111]">
       {/* Floating toggle button for markdown files */}
       {isMarkdownFile && (
-        <div className="pointer-events-none absolute right-8 top-6 z-30">
+        <div className="pointer-events-none absolute right-4 top-4 z-30 lg:right-8 lg:top-6">
           <div className="flex justify-end">
             <button
               onClick={toggleMode}
@@ -950,12 +950,12 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
               {isEditing ? (
                 <>
                   <Eye size={13} />
-                  <span>Просмотр</span>
+                  <span className="hidden min-[380px]:inline">Просмотр</span>
                 </>
               ) : (
                 <>
                   <Pencil size={13} />
-                  <span>Редактировать</span>
+                  <span className="hidden min-[380px]:inline">Редактировать</span>
                 </>
               )}
             </button>
@@ -967,7 +967,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
         ref={markdownScrollContainerRef}
         className={`h-full overflow-y-auto ${isMarkdownScrollRestoring ? "invisible" : ""}`}
       >
-        <div className="max-w-3xl mx-auto px-10 py-12">
+        <div className="max-w-3xl mx-auto px-4 py-6 lg:px-10 lg:py-12">
           {isMarkdownFile && !isEditing ? (
             /* ── Markdown Preview ────────────────────────────────────── */
             <div
@@ -975,7 +975,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
                        break-words
                        prose-headings:font-semibold prose-headings:tracking-tight
                        prose-headings:break-words
-                       prose-h1:text-3xl prose-h1:mb-6 prose-h1:mt-0
+                       prose-h1:text-2xl prose-h1:mb-6 prose-h1:mt-0 lg:prose-h1:text-3xl
                        prose-h2:text-xl prose-h2:mb-4 prose-h2:mt-8
                        prose-h3:text-lg prose-h3:mb-3 prose-h3:mt-6
                        prose-p:text-gray-300 prose-p:leading-relaxed prose-p:break-words prose-p:whitespace-pre-wrap
@@ -988,7 +988,7 @@ export function EditorPane({ file, onUpdateContent }: EditorPaneProps) {
                        prose-pre:bg-[#0a0a0a] prose-pre:border prose-pre:border-white/5 prose-pre:whitespace-pre-wrap prose-pre:break-words
                        prose-blockquote:border-indigo-500/50 prose-blockquote:text-gray-400
                        prose-hr:border-white/10
-                       min-h-[calc(100vh-200px)]"
+                       min-h-[calc(100vh-180px)] lg:min-h-[calc(100vh-200px)]"
             >
               <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkMath]}

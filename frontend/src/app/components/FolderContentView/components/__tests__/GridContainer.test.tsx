@@ -140,8 +140,8 @@ describe('GridContainer', () => {
       </DndProvider>
     );
 
-    const gridElement = container.querySelector('.grid.gap-4');
+    const gridElement = container.querySelector('.grid.gap-3');
     expect(gridElement).toBeInTheDocument();
-    expect(gridElement).toHaveStyle({ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' });
+    expect(gridElement).toHaveStyle({ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 220px), 1fr))' });
   });
 });
