@@ -18,14 +18,18 @@ public class S3BlobStorageProvider(
     {
         try
         {
+            await using var upload = await PrepareUploadAsync(content, ct);
+
             var request = new PutObjectRequest
             {
                 BucketName = bucketName,
                 Key = GetObjectKey(blobId),
-                InputStream = content,
+                InputStream = upload.Content,
                 AutoCloseStream = false
             };
-            
+
+            request.Headers.ContentLength = upload.ContentLength;
+
             await s3Client.PutObjectAsync(request, ct);
             return Result.Success();
         }
@@ -198,9 +202,30 @@ public class S3BlobStorageProvider(
         return string.IsNullOrEmpty(prefix) ? id : $"{prefix}/{id}";
     }
 
+    private static async Task<PreparedUpload> PrepareUploadAsync(Stream content, CancellationToken ct)
+    {
+        if (content.CanSeek)
+            return new PreparedUpload(content, content.Length);
+
+        var bufferedContent = new MemoryStream();
+        await content.CopyToAsync(bufferedContent, ct);
+        bufferedContent.Position = 0;
+        return new PreparedUpload(bufferedContent, bufferedContent.Length, bufferedContent);
+    }
+
     private static bool TryParseBlobId(string key, out Guid blobId)
     {
         var fileName = key.Contains('/') ? key[(key.LastIndexOf('/') + 1)..] : key;
         return Guid.TryParse(fileName, out blobId);
+    }
+
+    private sealed class PreparedUpload(Stream content, long contentLength, IAsyncDisposable? disposable = null)
+        : IAsyncDisposable
+    {
+        public Stream Content { get; } = content;
+        public long ContentLength { get; } = contentLength;
+
+        public ValueTask DisposeAsync()
+            => disposable?.DisposeAsync() ?? ValueTask.CompletedTask;
     }
 }

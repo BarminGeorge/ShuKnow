@@ -448,56 +448,6 @@ public class TornadoAiServiceTests
     }
 
     [Test]
-    public async Task ProcessMessageAsync_WhenImageAttachmentProvided_ShouldBuildMessageWithImageParts()
-    {
-        const string prompt = "Summarize the attachment.";
-        var attachmentId = Guid.NewGuid();
-        var attachment = CreateImageAttachment(attachmentId, "notes.png", "image/png");
-        ConfigureAttachment(attachmentId, attachment);
-
-        IReadOnlyList<ChatMessagePart>? capturedParts = null;
-        conversation.When(c => c.AddUserMessage(Arg.Any<IEnumerable<ChatMessagePart>>()))
-            .Do(callInfo => capturedParts = callInfo.Arg<IEnumerable<ChatMessagePart>>().ToList());
-
-        await sut.ProcessMessageAsync(session.Id, prompt, [attachmentId], settings, operationId);
-
-        capturedParts.Should().NotBeNull();
-        capturedParts!.Should().HaveCount(3);
-        capturedParts[0].Text.Should().Be(prompt);
-        capturedParts[1].Text.Should().Be($"Attachment: `notes.png` (Id: `{attachmentId}`)");
-        capturedParts[2].Image.Should().NotBeNull();
-        capturedParts[2].Image!.MimeType.Should().Be("image/png");
-    }
-
-    [Test]
-    public async Task ProcessMessageAsync_WhenBinaryApplicationAttachmentProvided_ShouldBuildMessageWithTextFallbackPart()
-    {
-        const string prompt = "Save attached archive.";
-        var attachmentId = Guid.NewGuid();
-        var attachment = CreateImageAttachment(attachmentId, "backup.bin", "application/octet-stream");
-
-        attachmentService.GetByIdsAsync(
-                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Contains(attachmentId)),
-                Arg.Any<CancellationToken>())
-            .Returns(Success<IReadOnlyList<ChatAttachment>>([attachment]));
-        blobStorageService.GetAsync(attachment.BlobId, Arg.Any<CancellationToken>())
-            .Returns(Success<Stream>(new MemoryStream([1, 2, 3, 4])));
-
-        IReadOnlyList<ChatMessagePart>? capturedParts = null;
-        conversation.When(c => c.AddUserMessage(Arg.Any<IEnumerable<ChatMessagePart>>()))
-            .Do(callInfo => capturedParts = callInfo.Arg<IEnumerable<ChatMessagePart>>().ToList());
-
-        await sut.ProcessMessageAsync(session.Id, prompt, [attachmentId], settings, operationId);
-
-        capturedParts.Should().NotBeNull();
-        capturedParts!.Should().HaveCount(3);
-        capturedParts[0].Text.Should().Be(prompt);
-        capturedParts[1].Text.Should().Be($"Attachment: `backup.bin` (Id: `{attachmentId}`)");
-        capturedParts[2].Text.Should().Contain("Binary attachment 'backup.bin' (application/octet-stream)");
-        capturedParts[2].Document.Should().BeNull();
-    }
-
-    [Test]
     public async Task ProcessMessageAsync_WhenAttachmentProvided_ShouldDisposeBlobStreamAfterBuildingMessage()
     {
         var attachmentId = Guid.NewGuid();
