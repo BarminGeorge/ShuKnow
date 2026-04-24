@@ -27,6 +27,8 @@ public interface IFileRepository
     
     Task<Result<IReadOnlyList<File>>> DeleteByFolderAsync(Guid? folderId, Guid userId);
 
+    Task<Result<IReadOnlyList<File>>> GetByUserAsync(Guid userId);
+
     Task<Result<IReadOnlyList<File>>> GetByFolderAsync(Guid? folderId, Guid userId);
 
     Task<Result<File>> GetByFolderAndFileNameAsync(

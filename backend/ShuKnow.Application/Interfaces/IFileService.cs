@@ -1,4 +1,5 @@
 using Ardalis.Result;
+using ShuKnow.Application.Models;
 using File = ShuKnow.Domain.Entities.File;
 
 namespace ShuKnow.Application.Interfaces;
@@ -6,6 +7,8 @@ namespace ShuKnow.Application.Interfaces;
 public interface IFileService
 {
     Task<Result<File>> GetByIdAsync(Guid fileId, CancellationToken ct = default);
+
+    Task<Result<IReadOnlyList<FileSummary>>> GetFileTreeForPromptAsync(CancellationToken ct = default);
 
     Task<Result<File>> GetByPathAsync(string filePath, CancellationToken ct = default);
 

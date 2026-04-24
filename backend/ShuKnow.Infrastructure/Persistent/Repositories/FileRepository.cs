@@ -110,6 +110,18 @@ public class FileRepository(AppDbContext context) : IFileRepository
         return files;
     }
 
+    public async Task<Result<IReadOnlyList<File>>> GetByUserAsync(Guid userId)
+    {
+        return await context.Files
+            .AsNoTracking()
+            .Include(file => file.Folder)
+            .Where(file => file.UserId == userId)
+            .OrderBy(file => file.FolderId)
+            .ThenBy(file => file.SortOrder)
+            .ThenBy(file => file.Name)
+            .ToListAsync();
+    }
+
     public async Task<Result<IReadOnlyList<File>>> GetByFolderAsync(Guid? folderId, Guid userId)
     {
         return await context.Files

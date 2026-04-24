@@ -283,6 +283,7 @@ public class TornadoAiServiceLiveTests
 
         var chatService = Substitute.For<IChatService>();
         var folderService = Substitute.For<IFolderService>();
+        var fileService = Substitute.For<IFileService>();
         var session = new ChatSession(Guid.NewGuid(), Guid.NewGuid());
         var persistedMessages = new List<ChatMessage>();
 
@@ -292,6 +293,8 @@ public class TornadoAiServiceLiveTests
             .Returns(Task.FromResult(Result.Success<IReadOnlyCollection<ChatMessage>>([])));
         folderService.GetFolderTreeForPromptAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success<IReadOnlyList<FolderSummary>>([])));
+        fileService.GetFileTreeForPromptAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success<IReadOnlyList<FileSummary>>([])));
         chatService.PersistMessageAsync(Arg.Any<ChatMessage>(), Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
@@ -309,6 +312,7 @@ public class TornadoAiServiceLiveTests
         var options = Options.Create(new TornadoAiOptions { Temperature = 0.3, MaxTurns = 10 });
         var promptBuilder = new TornadoPromptBuilder(
             folderService,
+            fileService,
             attachmentService,
             blobStorageService,
             chatService,

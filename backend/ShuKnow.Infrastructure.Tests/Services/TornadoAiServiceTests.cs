@@ -28,6 +28,7 @@ public class TornadoAiServiceTests
     private IBlobStorageService blobStorageService = null!;
     private IChatService chatService = null!;
     private IFolderService folderService = null!;
+    private IFileService fileService = null!;
     private IAiToolsService aiToolsService = null!;
     private IChatNotificationService notificationService = null!;
     private ITornadoConversationFactory conversationFactory = null!;
@@ -46,6 +47,7 @@ public class TornadoAiServiceTests
         blobStorageService = Substitute.For<IBlobStorageService>();
         chatService = Substitute.For<IChatService>();
         folderService = Substitute.For<IFolderService>();
+        fileService = Substitute.For<IFileService>();
         aiToolsService = Substitute.For<IAiToolsService>();
         notificationService = Substitute.For<IChatNotificationService>();
         conversationFactory = Substitute.For<ITornadoConversationFactory>();
@@ -61,6 +63,7 @@ public class TornadoAiServiceTests
 
         var promptBuilder = new TornadoPromptBuilder(
             folderService,
+            fileService,
             attachmentService,
             blobStorageService,
             chatService,
@@ -229,6 +232,30 @@ public class TornadoAiServiceTests
     }
 
     [Test]
+    public async Task ProcessMessageAsync_ShouldIncludeExistingFilePathsAsSystemInstruction()
+    {
+        var receiptsFolderId = Guid.NewGuid();
+        folderService.GetFolderTreeForPromptAsync(Arg.Any<CancellationToken>())
+            .Returns(Success<IReadOnlyList<FolderSummary>>(
+            [
+                new FolderSummary(receiptsFolderId, "Receipts", "Save payment and purchase evidence here.", null)
+            ]));
+        fileService.GetFileTreeForPromptAsync(Arg.Any<CancellationToken>())
+            .Returns(Success<IReadOnlyList<FileSummary>>(
+            [
+                new FileSummary(Guid.NewGuid(), "march.pdf", receiptsFolderId),
+                new FileSummary(Guid.NewGuid(), "inbox.txt", null)
+            ]));
+
+        await sut.ProcessMessageAsync("hello", attachmentIds: null, settings: settings, operationId: operationId);
+
+        conversation.Received(1).PrependSystemMessage(Arg.Is<string>(text =>
+            text.Contains("<files>") &&
+            text.Contains("Receipts/march.pdf") &&
+            text.Contains("inbox.txt")));
+    }
+
+    [Test]
     public async Task ProcessMessageAsync_ShouldLoadDirectivesFromExternalFile()
     {
         var promptPath = Path.GetTempFileName();
@@ -252,6 +279,7 @@ public class TornadoAiServiceTests
 
             var promptBuilder = new TornadoPromptBuilder(
                 folderService,
+                fileService,
                 attachmentService,
                 blobStorageService,
                 chatService,
@@ -826,6 +854,8 @@ public class TornadoAiServiceTests
             .Returns(Success(session));
         folderService.GetFolderTreeForPromptAsync(Arg.Any<CancellationToken>())
             .Returns(Success<IReadOnlyList<FolderSummary>>([]));
+        fileService.GetFileTreeForPromptAsync(Arg.Any<CancellationToken>())
+            .Returns(Success<IReadOnlyList<FileSummary>>([]));
         chatService.GetMessagesAsync(Arg.Any<CancellationToken>())
             .Returns(Success<IReadOnlyCollection<ChatMessage>>([]));
         chatService.PersistMessageAsync(Arg.Any<ChatMessage>(), Arg.Any<CancellationToken>())

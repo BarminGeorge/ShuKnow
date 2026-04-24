@@ -63,6 +63,28 @@ public class FileServiceTests
     }
 
     [Test]
+    public async Task GetFileTreeForPromptAsync_WhenCalled_ShouldMapFilesToSummaries()
+    {
+        var folderId = Guid.NewGuid();
+        IReadOnlyList<File> files =
+        [
+            CreateFile(folderId: null, name: "inbox.txt"),
+            CreateFile(folderId: folderId, name: "notes.md")
+        ];
+
+        fileRepository.GetByUserAsync(currentUserId).Returns(Success(files));
+
+        var result = await sut.GetFileTreeForPromptAsync();
+
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Should().BeEquivalentTo(new[]
+        {
+            new FileSummary(files[0].Id, files[0].Name, files[0].FolderId),
+            new FileSummary(files[1].Id, files[1].Name, files[1].FolderId)
+        });
+    }
+
+    [Test]
     public async Task GetByPathAsync_WhenFileExists_ShouldResolvePathAndReturnMatchingFile()
     {
         var folderId = Guid.NewGuid();
@@ -874,6 +896,7 @@ public class FileServiceTests
         fileRepository.AddAsync(Arg.Any<File>()).Returns(Success());
         fileRepository.DeleteAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(Success());
         fileRepository.DeleteByFolderAsync(Arg.Any<Guid?>(), Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
+        fileRepository.GetByUserAsync(Arg.Any<Guid>()).Returns(Success<IReadOnlyList<File>>([]));
         fileRepository.UpdateRangeAsync(Arg.Any<IReadOnlyList<File>>()).Returns(Success());
         fileRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<File>());
         fileRepository.GetByIdForUpdateAsync(Arg.Any<Guid>(), Arg.Any<Guid>()).Returns(NotFound<File>());
