@@ -149,6 +149,8 @@ vite.config.ts.timestamp-*
 # Test screenshots
 *.jpg
 *.png
+!public/provider-guide/
+!public/provider-guide/*.png
 
 # Mock data
 mock_foto/

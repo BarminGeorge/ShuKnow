@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Eye, EyeOff, ArrowLeft, Loader2, User, Sparkles, Cpu, Key, Settings, CheckCircle2, AlertCircle, RefreshCw, Link } from "lucide-react";
+import { X, Eye, EyeOff, ArrowLeft, Loader2, User, Sparkles, Cpu, Key, Settings, CheckCircle2, AlertCircle, RefreshCw, Link, HelpCircle, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { settingsService } from "../../api";
@@ -26,6 +26,7 @@ const modalButtonClass = "rounded-lg border border-white/10 bg-white/[0.045] sha
 const primaryButtonClass = "rounded-lg border border-violet-300/12 bg-[linear-gradient(135deg,rgba(76,29,149,0.26),rgba(17,16,24,0.58)_60%,rgba(109,40,217,0.08))] text-violet-200/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_14px_rgba(91,33,182,0.045)] transition-all hover:border-violet-300/20 hover:text-violet-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_18px_rgba(91,33,182,0.075)]";
 const fieldClass = "w-full rounded-lg border border-white/10 bg-[#101010] px-4 py-3 text-sm text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] outline-none transition-colors placeholder:text-gray-600 focus:border-violet-300/28 focus:bg-[#121212] disabled:opacity-50";
 const labelClass = "mb-2 block text-sm font-medium text-gray-400";
+const guideImageClass = "h-[260px] w-full rounded-2xl border border-white/[0.08] bg-[#080808] object-contain shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]";
 
 type SettingVisualKind = "provider" | "baseUrl" | "model" | "apiKey";
 
@@ -63,6 +64,235 @@ function SettingIcon({ kind }: { kind: SettingVisualKind }) {
     <div className={`relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${visual.shell}`}>
       <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent ${visual.line} to-transparent`} />
       {visual.icon}
+    </div>
+  );
+}
+
+type ProviderGuideSlide = {
+  title: string;
+  description: string;
+  image?: string;
+  linkLabel?: string;
+  linkUrl?: string;
+};
+
+const PROVIDER_GUIDES: Record<string, ProviderGuideSlide[]> = {
+  OpenRouter: [
+    {
+      title: "Откройте OpenRouter",
+      description: "Зарегистрируйтесь или войдите на странице API Keys. OpenRouter дает один ключ для множества моделей, включая бесплатные.",
+      image: "/provider-guide/OpenRouter1.png",
+      linkLabel: "openrouter.ai/keys",
+      linkUrl: "https://openrouter.ai/keys",
+    },
+    {
+      title: "Создайте новый ключ",
+      description: "В разделе API Keys нажмите Create API Key. Название можно выбрать любое, например ShuKnow.",
+      image: "/provider-guide/OpenRouter2.png",
+    },
+    {
+      title: "Заполните форму",
+      description: "Credit limit можно оставить пустым, Expiration — No expiration. После создания сразу скопируйте ключ вида sk-or-v1-...",
+      image: "/provider-guide/OpenRouter3.png",
+    },
+    {
+      title: "Вставьте в ShuKnow",
+      description: "Выберите OpenRouter, укажите модель с бесплатным доступом и вставьте скопированный API ключ. Ключ показывается только один раз.",
+    },
+  ],
+  Gemini: [
+    {
+      title: "Откройте Google AI Studio",
+      description: "Перейдите в раздел API keys и войдите в Google аккаунт. У Gemini есть бесплатный доступ с ограничениями.",
+      image: "/provider-guide/GemeniKey1.png",
+      linkLabel: "aistudio.google.com/app/apikey",
+      linkUrl: "https://aistudio.google.com/app/apikey",
+    },
+    {
+      title: "Нажмите Create API key",
+      description: "Создайте ключ в новом проекте или выберите существующий проект, если он уже есть.",
+      image: "/provider-guide/GemeniKey2.png",
+    },
+    {
+      title: "Скопируйте ключ",
+      description: "Скопируйте строку, которая начинается с AIza. В ShuKnow выберите Gemini, вставьте ключ и укажите нужный ID модели.",
+    },
+  ],
+  OpenAI: [
+    {
+      title: "OpenAI Compatible",
+      description: "Этот режим подходит для OpenAI, DeepSeek, Qwen, локальных моделей и сервисов с OpenAI-compatible API. Нужны API Key и при необходимости Base URL.",
+    },
+    {
+      title: "Пример: DeepSeek",
+      description: "Откройте DeepSeek Platform, войдите через Google или зарегистрируйтесь, затем перейдите в API Keys и создайте ключ.",
+      image: "/provider-guide/DeepseekKey.png",
+      linkLabel: "platform.deepseek.com/api_keys",
+      linkUrl: "https://platform.deepseek.com/api_keys",
+    },
+    {
+      title: "Укажите Base URL",
+      description: "Для DeepSeek используйте https://api.deepseek.com. Для официального OpenAI обычно подходит https://api.openai.com/v1.",
+    },
+    {
+      title: "Сохраните настройки",
+      description: "В ShuKnow выберите OpenAI, вставьте API ключ, заполните ID модели и Base URL, если он отличается от стандартного.",
+    },
+  ],
+  Anthropic: [
+    {
+      title: "Anthropic",
+      description: "Ой, бесплатных ключей у этого провайдера нет. Если у вас уже есть платный ключ Anthropic, выберите Anthropic в настройках и вставьте его вручную.",
+    },
+  ],
+};
+
+function ProviderGuideModal({
+  initialProvider,
+  onClose,
+}: {
+  initialProvider: string;
+  onClose: () => void;
+}) {
+  const [selectedProvider, setSelectedProvider] = useState(
+    PROVIDER_GUIDES[initialProvider] ? initialProvider : "OpenRouter"
+  );
+  const [slideIndex, setSlideIndex] = useState(0);
+  const slides = PROVIDER_GUIDES[selectedProvider] ?? PROVIDER_GUIDES.OpenRouter;
+  const slide = slides[slideIndex] ?? slides[0];
+
+  const handleProviderChange = (nextProvider: string) => {
+    setSelectedProvider(nextProvider);
+    setSlideIndex(0);
+  };
+
+  const goToPrevious = () => {
+    setSlideIndex((currentIndex) => (currentIndex === 0 ? slides.length - 1 : currentIndex - 1));
+  };
+
+  const goToNext = () => {
+    setSlideIndex((currentIndex) => (currentIndex + 1) % slides.length);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/76 px-4 backdrop-blur-sm"
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-white/[0.09] bg-[#0d0d0d] shadow-[0_28px_90px_rgba(0,0,0,0.66),inset_0_1px_0_rgba(255,255,255,0.045)]"
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-white/[0.07] px-6 py-4">
+          <div>
+            <h3 className="text-lg font-semibold text-white">Как получить API ключ</h3>
+            <p className="text-sm text-gray-500">Выберите провайдера и пройдите короткий гайд</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.045] text-gray-400 transition-colors hover:bg-white/[0.075] hover:text-gray-200"
+            aria-label="Закрыть гайд"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-5 px-6 py-5">
+          <Select value={selectedProvider} onValueChange={handleProviderChange}>
+            <SelectTrigger className="h-[46px] w-full rounded-xl border border-white/10 bg-[#101010] px-4 py-3 text-sm text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] outline-none focus:border-violet-300/28 focus:ring-0 focus-visible:border-violet-300/28 focus-visible:ring-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent
+              sideOffset={6}
+              className="z-[90] rounded-lg border border-white/[0.08] bg-[#101010] p-1 text-gray-200 shadow-[0_18px_42px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.04)]"
+            >
+              {PROVIDERS.map((providerName) => (
+                <SelectItem
+                  key={providerName}
+                  value={providerName}
+                  className="rounded-md py-2 pl-3 pr-8 text-sm text-gray-200 outline-none focus:bg-white/[0.06] focus:text-white data-[state=checked]:bg-violet-500/12 data-[state=checked]:text-violet-100"
+                >
+                  {providerName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(255,255,255,0.045),rgba(18,18,19,0.98)_54%,rgba(10,10,11,0.99))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_16px_44px_rgba(0,0,0,0.28)]">
+            <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-violet-200/22 to-transparent" />
+            <div className="space-y-4">
+              {slide.image ? (
+                <img src={slide.image} alt={slide.title} className={guideImageClass} />
+              ) : (
+                <div className="flex h-[260px] items-center justify-center rounded-2xl border border-violet-200/12 bg-[linear-gradient(135deg,rgba(76,29,149,0.13),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))] px-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+                  <Sparkles size={42} className="text-violet-200/80" />
+                </div>
+              )}
+
+              <div className="min-h-[116px]">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="rounded-full border border-violet-200/14 bg-violet-500/10 px-2.5 py-1 text-xs font-medium text-violet-200">
+                    {slideIndex + 1}/{slides.length}
+                  </span>
+                  <span className="text-xs text-gray-500">{selectedProvider}</span>
+                </div>
+                <h4 className="text-xl font-semibold text-white">{slide.title}</h4>
+                <p className="mt-2 text-sm leading-6 text-gray-400">{slide.description}</p>
+                {slide.linkUrl && (
+                  <a
+                    href={slide.linkUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-violet-300/85 transition-colors hover:text-violet-200"
+                  >
+                    {slide.linkLabel}
+                    <ExternalLink size={14} />
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-4">
+            <button
+              type="button"
+              onClick={goToPrevious}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition-colors hover:border-violet-200/18 hover:bg-white/[0.07] hover:text-violet-100"
+              aria-label="Предыдущий слайд"
+            >
+              <ChevronLeft size={20} />
+            </button>
+
+            <div className="flex items-center gap-2">
+              {slides.map((item, index) => (
+                <button
+                  key={`${item.title}-${index}`}
+                  type="button"
+                  onClick={() => setSlideIndex(index)}
+                  className={`h-2.5 w-2.5 rounded-full transition-all ${
+                    index === slideIndex
+                      ? "w-7 bg-violet-300"
+                      : "bg-white/20 hover:bg-white/35"
+                  }`}
+                  aria-label={`Открыть слайд ${index + 1}`}
+                />
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={goToNext}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition-colors hover:border-violet-200/18 hover:bg-white/[0.07] hover:text-violet-100"
+              aria-label="Следующий слайд"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -110,6 +340,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [testResult, setTestResult] = useState<AiConnectionTestResult | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isConfigured, setIsConfigured] = useState(false);
+  const [isProviderGuideOpen, setIsProviderGuideOpen] = useState(false);
   const { user } = useAuth();
 
   // Load settings when modal opens (only on initial open)
@@ -265,6 +496,17 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           <h2 className="text-lg font-semibold text-white">
             {isEditingKey ? "Настройки API ключа" : "Настройки"}
           </h2>
+          {isEditingKey && (
+            <button
+              type="button"
+              onClick={() => setIsProviderGuideOpen(true)}
+              className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-violet-500/10 hover:text-violet-100"
+              title="Как получить API ключ"
+              aria-label="Открыть гайд по получению API ключа"
+            >
+              <HelpCircle size={18} />
+            </button>
+          )}
         </div>
 
         {/* Content */}
@@ -529,6 +771,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         </div>
 
       </div>
+      {isProviderGuideOpen && (
+        <ProviderGuideModal
+          initialProvider={provider || "OpenRouter"}
+          onClose={() => setIsProviderGuideOpen(false)}
+        />
+      )}
     </div>
   );
 }
