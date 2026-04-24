@@ -36,6 +36,7 @@ const removeFolderById = (folders: Folder[], folderId: string): Folder | null =>
 
 const insertFolderIntoParent = (folders: Folder[], folder: Folder, parentId: string | null): boolean => {
   if (!parentId) {
+    folder.sortOrder = folders.length;
     folders.push(folder);
     return true;
   }
@@ -44,8 +45,28 @@ const insertFolderIntoParent = (folders: Folder[], folder: Folder, parentId: str
   if (!parentFolder) return false;
 
   parentFolder.subfolders = parentFolder.subfolders || [];
+  folder.sortOrder = parentFolder.subfolders.length;
   parentFolder.subfolders.push(folder);
   return true;
+};
+
+const findFolderSiblingList = (folders: Folder[], folderId: string): Folder[] | null => {
+  if (folders.some(folder => folder.id === folderId)) {
+    return folders;
+  }
+
+  for (const folder of folders) {
+    const found = findFolderSiblingList(folder.subfolders || [], folderId);
+    if (found) return found;
+  }
+
+  return null;
+};
+
+const normalizeFolderSortOrder = (folders: Folder[]) => {
+  folders.forEach((folder, index) => {
+    folder.sortOrder = index;
+  });
 };
 
 // Helper: Convert Folder to FolderTreeNodeDto
@@ -181,5 +202,28 @@ export const folderHandlers = [
     }
 
     return HttpResponse.json(movedFolder);
+  }),
+
+  // PATCH /api/folders/:id/reorder
+  http.patch(`${API_BASE}/folders/:id/reorder`, async ({ params, request }) => {
+    const { id } = params;
+    const folderId = id as string;
+    const siblings = findFolderSiblingList(MOCK_FOLDERS, folderId);
+
+    if (!siblings) {
+      return new HttpResponse(null, { status: 404 });
+    }
+
+    const body = await request.json() as any;
+    const currentIndex = siblings.findIndex(folder => folder.id === folderId);
+    const targetIndex = Math.min(Math.max(body.position ?? currentIndex, 0), siblings.length - 1);
+
+    if (currentIndex !== targetIndex) {
+      const [movedFolder] = siblings.splice(currentIndex, 1);
+      siblings.splice(targetIndex, 0, movedFolder);
+    }
+
+    normalizeFolderSortOrder(siblings);
+    return new HttpResponse(null, { status: 204 });
   }),
 ];

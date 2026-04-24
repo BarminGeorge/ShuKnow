@@ -30,6 +30,10 @@ import {
   SUPPORTED_TEXT_EXTENSIONS_LABEL,
 } from "../utils/fileValidation";
 import { mapFileDtoToFileItem } from "../../api/types";
+import {
+  buildFolderContentReorderPlan,
+  saveStoredFolderContentOrder,
+} from "./FolderContentView/helpers/order";
 
 export function FolderContentView({
   onBack,
@@ -57,7 +61,18 @@ export function FolderContentView({
     files, 
     onUpdateFolder: handleUpdateFolder 
   });
-  const { handleDroppedFiles } = useFileUpload({ folderId: folder.id, createFile });
+  const handleFolderContentOrderChange = useCallback((order: string[]) => {
+    saveStoredFolderContentOrder(folder.id, order);
+    handleUpdateFolder({ customOrder: order });
+  }, [folder.id, handleUpdateFolder]);
+  const gridItemIds = gridItems.map((item) => item.id);
+  const { handleDroppedFiles } = useFileUpload({
+    folderId: folder.id,
+    createFile,
+    appendSortOrderStart: gridItems.length,
+    initialOrderIds: gridItemIds,
+    onOrderChange: handleFolderContentOrderChange,
+  });
   
   const [title, setTitle] = useState(folder.name);
   const [emoji, setEmoji] = useState(folder.emoji || "");
@@ -282,10 +297,20 @@ export function FolderContentView({
         name,
         prompt || undefined
       );
+      const appendSortOrder = gridItems.length;
+
+      if (createdFile.sortOrder !== appendSortOrder) {
+        try {
+          await fileService.reorderFile(createdFile.id, { position: appendSortOrder });
+        } catch (error) {
+          console.warn(`Failed to persist appended order for "${name}":`, error);
+        }
+      }
+      handleFolderContentOrderChange([...gridItems.map((item) => item.id), createdFile.id]);
 
       createFile(
         {
-          ...mapFileDtoToFileItem(createdFile),
+          ...mapFileDtoToFileItem({ ...createdFile, sortOrder: appendSortOrder }),
           type: "text",
           content: "",
         },
@@ -421,26 +446,20 @@ export function FolderContentView({
   }, [captureGridPositions, moveItem]);
 
   const persistGridOrder = useCallback(async () => {
-    const folderOrder = gridItems
-      .filter((item) => item.type === "folder")
-      .map((item) => item.id);
-    const fileOrder = gridItems
-      .filter((item) => item.type === "file")
-      .map((item) => item.id);
+    const reorderPlan = buildFolderContentReorderPlan(gridItems, folder.subfolders || []);
 
     try {
-      for (const [position, folderId] of folderOrder.entries()) {
-        await folderService.reorderFolder(folderId, { position });
+      for (const { id, position } of reorderPlan.folders) {
+        await folderService.reorderFolder(id, { position });
       }
 
-      for (const [position, fileId] of fileOrder.entries()) {
-        await fileService.reorderFile(fileId, { position });
+      for (const { id, position } of reorderPlan.files) {
+        await fileService.reorderFile(id, { position });
       }
     } catch (error) {
       console.error("Failed to persist reordered items:", error);
-      toast.error("Не удалось сохранить порядок элементов");
     }
-  }, [gridItems]);
+  }, [folder.subfolders, gridItems]);
 
   const handleFolderClick = (subfolder: Folder) => {
     const subfolderIndex = folder.subfolders?.findIndex((f) => f.id === subfolder.id) ?? -1;

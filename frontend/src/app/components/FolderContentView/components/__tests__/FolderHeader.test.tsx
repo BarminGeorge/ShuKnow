@@ -180,11 +180,11 @@ describe('FolderHeader', () => {
     }
   });
 
-  it('should show "Add icon" text when no emoji', () => {
-    const { getByText } = render(
+  it('should show add icon control when no emoji', () => {
+    const { getByTitle } = render(
       <FolderHeader {...defaultProps} emoji="" />
     );
     
-    expect(getByText('иконка')).toBeInTheDocument();
+    expect(getByTitle('Добавить иконку')).toBeInTheDocument();
   });
 });

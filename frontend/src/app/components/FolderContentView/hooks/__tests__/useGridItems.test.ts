@@ -33,6 +33,31 @@ describe('useGridItems', () => {
     expect(result.current.gridItems[2].type).toBe('file');
   });
 
+  it('should interleave folders and files by persisted sort order', () => {
+    const folderWithSortedChildren: Folder = {
+      ...mockFolder,
+      subfolders: [
+        { id: 'subfolder-1', name: 'Subfolder 1', description: '', sortOrder: 1, fileCount: 0, subfolders: [] },
+        { id: 'subfolder-2', name: 'Subfolder 2', description: '', sortOrder: 3, fileCount: 0, subfolders: [] },
+      ],
+    };
+    const sortedFiles: FileItem[] = [
+      { ...mockFiles[0], sortOrder: 2 },
+      { ...mockFiles[1], sortOrder: 0 },
+    ];
+
+    const { result } = renderHook(() =>
+      useGridItems({ folder: folderWithSortedChildren, files: sortedFiles, onUpdateFolder: mockUpdateFolder })
+    );
+
+    expect(result.current.gridItems.map((item) => item.id)).toEqual([
+      'file-2',
+      'subfolder-1',
+      'file-1',
+      'subfolder-2',
+    ]);
+  });
+
   it('should move items correctly', () => {
     const { result } = renderHook(() =>
       useGridItems({ folder: mockFolder, files: mockFiles, onUpdateFolder: mockUpdateFolder })

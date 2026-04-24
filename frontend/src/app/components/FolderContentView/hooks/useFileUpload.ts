@@ -12,9 +12,18 @@ import {
 interface UseFileUploadProps {
   folderId: string;
   createFile: (file: FileItem, openAfterCreate: boolean) => void;
+  appendSortOrderStart?: number;
+  initialOrderIds?: string[];
+  onOrderChange?: (order: string[]) => void;
 }
 
-export function useFileUpload({ folderId, createFile }: UseFileUploadProps) {
+export function useFileUpload({
+  folderId,
+  createFile,
+  appendSortOrderStart = 0,
+  initialOrderIds = [],
+  onOrderChange,
+}: UseFileUploadProps) {
   // Handle dropped files from OS file explorer
   const handleDroppedFiles = useCallback((files: File[]) => {
     const unsupportedFiles = files.filter((file) => !isSupportedUploadFile(file));
@@ -27,6 +36,9 @@ export function useFileUpload({ folderId, createFile }: UseFileUploadProps) {
     }
 
     void (async () => {
+      let nextAppendSortOrder = appendSortOrderStart;
+      let nextOrderIds = [...initialOrderIds];
+
       for (const file of files) {
         if (!isSupportedUploadFile(file)) {
           continue;
@@ -35,19 +47,32 @@ export function useFileUpload({ folderId, createFile }: UseFileUploadProps) {
         try {
           const displayType = getDisplayTypeForFile(file);
           const uploadedFile = await fileService.uploadFileWithConflictRename(folderId, file, file.name);
+          const appendSortOrder = nextAppendSortOrder;
+
+          if (uploadedFile.sortOrder !== appendSortOrder) {
+            try {
+              await fileService.reorderFile(uploadedFile.id, { position: appendSortOrder });
+            } catch (error) {
+              console.warn(`Failed to persist appended order for "${file.name}":`, error);
+            }
+          }
+
           const mappedFile: FileItem = {
-            ...mapFileDtoToFileItem(uploadedFile),
+            ...mapFileDtoToFileItem({ ...uploadedFile, sortOrder: appendSortOrder }),
             type: displayType,
             content: displayType === "text" ? await file.text() : undefined,
           };
           createFile(mappedFile, false);
+          nextOrderIds = [...nextOrderIds.filter((id) => id !== mappedFile.id), mappedFile.id];
+          onOrderChange?.(nextOrderIds);
+          nextAppendSortOrder += 1;
         } catch (error) {
           console.error(`Failed to upload file "${file.name}":`, error);
           toast.error(`Не удалось загрузить файл "${file.name}". Попробуйте ещё раз.`);
         }
       }
     })();
-  }, [folderId, createFile]);
+  }, [appendSortOrderStart, folderId, createFile, initialOrderIds, onOrderChange]);
 
   return {
     handleDroppedFiles,

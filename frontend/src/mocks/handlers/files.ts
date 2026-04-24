@@ -1,8 +1,42 @@
 import { http, HttpResponse } from 'msw';
 import { MOCK_FILES } from '../data/files';
-import type { FileItem } from '../../api/types';
+import { MOCK_FOLDERS } from '../data/folders';
+import type { FileItem, Folder } from '../../api/types';
 
 const API_BASE = '/api';
+
+const findFolderById = (folders: Folder[], folderId: string): Folder | null => {
+  for (const folder of folders) {
+    if (folder.id === folderId) return folder;
+
+    const found = findFolderById(folder.subfolders || [], folderId);
+    if (found) return found;
+  }
+
+  return null;
+};
+
+const getChildFolders = (folderId: string | null): Folder[] => {
+  if (!folderId) return MOCK_FOLDERS;
+
+  return findFolderById(MOCK_FOLDERS, folderId)?.subfolders || [];
+};
+
+const getMixedSiblingItems = (folderId: string | null) => (
+  [
+    ...MOCK_FILES
+      .filter(file => (file.folderId || null) === folderId)
+      .map(file => ({ type: 'file' as const, item: file, sortOrder: file.sortOrder ?? Number.MAX_SAFE_INTEGER })),
+    ...getChildFolders(folderId)
+      .map(folder => ({ type: 'folder' as const, item: folder, sortOrder: folder.sortOrder })),
+  ].sort((a, b) => a.sortOrder - b.sortOrder)
+);
+
+const normalizeMixedSortOrder = (items: ReturnType<typeof getMixedSiblingItems>) => {
+  items.forEach(({ item }, index) => {
+    item.sortOrder = index;
+  });
+};
 
 export const fileHandlers = [
   // GET /api/folders/:id/files
@@ -34,6 +68,7 @@ export const fileHandlers = [
       sizeBytes: file.size,
       type: file.type.startsWith('image/') ? 'photo' : 'text',
       createdAt: new Date().toISOString(),
+      sortOrder: getMixedSiblingItems(folderId as string).length,
     };
     MOCK_FILES.push(newFile);
     return HttpResponse.json(newFile, { status: 201 });
@@ -128,7 +163,15 @@ export const fileHandlers = [
     }
     const body = await request.json() as any;
     if (body.position !== undefined) {
-      file.sortOrder = body.position;
+      const siblings = getMixedSiblingItems(file.folderId || null);
+      const currentIndex = siblings.findIndex(sibling => sibling.type === 'file' && sibling.item.id === id);
+      const targetIndex = Math.min(Math.max(body.position, 0), siblings.length - 1);
+
+      if (currentIndex !== -1) {
+        const [movedFile] = siblings.splice(currentIndex, 1);
+        siblings.splice(targetIndex, 0, movedFile);
+        normalizeMixedSortOrder(siblings);
+      }
     }
     return HttpResponse.json(file);
   }),

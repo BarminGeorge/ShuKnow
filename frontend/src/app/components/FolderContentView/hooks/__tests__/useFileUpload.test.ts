@@ -13,6 +13,7 @@ vi.mock('sonner', () => ({
 vi.mock('../../../../../api', () => ({
   fileService: {
     uploadFileWithConflictRename: vi.fn(),
+    reorderFile: vi.fn(),
   },
 }));
 
@@ -35,6 +36,7 @@ function createUploadedFileDto(name: string, folderId: string, contentType: stri
 describe('useFileUpload', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(fileService.reorderFile).mockResolvedValue(undefined);
   });
 
   it('should handle image file upload', async () => {
@@ -109,6 +111,75 @@ describe('useFileUpload', () => {
 
     await waitFor(() => {
       expect(mockCreateFile).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('should append uploaded files after existing folder items', async () => {
+    const mockCreateFile = vi.fn();
+    const mockOrderChange = vi.fn();
+    vi.mocked(fileService.uploadFileWithConflictRename).mockResolvedValueOnce(
+      createUploadedFileDto('appended.md', 'folder-1', 'text/markdown', 8)
+    );
+
+    const { result } = renderHook(() =>
+      useFileUpload({
+        folderId: 'folder-1',
+        createFile: mockCreateFile,
+        appendSortOrderStart: 3,
+        initialOrderIds: ['folder-1', 'file-1', 'file-2'],
+        onOrderChange: mockOrderChange,
+      })
+    );
+
+    const textFile = new File(['content'], 'appended.md', { type: 'text/markdown' });
+
+    result.current.handleDroppedFiles([textFile]);
+
+    await waitFor(() => {
+      expect(fileService.reorderFile).toHaveBeenCalledWith(
+        '11111111-1111-1111-1111-111111111111',
+        { position: 3 }
+      );
+      expect(mockCreateFile).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'appended.md',
+          sortOrder: 3,
+        }),
+        false
+      );
+      expect(mockOrderChange).toHaveBeenCalledWith([
+        'folder-1',
+        'file-1',
+        'file-2',
+        '11111111-1111-1111-1111-111111111111',
+      ]);
+    });
+  });
+
+  it('should keep uploaded file locally when append reorder fails', async () => {
+    const mockCreateFile = vi.fn();
+    vi.mocked(fileService.uploadFileWithConflictRename).mockResolvedValueOnce(
+      createUploadedFileDto('fallback.md', 'folder-1', 'text/markdown', 8)
+    );
+    vi.mocked(fileService.reorderFile).mockRejectedValueOnce(new Error('reorder failed'));
+
+    const { result } = renderHook(() =>
+      useFileUpload({ folderId: 'folder-1', createFile: mockCreateFile, appendSortOrderStart: 2 })
+    );
+
+    const textFile = new File(['content'], 'fallback.md', { type: 'text/markdown' });
+
+    result.current.handleDroppedFiles([textFile]);
+
+    await waitFor(() => {
+      expect(mockCreateFile).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'fallback.md',
+          sortOrder: 2,
+        }),
+        false
+      );
+      expect(toast.error).not.toHaveBeenCalled();
     });
   });
 
