@@ -321,7 +321,7 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
     try {
       const createdFolder = await folderService.createFolder({
         name,
-        description: "",
+        description: prompt,
         emoji,
         parentFolderId,
       });
@@ -329,8 +329,8 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
         id: createdFolder.id,
         name: createdFolder.name,
         emoji: createdFolder.emoji ?? emoji,
-        prompt,
-        description: createdFolder.description || "",
+        prompt: createdFolder.description || prompt,
+        description: createdFolder.description || prompt,
         sortOrder: createdFolder.sortOrder,
         fileCount: createdFolder.fileCount ?? 0,
         subfolders: [],
@@ -356,11 +356,27 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
     setEditFolderState({ isOpen: true, folder, path });
   };
 
-  const handleSaveFolderEdit = (name: string, emoji: string, prompt: string) => {
-    if (!editFolderState.path.length) return;
-    
-    updateFolder(editFolderState.path, { name, emoji, prompt });
-    setEditFolderState({ isOpen: false, folder: null, path: [] });
+  const handleSaveFolderEdit = async (name: string, emoji: string, prompt: string) => {
+    if (!editFolderState.path.length || !editFolderState.folder) return;
+
+    try {
+      const updatedFolder = await folderService.updateFolder(editFolderState.folder.id, {
+        name,
+        description: prompt,
+        emoji,
+      });
+
+      updateFolder(editFolderState.path, {
+        name: updatedFolder.name,
+        emoji: updatedFolder.emoji ?? emoji,
+        description: updatedFolder.description ?? prompt,
+        prompt: updatedFolder.description ?? prompt,
+      });
+      setEditFolderState({ isOpen: false, folder: null, path: [] });
+    } catch (error) {
+      console.error("Failed to update folder:", error);
+      toast.error("Не удалось сохранить папку");
+    }
   };
 
   const handleDeleteFolder = (path: string[]) => {
@@ -516,7 +532,7 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
           onClose={() => setEditFolderState({ isOpen: false, folder: null, path: [] })}
           folderName={editFolderState.folder?.name || ""}
           folderEmoji={editFolderState.folder?.emoji || ""}
-          currentPrompt={editFolderState.folder?.prompt || ""}
+          currentPrompt={editFolderState.folder?.prompt ?? editFolderState.folder?.description ?? ""}
           onSave={handleSaveFolderEdit}
         />
         <DeleteFolderModal
@@ -642,7 +658,7 @@ export function Sidebar({ onLogoClick, onToggleSidebar, isCollapsed }: SidebarPr
         onClose={() => setEditFolderState({ isOpen: false, folder: null, path: [] })}
         folderName={editFolderState.folder?.name || ""}
         folderEmoji={editFolderState.folder?.emoji || ""}
-        currentPrompt={editFolderState.folder?.prompt || ""}
+        currentPrompt={editFolderState.folder?.prompt ?? editFolderState.folder?.description ?? ""}
         onSave={handleSaveFolderEdit}
       />
       <DeleteFolderModal

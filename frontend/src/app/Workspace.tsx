@@ -29,8 +29,7 @@ type PersistedWorkspaceLocation = {
 function mapApiFolderToLocalFolder(apiFolder: ApiFolder): Folder {
   return {
     ...apiFolder,
-    emoji: undefined,
-    prompt: undefined,
+    prompt: apiFolder.prompt ?? apiFolder.description,
     customOrder: undefined,
     subfolders: apiFolder.subfolders?.map(mapApiFolderToLocalFolder) || [],
   };
@@ -51,6 +50,7 @@ function mapApiFileToLocalFile(apiFile: ApiFileItem): FileItem {
   return {
     ...apiFile,
     type,
+    prompt: apiFile.prompt ?? apiFile.description,
     createdAt: new Date().toISOString(),
   };
 }

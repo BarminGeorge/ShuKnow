@@ -61,7 +61,7 @@ export function FolderContentView({
   
   const [title, setTitle] = useState(folder.name);
   const [emoji, setEmoji] = useState(folder.emoji || "");
-  const [aiPrompt, setAiPrompt] = useState(folder.prompt || "");
+  const [aiPrompt, setAiPrompt] = useState(folder.prompt ?? folder.description ?? "");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
@@ -78,6 +78,30 @@ export function FolderContentView({
   }>({ isOpen: false, type: "file", id: "", name: "" });
   const [fileContextMenu, setFileContextMenu] = useState<{ isOpen: boolean; fileId: string; position: { x: number; y: number }; }>({ isOpen: false, fileId: "", position: { x: 0, y: 0 } });
   const [folderContextMenu, setFolderContextMenu] = useState<{ isOpen: boolean; folderId: string; position: { x: number; y: number }; }>({ isOpen: false, folderId: "", position: { x: 0, y: 0 } });
+
+  const persistFolderUpdates = useCallback(async (
+    targetFolder: Folder,
+    path: string[],
+    updates: Partial<Folder>
+  ) => {
+    const nextName = updates.name ?? targetFolder.name;
+    const nextEmoji = updates.emoji ?? targetFolder.emoji ?? "";
+    const nextPrompt = updates.prompt ?? updates.description ?? targetFolder.prompt ?? targetFolder.description ?? "";
+
+    const updatedFolder = await folderService.updateFolder(targetFolder.id, {
+      name: nextName,
+      emoji: nextEmoji,
+      description: nextPrompt,
+    });
+
+    updateFolder(path, {
+      ...updates,
+      name: updatedFolder.name,
+      emoji: updatedFolder.emoji ?? nextEmoji,
+      description: updatedFolder.description ?? nextPrompt,
+      prompt: updatedFolder.description ?? nextPrompt,
+    });
+  }, [updateFolder]);
 
   // Global dragend cleanup to ensure pointer events are restored
   useEffect(() => {
@@ -96,7 +120,7 @@ export function FolderContentView({
   useEffect(() => {
     setTitle(folder.name);
     setEmoji(folder.emoji || "");
-    setAiPrompt(folder.prompt || "");
+    setAiPrompt(folder.prompt ?? folder.description ?? "");
   }, [folder]);
 
   const handleFileContextMenu = (fileId: string, event: React.MouseEvent) => {
@@ -115,10 +139,25 @@ export function FolderContentView({
     setFileContextMenu({ ...fileContextMenu, isOpen: false });
   };
 
-  const handleSaveFileEdit = (name: string, prompt: string) => {
+  const handleSaveFileEdit = async (name: string, prompt: string) => {
     if (!editFileModal.file) return;
-    updateFile(editFileModal.file.id, { name, prompt });
-    setEditFileModal({ isOpen: false, file: null });
+
+    try {
+      const updatedFile = await fileService.updateFile(editFileModal.file.id, {
+        name,
+        description: prompt,
+      });
+
+      updateFile(editFileModal.file.id, {
+        ...mapFileDtoToFileItem(updatedFile),
+        type: editFileModal.file.type,
+        content: editFileModal.file.content,
+      });
+      setEditFileModal({ isOpen: false, file: null });
+    } catch (error) {
+      console.error("Failed to update file:", error);
+      toast.error("Не удалось сохранить файл");
+    }
   };
 
   const handleDeleteFile = () => {
@@ -164,7 +203,7 @@ export function FolderContentView({
     setFolderContextMenu({ ...folderContextMenu, isOpen: false });
   };
 
-  const handleSaveFolderEdit = (name: string, emoji: string, prompt: string) => {
+  const handleSaveFolderEdit = async (name: string, emoji: string, prompt: string) => {
     if (!editFolderModal.folder) return;
     
     // Find the index of the subfolder being edited
@@ -174,8 +213,12 @@ export function FolderContentView({
       // Build path to the subfolder: current path + subfolder index
       const subfolderPath = [...selectedFolderPath, subfolderIndex.toString()];
       
-      // Update the subfolder directly by its path
-      updateFolder(subfolderPath, { name, emoji, prompt });
+      try {
+        await persistFolderUpdates(editFolderModal.folder, subfolderPath, { name, emoji, prompt });
+      } catch (error) {
+        console.error("Failed to update folder:", error);
+        toast.error("Не удалось сохранить папку");
+      }
     }
     
     setEditFolderModal({ isOpen: false, folder: null });
@@ -254,11 +297,11 @@ export function FolderContentView({
     }
   };
 
-  const handleCreateFolderFromModal = async (name: string, emoji: string, _prompt: string) => {
+  const handleCreateFolderFromModal = async (name: string, emoji: string, prompt: string) => {
     try {
       await folderService.createFolder({
         name,
-        description: "",
+        description: prompt,
         emoji,
         parentFolderId: folder.id,
       });
@@ -270,8 +313,24 @@ export function FolderContentView({
     }
   };
 
-  const handleFileNameChange = (fileId: string, newName: string) => {
-    updateFile(fileId, { name: newName });
+  const handleFileNameChange = async (fileId: string, newName: string) => {
+    const file = files.find((item) => item.id === fileId);
+    if (!file || file.name === newName) return;
+
+    try {
+      const updatedFile = await fileService.updateFile(fileId, {
+        name: newName,
+        description: file.description ?? file.prompt ?? "",
+      });
+      updateFile(fileId, {
+        ...mapFileDtoToFileItem(updatedFile),
+        type: file.type,
+        content: file.content,
+      });
+    } catch (error) {
+      console.error("Failed to rename file:", error);
+      toast.error("Не удалось переименовать файл");
+    }
   };
 
   // === FLIP animation logic ===
@@ -392,11 +451,23 @@ export function FolderContentView({
 
   const handleTitleBlur = () => {
     setIsEditingTitle(false);
-    if (title !== folder.name) handleUpdateFolder({ name: title });
+    if (title !== folder.name && selectedFolderPath) {
+      void persistFolderUpdates(folder, selectedFolderPath, { name: title }).catch((error) => {
+        console.error("Failed to rename folder:", error);
+        setTitle(folder.name);
+        toast.error("Не удалось переименовать папку");
+      });
+    }
   };
 
   const handlePromptBlur = () => {
-    if (aiPrompt !== folder.prompt) handleUpdateFolder({ prompt: aiPrompt });
+    if (aiPrompt !== (folder.prompt ?? folder.description ?? "") && selectedFolderPath) {
+      void persistFolderUpdates(folder, selectedFolderPath, { prompt: aiPrompt }).catch((error) => {
+        console.error("Failed to update folder prompt:", error);
+        setAiPrompt(folder.prompt ?? folder.description ?? "");
+        toast.error("Не удалось сохранить инструкцию папки");
+      });
+    }
   };
 
   const folderFiles = files.filter((f) => f.folderId === folder.id);
@@ -456,11 +527,23 @@ export function FolderContentView({
         setIsEmojiPickerOpen={setIsEmojiPickerOpen}
         onEmojiSelect={(selectedEmoji) => {
           setEmoji(selectedEmoji);
-          handleUpdateFolder({ emoji: selectedEmoji });
+          if (selectedFolderPath) {
+            void persistFolderUpdates(folder, selectedFolderPath, { emoji: selectedEmoji }).catch((error) => {
+              console.error("Failed to update folder emoji:", error);
+              setEmoji(folder.emoji || "");
+              toast.error("Не удалось сохранить иконку папки");
+            });
+          }
         }}
         onEmojiRemove={() => {
           setEmoji("");
-          handleUpdateFolder({ emoji: "" });
+          if (selectedFolderPath) {
+            void persistFolderUpdates(folder, selectedFolderPath, { emoji: "" }).catch((error) => {
+              console.error("Failed to remove folder emoji:", error);
+              setEmoji(folder.emoji || "");
+              toast.error("Не удалось удалить иконку папки");
+            });
+          }
         }}
         title={title}
         setTitle={setTitle}
@@ -572,7 +655,7 @@ export function FolderContentView({
         isOpen={editFileModal.isOpen}
         onClose={() => setEditFileModal({ isOpen: false, file: null })}
         fileName={editFileModal.file?.name || ""}
-        currentPrompt={editFileModal.file?.prompt || ""}
+        currentDescription={editFileModal.file?.description ?? editFileModal.file?.prompt ?? ""}
         onSave={handleSaveFileEdit}
       />
       <EditFolderModal
@@ -580,7 +663,7 @@ export function FolderContentView({
         onClose={() => setEditFolderModal({ isOpen: false, folder: null })}
         folderName={editFolderModal.folder?.name || ""}
         folderEmoji={editFolderModal.folder?.emoji || ""}
-        currentPrompt={editFolderModal.folder?.prompt || ""}
+        currentPrompt={editFolderModal.folder?.prompt ?? editFolderModal.folder?.description ?? ""}
         onSave={handleSaveFolderEdit}
       />
       <CreateFileModal

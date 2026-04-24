@@ -94,6 +94,7 @@ export interface FileItem {
   name: string;
   folderId: string;
   description?: string;
+  prompt?: string;
   contentType: string;
   sizeBytes: number;
   content?: string;
@@ -124,6 +125,7 @@ export function mapFolderTreeNodeToFolder(node: FolderTreeNodeDto): Folder {
     id: node.id,
     name: node.name,
     description: node.description,
+    prompt: node.description,
     emoji: node.emoji,
     sortOrder: node.sortOrder,
     fileCount: node.fileCount ?? 0,
@@ -137,6 +139,7 @@ export function mapFileDtoToFileItem(dto: FileDto): FileItem {
     name: dto.name,
     folderId: dto.folderId ?? "",
     description: dto.description,
+    prompt: dto.description,
     contentType: dto.contentType,
     sizeBytes: dto.sizeBytes,
     contentUrl: `/api/files/${dto.id}/content`,
