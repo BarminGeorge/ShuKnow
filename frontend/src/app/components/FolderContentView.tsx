@@ -17,7 +17,7 @@ import { useAtomValue } from "jotai";
 import { toast } from "sonner";
 import { filesAtom, filesInCurrentFolderAtom } from "../store";
 import type { FolderContentViewProps } from "./FolderContentView/types";
-import { fileService, folderService } from "../../api";
+import { ApiError, fileService, folderService } from "../../api";
 import { FolderHeader } from "./FolderContentView/components/FolderHeader";
 import { GridContainer } from "./FolderContentView/components/GridContainer";
 import { UploadZone } from "./FolderContentView/components/UploadZone";
@@ -366,7 +366,7 @@ export function FolderContentView({
       setIsCreateFolderModalOpen(false);
     } catch (error) {
       console.error("Failed to create folder:", error);
-      toast.error("Не удалось создать папку");
+      toast.error(error instanceof ApiError ? error.message : "Не удалось создать папку");
     }
   };
 
@@ -674,7 +674,7 @@ export function FolderContentView({
               } catch (error) {
                 console.error("Failed to move folder:", error);
                 await loadFolders();
-                toast.error("Не удалось переместить папку");
+                toast.error(error instanceof ApiError ? error.message : "Не удалось переместить папку");
               }
             }
           }

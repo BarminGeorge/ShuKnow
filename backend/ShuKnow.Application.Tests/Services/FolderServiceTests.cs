@@ -166,6 +166,44 @@ public class FolderServiceTests
     }
 
     [Test]
+    public async Task CreateAsync_WhenParentWouldExceedMaxDepth_ShouldReturnConflict()
+    {
+        var parentId = Guid.NewGuid();
+        var folder = CreateFolder(parentFolderId: parentId, name: "Too deep");
+        var ancestorIds = Enumerable.Range(0, 31).Select(_ => Guid.NewGuid()).ToList();
+
+        folderRepository.ExistsByIdAsync(parentId, currentUserId).Returns(Success(true));
+        folderRepository.ExistsByNameInParentAsync(folder.Name, parentId, currentUserId, null).Returns(Success(false));
+        folderRepository.GetAncestorIdsAsync(parentId, currentUserId).Returns(Success<IReadOnlyList<Guid>>(ancestorIds));
+
+        var result = await sut.CreateAsync(folder);
+
+        result.Status.Should().Be(ResultStatus.Conflict);
+        result.Errors.Should().Contain("Глубина вложенности папок не может превышать 32 уровня.");
+        await folderRepository.DidNotReceive().AddAsync(Arg.Any<Folder>());
+        await unitOfWork.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task CreateAsync_WhenParentHierarchyContainsCycle_ShouldReturnConflict()
+    {
+        var parentId = Guid.NewGuid();
+        var folder = CreateFolder(parentFolderId: parentId, name: "Blocked");
+
+        folderRepository.ExistsByIdAsync(parentId, currentUserId).Returns(Success(true));
+        folderRepository.ExistsByNameInParentAsync(folder.Name, parentId, currentUserId, null).Returns(Success(false));
+        folderRepository.GetAncestorIdsAsync(parentId, currentUserId)
+            .Returns(Task.FromResult(Result<IReadOnlyList<Guid>>.Error("Folder hierarchy cycle detected.")));
+
+        var result = await sut.CreateAsync(folder);
+
+        result.Status.Should().Be(ResultStatus.Conflict);
+        result.Errors.Should().Contain("В иерархии папок обнаружен цикл.");
+        await folderRepository.DidNotReceive().AddAsync(Arg.Any<Folder>());
+        await unitOfWork.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Test]
     public async Task CreateAsync_WhenRequestIsValid_ShouldCreateFolderForCurrentUserAtEndOfSiblings()
     {
         var parentId = Guid.NewGuid();
@@ -386,6 +424,50 @@ public class FolderServiceTests
         var result = await sut.MoveAsync(folder.Id, descendantId);
 
         result.Status.Should().Be(ResultStatus.Conflict);
+        await folderRepository.DidNotReceive().UpdateAsync(Arg.Any<Folder>());
+        await unitOfWork.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task MoveAsync_WhenTargetHierarchyContainsCycle_ShouldReturnConflict()
+    {
+        var folder = CreateFolder(name: "Docs");
+        var targetParentId = Guid.NewGuid();
+
+        folderRepository.GetByIdAsync(folder.Id, currentUserId).Returns(Success(folder));
+        folderRepository.ExistsByIdAsync(targetParentId, currentUserId).Returns(Success(true));
+        folderRepository.ExistsByNameInParentAsync(folder.Name, targetParentId, currentUserId, folder.Id)
+            .Returns(Success(false));
+        folderRepository.GetAncestorIdsAsync(targetParentId, currentUserId)
+            .Returns(Task.FromResult(Result<IReadOnlyList<Guid>>.Error("Folder hierarchy cycle detected.")));
+
+        var result = await sut.MoveAsync(folder.Id, targetParentId);
+
+        result.Status.Should().Be(ResultStatus.Conflict);
+        result.Errors.Should().Contain("В иерархии папок обнаружен цикл.");
+        await folderRepository.DidNotReceive().UpdateAsync(Arg.Any<Folder>());
+        await unitOfWork.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task MoveAsync_WhenTargetWouldExceedMaxDepth_ShouldReturnConflict()
+    {
+        var folder = CreateFolder(name: "Docs");
+        var targetParentId = Guid.NewGuid();
+        var child = CreateFolder(parentFolderId: folder.Id, name: "Child");
+        var ancestorIds = Enumerable.Range(0, 30).Select(_ => Guid.NewGuid()).ToList();
+
+        folderRepository.GetByIdAsync(folder.Id, currentUserId).Returns(Success(folder));
+        folderRepository.ExistsByIdAsync(targetParentId, currentUserId).Returns(Success(true));
+        folderRepository.ExistsByNameInParentAsync(folder.Name, targetParentId, currentUserId, folder.Id)
+            .Returns(Success(false));
+        folderRepository.GetAncestorIdsAsync(targetParentId, currentUserId).Returns(Success<IReadOnlyList<Guid>>(ancestorIds));
+        folderRepository.GetTreeAsync(currentUserId).Returns(Success<IReadOnlyList<Folder>>([folder, child]));
+
+        var result = await sut.MoveAsync(folder.Id, targetParentId);
+
+        result.Status.Should().Be(ResultStatus.Conflict);
+        result.Errors.Should().Contain("Глубина вложенности папок не может превышать 32 уровня.");
         await folderRepository.DidNotReceive().UpdateAsync(Arg.Any<Folder>());
         await unitOfWork.DidNotReceive().SaveChangesAsync();
     }
