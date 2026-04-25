@@ -56,14 +56,6 @@ export function CustomDragLayer() {
   // Use captured dimensions or fall back to defaults
   const cardWidth = item.sourceWidth || 280;
   const cardHeight = item.sourceHeight || 180;
-  const rootElement = typeof document !== "undefined" ? document.getElementById("root") : null;
-  const rootZoom = rootElement
-    ? Number.parseFloat(window.getComputedStyle(rootElement).zoom || "1") || 1
-    : 1;
-  const safeZoom = rootZoom > 0 ? rootZoom : 1;
-  const pointerX = currentOffset.x / safeZoom;
-  const pointerY = currentOffset.y / safeZoom;
-
   // Get display name without extension
   const displayName = item.name ? getFileNameWithoutExtension(item.name) : "Перемещение...";
   const fileExtension = getFileExtension(item.name || "");
@@ -83,8 +75,8 @@ export function CustomDragLayer() {
       <div
         style={{
           position: "absolute",
-          left: pointerX - cardWidth / 2,
-          top: pointerY - cardHeight / 2,
+          left: currentOffset.x - cardWidth / 2,
+          top: currentOffset.y - cardHeight / 2,
           transform: "rotate(-2deg) scale(1.015)",
           opacity: 1,
           pointerEvents: "none",

@@ -17,22 +17,22 @@ html, body {
 
 @media (min-width: 1024px) {
   #root {
-    width: 125vw;
-    min-width: 125vw;
-    min-height: 125vh;
-    zoom: 0.8;
+    width: 100vw;
+    min-width: 100vw;
+    min-height: 100vh;
+    zoom: 1;
   }
 
   #root .w-screen {
-    width: 125vw;
+    width: 100vw;
   }
 
   #root .h-screen,
   #root .h-\[100svh\] {
-    height: 125vh;
+    height: 100vh;
   }
 
   #root .min-h-screen {
-    min-height: 125vh;
+    min-height: 100vh;
   }
 }
