@@ -10,21 +10,21 @@
 
 ## Транспортные слои
 
-ShuKnow использует два публичных transport-слоя:
+ShuKnow использует два публичных транспортных слоя:
 
-- REST для аутентификации, папок, файлов, chat sessions, staged-вложений, AI-настроек, health check и метрик.
-- SignalR на `/hubs/chat` для long-running AI workflow: отправка сообщения, streaming ответа, tool-driven файловые события и отмена текущей операции.
+- REST для аутентификации, папок, файлов, chat-сессий, временно сохранённых вложений, AI-настроек, проверки состояния и метрик.
+- SignalR на `/hubs/chat` для долгих AI-операций: отправка сообщения, потоковая передача ответа, файловые события от tool calls и отмена текущей операции.
 
 Общая аутентификация:
 
 - REST принимает JWT через `Authorization: Bearer` и через HTTP-only cookie `token`.
-- SignalR использует тот же JWT bearer pipeline. Cookie также читается JWT middleware; отдельного query-string `access_token` mapping в текущей конфигурации нет.
+- SignalR использует тот же pipeline JWT bearer. Cookie также читается JWT middleware; отдельного mapping для query-string `access_token` в текущей конфигурации нет.
 
-## Runtime Flow: ChatHub AI Processing
+## Runtime-поток: обработка AI-сообщения в ChatHub
 
 ```mermaid
 sequenceDiagram
-    participant Client
+    participant Client as Клиент
     participant Hub as ChatHub
     participant Ops as IProcessingOperationService
     participant Notify as IChatNotificationService
@@ -41,59 +41,59 @@ sequenceDiagram
     Hub->>Notify: OnProcessingStarted(operationId)
     Hub->>Settings: GetOrCreateAsync()
     Hub->>AI: ProcessMessageAsync(sessionId, content, attachmentIds, settings, operationId)
-    AI->>Chat: Load session and previous messages
-    AI->>Chat: Persist user message
-    AI->>Prompt: Build system instructions and multimodal user message
-    AI->>LLM: Stream response with registered tools
+    AI->>Chat: Загрузить сессию и предыдущие сообщения
+    AI->>Chat: Сохранить сообщение пользователя
+    AI->>Prompt: Собрать системные инструкции и multimodal-сообщение пользователя
+    AI->>LLM: Запустить потоковый ответ с зарегистрированными tools
 
-    loop Until final response or MaxTurns
-        LLM-->>AI: Text chunks and optional tool calls
+    loop До финального ответа или MaxTurns
+        LLM-->>AI: Фрагменты текста и optional tool calls
         AI->>Notify: OnMessageChunk(operationId, messageId, chunk)
-        alt Tool calls returned
-            AI->>Tools: Dispatch tool calls
-            Tools->>ToolPort: Execute folder/file operation
+        alt Вернулись tool calls
+            AI->>Tools: Передать tool calls на dispatch
+            Tools->>ToolPort: Выполнить операцию с папкой или файлом
             ToolPort->>Notify: OnFileCreated/OnFolderCreated/OnFileMoved/OnTextAppended/OnTextPrepended/OnAttachmentSaved
-        else Response completed
+        else Ответ завершён
             AI->>Notify: OnMessageCompleted(operationId, messageId)
         end
     end
 
-    AI->>Chat: Persist AI messages
+    AI->>Chat: Сохранить AI-сообщения
     Hub->>Notify: OnProcessingCompleted(operationId)
     Hub->>Ops: CompleteOperation(connectionId, operationId)
 ```
 
-Important behavior:
+Важное поведение:
 
-- `SendMessageCommand.SessionId` is required; chat sessions are created through REST first.
-- `Content` is required unless attachments are supplied.
-- AI output is streamed as chunks. Each completed AI turn emits `OnMessageCompleted`.
-- Tool calls mutate folders/files through application services and emit domain events to the current SignalR connection.
-- Attachment IDs are staged through `POST /api/chat/attachments` and are marked consumed after successful AI processing.
-- `CancelProcessing` cancels the active operation for the current connection. There is no separate cancellation event; cancellation stops processing and completes operation cleanup.
+- `SendMessageCommand.SessionId` обязателен; chat-сессии сначала создаются через REST.
+- `Content` обязателен, если не переданы вложения.
+- AI-ответ передаётся chunk-ами. Каждый завершённый AI-turn отправляет `OnMessageCompleted`.
+- Tool calls изменяют папки и файлы через сервисы Application и отправляют domain events в текущее SignalR-соединение.
+- Attachment IDs создаются через `POST /api/chat/attachments` и помечаются consumed после успешной AI-обработки.
+- `CancelProcessing` отменяет активную операцию для текущего соединения. Отдельного cancellation event нет; отмена останавливает обработку и очищает состояние операции.
 
-## REST API Status
+## Статус REST API
 
-Implemented controller areas:
+Реализованные области контроллеров:
 
-| Area | Status |
+| Область | Статус |
 |---|---|
-| Auth | Register, login, and `me` are implemented. Login/register return the JWT and set the auth cookie. |
-| Folders | Tree, list, create, get, update, delete subtree, move, reorder, children, and file upload/list under a folder are implemented. |
-| Files | Metadata read/update/delete, content download/replace/text update, move, and reorder are implemented. |
-| Chat | Session create/get/delete, cursor-paginated messages, and multipart attachment staging are implemented. |
-| Settings | Get/update AI settings and provider connection test are implemented. |
-| Health/Metrics | `/api/health` and `/metrics` are mapped outside controllers. |
-| Actions | Endpoints exist but return `501 Not Implemented`. Application/repository services behind actions still throw `NotImplementedException`. |
+| Auth | Register, login и `me` реализованы. Login/register возвращают JWT и устанавливают auth cookie. |
+| Folders | Реализованы дерево папок, список, создание, чтение, обновление, удаление subtree, move, reorder, children, а также upload/list файлов внутри папки. |
+| Files | Реализованы чтение, обновление и удаление метаданных, download/replace/text update контента, move и reorder. |
+| Chat | Реализованы создание, чтение и удаление сессий, cursor-пагинация сообщений и multipart staging вложений. |
+| Settings | Реализованы чтение и обновление AI-настроек, а также тест соединения с provider. |
+| Health/Metrics | `/api/health` и `/metrics` mapped вне controllers. |
+| Actions | Эндпоинты существуют, но возвращают `501 Not Implemented`. Сервисы Application и repository-сервисы для actions всё ещё бросают `NotImplementedException`. |
 
-## Component Map
+## Карта компонентов
 
 ```mermaid
 flowchart TB
-    Client[Client UI]
+    Client[Клиентский UI]
 
     subgraph WebAPI
-        Controllers[REST Controllers]
+        Controllers[REST-контроллеры]
         Hub[ChatHub]
         Notifications[ChatNotificationService]
         Auth[JWT + Cookie Auth]
@@ -118,14 +118,14 @@ flowchart TB
         ToolRegistry[TornadoToolsService]
         ConvFactory[TornadoConversationFactory]
         Blob[BlobStorageService]
-        Repos[EF Core Repositories]
-        Cleanup[Blob and Chat Session Cleanup]
+        Repos[EF Core repositories]
+        Cleanup[Очистка blob и chat-сессий]
     end
 
     subgraph External
         Postgres[(PostgreSQL)]
-        Redis[(Redis metrics state)]
-        BlobStore[(File system or S3/RustFS)]
+        Redis[(Redis state для метрик)]
+        BlobStore[(File system или S3/RustFS)]
         LLM[(LLM Provider via LlmTornado)]
         Prometheus[(Prometheus)]
     end
@@ -159,9 +159,9 @@ flowchart TB
     ConvFactory --> LLM
 ```
 
-## Runtime Gaps
+## Runtime gaps
 
-- Actions/Rollback is not implemented despite existing DTOs and routes.
-- `IActionQueryService`, `IActionTrackingService`, `IRollbackService`, and `ActionRepository` still throw `NotImplementedException`.
-- AI tool operations emit live events and metrics, but they do not create action records, so rollback is not connected to the current AI workflow.
-- `TornadoPromptBuilder` still owns prompt construction; keep `docs/asyncapi.yaml` aligned with hub events rather than older classification-parser terminology.
+- Actions/Rollback не реализован, несмотря на существующие DTO и routes.
+- `IActionQueryService`, `IActionTrackingService`, `IRollbackService` и `ActionRepository` всё ещё бросают `NotImplementedException`.
+- AI tool operations отправляют live events и метрики, но не создают action records, поэтому rollback не подключён к текущему AI workflow.
+- `TornadoPromptBuilder` отвечает за prompt construction; `docs/asyncapi.yaml` нужно держать синхронизированным с hub events, а не со старой classification-parser терминологией.
