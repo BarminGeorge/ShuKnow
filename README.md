@@ -9,6 +9,7 @@
 
 - [О проекте](#-о-проекте)
 - [Основные возможности](#-основные-возможности)
+- [Интерфейс](#-интерфейс)
 - [Технологический стек](#-технологический-стек)
 - [Архитектура](#-архитектура)
 - [Быстрый старт](#-быстрый-старт)
@@ -16,7 +17,6 @@
 - [Переменные окружения](#-переменные-окружения)
 - [Тестирование](#-тестирование)
 - [CI/CD](#-cicd)
-- [Структура проекта](#-структура-проекта)
 
 ---
 
@@ -38,6 +38,20 @@
 - **Аутентификация** — регистрация и вход по логину/паролю с JWT-токенами в httpOnly-куках
 - **Мониторинг** — Prometheus-метрики, дашборды Grafana, кастомные бизнес-метрики (Redis)
 - **Хранение файлов** — файловая система или S3-совместимое хранилище (RustFS)
+
+---
+
+## 🖼 Интерфейс
+
+ShuKnow строится вокруг чата: пользователь отправляет заметку, список дел, изображение или документ, а агент сохраняет данные в подходящей папке.
+
+| Чат с агентом | Сохранение информации |
+|---|---|
+| <img src="images/chat_page.png" alt="Чат ShuKnow с ИИ-агентом" width="100%"> | <img src="images/create_tasks.png" alt="ИИ-агент сохранил список задач в файл" width="100%"> |
+
+| Просмотр папки | Настройки LLM-провайдера |
+|---|---|
+| <img src="images/folder_view.png" alt="Просмотр папки с файлами и изображениями" width="100%"> | <img src="images/settings_menu.png" alt="Настройки API и LLM-провайдера" width="100%"> |
 
 ---
 
@@ -80,7 +94,6 @@
 |---|---|
 | Контейнеризация | Docker, Docker Compose |
 | Reverse proxy | Nginx |
-| SSL | Let's Encrypt (Certbot) |
 | CI/CD | GitHub Actions |
 | Реестр образов | GitHub Container Registry (GHCR) |
 
@@ -172,40 +185,17 @@ docker compose -f compose.dev.yaml up -d
 | Prometheus | http://localhost:9090 |
 | Grafana | http://localhost:3000 |
 
-### Продакшн
-
-```bash
-# Скопируйте и настройте переменные окружения
-cp .env.prod.example .env.prod
-
-# Запуск
-docker compose -f compose.prod.yaml --env-file .env.prod up -d
-```
-
-Продакшн-конфигурация включает:
-- Автоматический выпуск SSL-сертификатов через Let's Encrypt
-- Отдельный контейнер-мигратор для безопасного обновления схемы БД
-- Healthcheck-и для всех критичных сервисов
-- Reverse proxy через Nginx (HTTP/HTTPS)
+Серверные инструкции вынесены в [deploy/README.md](deploy/README.md).
 
 ---
 
 ## 🔐 Переменные окружения
 
-### Backend (`.env.prod`)
+### Backend
 
-| Переменная | Описание |
-|---|---|
-| `SERVER_NAME` | Домен сервера |
-| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | Параметры подключения к PostgreSQL |
-| `REDIS_PASSWORD` | Пароль Redis |
-| `JWT_KEY` / `JWT_ISSUER` / `JWT_AUDIENCE` | Настройки JWT-аутентификации |
-| `ENCRYPTION_KEY` | Ключ шифрования API-ключей пользователей |
-| `BLOB_PROVIDER` | Провайдер хранилища: `FileSystem` или `S3` |
-| `RUSTFS_ACCESS_KEY` / `RUSTFS_SECRET_KEY` | Ключи доступа к S3 (RustFS) |
-| `BACKEND_IMAGE` / `FRONTEND_IMAGE` | Docker-образы для продакшн-деплоя |
+Локальный backend читает настройки из окружения и `.env` через `dotenv.net`. Для разработки обычно достаточно значений по умолчанию из compose-файла и launch profile.
 
-### Frontend (`.env`)
+### Frontend
 
 | Переменная | Описание |
 |---|---|
