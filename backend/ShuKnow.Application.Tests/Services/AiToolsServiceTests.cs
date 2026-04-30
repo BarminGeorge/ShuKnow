@@ -171,12 +171,12 @@ public class AiToolsServiceTests
         fileService.UpdateTextContentAsync(file.Id, Arg.Do<string>(content => updatedContent = content), Arg.Any<CancellationToken>())
             .Returns(Success(file));
 
-        var result = await sut.AppendTextAsync("notes/readme.txt", " world");
+        var result = await sut.AppendTextAsync("notes/readme.txt", "world");
 
         result.Status.Should().Be(ResultStatus.Ok);
         result.Value.Should().Be("Appended text to 'notes/readme.txt'.");
-        updatedContent.Should().Be("Hello world");
-        await notificationService.Received(1).SendTextAppendedAsync(file, " world", Arg.Any<CancellationToken>());
+        updatedContent.Should().Be("Hello\nworld");
+        await notificationService.Received(1).SendTextAppendedAsync(file, "world", Arg.Any<CancellationToken>());
     }
 
     [Test]

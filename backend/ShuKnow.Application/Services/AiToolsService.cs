@@ -59,7 +59,7 @@ public class AiToolsService(
         string text,
         CancellationToken ct = default)
     {
-        return await UpdateTextAsync(filePath, text, static (current, extra) => current + extra, ct)
+        return await UpdateTextAsync(filePath, text, static (current, extra) => $"{current}\n{extra}", ct)
             .ActAsync(file => notificationService.SendTextAppendedAsync(file, text, ct))
             .Map(_ => $"Appended text to '{filePath}'.");
     }
@@ -69,7 +69,7 @@ public class AiToolsService(
         string text,
         CancellationToken ct = default)
     {
-        return await UpdateTextAsync(filePath, text, static (current, extra) => extra + current, ct)
+        return await UpdateTextAsync(filePath, text, static (current, extra) => $"{extra}\n{current}", ct)
             .ActAsync(file => notificationService.SendTextPrependedAsync(file, text, ct))
             .Map(_ => $"Prepended text to '{filePath}'.");
     }
