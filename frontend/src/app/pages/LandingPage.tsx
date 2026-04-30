@@ -13,10 +13,12 @@ import {
   Lightbulb,
   Layers,
   FileText,
+  UserRound,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { motion, useInView } from "motion/react";
 
+const SUPPORT_FORM_URL = "https://forms.gle/CRpVxyugLsLK22Qz6";
 const primaryLinkClass =
   "inline-flex items-center justify-center gap-2 rounded-lg border border-violet-300/12 bg-[linear-gradient(135deg,rgba(76,29,149,0.26),rgba(17,16,24,0.58)_60%,rgba(109,40,217,0.08))] px-5 py-2.5 text-sm font-medium text-violet-200/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_14px_rgba(91,33,182,0.045)] transition-all hover:border-violet-300/20 hover:text-violet-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_18px_rgba(91,33,182,0.075)]";
 const heroPrimaryLinkClass =
@@ -215,6 +217,18 @@ export default function LandingPage() {
           </motion.div>
         </div>
       </section>
+
+      <a
+        href={SUPPORT_FORM_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Открыть форму поддержки"
+        title="Поддержка"
+        className="fixed bottom-5 right-5 z-50 inline-flex h-12 w-12 items-center justify-center rounded-xl border border-violet-300/14 bg-[linear-gradient(135deg,rgb(31,18,55),rgb(18,17,26)_60%,rgb(27,19,45))] text-violet-100/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_14px_36px_rgba(0,0,0,0.32),0_0_14px_rgba(91,33,182,0.055)] transition-all hover:-translate-y-0.5 hover:border-violet-300/24 hover:text-violet-50 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_16px_42px_rgba(0,0,0,0.36),0_0_20px_rgba(91,33,182,0.09)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/40 sm:bottom-6 sm:right-6 sm:w-auto sm:gap-2 sm:px-4"
+      >
+        <UserRound size={19} />
+        <span className="hidden text-sm font-medium sm:inline">Поддержка</span>
+      </a>
 
       {/* ── Features ───────────────────────────────────────────────────────── */}
       <section id="features" className="py-20 px-4 sm:px-6">
