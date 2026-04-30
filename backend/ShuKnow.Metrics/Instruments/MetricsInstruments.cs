@@ -6,6 +6,8 @@ public class MetricsInstruments
 {
     public const string MeterName = "ShuKnow.Metrics";
 
+    private long registeredUsersCount;
+
     public Counter<long> EventsRecorded { get; }
     public Counter<long> AiItemsProcessed { get; }
     public Counter<long> AiItemsManuallyMoved { get; }
@@ -14,6 +16,7 @@ public class MetricsInstruments
     public Counter<long> ContentRetrievedWithin30Days { get; }
     public Counter<long> RetentionCohortUsers { get; }
     public Counter<long> RetentionReturnedUsers { get; }
+    public ObservableGauge<long> RegisteredUsers { get; }
 
     public MetricsInstruments()
     {
@@ -58,5 +61,16 @@ public class MetricsInstruments
             "shuknow_retention_returned_total",
             "{user}",
             "Пользователи, вернувшиеся на второй неделе");
+
+        RegisteredUsers = meter1.CreateObservableGauge(
+            "shuknow_registered_users",
+            () => Interlocked.Read(ref registeredUsersCount),
+            "{user}",
+            "Текущее количество зарегистрированных пользователей");
+    }
+
+    public void SetRegisteredUsersCount(long count)
+    {
+        Interlocked.Exchange(ref registeredUsersCount, count);
     }
 }

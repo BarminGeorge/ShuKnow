@@ -2,6 +2,7 @@
 using ShuKnow.Application.Configuration;
 using ShuKnow.Domain.Configuration;
 using ShuKnow.Infrastructure.Configuration;
+using ShuKnow.Host.Services;
 using ShuKnow.Metrics.Configuration;
 using ShuKnow.WebAPI.Configuration;
 
@@ -38,6 +39,7 @@ public static class Program
         services.AddApplication();
         services.AddMetrics(configuration);
         services.AddWeb(configuration);
+        services.AddHostedService<RegisteredUsersMetricService>();
     }
 
     private static void ConfigureApp(this WebApplication app)

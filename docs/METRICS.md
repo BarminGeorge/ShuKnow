@@ -52,6 +52,10 @@ Prefix: `metrics:*`
 - `shuknow_retention_cohort_total`
 - `shuknow_retention_returned_total`
 
+## Exported gauges
+
+- `shuknow_registered_users` - current number of registered users in the primary database, refreshed by the host every minute.
+
 Current `event_type` labels in runtime:
 
 - `content_saved`
