@@ -1,177 +1,128 @@
-﻿asyncapi: 2.6.0
+asyncapi: 2.6.0
 
 info:
   title: ShuKnow ChatHub
   version: 1.0.0
-  description: Real-time SignalR hub for AI-powered file classification.
+  description: Current SignalR contract for AI chat processing and tool-driven file/folder events.
 
 servers:
-  development:
-    url: wss://localhost:5432/hubs/chat
-    protocol: wss
-    description: Local development endpoint
-    security:
-      - jwt: []
+  local-http:
+    url: http://localhost:5209/hubs/chat
+    protocol: signalr
+    description: Local development endpoint from the `http` launch profile.
+  local-https:
+    url: https://localhost:7274/hubs/chat
+    protocol: signalr
+    description: Local development endpoint from the `https` launch profile.
 
 defaultContentType: application/json
 
 channels:
-
-  # ────────────────────────────────────────────────────
-  # Client → Server (the server receives these)
-  # ────────────────────────────────────────────────────
-
-  sendMessage:
-    description: |
-      Invoked by the client to submit user content for AI classification.
+  SendMessage:
+    description: Client invokes this hub method to submit a message to the AI workflow.
     publish:
-      operationId: sendMessage
-      summary: Send a user message for AI processing
+      operationId: SendMessage
+      summary: Submit a user message for AI processing
       message:
         $ref: '#/components/messages/SendMessage'
 
-  cancelProcessing:
-    description: |
-      Invoked by the client to cancel an in-flight AI processing operation.
-      The server signals the `CancellationToken` on the active LLM HTTP request,
-      discards partial results, persists a cancellation record in the chat session,
-      and confirms via `OnProcessingCancelled`.
+  CancelProcessing:
+    description: Client invokes this hub method to cancel the active operation for the current connection.
     publish:
-      operationId: cancelProcessing
+      operationId: CancelProcessing
       summary: Cancel the active AI processing operation
       message:
         $ref: '#/components/messages/CancelProcessing'
 
-  # ────────────────────────────────────────────────────
-  # Server → Client (the server sends these)
-  # ────────────────────────────────────────────────────
-
-  onProcessingStarted:
-    description: |
-      Emitted immediately after `SendMessage` is received and the user message
-      is persisted. The client should show a loading/processing indicator.
+  OnValidationFailed:
     subscribe:
-      operationId: onProcessingStarted
-      summary: AI processing has started
+      operationId: OnValidationFailed
+      summary: Hub command validation failed
+      message:
+        $ref: '#/components/messages/OnValidationFailed'
+
+  OnProcessingStarted:
+    subscribe:
+      operationId: OnProcessingStarted
+      summary: AI processing started
       message:
         $ref: '#/components/messages/OnProcessingStarted'
 
-  onMessageChunk:
-    description: |
-      Streamed token(s) from the LLM response. Emitted multiple times as the
-      model generates output. The client should append each chunk to the AI
-      message bubble in real time for a typewriter effect.
+  OnMessageChunk:
     subscribe:
-      operationId: onMessageChunk
-      summary: Streaming LLM response token chunk
+      operationId: OnMessageChunk
+      summary: Streaming LLM response chunk
       message:
         $ref: '#/components/messages/OnMessageChunk'
 
-  onMessageCompleted:
-    description: |
-      Emitted when the full AI response has been received, parsed, and persisted
-      to the chat session. Contains the complete message content. The client can
-      replace the streamed chunks with the authoritative final content.
+  OnMessageCompleted:
     subscribe:
-      operationId: onMessageCompleted
-      summary: Full AI message received and persisted
+      operationId: OnMessageCompleted
+      summary: One AI response message finished streaming
       message:
         $ref: '#/components/messages/OnMessageCompleted'
 
-  onClassificationResult:
-    description: |
-      Emitted after the LLM response is parsed into classification decisions but
-      before file operations begin. Allows the client to display the AI's plan
-      (which file goes to which folder) before mutations are executed.
+  OnFileCreated:
     subscribe:
-      operationId: onClassificationResult
-      summary: AI classification plan before execution
-      message:
-        $ref: '#/components/messages/OnClassificationResult'
-
-  onFileCreated:
-    description: |
-      Emitted for each file created during classification execution. The client
-      should update the folder tree sidebar to reflect the new file.
-    subscribe:
-      operationId: onFileCreated
-      summary: A file was created by AI classification
+      operationId: OnFileCreated
+      summary: AI tools created a file
       message:
         $ref: '#/components/messages/OnFileCreated'
 
-  onFileMoved:
-    description: |
-      Emitted when a file is moved to a different folder during reclassification
-      or disambiguation. The client should update the sidebar accordingly.
+  OnFileMoved:
     subscribe:
-      operationId: onFileMoved
-      summary: A file was moved by AI classification
+      operationId: OnFileMoved
+      summary: AI tools moved a file
       message:
         $ref: '#/components/messages/OnFileMoved'
 
-  onFolderCreated:
-    description: |
-      Emitted when the AI determines no existing folder matches a piece of content
-      and creates a new folder. The client should add the new folder node to
-      the sidebar tree.
+  OnFolderCreated:
     subscribe:
-      operationId: onFolderCreated
-      summary: A new folder was created by AI classification
+      operationId: OnFolderCreated
+      summary: AI tools created a folder
       message:
         $ref: '#/components/messages/OnFolderCreated'
 
-  onProcessingCompleted:
-    description: |
-      Emitted when all AI classification operations have finished successfully.
-      Contains the `actionId` that can be used with the REST rollback endpoint
-      (`POST /api/actions/{actionId}/rollback`).
+  OnTextAppended:
     subscribe:
-      operationId: onProcessingCompleted
-      summary: All AI processing finished successfully
+      operationId: OnTextAppended
+      summary: AI tools appended text to a file
+      message:
+        $ref: '#/components/messages/OnTextAppended'
+
+  OnTextPrepended:
+    subscribe:
+      operationId: OnTextPrepended
+      summary: AI tools prepended text to a file
+      message:
+        $ref: '#/components/messages/OnTextPrepended'
+
+  OnAttachmentSaved:
+    subscribe:
+      operationId: OnAttachmentSaved
+      summary: AI tools saved a staged attachment as a file
+      message:
+        $ref: '#/components/messages/OnAttachmentSaved'
+
+  OnProcessingCompleted:
+    subscribe:
+      operationId: OnProcessingCompleted
+      summary: AI processing finished successfully
       message:
         $ref: '#/components/messages/OnProcessingCompleted'
 
-  onProcessingFailed:
-    description: |
-      Emitted when AI processing fails at any stage: LLM call failure,
-      classification parsing error, or file operation failure. The client should
-      display the error and allow the user to retry.
+  OnProcessingFailed:
     subscribe:
-      operationId: onProcessingFailed
+      operationId: OnProcessingFailed
       summary: AI processing failed
       message:
         $ref: '#/components/messages/OnProcessingFailed'
 
-  onProcessingCancelled:
-    description: |
-      Confirmation that processing was successfully cancelled in response to a
-      `CancelProcessing` invocation. The client should dismiss the loading state.
-    subscribe:
-      operationId: onProcessingCancelled
-      summary: AI processing was cancelled
-      message:
-        $ref: '#/components/messages/OnProcessingCancelled'
-
 components:
-
-  securitySchemes:
-    jwt:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: |
-        JWT provided via the `access_token` query string parameter on WebSocket
-        connection. The server middleware maps this into the standard ASP.NET Core
-        JWT authentication pipeline.
-
   messages:
-
-    # ── Client → Server ─────────────────────────
-
     SendMessage:
       name: SendMessage
       title: Send Message
-      summary: Submit user content and optional attachments for AI classification.
       contentType: application/json
       payload:
         $ref: '#/components/schemas/SendMessageCommand'
@@ -179,19 +130,19 @@ components:
     CancelProcessing:
       name: CancelProcessing
       title: Cancel Processing
-      summary: Cancel the currently active AI processing operation.
-      description: |
-        No payload is required. The server identifies the in-flight operation
-        from the user's connection context and signals cancellation.
       payload:
         type: 'null'
 
-    # ── Server → Client ─────────────────────────
+    OnValidationFailed:
+      name: OnValidationFailed
+      title: Validation Failed
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ValidationFailedEvent'
 
     OnProcessingStarted:
       name: OnProcessingStarted
       title: Processing Started
-      summary: AI processing has begun for the submitted message.
       contentType: application/json
       payload:
         $ref: '#/components/schemas/ProcessingStartedEvent'
@@ -199,7 +150,6 @@ components:
     OnMessageChunk:
       name: OnMessageChunk
       title: Message Chunk
-      summary: A streamed token chunk from the LLM response.
       contentType: application/json
       payload:
         $ref: '#/components/schemas/MessageChunkEvent'
@@ -207,31 +157,20 @@ components:
     OnMessageCompleted:
       name: OnMessageCompleted
       title: Message Completed
-      summary: The complete AI message has been received and persisted.
       contentType: application/json
       payload:
-        $ref: '#/components/schemas/ChatMessageDto'
-
-    OnClassificationResult:
-      name: OnClassificationResult
-      title: Classification Result
-      summary: The AI's classification plan before file operations begin.
-      contentType: application/json
-      payload:
-        $ref: '#/components/schemas/ClassificationResultEvent'
+        $ref: '#/components/schemas/MessageCompletedEvent'
 
     OnFileCreated:
       name: OnFileCreated
       title: File Created
-      summary: A file was created in a folder as part of AI classification.
       contentType: application/json
       payload:
-        $ref: '#/components/schemas/FileDto'
+        $ref: '#/components/schemas/FileCreatedEvent'
 
     OnFileMoved:
       name: OnFileMoved
       title: File Moved
-      summary: A file was moved to a different folder.
       contentType: application/json
       payload:
         $ref: '#/components/schemas/FileMovedEvent'
@@ -239,15 +178,34 @@ components:
     OnFolderCreated:
       name: OnFolderCreated
       title: Folder Created
-      summary: A new folder was created because no existing folder matched.
       contentType: application/json
       payload:
-        $ref: '#/components/schemas/FolderDto'
+        $ref: '#/components/schemas/FolderCreatedEvent'
+
+    OnTextAppended:
+      name: OnTextAppended
+      title: Text Appended
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/TextAppendedEvent'
+
+    OnTextPrepended:
+      name: OnTextPrepended
+      title: Text Prepended
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/TextPrependedEvent'
+
+    OnAttachmentSaved:
+      name: OnAttachmentSaved
+      title: Attachment Saved
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/AttachmentSavedEvent'
 
     OnProcessingCompleted:
       name: OnProcessingCompleted
       title: Processing Completed
-      summary: All AI processing operations finished successfully.
       contentType: application/json
       payload:
         $ref: '#/components/schemas/ProcessingCompletedEvent'
@@ -255,49 +213,54 @@ components:
     OnProcessingFailed:
       name: OnProcessingFailed
       title: Processing Failed
-      summary: AI processing encountered an error.
       contentType: application/json
       payload:
         $ref: '#/components/schemas/ProcessingFailedEvent'
 
-    OnProcessingCancelled:
-      name: OnProcessingCancelled
-      title: Processing Cancelled
-      summary: AI processing was cancelled by the user.
-      contentType: application/json
-      payload:
-        $ref: '#/components/schemas/ProcessingCancelledEvent'
-
   schemas:
-
-    # ── Client → Server Payloads ──────────────────
-
     SendMessageCommand:
       type: object
-      required: [content]
+      required: [sessionId]
       properties:
+        sessionId:
+          type: string
+          format: uuid
+          description: Existing chat session ID created through `POST /api/chat/session`.
         content:
           type: string
-          description: The user's message text.
-          example: Please organize these documents into the appropriate folders.
+          nullable: true
+          description: Required when `attachmentIds` is empty.
         context:
           type: string
           nullable: true
-          description: Optional hint or additional context for the AI.
-          example: These are all financial documents from Q1 2024.
+          maxLength: 5000
+          description: Currently accepted by the command DTO but not used by `ChatHub`.
         attachmentIds:
           type: array
           nullable: true
-          description: |
-            IDs of attachments previously uploaded via `POST /api/chat/attachments`.
           items:
             type: string
             format: uuid
-          example:
-            - 550e8400-e29b-41d4-a716-446655440001
-            - 550e8400-e29b-41d4-a716-446655440002
 
-    # ── Server → Client Event Payloads ────────────
+    ValidationFailedEvent:
+      type: object
+      required: [targetMethod, errors]
+      properties:
+        targetMethod:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+
+    ValidationError:
+      type: object
+      required: [propertyName, errorMessage]
+      properties:
+        propertyName:
+          type: string
+        errorMessage:
+          type: string
 
     ProcessingStartedEvent:
       type: object
@@ -306,9 +269,6 @@ components:
         operationId:
           type: string
           format: uuid
-          description: |
-            Unique identifier for this processing operation. Correlates all
-            subsequent events in this processing run.
 
     MessageChunkEvent:
       type: object
@@ -320,91 +280,115 @@ components:
         messageId:
           type: string
           format: uuid
-          description: ID of the AI message being constructed.
         chunk:
           type: string
-          description: |
-            One or more tokens from the LLM response stream. Append to the
-            message content in the UI.
-          example: "Based on the content, I'll organize"
 
-    ClassificationResultEvent:
+    MessageCompletedEvent:
       type: object
-      required: [operationId, decisions]
+      required: [operationId, messageId]
       properties:
         operationId:
           type: string
           format: uuid
-        decisions:
-          type: array
-          description: The AI's plan for where each piece of content should go.
-          items:
-            $ref: '#/components/schemas/ClassificationDecisionDto'
-
-    ClassificationDecisionDto:
-      type: object
-      required: [fileName, targetFolderName, isNewFolder]
-      properties:
-        fileName:
-          type: string
-          description: Name assigned to the file.
-          example: invoice-2024-01.pdf
-        targetFolderName:
-          type: string
-          description: Name of the destination folder.
-          example: Invoices
-        targetFolderId:
+        messageId:
           type: string
           format: uuid
-          nullable: true
-          description: |
-            ID of the existing target folder. Null if the folder will be
-            newly created.
-        isNewFolder:
-          type: boolean
-          description: True if the AI will create a new folder for this file.
 
-    FileMovedEvent:
+    FileCreatedEvent:
       type: object
-      required: [fileId, fromFolderId, toFolderId]
+      required: [fileId, name, description, contentType]
       properties:
         fileId:
           type: string
           format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        contentType:
+          type: string
+
+    FileMovedEvent:
+      type: object
+      required: [fileId, fileName]
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        fileName:
+          type: string
         fromFolderId:
           type: string
           format: uuid
-          description: Original folder the file was in.
+          nullable: true
         toFolderId:
           type: string
           format: uuid
-          description: New folder the file was moved to.
+          nullable: true
+
+    FolderCreatedEvent:
+      type: object
+      required: [folderId, name, description, parentFolderId, sortOrder]
+      properties:
+        folderId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        emoji:
+          type: string
+          nullable: true
+        parentFolderId:
+          type: string
+          format: uuid
+          nullable: true
+        sortOrder:
+          type: integer
+
+    TextAppendedEvent:
+      type: object
+      required: [fileId, text]
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        text:
+          type: string
+
+    TextPrependedEvent:
+      type: object
+      required: [fileId, text]
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        text:
+          type: string
+
+    AttachmentSavedEvent:
+      type: object
+      required: [attachmentId, fileName, contentType, sizeBytes]
+      properties:
+        attachmentId:
+          type: string
+          format: uuid
+        fileName:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
 
     ProcessingCompletedEvent:
       type: object
-      required: [operationId, actionId, summary, filesCreated, filesMoved]
+      required: [operationId]
       properties:
         operationId:
           type: string
           format: uuid
-        actionId:
-          type: string
-          format: uuid
-          description: |
-            ID of the recorded action. Use with
-            `POST /api/actions/{actionId}/rollback` to undo.
-        summary:
-          type: string
-          description: Human-readable summary of what was done.
-          example: Created 3 files in Invoices, 1 file in Receipts. Created new folder Receipts.
-        filesCreated:
-          type: integer
-          description: Number of files created.
-          example: 4
-        filesMoved:
-          type: integer
-          description: Number of files moved.
-          example: 0
 
     ProcessingFailedEvent:
       type: object
@@ -415,104 +399,10 @@ components:
           format: uuid
         error:
           type: string
-          description: Human-readable error message.
-          example: Failed to connect to the LLM provider. Please check your API key.
         code:
           type: string
-          description: Machine-readable error code for client-side handling.
           enum:
-            - LLM_CONNECTION_FAILED
-            - LLM_RATE_LIMITED
-            - LLM_INVALID_RESPONSE
-            - CLASSIFICATION_PARSE_ERROR
-            - FILE_OPERATION_FAILED
-            - INTERNAL_ERROR
-          example: LLM_CONNECTION_FAILED
-
-    ProcessingCancelledEvent:
-      type: object
-      required: [operationId]
-      properties:
-        operationId:
-          type: string
-          format: uuid
-
-    # ── Shared DTOs (mirrored from REST API) ──────
-
-    ChatMessageDto:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        role:
-          type: string
-          enum: [User, Ai]
-        content:
-          type: string
-        attachments:
-          type: array
-          nullable: true
-          items:
-            $ref: '#/components/schemas/AttachmentDto'
-
-    AttachmentDto:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        fileName:
-          type: string
-        contentType:
-          type: string
-        sizeBytes:
-          type: integer
-          format: int64
-
-    FileDto:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        folderId:
-          type: string
-          format: uuid
-        folderName:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        contentType:
-          type: string
-        sizeBytes:
-          type: integer
-          format: int64
-
-    FolderDto:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        description:
-          type: string
-        parentFolderId:
-          type: string
-          format: uuid
-          nullable: true
-        sortOrder:
-          type: integer
-        fileCount:
-          type: integer
-        hasChildren:
-          type: boolean
-        path:
-          type: array
-          nullable: true
-          items:
-            type: string
+            - LlmConnectionFailed
+            - LlmInvalidResponse
+            - FileOperationFailed
+            - InternalError

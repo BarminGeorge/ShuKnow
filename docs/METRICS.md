@@ -8,6 +8,7 @@ ShuKnow exposes a single Prometheus scrape endpoint:
 
 Product events are recorded in application code through `IMetricsService`, then exported as counters via OpenTelemetry.  
 Redis is used as **ephemeral state storage** between events to deduplicate and attribute events correctly (it is not a long-term metrics storage).
+ASP.NET Core and runtime instrumentation are also registered through OpenTelemetry.
 
 ## Event model
 
@@ -20,6 +21,14 @@ Domain event type is standardized with `EventType` enum (`ShuKnow.Metrics/Events
 - `ContentOpened`
 
 Only these event types are currently used in runtime flow.
+
+Current runtime call sites:
+
+- Chat attachment upload records `ContentSaved`.
+- Folder file upload, file content replacement, and text content update record `ContentSaved`.
+- File content download records `ContentOpened`.
+- Manual file move records `ManualMove`.
+- AI-created and AI-moved files record `AiItemProcessed`.
 
 ## Redis state (for metric correctness)
 
@@ -92,4 +101,4 @@ clamp_min(sum(increase(shuknow_retention_cohort_total[7d] offset 7d)), 1)
 - `Metrics:RetrievalWindow` (default `30.00:00:00`)
 - `Metrics:RetentionWeekStart` (default `7.00:00:00`)
 - `Metrics:RetentionWeekEnd` (default `14.00:00:00`)
-
+- `ConnectionStrings:Redis` configures Redis; if omitted, metrics use `localhost:6379`.

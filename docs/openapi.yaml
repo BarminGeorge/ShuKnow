@@ -8,8 +8,10 @@ info:
     name: ShuKnow Team
 
 servers:
-  - url: https://localhost:5432
-    description: Local development
+  - url: http://localhost:5209
+    description: Local development (`http` launch profile)
+  - url: https://localhost:7274
+    description: Local development (`https` launch profile)
 
 tags:
   - name: Auth
@@ -23,7 +25,7 @@ tags:
   - name: Settings
     description: User AI/LLM provider configuration
   - name: Actions
-    description: AI action history and rollback
+    description: AI action history and rollback. Routes currently exist but return 501 Not Implemented.
 
 security:
   - BearerAuth: []
@@ -269,17 +271,8 @@ paths:
       tags: [Folders]
       summary: Delete a folder
       description: |
-        Deletes a folder. If `recursive=true`, all children folders and files
-        are deleted. If `recursive=false` (default) and the folder is non-empty,
-        returns 409 Conflict.
-      parameters:
-        - name: recursive
-          in: query
-          required: false
-          schema:
-            type: boolean
-            default: false
-          description: If true, delete all nested folders and files.
+        Deletes the folder subtree owned by the authenticated user and queues
+        blob deletion for files under that subtree.
       responses:
         '204':
           description: Folder deleted.
@@ -287,12 +280,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          description: Folder is non-empty and `recursive` is false.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
 
   /api/folders/{folderId}/move:
     parameters:
@@ -506,7 +493,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateFileRequest'
+                $ref: '#/components/schemas/UpdateFileMetadataRequest'
       responses:
         '200':
           description: File metadata updated.
@@ -549,8 +536,9 @@ paths:
       summary: Download file content
       description: |
         Streams the actual file content. Returns the stored MIME type or
-        `application/octet-stream` as fallback. Supports the `Range` header
-        for partial content / large file downloads.
+        `application/octet-stream` as fallback. The server accepts a single
+        byte `Range` header and streams that range, but currently returns the
+        normal file response rather than explicitly setting `206 Partial Content`.
       parameters:
         - name: Range
           in: header
@@ -561,18 +549,6 @@ paths:
       responses:
         '200':
           description: Full file content.
-          content:
-            application/octet-stream:
-              schema:
-                type: string
-                format: binary
-        '206':
-          description: Partial content (range request satisfied).
-          headers:
-            Content-Range:
-              schema:
-                type: string
-                example: bytes 0-1023/4096
           content:
             application/octet-stream:
               schema:
@@ -950,19 +926,14 @@ paths:
       tags: [Actions]
       summary: List AI-generated actions (paginated)
       description: |
-        Returns recent AI-generated actions, newest first. Each action
-        represents a complete AI processing run and includes a summary and
-        rollback eligibility status.
+        Placeholder endpoint. The route exists in `ActionsController`, but
+        current implementation returns HTTP 501.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
       responses:
-        '200':
-          description: Paginated list of actions.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PagedActionResult'
+        '501':
+          description: Not implemented.
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -975,19 +946,13 @@ paths:
       tags: [Actions]
       summary: Get detailed view of an action
       description: |
-        Returns every mutation performed by a single AI processing run:
-        files created, files moved, folders created, content classified.
+        Placeholder endpoint. The route exists in `ActionsController`, but
+        current implementation returns HTTP 501.
       responses:
-        '200':
-          description: Action details with all items.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ActionDetailDto'
+        '501':
+          description: Not implemented.
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
 
   /api/actions/{actionId}/rollback:
     parameters:
@@ -998,29 +963,13 @@ paths:
       tags: [Actions]
       summary: Rollback a specific action
       description: |
-        Reverses a specific AI action by iterating its items in reverse order:
-        - Files that were created are deleted.
-        - Files that were moved are returned to their original folders.
-        - Folders that were created are removed (if empty).
-
-        Non-reversible if files have been manually modified since the action.
+        Placeholder endpoint. The route exists in `ActionsController`, but
+        current implementation returns HTTP 501.
       responses:
-        '200':
-          description: Rollback result.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RollbackResultDto'
+        '501':
+          description: Not implemented.
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Action cannot be rolled back (already rolled back or files modified).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
 
   /api/actions/rollback-last:
     post:
@@ -1028,23 +977,13 @@ paths:
       tags: [Actions]
       summary: Rollback the most recent eligible action
       description: |
-        Convenience endpoint that finds the most recent action that is eligible
-        for rollback and reverses it.
+        Placeholder endpoint. The route exists in `ActionsController`, but
+        current implementation returns HTTP 501.
       responses:
-        '200':
-          description: Rollback result.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RollbackResultDto'
+        '501':
+          description: Not implemented.
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          description: No eligible action found to rollback.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
 
 components:
   # ──────────────────────────────────────────────
@@ -1200,7 +1139,7 @@ components:
         description:
           type: string
           nullable: true
-          maxLength: 1000
+          maxLength: 2000
           example: Monthly invoices and receipts
         parentFolderId:
           type: string
@@ -1210,6 +1149,7 @@ components:
         emoji:
           type: string
           nullable: true
+          maxLength: 8
 
     UpdateFolderRequest:
       type: object
@@ -1222,10 +1162,11 @@ components:
         description:
           type: string
           nullable: true
-          maxLength: 1000
+          maxLength: 2000
         emoji:
           type: string
           nullable: true
+          maxLength: 8
 
     MoveFolderRequest:
       type: object
@@ -1268,21 +1209,6 @@ components:
         sortOrder:
           type: integer
           example: 0
-        fileCount:
-          type: integer
-          example: 12
-        hasChildren:
-          type: boolean
-          example: true
-        path:
-          type: array
-          nullable: true
-          items:
-            type: string
-          description: |
-            Breadcrumb path from root to this folder. Populated on
-            `GET /api/folders/{folderId}`.
-          example: ["Documents", "Finance", "Invoices"]
 
     FolderTreeNodeDto:
       type: object
@@ -1300,8 +1226,6 @@ components:
           nullable: true
         sortOrder:
           type: integer
-        fileCount:
-          type: integer
         children:
           type: array
           items:
@@ -1309,7 +1233,7 @@ components:
 
     # ── Files ─────────────────────────────────
 
-    UpdateFileRequest:
+    UpdateFileMetadataRequest:
       type: object
       properties:
         name:
@@ -1320,16 +1244,16 @@ components:
         description:
           type: string
           nullable: true
-          maxLength: 1000
+          maxLength: 2000
 
     MoveFileRequest:
       type: object
-      required: [targetFolderId]
       properties:
         targetFolderId:
           type: string
           format: uuid
-          description: Destination folder ID.
+          nullable: true
+          description: Destination folder ID. Null moves the file to root.
 
     UpdateTextContentRequest:
       type: object
@@ -1358,8 +1282,10 @@ components:
         folderId:
           type: string
           format: uuid
+          nullable: true
         folderName:
           type: string
+          nullable: true
           example: Invoices
         name:
           type: string
@@ -1374,6 +1300,12 @@ components:
           type: integer
           format: int64
           example: 204800
+        version:
+          type: integer
+          example: 1
+        checksumSha256:
+          type: string
+          nullable: true
         sortOrder:
           type: integer
           description: Position within the parent folder.
@@ -1391,6 +1323,9 @@ components:
         id:
           type: string
           format: uuid
+        status:
+          type: string
+          enum: [Unknown, Active, Closed]
         messageCount:
           type: integer
           example: 14
@@ -1405,11 +1340,14 @@ components:
           format: uuid
         role:
           type: string
-          enum: [User, Ai]
+          enum: [Unknown, User, Ai, System]
           description: Message author role.
         content:
           type: string
           example: Please file these documents into the appropriate folders.
+        createdAt:
+          type: string
+          format: date-time
         attachments:
           type: array
           nullable: true
@@ -1437,22 +1375,22 @@ components:
 
     UpdateAiSettingsRequest:
       type: object
+      required: [apiKey]
       properties:
         baseUrl:
           type: string
-          format: uri
           nullable: true
-          description: LLM provider base URL. Omit to keep the current value.
+          description: LLM provider base URL. Empty string is accepted and validated as unset.
           example: https://api.openai.com/v1
         apiKey:
           type: string
-          nullable: true
-          description: LLM provider API key. Stored encrypted at rest. Omit to keep the current value.
+          description: LLM provider API key. Stored encrypted at rest.
           example: sk-proj-abc123...
         provider:
           type: string
           nullable: true
           enum:
+            - Unknown
             - OpenAI
             - OpenRouter
             - Gemini
@@ -1483,6 +1421,7 @@ components:
           type: string
           nullable: true
           enum:
+            - Unknown
             - OpenAI
             - OpenRouter
             - Gemini

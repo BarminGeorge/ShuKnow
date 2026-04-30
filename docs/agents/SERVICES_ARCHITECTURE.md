@@ -2,263 +2,123 @@
 
 ## Scope
 
-This document reflects the current `66-aiservice` branch relative to `main`.
+This document reflects the current backend service graph in `backend/ShuKnow.sln`.
 
-- `docs/openapi.yaml` and `docs/asyncapi.yaml` still describe the external REST and SignalR contracts.
-- This document describes the current service graph and the implementation gaps that now exist on this branch.
-- For implemented behavior, the code under `backend/ShuKnow.*` is the source of truth.
+Layers:
 
-## 1. Application-Layer Service Interfaces
+- `ShuKnow.Host`: composition root, `.env` loading, migrations through `SHUKNOW_APPLY_MIGRATIONS_ONLY`, runtime startup.
+- `ShuKnow.WebAPI`: controllers, DTO/mappers, validators, SignalR hub, auth/cookies/Swagger/AsyncAPI/health/metrics endpoints.
+- `ShuKnow.Application`: use-case services and application ports.
+- `ShuKnow.Domain`: entities, enums, repository interfaces, domain helpers.
+- `ShuKnow.Infrastructure`: EF Core repositories, PostgreSQL unit of work, JWT/identity/encryption, blob storage, Tornado AI integration, hosted cleanup services.
+- `ShuKnow.Metrics`: Redis-backed metric attribution and OpenTelemetry/Prometheus counters.
 
-The table below focuses on the interfaces that changed or whose runtime role changed on this branch.
+## Application Services
 
-| Interface | Status on this branch | Notes |
+| Service/interface | Current status | Runtime role |
 |---|---|---|
-| `ICurrentUserService` | Implemented | Still the ownership boundary for application services. |
-| `IIdentityService` | Implemented | No branch-specific changes. |
-| `ICurrentConnectionService` | Registered in WebAPI | Still available for SignalR-targeted notifications, but the new AI path does not currently consume it. |
-| `IFolderService` | Partially implemented | Added path-based methods `GetByPathAsync()` and `CreateByPathAsync()`. The current `FolderService` still throws `NotImplementedException` for several methods, including the new path-based ones. |
-| `IFileService` | Partially implemented | Added `GetByPathAsync()`. The current `FileService` still throws `NotImplementedException` for that method. |
-| `ITextFileService` | Added, not wired | New application port for text-file creation and text prepend/append operations. No implementation or DI registration exists yet. |
-| `IAttachmentService` | Implemented | Now used directly by `TornadoPromptBuilder` to turn staged attachments into multimodal message parts. |
-| `IChatService` | Changed and partially implemented | Added `GetMessagesAsync(ct)` for full active-session history and collapsed message persistence to `PersistMessageAsync()`. |
-| `ISettingsService` | Implemented | `TestConnectionAsync()` now persists the `UserAiSettings` instance returned by `IAiService.TestConnectionAsync()`. |
-| `IAiService` | Replaced contract, implemented in Infrastructure | The old streaming-only interface was removed. The new contract owns whole-message processing and connection testing. |
-| `IAiToolsService` | Added, not wired | New port for AI-triggered file-system-like actions (`create_folder`, `create_text_file`, `save_attachment`, `append_text`, `prepend_text`, `move_file`). No implementation or DI registration exists yet. |
-| `IActionQueryService` | Implemented | No branch-specific changes. |
-| `IActionTrackingService` | Implemented | No branch-specific changes, but the new AI path does not currently use it. |
-| `IRollbackService` | Implemented | No branch-specific changes. |
-| `IChatNotificationService` | Implemented in WebAPI | Still available, but the current AI path does not emit notification events through it. |
+| `IIdentityService` | Implemented in Infrastructure | Registration/login and JWT issuance. |
+| `ICurrentUserService` | Implemented in WebAPI | Reads current authenticated user from HTTP/SignalR context. |
+| `ICurrentConnectionService` | Implemented in WebAPI | Tracks current SignalR connection for targeted hub notifications. |
+| `IFolderService` | Implemented | Folder tree/list/create/get/update/delete subtree/move/reorder plus path lookup and path creation for AI tools. |
+| `IFileService` | Implemented | File metadata/content operations, folder listing, path lookup, move/reorder, blob delete queue integration. |
+| `IWorkspacePathService` | Implemented | Resolves user-facing folder/file paths to IDs and creation targets. |
+| `IAttachmentService` | Implemented | Uploads staged chat attachments, reads metadata, marks attachments consumed. |
+| `IAttachmentFileService` | Implemented | Saves a staged attachment as a persistent file. |
+| `IChatService` | Implemented | Chat session lifecycle, cursor-paginated messages, full history load, message persistence, expired session deletion. |
+| `ISettingsService` | Implemented | Per-user AI settings CRUD and connection tests. |
+| `IAiToolsService` | Implemented in Application | Executes model tool calls using folder/file/attachment services and emits hub notifications. |
+| `IAiService` | Implemented in Infrastructure | Tornado-based message processing and connection test workflow. |
+| `IProcessingOperationService` | Implemented in Infrastructure | Tracks cancellable SignalR operations per connection. |
+| `IChatNotificationService` | Implemented in WebAPI | Sends hub events to the current connection and records AI/file metrics where applicable. |
+| `IActionQueryService` | Not implemented | Registered but methods throw `NotImplementedException`. |
+| `IActionTrackingService` | Not implemented | Registered but methods throw `NotImplementedException`. |
+| `IRollbackService` | Not implemented | Registered but methods throw `NotImplementedException`. |
 
-## 2. Key Service Changes
+## Current AI Service Flow
 
-### 2.1 `IChatService`
+`ChatHub.SendMessage` is the runtime entry point for AI processing.
 
-The chat service now has an explicit-session read/write API:
+1. `IProcessingOperationService.BeginOperation(connectionId)` creates an operation ID and cancellation token.
+2. `IChatNotificationService.SendProcessingStartedAsync()` emits `OnProcessingStarted`.
+3. `ISettingsService.GetOrCreateAsync()` loads user AI settings.
+4. `IAiService.ProcessMessageAsync(sessionId, content, attachmentIds, settings, operationId, ct)` runs the workflow.
+5. `TornadoAiService` loads the chat session and previous messages.
+6. `TornadoPromptBuilder` builds system instructions and user message parts, including staged attachments.
+7. `TornadoConversationFactory` builds the provider conversation using encrypted user settings.
+8. `TornadoAiService` streams LLM chunks through `IChatNotificationService`.
+9. `TornadoToolsService` dispatches tool calls to `IAiToolsService`.
+10. `AiToolsService` performs folder/file/attachment mutations and emits specific hub events.
+11. `TornadoAiService` persists the user message and resulting AI messages.
+12. `ChatHub` emits `OnProcessingCompleted` or `OnProcessingFailed`.
 
-| Method | Current role |
+## AI Tool Operations
+
+| Tool operation | Backing services | Notification |
+|---|---|---|
+| `CreateFolderAsync(folderPath, description, emoji)` | `IFolderService.CreateByPathAsync` | `OnFolderCreated` |
+| `CreateTextFileAsync(filePath, content)` | `IWorkspacePathService`, `IFileService.UploadAsync` | `OnFileCreated` |
+| `SaveAttachment(attachmentId, filePath)` | `IAttachmentService`, `IAttachmentFileService` | `OnAttachmentSaved` |
+| `AppendTextAsync(filePath, text)` | `IFileService.GetByPathAsync`, `IFileService.UpdateTextContentAsync` | `OnTextAppended` |
+| `PrependTextAsync(filePath, text)` | `IFileService.GetByPathAsync`, `IFileService.UpdateTextContentAsync` | `OnTextPrepended` |
+| `MoveFileAsync(sourcePath, destinationPath)` | `IFileService.GetByPathAsync`, `IWorkspacePathService`, `IFileService.MoveAsync` | `OnFileMoved` |
+
+Tool operations are user-scoped through `ICurrentUserService` and repository filters. File create/move notifications also record AI item metrics.
+
+## Infrastructure Services
+
+| Component | Role |
 |---|---|
-| `CreateSessionAsync()` | Create a new chat session for the current user. |
-| `GetSessionAsync(sessionId)` | Return a specific session for the current user. |
-| `DeleteSessionAsync(sessionId)` | Delete a specific session and its messages. |
-| `GetMessagesAsync(sessionId, cursor, limit)` | Cursor-paginated read for the public chat-history API. |
-| `GetMessagesAsync(sessionId, ct)` | Return the in-memory message collection for a specific session. Used by `TornadoPromptBuilder` to hydrate conversation history. |
-| `PersistMessageAsync(message)` | Unified persistence entry point for user and AI messages. |
+| `AppDbContext` | EF Core 8/Npgsql persistence with snake_case naming. |
+| `PostgresUnitOfWork` | Commits repository changes through `SaveChangesAsync`. |
+| `BlobStorageService` | Stable app-facing blob storage API. |
+| `FileSystemBlobStorageProvider` | Local file-system blob backend. |
+| `S3BlobStorageProvider` | S3-compatible backend, used with RustFS in compose files. |
+| `BlobDeletionQueue` | Hosted queue for asynchronous blob deletions after DB commits. |
+| `BlobOrphanCleanupService` | Hosted cleanup for unreferenced blob objects. |
+| `ChatSessionCleanupService` | Hosted cleanup for sessions older than configured max age. |
+| `S3BucketInitializationService` | Ensures configured S3 bucket exists when S3 storage is active. |
+| `TornadoAiService` | Main AI workflow service. |
+| `TornadoPromptBuilder` | Builds system instructions, prior chat history, and multimodal message parts. |
+| `TornadoToolsService` | Registers and dispatches LLM tool calls. |
+| `TornadoConversationFactory` | Creates provider conversations and decrypts API keys. |
 
-Implementation notes:
+## Persistence Status
 
-- `ChatService` no longer exposes separate `PersistUserMessageAsync`, `PersistAiMessageAsync`, or `PersistCancellationRecordAsync` methods.
-- The current implementation persists through `IChatMessageRepository`, but the comment `// TODO: add index increment` remains in place.
-- `ChatSession.Messages` is now an `IReadOnlyCollection<ChatMessage>` used as the source for the non-paginated history path.
+Implemented repositories:
 
-### 2.2 `IAiService`
+- `UserRepository`
+- `IdentityUserRepository`
+- `FolderRepository`
+- `FileRepository`
+- `ChatSessionRepository`
+- `ChatMessageRepository`
+- `AttachmentRepository`
+- `SettingsRepository`
 
-`IAiService` was redesigned from a low-level streaming adapter into a higher-level AI workflow boundary:
+Not implemented:
 
-| Method | Current role |
-|---|---|
-| `ProcessMessageAsync(content, attachmentIds, settings)` | Build a conversation, load prior messages, resolve attachments, execute tool calls, and persist the final user and AI messages. |
-| `TestConnectionAsync(settings)` | Run a minimal conversation round-trip, measure latency, and mutate the supplied `UserAiSettings` with the latest test result. |
+- `ActionRepository`
 
-This interface is now implemented by [`TornadoAiService`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Infrastructure\Services\TornadoAiService.cs), not by the removed `AiService`.
+## Metrics Services
 
-### 2.3 `IAiToolsService`
+`ShuKnow.Metrics` registers:
 
-This is a new application port introduced for function/tool execution from the LLM conversation:
+- `IMetricsRepository` backed by Redis.
+- `IMetricsService` for product event recording.
+- `MetricsInstruments` for Prometheus/OpenTelemetry counters.
 
-| Method | Expected behavior |
-|---|---|
-| `CreateFolderAsync(folderPath, description, emoji)` | Create a folder by path. |
-| `CreateTextFileAsync(filePath, content)` | Create a text file by path. |
-| `SaveAttachment(attachmentId, filePath)` | Persist a staged attachment into a file path. |
-| `AppendTextAsync(filePath, text)` | Append text to an existing file. |
-| `PrependTextAsync(filePath, text)` | Prepend text to an existing file. |
-| `MoveFileAsync(sourcePath, destinationPath)` | Move a file between paths. |
+Runtime metric calls currently happen on:
 
-Current branch state:
+- Chat attachment upload: content saved.
+- File upload, content replacement, text update: content saved.
+- File content download: content opened.
+- Manual file move: manual move.
+- AI-created or AI-moved files: AI item processed.
 
-- [`TornadoToolsService`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Infrastructure\Services\TornadoToolsService.cs) registers these methods as LLM tools.
-- No concrete `IAiToolsService` implementation exists in the branch.
-- No DI registration for `IAiToolsService` exists, so resolving `TornadoAiService` in the application runtime will currently fail until this port is implemented and registered.
+## Known Gaps
 
-### 2.4 Removed Services
-
-The following interfaces and implementations were removed on this branch:
-
-- `IAIOrchestrationService`
-- `IPromptPreparationService`
-- `IPromptBuilder`
-- `IClassificationParser`
-- `AiOrchestrationService`
-- `PromptPreparationService`
-- `PromptBuilder`
-- `ClassificationParser`
-- `AiService`
-
-Their responsibilities were replaced by infrastructure-side Tornado components:
-
-- [`TornadoAiService`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Infrastructure\Services\TornadoAiService.cs)
-- [`TornadoPromptBuilder`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Infrastructure\Services\TornadoPromptBuilder.cs)
-- [`TornadoToolsService`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Infrastructure\Services\TornadoToolsService.cs)
-- [`ITornadoConversationFactory`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Infrastructure\Services\ITornadoConversationFactory.cs)
-
-## 3. Infrastructure Adapters Behind the New AI Path
-
-### 3.1 `TornadoAiService`
-
-Responsibilities:
-
-1. Resolve the active chat session.
-2. Create a Tornado conversation with registered tools.
-3. Prepend system instructions.
-4. Add prior chat history from `IChatService`.
-5. Expand attachments into `ChatMessagePart` instances.
-6. Run the LLM conversation until it converges or reaches `MaxTurns = 10`.
-7. Dispatch tool calls through `TornadoToolsService`.
-8. Persist the final user message and final AI message through `IChatService`.
-
-Notable behavior:
-
-- The final user message is persisted after successful convergence, not before tool execution starts.
-- Conversation errors return `Result.Error("Error while processing message")`.
-- Non-converging tool loops return `Result.Error("Agent did not converge after 10 iterations")`.
-
-### 3.2 `TornadoPromptBuilder`
-
-Responsibilities:
-
-- Build the system instruction string.
-- Load previous chat messages and map them to Tornado chat messages.
-- Load attachment metadata and blob contents.
-- Convert attachments into text, image, audio, or document message parts.
-
-Current branch gap:
-
-- `CreateSystemInstructions()` still returns a placeholder Russian instruction string and does not yet inject folder-tree context.
-
-### 3.3 `ITornadoConversationFactory` and `ITornadoConversation`
-
-These infrastructure abstractions isolate the `LlmTornado` SDK:
-
-- `ITornadoConversationFactory` creates either a tool-enabled conversation or a simple conversation for connection testing.
-- `ITornadoConversation` hides the concrete Tornado `Conversation` type behind a testable interface.
-- `TornadoConversationFactory` decrypts the API key, maps `AiProvider` to `LlmTornado` providers, parses the optional base URL, and builds the conversation request.
-
-### 3.4 Supporting Utilities
-
-- [`TornadoMappers`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Infrastructure\Extensions\TornadoMappers.cs) maps provider enums, chat roles, and audio MIME types into Tornado SDK types.
-- [`LatencyMeasureUtil`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Infrastructure\Misc\LatencyMeasureUtil.cs) measures successful connection-test latency.
-- [`UserAiSettingsExtensions.ParseBaseUrl()`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.Domain\Extensions\UserAiSettingsExtensions.cs) validates optional absolute base URLs before the conversation factory uses them.
-
-## 4. Dependency Flow
-
-### 4.1 Runtime AI interaction on this branch
-
-```mermaid
-flowchart LR
-    classDef entry fill:#F4F1DE,stroke:#6B705C,color:#1F2937,stroke-width:1.5px;
-    classDef core fill:#E0F2FE,stroke:#1D4ED8,color:#1F2937,stroke-width:1.5px;
-    classDef support fill:#FEF3C7,stroke:#B45309,color:#1F2937,stroke-width:1.2px;
-    classDef transport fill:#FEE2E2,stroke:#B91C1C,color:#1F2937,stroke-width:1.2px;
-    classDef external fill:#F3F4F6,stroke:#6B7280,color:#111827,stroke-width:1.2px,stroke-dasharray: 5 3;
-
-    Caller["REST controller or future ChatHub wiring"]:::entry
-
-    subgraph App["Application Layer"]
-        direction TB
-        Settings["ISettingsService"]:::core
-        Chat["IChatService"]:::core
-        Attachments["IAttachmentService"]:::core
-        Files["IFileService"]:::core
-        Folders["IFolderService"]:::core
-        TextFiles["ITextFileService"]:::support
-        AiTools["IAiToolsService"]:::support
-    end
-
-    subgraph Infra["Infrastructure AI adapters"]
-        direction TB
-        Ai["TornadoAiService / IAiService"]:::core
-        Prompt["TornadoPromptBuilder"]:::support
-        Tools["TornadoToolsService"]:::support
-        Factory["ITornadoConversationFactory"]:::support
-    end
-
-    LLM["LLM provider via LlmTornado"]:::external
-    BlobStore["Blob storage"]:::external
-
-    Caller --> Settings
-    Caller --> Ai
-    Ai --> Chat
-    Ai --> Prompt
-    Ai --> Tools
-    Ai --> Factory
-    Prompt --> Chat
-    Prompt --> Attachments
-    Prompt --> BlobStore
-    Tools --> AiTools
-    AiTools --> Files
-    AiTools --> Folders
-    AiTools --> TextFiles
-    Factory --> LLM
-```
-
-### 4.2 Port and implementation mapping
-
-```mermaid
-flowchart LR
-    classDef repo fill:#E0F2FE,stroke:#1D4ED8,color:#1F2937,stroke-width:1.3px;
-    classDef port fill:#DBEAFE,stroke:#2563EB,color:#1F2937,stroke-width:1.3px;
-    classDef helper fill:#FEF3C7,stroke:#B45309,color:#1F2937,stroke-width:1.2px;
-    classDef external fill:#F3F4F6,stroke:#6B7280,color:#111827,stroke-width:1.2px,stroke-dasharray: 5 3;
-
-    subgraph Ports["Ports"]
-        direction TB
-        ChatPort["IChatService"]:::repo
-        AttachmentPort["IAttachmentService"]:::repo
-        SettingsPort["ISettingsRepository"]:::repo
-        FilePort["IFileService"]:::repo
-        FolderPort["IFolderService"]:::repo
-        TextFilePort["ITextFileService"]:::port
-        AiPort["IAiService"]:::port
-        AiToolsPort["IAiToolsService"]:::port
-        Encryption["IEncryptionService"]:::port
-        Blob["IBlobStorageService"]:::port
-    end
-
-    subgraph Implementations["Current implementations or adapters"]
-        direction TB
-        TornadoAi["TornadoAiService"]:::helper
-        Prompt["TornadoPromptBuilder"]:::helper
-        ToolRegistry["TornadoToolsService"]:::helper
-        ConvFactory["TornadoConversationFactory"]:::helper
-    end
-
-    subgraph Systems["External systems"]
-        direction TB
-        DB[(PostgreSQL)]:::external
-        BlobStore["File system or S3-compatible blob store"]:::external
-        LLM["LLM provider"]:::external
-    end
-
-    ChatPort --> DB
-    AttachmentPort --> DB
-    SettingsPort --> DB
-    Blob --> BlobStore
-    AiPort --> TornadoAi
-    TornadoAi --> Prompt
-    TornadoAi --> ToolRegistry
-    TornadoAi --> ConvFactory
-    ConvFactory --> Encryption
-    ConvFactory --> LLM
-    ToolRegistry --> AiToolsPort
-```
-
-## 5. Current Branch Gaps
-
-These are the main documentation-relevant gaps introduced by the branch:
-
-1. [`ChatHub`](C:\Users\Fey\Desktop\coding\pp\ppshu\backend\ShuKnow.WebAPI\Hubs\ChatHub.cs) still contains placeholder `SendMessage()` and `CancelProcessing()` implementations. The AsyncAPI contract remains aspirational; the new Tornado AI path is not wired into SignalR yet.
-2. `IAiToolsService` is required by `TornadoToolsService`, but no implementation or DI registration exists yet.
-3. `ITextFileService` is declared but not implemented or registered.
-4. `IFolderService.GetByPathAsync()`, `IFolderService.CreateByPathAsync()`, and `IFileService.GetByPathAsync()` are declared but currently throw `NotImplementedException`.
-5. The new AI path does not currently use `IActionTrackingService`, `IActionQueryService`, `IRollbackService`, or `IChatNotificationService`. Those services still exist, but they are no longer part of the active AI flow on this branch.
+- Actions/Rollback services and repository are placeholders.
+- Current AI tool execution does not create action records, so rollback cannot undo AI operations yet.
+- `IChatNotificationService` depends on the current SignalR connection; AI processing should remain initiated from hub context unless this dependency is redesigned.
+- `TornadoPromptBuilder` is the place to evolve prompt/context injection for folder and file summaries.
