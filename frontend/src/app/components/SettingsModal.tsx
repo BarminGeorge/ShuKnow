@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSaved?: () => void;
 }
 
 const PROVIDER_MODELS: Record<string, string> = {
@@ -22,6 +23,7 @@ const PROVIDER_MODELS: Record<string, string> = {
 
 const PROVIDERS = ["OpenAI", "OpenRouter", "Gemini", "Anthropic"];
 const EMPTY_SETTING_VALUE = "Не задано";
+const GUIDE_IMAGE_PRELOAD_RADIUS = 1;
 
 const modalButtonClass = "rounded-lg border border-white/10 bg-white/[0.045] shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition-colors hover:border-white/14 hover:bg-white/[0.065]";
 const primaryButtonClass = "rounded-lg border border-violet-300/12 bg-[linear-gradient(135deg,rgba(76,29,149,0.26),rgba(17,16,24,0.58)_60%,rgba(109,40,217,0.08))] text-violet-200/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_14px_rgba(91,33,182,0.045)] transition-all hover:border-violet-300/20 hover:text-violet-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_18px_rgba(91,33,182,0.075)]";
@@ -179,6 +181,31 @@ const PROVIDER_GUIDES: Record<string, ProviderGuideSlide[]> = {
   ],
 };
 
+const guideImageCache = new Map<string, Promise<void>>();
+
+function preloadGuideImage(src?: string) {
+  if (!src || guideImageCache.has(src)) return guideImageCache.get(src);
+
+  const preloadPromise = new Promise<void>((resolve) => {
+    const image = new Image();
+
+    image.onload = () => resolve();
+    image.onerror = () => resolve();
+    image.src = src;
+
+    if (image.decode) {
+      image.decode().then(resolve).catch(resolve);
+    }
+  });
+
+  guideImageCache.set(src, preloadPromise);
+  return preloadPromise;
+}
+
+function getGuideImages(slides: ProviderGuideSlide[]) {
+  return slides.map((item) => item.image).filter((image): image is string => Boolean(image));
+}
+
 function ProviderGuideModal({
   initialProvider,
   onClose,
@@ -192,6 +219,23 @@ function ProviderGuideModal({
   const [slideIndex, setSlideIndex] = useState(0);
   const slides = PROVIDER_GUIDES[selectedProvider] ?? PROVIDER_GUIDES.OpenRouter;
   const slide = slides[slideIndex] ?? slides[0];
+
+  useEffect(() => {
+    if (!slides.length) return;
+
+    for (let offset = -GUIDE_IMAGE_PRELOAD_RADIUS; offset <= GUIDE_IMAGE_PRELOAD_RADIUS; offset += 1) {
+      const imageIndex = (slideIndex + offset + slides.length) % slides.length;
+      preloadGuideImage(slides[imageIndex]?.image);
+    }
+  }, [slideIndex, slides]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      getGuideImages(slides).forEach((image) => preloadGuideImage(image));
+    }, 120);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [slides]);
 
   const handleProviderChange = (nextProvider: string) => {
     setSelectedProvider(nextProvider);
@@ -256,7 +300,13 @@ function ProviderGuideModal({
               <div className="space-y-4 lg:grid lg:min-h-full lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-5 lg:space-y-0">
                 <div className="min-w-0">
                   {slide.image ? (
-                    <img src={slide.image} alt={slide.title} className={guideImageClass} />
+                    <img
+                      src={slide.image}
+                      alt={slide.title}
+                      className={guideImageClass}
+                      loading="eager"
+                      decoding="async"
+                    />
                   ) : (
                     <div className="flex h-[34svh] min-h-[220px] w-full items-center justify-center rounded-2xl border border-violet-200/12 bg-[linear-gradient(135deg,rgba(76,29,149,0.13),rgba(14,14,18,0.96)_54%,rgba(9,10,13,0.98))] px-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] sm:h-[300px] lg:h-[420px]">
                       <Sparkles size={42} className="text-violet-200/80" />
@@ -362,7 +412,7 @@ const maskApiKey = (key: string, emptyValue = EMPTY_SETTING_VALUE, maskChar = "*
   return `${trimmedKey.slice(0, visibleStart)}${maskChar.repeat(hiddenCount)}${trimmedKey.slice(-visibleEnd)}`;
 };
 
-export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+export function SettingsModal({ isOpen, onClose, onSaved }: SettingsModalProps) {
   const [apiKey, setApiKey] = useState("");
   const [apiKeyMasked, setApiKeyMasked] = useState("");
   const [provider, setProvider] = useState("");
@@ -464,6 +514,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setTestResult(null);
       setIsEditingKey(false);
       setApiKey("");
+      onSaved?.();
     } catch (error) {
       console.error("Failed to save settings:", error);
       const errorMsg = error instanceof Error ? error.message : "Не удалось сохранить настройки";
@@ -535,11 +586,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <button
               type="button"
               onClick={() => setIsProviderGuideOpen(true)}
-              className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-violet-500/10 hover:text-violet-100"
+              className="ml-auto flex h-10 w-10 items-center justify-center rounded-lg border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))] text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-colors hover:border-white/[0.12] hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] hover:text-gray-100 active:border-white/[0.10] active:bg-[linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.025))] active:text-gray-300"
               title="Как получить API ключ"
               aria-label="Открыть гайд по получению API ключа"
             >
-              <HelpCircle size={18} />
+              <HelpCircle size={20} />
             </button>
           )}
         </div>

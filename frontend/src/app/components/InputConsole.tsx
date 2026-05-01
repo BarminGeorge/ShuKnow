@@ -6,6 +6,8 @@ import { chatService } from "../../api";
 
 interface InputConsoleProps {
   onSend?: (text: string, attachments?: Attachment[]) => void;
+  disabled?: boolean;
+  disabledPlaceholder?: string;
 }
 
 const CHAT_DRAFT_STORAGE_KEY = "shuknow-chat-draft";
@@ -39,7 +41,7 @@ function extensionFromMimeType(mimeType: string): string {
   return map[mimeType.toLowerCase()] ?? "";
 }
 
-export function InputConsole({ onSend }: InputConsoleProps) {
+export function InputConsole({ onSend, disabled = false, disabledPlaceholder = "Недоступно" }: InputConsoleProps) {
   const [input, setInput] = useState(() => {
     if (typeof window === "undefined") return "";
     return window.sessionStorage.getItem(CHAT_DRAFT_STORAGE_KEY) ?? "";
@@ -52,6 +54,8 @@ export function InputConsole({ onSend }: InputConsoleProps) {
   const dragCounterRef = useRef(0);
 
   const addFiles = useCallback((files: FileList | File[]) => {
+    if (disabled) return;
+
     const fileArray = Array.from(files);
     const newAttachments: Attachment[] = fileArray.map(createAttachmentFromFile);
     
@@ -62,7 +66,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
       );
       return [...prev, ...unique];
     });
-  }, []);
+  }, [disabled]);
 
   const removeAttachment = useCallback((localId: string) => {
     setAttachments((prev) => {
@@ -75,6 +79,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
   }, []);
 
   const handleSend = async () => {
+    if (disabled) return;
     if (!input.trim() && attachments.length === 0) return;
     
     let finalAttachments = attachments;
@@ -106,38 +111,47 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     
     setInput("");
     setAttachments([]);
+    textareaRef.current?.blur();
     if (typeof window !== "undefined") {
       window.sessionStorage.removeItem(CHAT_DRAFT_STORAGE_KEY);
     }
   };
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
+    if (disabled) return;
+
     e.preventDefault();
     e.stopPropagation();
     dragCounterRef.current++;
     if (dragCounterRef.current === 1) {
       setIsDragging(true);
     }
-  }, []);
+  }, [disabled]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (disabled) return;
+
     e.preventDefault();
     e.stopPropagation();
     dragCounterRef.current--;
     if (dragCounterRef.current === 0) {
       setIsDragging(false);
     }
-  }, []);
+  }, [disabled]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (disabled) return;
+
     e.preventDefault();
     e.stopPropagation();
     if (!isDragging) {
       setIsDragging(true);
     }
-  }, [isDragging]);
+  }, [disabled, isDragging]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
+    if (disabled) return;
+
     e.preventDefault();
     e.stopPropagation();
     dragCounterRef.current = 0;
@@ -174,17 +188,19 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     if (files.length > 0) {
       addFiles(files);
     }
-  }, [addFiles]);
+  }, [addFiles, disabled]);
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files && files.length > 0) {
+    if (!disabled && files && files.length > 0) {
       addFiles(files);
     }
     e.target.value = "";
   };
 
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (disabled) return;
+
     const clipboardItems = Array.from(e.clipboardData?.items ?? []);
     if (clipboardItems.length === 0) return;
 
@@ -211,7 +227,7 @@ export function InputConsole({ onSend }: InputConsoleProps) {
     });
 
     addFiles(normalizedFiles);
-  }, [addFiles]);
+  }, [addFiles, disabled]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -296,8 +312,8 @@ export function InputConsole({ onSend }: InputConsoleProps) {
             transition-all duration-150
             before:absolute before:inset-x-5 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent
             after:absolute after:inset-x-8 after:bottom-0 after:h-px after:bg-gradient-to-r after:from-transparent after:via-black/70 after:to-transparent
-            hover:-translate-y-px hover:border-white/[0.13] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.065),inset_0_-18px_36px_rgba(0,0,0,0.20),0_20px_52px_rgba(0,0,0,0.38),0_0_16px_rgba(167,139,250,0.025)]
-            focus-within:-translate-y-px focus-within:border-violet-200/18 focus-within:shadow-[inset_0_1px_0_rgba(255,255,255,0.075),inset_0_-18px_36px_rgba(0,0,0,0.20),0_20px_52px_rgba(0,0,0,0.38),0_0_18px_rgba(167,139,250,0.04)] ${
+            hover:border-white/[0.13] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.065),inset_0_-18px_36px_rgba(0,0,0,0.20),0_20px_52px_rgba(0,0,0,0.38),0_0_16px_rgba(167,139,250,0.025)]
+            focus-within:border-violet-200/18 focus-within:shadow-[inset_0_1px_0_rgba(255,255,255,0.075),inset_0_-18px_36px_rgba(0,0,0,0.20),0_20px_52px_rgba(0,0,0,0.38),0_0_18px_rgba(167,139,250,0.04)] ${
             isDragging 
               ? "bg-[linear-gradient(135deg,rgb(39,30,56),rgb(24,22,29)_45%,rgb(34,30,48))] border-violet-200/26 ring-2 ring-violet-300/14" 
               : "bg-[linear-gradient(135deg,rgb(25,25,26),rgb(22,22,23)_34%,rgb(17,17,18)_62%,rgb(18,18,19))] border-white/[0.085]"
@@ -309,8 +325,9 @@ export function InputConsole({ onSend }: InputConsoleProps) {
         >
           <button
             onClick={() => fileInputRef.current?.click()}
+            disabled={disabled}
             className="relative z-10 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-gray-400 lg:h-8 lg:w-8
-                       hover:text-violet-100 hover:bg-violet-500/10 transition-colors"
+                       hover:text-violet-100 hover:bg-violet-500/10 transition-colors disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-gray-400"
             title="Прикрепить файлы"
           >
             <Paperclip size={16} className="lg:h-[18px] lg:w-[18px]" />
@@ -322,15 +339,16 @@ export function InputConsole({ onSend }: InputConsoleProps) {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder={isDragging ? "Отпустите файлы здесь..." : "Спросите ShuKnow..."}
-            className="relative z-10 flex-1 max-h-[112px] min-h-[20px] bg-transparent pt-[1px] text-sm leading-5 text-gray-100 placeholder:text-gray-500 lg:max-h-[200px] lg:min-h-[24px] lg:pt-0 lg:text-[15px] lg:leading-relaxed
-                       focus:placeholder:text-gray-400 resize-none outline-none overflow-y-auto"
+            disabled={disabled}
+            placeholder={disabled ? disabledPlaceholder : isDragging ? "Отпустите файлы здесь..." : "Спросите ShuKnow..."}
+            className="relative z-10 flex-1 max-h-[112px] min-h-[20px] bg-transparent pt-[1px] text-left text-sm leading-5 text-gray-100 caret-violet-200 placeholder:text-gray-500 lg:max-h-[200px] lg:min-h-[24px] lg:pt-0 lg:text-[15px] lg:leading-relaxed
+                       focus:placeholder:text-gray-400 resize-none outline-none overflow-y-auto disabled:cursor-not-allowed disabled:text-gray-500 disabled:caret-transparent"
             rows={1}
           />
 
           <button
             onClick={handleSend}
-            disabled={isUploading || (!input.trim() && attachments.length === 0)}
+            disabled={disabled || isUploading || (!input.trim() && attachments.length === 0)}
             className="relative z-10 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-violet-100 lg:h-8 lg:w-8
                        bg-[linear-gradient(135deg,rgb(36,31,48),rgb(20,22,31)_58%,rgb(28,26,39))]
                        border border-violet-200/14 shadow-[0_0_14px_rgba(167,139,250,0.035)] transition-all duration-150

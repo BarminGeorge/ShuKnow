@@ -1,17 +1,19 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { ChatMessages } from "./components/ChatMessages";
+import type { Attachment } from "./components/ChatMessages";
 import { InputConsole } from "./components/InputConsole";
-import { PanelLeftClose, Sparkles } from "lucide-react";
+import { KeyRound, PanelLeftClose, Sparkles } from "lucide-react";
 import { FolderContentView } from "./components/FolderContentView";
 import { TabsWorkspace } from "./components/workspace/TabsWorkspace";
 import { TabBar } from "./components/workspace/TabBar";
 import { WorkspaceErrorBoundary } from "./components/workspace/WorkspaceErrorBoundary";
+import { SettingsModal } from "./components/SettingsModal";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { Toaster, toast } from "sonner";
 import type { Folder, FileItem, Folder as ApiFolder, FileItem as ApiFileItem } from "../api/types";
-import { fileService } from "../api";
+import { fileService, settingsService } from "../api";
 import { useFolders } from "./hooks/useFolders";
 import { useFiles } from "./hooks/useFiles";
 import { useTabs } from "./hooks/useTabs";
@@ -19,6 +21,7 @@ import { useWorkspaceView } from "./hooks/useWorkspaceView";
 import { useChatController } from "./hooks/useChatController";
 
 const WORKSPACE_LOCATION_STORAGE_KEY = "shuknow.workspace.location";
+const API_KEY_PROMPT_SKIPPED_STORAGE_KEY = "shuknow.api-key-prompt-skipped.v3";
 
 type PersistedWorkspaceLocation = {
   viewMode: "chat" | "folder" | "editor";
@@ -81,6 +84,14 @@ function readWorkspaceLocation(): PersistedWorkspaceLocation | null {
 
 function writeWorkspaceLocation(location: PersistedWorkspaceLocation) {
   window.localStorage.setItem(WORKSPACE_LOCATION_STORAGE_KEY, JSON.stringify(location));
+}
+
+function readApiKeyPromptSkipped() {
+  try {
+    return window.sessionStorage.getItem(API_KEY_PROMPT_SKIPPED_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
 }
 
 function findFolderPathByIdInTree(folders: Folder[], folderId: string): string[] | null {
@@ -173,6 +184,66 @@ export default function Workspace() {
   const hasRestoredWorkspaceLocationRef = useRef(false);
   const [composerBottomPadding, setComposerBottomPadding] = useState(176);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAiConfigured, setIsAiConfigured] = useState(false);
+  const [isAiSettingsLoading, setIsAiSettingsLoading] = useState(true);
+  const [isApiKeyPromptSkipped, setIsApiKeyPromptSkipped] = useState(readApiKeyPromptSkipped);
+
+  const loadAiSettingsStatus = useCallback(async () => {
+    try {
+      setIsAiSettingsLoading(true);
+      const settings = await settingsService.fetchAiSettings();
+      const hasRequiredSettings =
+        !!settings.apiKeyMasked?.trim() &&
+        !!settings.provider &&
+        settings.provider !== "unknown" &&
+        !!settings.modelId?.trim();
+
+      setIsAiConfigured(settings.isConfigured || hasRequiredSettings);
+    } catch (error) {
+      console.error("Failed to load AI settings status:", error);
+      setIsAiConfigured(false);
+    } finally {
+      setIsAiSettingsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadAiSettingsStatus();
+  }, [loadAiSettingsStatus]);
+
+  const isChatInputDisabled = isAiSettingsLoading || !isAiConfigured;
+  const shouldShowApiKeyBlock = !isAiSettingsLoading && !isAiConfigured;
+  const shouldShowPrimaryApiKeyBlock = shouldShowApiKeyBlock && !isApiKeyPromptSkipped;
+  const shouldShowCompactApiKeyBlock = shouldShowApiKeyBlock && isApiKeyPromptSkipped;
+  const disabledChatPlaceholder = isAiSettingsLoading ? "Проверяем API-ключ..." : "Сначала подключите API-ключ";
+
+  const handleOpenSettings = () => {
+    setIsSettingsOpen(true);
+  };
+
+  const handleAiSettingsSaved = () => {
+    setIsAiConfigured(true);
+    void loadAiSettingsStatus();
+  };
+
+  const handleSkipApiKeyPrompt = () => {
+    setIsApiKeyPromptSkipped(true);
+    try {
+      window.sessionStorage.setItem(API_KEY_PROMPT_SKIPPED_STORAGE_KEY, "true");
+    } catch {
+      // Session storage can fail in private contexts; state is enough for this view.
+    }
+  };
+
+  const handleBlockedSendMessage = useCallback((text: string, attachments?: Attachment[]) => {
+    if (shouldShowApiKeyBlock) {
+      toast.error("Сначала подключите API-ключ в настройках.");
+      return;
+    }
+
+    handleSendMessage(text, attachments);
+  }, [handleSendMessage, shouldShowApiKeyBlock]);
 
   useEffect(() => {
     const composer = composerRef.current;
@@ -427,6 +498,7 @@ export default function Workspace() {
               onChatClick={handleGoToChat}
               onToggleSidebar={handleToggleSidebar}
               isCollapsed={isSidebarCollapsed}
+              onOpenSettings={handleOpenSettings}
             />
           </aside>
 
@@ -445,6 +517,7 @@ export default function Workspace() {
                     onChatClick={handleGoToChat}
                     isCollapsed={false}
                     onNavigateComplete={() => setIsMobileSidebarOpen(false)}
+                    onOpenSettings={handleOpenSettings}
                   />
                 </div>
               </aside>
@@ -509,23 +582,91 @@ export default function Workspace() {
                   <div className="h-full flex flex-col relative w-full">
                     {messages.length === 0 ? (
                       <div className="flex-1 flex flex-col items-center justify-center px-4 pb-8 lg:pb-20">
-                        <div className="flex max-w-full items-center gap-2 mb-4 lg:gap-3 lg:mb-6">
-                          <div className="relative flex h-6 w-6 items-center justify-center lg:h-9 lg:w-9">
-                            <div className="absolute inset-2 rounded-full bg-[#4c1d95]/7 blur-sm" />
-                            <Sparkles
-                              size={19}
-                              className="relative text-violet-300/62 drop-shadow-[0_0_5px_rgba(91,33,182,0.16)]"
-                              strokeWidth={2.25}
-                            />
+                        {shouldShowPrimaryApiKeyBlock ? (
+                          <div className="w-full max-w-3xl rounded-3xl border border-violet-300/18 bg-[linear-gradient(135deg,rgba(76,29,149,0.34),rgba(18,18,24,0.98)_48%,rgba(49,22,84,0.46))] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_24px_70px_rgba(0,0,0,0.42),0_0_34px_rgba(91,33,182,0.08)] lg:min-h-[300px] lg:p-8">
+                            <div className="flex min-h-[252px] flex-col justify-between gap-8">
+                              <div className="flex max-w-2xl gap-4">
+                                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl border border-violet-200/18 bg-[linear-gradient(135deg,rgba(76,29,149,0.38),rgba(17,16,24,0.84))] text-violet-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
+                                  <KeyRound size={20} />
+                                </div>
+                                <div className="min-w-0">
+                                  <h3 className="text-2xl font-semibold tracking-tight text-violet-100 lg:text-3xl">Поставьте ключ</h3>
+                                  <p className="mt-3 max-w-xl text-sm leading-6 text-gray-400 lg:text-base">
+                                    Подключите API-ключ, чтобы ShuKnow мог отвечать в чате и раскладывать материалы.
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between gap-3">
+                                <button
+                                  type="button"
+                                  onClick={handleSkipApiKeyPrompt}
+                                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.035] px-5 text-sm font-medium text-gray-400 transition-colors hover:border-white/[0.12] hover:bg-white/[0.055] hover:text-gray-200"
+                                >
+                                  Пропустить
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleOpenSettings}
+                                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-violet-300/18 bg-[linear-gradient(135deg,rgb(40,25,70),rgb(20,19,30)_58%,rgb(34,24,56))] px-5 text-sm font-semibold text-violet-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.065),0_0_18px_rgba(91,33,182,0.08)] transition-all hover:border-violet-300/28 hover:text-white hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.075),0_0_24px_rgba(91,33,182,0.12)]"
+                                >
+                                  Поставить ключ
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                          <h2 className="min-w-0 truncate text-center text-lg font-semibold leading-tight text-gray-100/90 lg:text-2xl">{currentTitle}</h2>
-                        </div>
-                        <div className="w-full max-w-3xl">
-                          <InputConsole onSend={handleSendMessage} />
-                        </div>
+                        ) : (
+                          <>
+                            <div className="flex max-w-full items-center gap-2 mb-4 lg:gap-3 lg:mb-6">
+                              <div className="relative flex h-6 w-6 items-center justify-center lg:h-9 lg:w-9">
+                                <div className="absolute inset-2 rounded-full bg-[#4c1d95]/7 blur-sm" />
+                                <Sparkles
+                                  size={19}
+                                  className="relative text-violet-300/62 drop-shadow-[0_0_5px_rgba(91,33,182,0.16)]"
+                                  strokeWidth={2.25}
+                                />
+                              </div>
+                              <h2 className="min-w-0 truncate text-center text-lg font-semibold leading-tight text-gray-100/90 lg:text-2xl">{currentTitle}</h2>
+                            </div>
+                            <div className="relative w-full max-w-3xl">
+                              <InputConsole
+                                onSend={handleBlockedSendMessage}
+                                disabled={isChatInputDisabled}
+                                disabledPlaceholder={disabledChatPlaceholder}
+                              />
+                              {shouldShowCompactApiKeyBlock && (
+                                <div className="absolute left-0 right-0 top-full mt-3 flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-sm text-gray-500">
+                                  <KeyRound size={14} className="text-gray-500" />
+                                  <span>Поставьте API-ключ, чтобы агент начал работать.</span>
+                                  <button
+                                    type="button"
+                                    onClick={handleOpenSettings}
+                                    className="font-medium text-gray-300 underline decoration-white/15 underline-offset-4 transition-colors hover:text-gray-100 hover:decoration-white/35 active:text-gray-400"
+                                  >
+                                    Открыть настройки
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
                       </div>
                     ) : (
                       <>
+                        {shouldShowApiKeyBlock && (
+                          <div className="absolute inset-x-0 bottom-20 z-30 mx-auto w-full max-w-3xl px-3 lg:bottom-28 lg:px-4">
+                            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-xl border border-white/[0.07] bg-[#111111]/95 px-4 py-2.5 text-center text-sm text-gray-500 shadow-[0_14px_36px_rgba(0,0,0,0.30),inset_0_1px_0_rgba(255,255,255,0.035)]">
+                                <KeyRound size={14} className="text-gray-500" />
+                                <span>Поставьте API-ключ, чтобы агент начал работать.</span>
+                                <button
+                                  type="button"
+                                  onClick={handleOpenSettings}
+                                  className="font-medium text-gray-300 underline decoration-white/15 underline-offset-4 transition-colors hover:text-gray-100 hover:decoration-white/35 active:text-gray-400"
+                                >
+                                  Открыть настройки
+                                </button>
+                            </div>
+                          </div>
+                        )}
                         <ChatMessages 
                           messages={messages} 
                           bottomPadding={composerBottomPadding}
@@ -543,7 +684,11 @@ export default function Workspace() {
                         />
                         <div ref={composerRef} className="absolute inset-x-0 bottom-0 z-20 pointer-events-none">
                           <div className="pointer-events-auto">
-                            <InputConsole onSend={handleSendMessage} />
+                            <InputConsole
+                              onSend={handleBlockedSendMessage}
+                              disabled={isChatInputDisabled}
+                              disabledPlaceholder={disabledChatPlaceholder}
+                            />
                           </div>
                         </div>
                       </>
@@ -555,6 +700,11 @@ export default function Workspace() {
           </main>
         </div>
       </div>
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onSaved={handleAiSettingsSaved}
+      />
       <Toaster theme="dark" />
     </DndProvider>
   );

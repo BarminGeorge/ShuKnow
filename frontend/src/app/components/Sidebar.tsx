@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Settings, Plus, PanelLeftClose, PanelLeftOpen, MessageSquare, LogOut } from "lucide-react";
 import { FolderItem, SidebarFolderDragLayer } from "./FolderItem";
-import { SettingsModal } from "./SettingsModal";
 import { CreateFolderModal } from "./CreateFolderModal";
 import { EditFolderModal } from "./EditFolderModal";
 import { DeleteFolderModal } from "./DeleteFolderModal";
@@ -22,6 +21,7 @@ interface SidebarProps {
   onToggleSidebar?: () => void;
   isCollapsed?: boolean;
   onNavigateComplete?: () => void;
+  onOpenSettings: () => void;
 }
 
 const isNotFoundDeleteError = (error: unknown) => {
@@ -50,13 +50,12 @@ const isNonEmptyFolderError = (error: unknown) => {
   return false;
 };
 
-export function Sidebar({ onLogoClick, onChatClick, onToggleSidebar, isCollapsed, onNavigateComplete }: SidebarProps) {
+export function Sidebar({ onLogoClick, onChatClick, onToggleSidebar, isCollapsed, onNavigateComplete, onOpenSettings }: SidebarProps) {
   // Jotai hooks
   const { folders, setFolders, updateFolder, createFolder, moveFolderAtom } = useFolders();
   const { files, setFiles } = useFiles();
   const { setSelectedFolderPath, setViewMode } = useWorkspaceView();
   
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { logout } = useAuth();
   const navigate = useNavigate();
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
@@ -521,7 +520,7 @@ export function Sidebar({ onLogoClick, onChatClick, onToggleSidebar, isCollapsed
 
         <div className="mt-auto pt-4 flex-shrink-0 flex flex-col gap-1 items-center">
           <button
-            onClick={() => setIsSettingsOpen(true)}
+            onClick={onOpenSettings}
             className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
             title="Настройки"
           >
@@ -538,7 +537,6 @@ export function Sidebar({ onLogoClick, onChatClick, onToggleSidebar, isCollapsed
         </div>
 
         {/* Modals */}
-        <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
         <CreateFolderModal
           isOpen={isCreateFolderOpen}
           onClose={handleCreateFolderClose}
@@ -646,7 +644,7 @@ export function Sidebar({ onLogoClick, onChatClick, onToggleSidebar, isCollapsed
       {/* Footer Settings */}
       <div className="p-3 mt-auto space-y-1">
         <button
-          onClick={() => setIsSettingsOpen(true)}
+          onClick={onOpenSettings}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
           title="Настройки"
         >
@@ -665,7 +663,6 @@ export function Sidebar({ onLogoClick, onChatClick, onToggleSidebar, isCollapsed
       </div>
 
       {/* Modals */}
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <CreateFolderModal
         isOpen={isCreateFolderOpen}
         onClose={handleCreateFolderClose}

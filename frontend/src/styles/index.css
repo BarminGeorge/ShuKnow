@@ -15,6 +15,18 @@ html, body {
   background: #0a0a0a;
 }
 
+input:not(:focus),
+textarea:not(:focus),
+input:disabled,
+textarea:disabled {
+  caret-color: transparent;
+}
+
+input:focus,
+textarea:focus {
+  caret-color: rgb(196 181 253);
+}
+
 @media (max-width: 767px) {
   input:not([type="file"]),
   textarea,
