@@ -96,9 +96,26 @@ public static class ModelToDtoMappers
     public static IReadOnlyList<FolderTreeNodeDto> ToTree(this IReadOnlyList<Folder> folders)
     {
         var foldersByParentId = folders.ToLookup(folder => folder.ParentFolderId);
-        return foldersByParentId[null]
-            .Select(folder => folder.ToTreeNode(foldersByParentId))
-            .ToList();
+        var tree = new List<FolderTreeNodeDto>();
+        var visitedFolderIds = new HashSet<Guid>();
+
+        foreach (var root in foldersByParentId[null])
+        {
+            if (visitedFolderIds.Contains(root.Id))
+                continue;
+
+            tree.Add(root.ToTreeNode(foldersByParentId, visitedFolderIds, new HashSet<Guid>()));
+        }
+
+        foreach (var folder in folders)
+        {
+            if (visitedFolderIds.Contains(folder.Id))
+                continue;
+
+            tree.Add(folder.ToTreeNode(foldersByParentId, visitedFolderIds, new HashSet<Guid>()));
+        }
+
+        return tree;
     }
 
     public static AiSettingsDto ToDto(this UserAiSettings settings)
@@ -120,10 +137,21 @@ public static class ModelToDtoMappers
         return new AiConnectionTestDto(test.Success, test.LatencyMs, test.ErrorMessage);
     }
 
-    private static FolderTreeNodeDto ToTreeNode(this Folder folder, ILookup<Guid?, Folder> foldersByParentId)
+    private static FolderTreeNodeDto ToTreeNode(
+        this Folder folder,
+        ILookup<Guid?, Folder> foldersByParentId,
+        ISet<Guid> visitedFolderIds,
+        ISet<Guid> pathFolderIds)
     {
+        visitedFolderIds.Add(folder.Id);
+        pathFolderIds.Add(folder.Id);
+
         var children = foldersByParentId[folder.Id]
-            .Select(child => child.ToTreeNode(foldersByParentId))
+            .Where(child => !pathFolderIds.Contains(child.Id))
+            .Select(child => child.ToTreeNode(
+                foldersByParentId,
+                visitedFolderIds,
+                new HashSet<Guid>(pathFolderIds)))
             .ToList();
 
         return new FolderTreeNodeDto(

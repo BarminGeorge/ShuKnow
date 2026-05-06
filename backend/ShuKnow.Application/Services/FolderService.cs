@@ -17,6 +17,10 @@ internal class FolderService(
     IUnitOfWork unitOfWork)
     : IFolderService
 {
+    private const int MaxFolderDepth = 32;
+    private const string MaxFolderDepthExceededMessage = "Глубина вложенности папок не может превышать 32 уровня.";
+    private const string FolderHierarchyCycleMessage = "В иерархии папок обнаружен цикл.";
+
     private Guid CurrentUserId => currentUserService.UserId;
 
     public Task<Result<IReadOnlyList<Folder>>> GetTreeAsync(CancellationToken ct = default) =>
@@ -51,6 +55,7 @@ internal class FolderService(
     {
         return await EnsureParentFolderExistsAsync(folder.ParentFolderId)
             .BindAsync(_ => EnsureFolderNameUniqueAsync(folder.Name, folder.ParentFolderId))
+            .BindAsync(_ => EnsureCreateDepthIsValidAsync(folder.ParentFolderId))
             .BindAsync(_ => folderRepository.GetChildrenAsync(folder.ParentFolderId, CurrentUserId))
             .MapAsync(siblings => new Folder(
                 folder.Id,
@@ -216,7 +221,8 @@ internal class FolderService(
         return await EnsureNotMovingIntoSelfAsync(folderId, newParentFolderId)
             .BindAsync(_ => EnsureParentFolderExistsAsync(newParentFolderId))
             .BindAsync(_ => EnsureFolderNameUniqueAsync(folderName, newParentFolderId, folderId))
-            .BindAsync(_ => EnsureNotMovingIntoSubtreeAsync(folderId, newParentFolderId));
+            .BindAsync(_ => EnsureNotMovingIntoSubtreeAsync(folderId, newParentFolderId))
+            .BindAsync(_ => EnsureMoveDepthIsValidAsync(folderId, newParentFolderId));
     }
 
     private static Task<Result> EnsureNotMovingIntoSelfAsync(Guid folderId, Guid? newParentFolderId)
@@ -231,10 +237,84 @@ internal class FolderService(
         if (!newParentFolderId.HasValue)
             return Result.Success();
 
-        return await folderRepository.GetAncestorIdsAsync(newParentFolderId.Value, CurrentUserId)
-            .BindAsync(ancestorIds => Task.FromResult(ancestorIds.Contains(folderId)
-                ? Result.Conflict("A folder cannot be moved into its own subtree.")
-                : Result.Success()));
+        var ancestorsResult = await folderRepository.GetAncestorIdsAsync(newParentFolderId.Value, CurrentUserId);
+        if (!ancestorsResult.IsSuccess)
+            return Result.Conflict(FolderHierarchyCycleMessage);
+
+        return ancestorsResult.Value.Contains(folderId)
+            ? Result.Conflict("A folder cannot be moved into its own subtree.")
+            : Result.Success();
+    }
+
+    private async Task<Result> EnsureCreateDepthIsValidAsync(Guid? parentFolderId)
+    {
+        if (!parentFolderId.HasValue)
+            return Result.Success();
+
+        var ancestorsResult = await folderRepository.GetAncestorIdsAsync(parentFolderId.Value, CurrentUserId);
+        if (!ancestorsResult.IsSuccess)
+            return Result.Conflict(FolderHierarchyCycleMessage);
+
+        return ancestorsResult.Value.Count + 2 > MaxFolderDepth
+            ? Result.Conflict(MaxFolderDepthExceededMessage)
+            : Result.Success();
+    }
+
+    private async Task<Result> EnsureMoveDepthIsValidAsync(Guid folderId, Guid? newParentFolderId)
+    {
+        var targetDepthResult = await GetTargetDepthAsync(newParentFolderId);
+        if (!targetDepthResult.IsSuccess)
+            return targetDepthResult.Map();
+
+        var subtreeDepthResult = await GetSubtreeDepthAsync(folderId);
+        if (!subtreeDepthResult.IsSuccess)
+            return subtreeDepthResult.Map();
+
+        return targetDepthResult.Value + subtreeDepthResult.Value > MaxFolderDepth
+            ? Result.Conflict(MaxFolderDepthExceededMessage)
+            : Result.Success();
+    }
+
+    private async Task<Result<int>> GetTargetDepthAsync(Guid? parentFolderId)
+    {
+        if (!parentFolderId.HasValue)
+            return Result.Success(0);
+
+        var ancestorsResult = await folderRepository.GetAncestorIdsAsync(parentFolderId.Value, CurrentUserId);
+        if (!ancestorsResult.IsSuccess)
+            return Result<int>.Conflict(FolderHierarchyCycleMessage);
+
+        return Result.Success(ancestorsResult.Value.Count + 1);
+    }
+
+    private async Task<Result<int>> GetSubtreeDepthAsync(Guid folderId)
+    {
+        return await folderRepository.GetTreeAsync(CurrentUserId)
+            .BindAsync(folders => Task.FromResult(GetSubtreeDepth(folderId, folders)));
+    }
+
+    private static Result<int> GetSubtreeDepth(Guid folderId, IReadOnlyList<Folder> folders)
+    {
+        var foldersByParentId = folders.ToLookup(folder => folder.ParentFolderId);
+        var maxDepth = 0;
+        var stack = new Stack<(Guid FolderId, int Depth, HashSet<Guid> Path)>();
+        stack.Push((folderId, 1, [folderId]));
+
+        while (stack.Count > 0)
+        {
+            var (currentFolderId, depth, path) = stack.Pop();
+            maxDepth = Math.Max(maxDepth, depth);
+
+            foreach (var child in foldersByParentId[currentFolderId])
+            {
+                if (path.Contains(child.Id))
+                    return Result<int>.Conflict(FolderHierarchyCycleMessage);
+
+                stack.Push((child.Id, depth + 1, [..path, child.Id]));
+            }
+        }
+
+        return Result.Success(maxDepth);
     }
 
     private async Task<Result<IReadOnlyList<Guid>>> GetSubtreeFolderIdsAsync(Guid folderId)
@@ -285,10 +365,19 @@ internal class FolderService(
         ILookup<Guid?, Folder> foldersByParentId,
         ICollection<Guid> subtreeFolderIds)
     {
-        foreach (var child in foldersByParentId[folderId])
+        var visitedFolderIds = new HashSet<Guid> { folderId };
+        var stack = new Stack<Guid>(foldersByParentId[folderId].Select(folder => folder.Id));
+
+        while (stack.Count > 0)
         {
-            subtreeFolderIds.Add(child.Id);
-            AppendDescendantFolderIds(child.Id, foldersByParentId, subtreeFolderIds);
+            var currentFolderId = stack.Pop();
+            if (!visitedFolderIds.Add(currentFolderId))
+                continue;
+
+            subtreeFolderIds.Add(currentFolderId);
+
+            foreach (var child in foldersByParentId[currentFolderId])
+                stack.Push(child.Id);
         }
     }
 

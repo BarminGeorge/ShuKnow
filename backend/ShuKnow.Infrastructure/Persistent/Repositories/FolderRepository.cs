@@ -48,36 +48,27 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
         var childrenByParentId = folders.ToLookup(folder => folder.ParentFolderId);
         var orderedFolders = new List<Folder>(folders.Count);
         var visitedFolderIds = new HashSet<Guid>();
-        var pathFolderIds = new HashSet<Guid>();
 
-        var rootNodesResult = TryAppendNodes(childrenByParentId[null], childrenByParentId, orderedFolders,
-            visitedFolderIds, pathFolderIds);
-        if (!rootNodesResult.IsSuccess) return rootNodesResult.Map();
+        AppendNodes(childrenByParentId[null], childrenByParentId, orderedFolders, visitedFolderIds);
 
-        var remainingNodesResult =
-            TryAppendNodes(folders, childrenByParentId, orderedFolders, visitedFolderIds, pathFolderIds);
-        if (!remainingNodesResult.IsSuccess) return remainingNodesResult.Map();
+        AppendNodes(folders, childrenByParentId, orderedFolders, visitedFolderIds);
 
         return Result.Success<IReadOnlyList<Folder>>(orderedFolders);
     }
 
-    private static Result TryAppendNodes(
+    private static void AppendNodes(
         IEnumerable<Folder> nodes,
         ILookup<Guid?, Folder> childrenByParentId,
         List<Folder> orderedFolders,
-        HashSet<Guid> visitedFolderIds,
-        HashSet<Guid> pathFolderIds)
+        HashSet<Guid> visitedFolderIds)
     {
         foreach (var node in nodes)
         {
             if (visitedFolderIds.Contains(node.Id))
                 continue;
 
-            if (!AppendSubtree(node, childrenByParentId, orderedFolders, visitedFolderIds, pathFolderIds))
-                return Result.Error("Folder hierarchy cycle detected.");
+            AppendSubtree(node, childrenByParentId, orderedFolders, visitedFolderIds);
         }
-
-        return Result.Success();
     }
 
     public Task<Result<IReadOnlyList<Folder>>> GetChildrenAsync(Guid? parentId, Guid userId) =>
@@ -238,22 +229,24 @@ public class FolderRepository(AppDbContext context) : IFolderRepository
         Folder folder,
         ILookup<Guid?, Folder> childrenByParentId,
         ICollection<Folder> orderedFolders,
-        ISet<Guid> visitedFolderIds,
-        ISet<Guid> pathFolderIds)
+        ISet<Guid> visitedFolderIds)
     {
-        if (!pathFolderIds.Add(folder.Id))
-            return false;
+        var stack = new Stack<Folder>();
+        stack.Push(folder);
 
-        if (visitedFolderIds.Add(folder.Id))
-            orderedFolders.Add(folder);
-
-        foreach (var child in childrenByParentId[folder.Id])
+        while (stack.Count > 0)
         {
-            if (!AppendSubtree(child, childrenByParentId, orderedFolders, visitedFolderIds, pathFolderIds))
-                return false;
+            var currentFolder = stack.Pop();
+            if (!visitedFolderIds.Add(currentFolder.Id))
+                continue;
+
+            orderedFolders.Add(currentFolder);
+
+            var children = childrenByParentId[currentFolder.Id].Reverse();
+            foreach (var child in children)
+                stack.Push(child);
         }
 
-        pathFolderIds.Remove(folder.Id);
         return true;
     }
 }

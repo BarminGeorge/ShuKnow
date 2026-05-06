@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using ShuKnow.Domain.Entities;
+using ShuKnow.WebAPI.Dto.Folders;
 using ShuKnow.WebAPI.Mappers;
 
 namespace ShuKnow.WebAPI.Tests.Mappers;
@@ -45,6 +46,21 @@ public class ModelToDtoMappersTests
     }
 
     [Test]
+    public void ToTree_WhenFoldersContainCycle_ShouldReturnAllFoldersWithoutRecursing()
+    {
+        var userId = Guid.NewGuid();
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var first = new Folder(firstId, userId, "First", "First folder", secondId);
+        var second = new Folder(secondId, userId, "Second", "Second folder", firstId);
+
+        var tree = new[] { first, second }.ToTree();
+
+        tree.SelectMany(Flatten).Select(folder => folder.Id)
+            .Should().BeEquivalentTo([firstId, secondId]);
+    }
+
+    [Test]
     public void ToDto_WhenChatSessionMapped_ShouldMapProvidedMessageCount()
     {
         var session = new ChatSession(Guid.NewGuid(), Guid.NewGuid());
@@ -66,5 +82,13 @@ public class ModelToDtoMappersTests
         dto.Id.Should().Be(message.Id);
         dto.Content.Should().Be("Hello");
         dto.CreatedAt.Should().Be(createdAt);
+    }
+
+    private static IEnumerable<FolderTreeNodeDto> Flatten(FolderTreeNodeDto folder)
+    {
+        yield return folder;
+
+        foreach (var child in folder.Children.SelectMany(Flatten))
+            yield return child;
     }
 }

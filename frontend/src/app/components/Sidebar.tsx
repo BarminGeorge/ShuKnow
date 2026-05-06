@@ -266,7 +266,7 @@ export function Sidebar({ onLogoClick, onChatClick, onToggleSidebar, isCollapsed
       await folderService.moveFolder(itemId, { newParentFolderId: targetFolderId });
     } catch (error) {
       setFolders(previousFolders);
-      toast.error("Не удалось переместить папку");
+      toast.error(error instanceof ApiError ? error.message : "Не удалось переместить папку");
     }
   }, [files, folders, setFiles, setFolders]);
 
@@ -299,7 +299,7 @@ export function Sidebar({ onLogoClick, onChatClick, onToggleSidebar, isCollapsed
 
       if (apiError instanceof ApiError) {
         if (apiError.status === 409) {
-          toast.error("Не удалось переместить папку: конфликт имён или циклическая зависимость");
+          toast.error(apiError.message);
         } else if (apiError.status === 404) {
           toast.error("Папка не найдена");
         } else {
@@ -339,7 +339,7 @@ export function Sidebar({ onLogoClick, onChatClick, onToggleSidebar, isCollapsed
 
       createFolder(newFolder, parentPath);
     } catch (error) {
-      toast.error("Не удалось создать папку");
+      toast.error(error instanceof ApiError ? error.message : "Не удалось создать папку");
     }
   };
 

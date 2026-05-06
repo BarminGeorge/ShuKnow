@@ -284,7 +284,7 @@ public class FolderRepositoryTests : BaseRepositoryTests
     }
 
     [Test]
-    public async Task GetTreeAsync_WhenHierarchyContainsCycle_ShouldReturnError()
+    public async Task GetTreeAsync_WhenHierarchyContainsCycle_ShouldReturnAllFolders()
     {
         var user = await SeedUserAsync();
         var root = await SeedFolderAsync(user.Id, "root");
@@ -298,7 +298,8 @@ public class FolderRepositoryTests : BaseRepositoryTests
 
         var result = await sut.GetTreeAsync(user.Id);
 
-        result.Status.Should().Be(ResultStatus.Error);
+        result.Status.Should().Be(ResultStatus.Ok);
+        result.Value.Select(folder => folder.Id).Should().BeEquivalentTo([root.Id, child.Id]);
     }
 
     private async Task<User> SeedUserAsync(Guid? userId = null)

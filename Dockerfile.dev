@@ -17,6 +17,9 @@ COPY backend/ShuKnow.WebAPI/ShuKnow.WebAPI.csproj ./backend/ShuKnow.WebAPI/
 COPY backend/ShuKnow.Application.Tests/ShuKnow.Application.Tests.csproj ./backend/ShuKnow.Application.Tests/
 COPY backend/ShuKnow.Infrastructure.Tests/ShuKnow.Infrastructure.Tests.csproj ./backend/ShuKnow.Infrastructure.Tests/
 COPY backend/ShuKnow.Infrastructure.IntegrationTests/ShuKnow.Infrastructure.IntegrationTests.csproj ./backend/ShuKnow.Infrastructure.IntegrationTests/
+COPY backend/ShuKnow.WebAPI.Tests/ShuKnow.WebAPI.Tests.csproj ./backend/ShuKnow.WebAPI.Tests/
+COPY backend/ShuKnow.Metrics.Tests/ShuKnow.Metrics.Tests.csproj ./backend/ShuKnow.Metrics.Tests/
+COPY backend/ShuKnow.WebAPI.IntegrationTests/ShuKnow.WebAPI.IntegrationTests.csproj ./backend/ShuKnow.WebAPI.IntegrationTests/
 
 RUN dotnet restore backend/ShuKnow.sln
 
